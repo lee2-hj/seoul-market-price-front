@@ -1,0 +1,608 @@
+/* =================================
+   전체 로그인 화면
+================================= */
+
+.loginPage {
+
+    min-height: 100vh;
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: center;
+
+
+    background:
+
+        linear-gradient(135deg,
+            #f5f8f3,
+            #e8f5e9);
+
+}
+
+
+
+/* 좌우 영역 */
+
+.container {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 100px;
+
+}
+
+
+
+/* =================================
+   왼쪽 브랜드 영역
+================================= */
+
+
+.brandBox {
+
+    text-align: center;
+
+    animation: fadeInLeft 0.8s ease;
+
+}
+
+
+
+/* 아이콘 영역 */
+
+.categoryIcons {
+
+    display: flex;
+
+    justify-content: center;
+
+    gap: 18px;
+
+    margin-bottom: 25px;
+
+}
+
+
+
+/* 아이콘 */
+
+.categoryIcons span {
+
+
+    width: 65px;
+
+    height: 65px;
+
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: center;
+
+
+    background: white;
+
+
+    border-radius: 50%;
+
+
+    font-size: 36px;
+
+
+    cursor: pointer;
+
+
+    box-shadow:
+
+        0 8px 20px rgba(0, 0, 0, 0.12);
+
+
+
+    animation:
+
+        floatingIcon 3s ease-in-out infinite;
+
+
+
+    transition:
+
+        background 0.3s ease,
+
+        box-shadow 0.3s ease;
+
+}
+
+
+
+/* 아이콘 순차 움직임 */
+
+.categoryIcons span:nth-child(1) {
+
+    animation-delay: 0s;
+
+}
+
+
+.categoryIcons span:nth-child(2) {
+
+    animation-delay: 0.4s;
+
+}
+
+
+.categoryIcons span:nth-child(3) {
+
+    animation-delay: 0.8s;
+
+}
+
+
+.categoryIcons span:nth-child(4) {
+
+    animation-delay: 1.2s;
+
+}
+
+
+
+/* 계속 움직이는 애니메이션 */
+
+@keyframes floatingIcon {
+
+
+    0% {
+
+        transform:
+            translateY(0) rotate(0deg);
+
+    }
+
+
+    50% {
+
+        transform:
+            translateY(-12px) rotate(5deg);
+
+    }
+
+
+    100% {
+
+        transform:
+            translateY(0) rotate(0deg);
+
+    }
+
+}
+
+
+
+/* 마우스 효과 */
+
+.categoryIcons span:hover {
+
+
+    background: #e8f5e9;
+
+
+    box-shadow:
+
+        0 15px 35px rgba(46, 125, 50, 0.3);
+
+}
+
+
+
+/* 클릭된 아이콘 */
+
+.activeIcon {
+
+
+    animation:
+
+        bounceIcon 0.6s ease !important;
+
+
+    background: #c8e6c9;
+
+
+    box-shadow:
+
+        0 15px 35px rgba(46, 125, 50, 0.35);
+
+
+}
+
+
+
+/* 클릭 튀는 효과 */
+
+@keyframes bounceIcon {
+
+
+    0% {
+
+        transform: scale(1);
+
+    }
+
+
+    40% {
+
+        transform:
+            scale(1.35) rotate(15deg);
+
+    }
+
+
+    70% {
+
+        transform:
+            scale(0.9) rotate(-10deg);
+
+    }
+
+
+    100% {
+
+        transform: scale(1);
+
+    }
+
+}
+
+
+
+
+/* =================================
+   SEOUL MARKET
+================================= */
+
+
+.brandTitle {
+
+
+    font-size: 56px;
+
+
+    font-weight: 950;
+
+
+    letter-spacing: -3px;
+
+
+    color: #1b5e20;
+
+
+    margin: 25px 0;
+
+
+
+    text-shadow:
+
+        0 5px 12px rgba(0, 0, 0, 0.15);
+
+
+}
+
+
+
+/* 서비스 설명 */
+
+
+.brandBox h1 {
+
+
+    font-size: 24px;
+
+
+    font-weight: 700;
+
+
+    color: #333;
+
+
+    margin-bottom: 15px;
+
+}
+
+
+
+.brandBox p {
+
+
+    font-size: 15px;
+
+
+    color: #777;
+
+
+    line-height: 1.6;
+
+}
+
+
+
+
+
+/* =================================
+   로그인 카드
+================================= */
+
+
+.loginBox {
+
+
+    width: 380px;
+
+
+    padding: 45px;
+
+
+
+    background:
+
+        rgba(255, 255, 255, 0.95);
+
+
+
+    border-radius: 25px;
+
+
+
+    box-shadow:
+
+        0 20px 50px rgba(0, 0, 0, 0.15);
+
+
+
+    backdrop-filter:
+
+        blur(10px);
+
+
+
+    animation:
+
+        fadeInRight 0.8s ease;
+
+
+}
+
+
+
+
+.loginBox:hover {
+
+
+    transform:
+
+        translateY(-5px);
+
+
+
+    box-shadow:
+
+        0 25px 60px rgba(0, 0, 0, 0.18);
+
+
+}
+
+
+
+
+/* 로그인 제목 */
+
+
+.loginBox h2 {
+
+
+    text-align: center;
+
+
+    font-size: 32px;
+
+
+    font-weight: 900;
+
+
+    color: #333;
+
+
+    margin-bottom: 20px;
+
+
+}
+
+
+
+
+
+/* 안내문 */
+
+
+.loginGuide {
+
+
+    text-align: center;
+
+
+    color: #888;
+
+
+    font-size: 14px;
+
+
+    margin-bottom: 25px;
+
+}
+
+
+
+
+
+/* =================================
+   링크 영역
+================================= */
+
+
+.links {
+
+
+    display: flex;
+
+
+    justify-content: center;
+
+
+    align-items: center;
+
+
+    gap: 25px;
+
+
+    margin-top: 30px;
+
+
+}
+
+
+
+.links a {
+
+
+    text-decoration: none;
+
+
+    color: #777;
+
+
+    font-size: 14px;
+
+
+    transition: 0.3s;
+
+
+}
+
+
+
+.links a:hover {
+
+
+    color: #1b5e20;
+
+
+    font-weight: 700;
+
+
+    text-decoration: underline;
+
+
+}
+
+
+
+
+
+/* =================================
+   페이지 등장 효과
+================================= */
+
+
+@keyframes fadeInLeft {
+
+
+    from {
+
+        opacity: 0;
+
+        transform: translateX(-40px);
+
+    }
+
+
+    to {
+
+        opacity: 1;
+
+        transform: translateX(0);
+
+    }
+
+}
+
+
+
+@keyframes fadeInRight {
+
+
+    from {
+
+        opacity: 0;
+
+        transform: translateX(40px);
+
+    }
+
+
+    to {
+
+        opacity: 1;
+
+        transform: translateX(0);
+
+    }
+
+}
+
+
+
+
+
+/* =================================
+   반응형
+================================= */
+
+
+@media(max-width:900px) {
+
+
+    .container {
+
+
+        flex-direction: column;
+
+
+        gap: 40px;
+
+    }
+
+
+
+    .brandTitle {
+
+
+        font-size: 42px;
+
+    }
+
+
+
+    .loginBox {
+
+
+        width: 320px;
+
+
+        padding: 35px;
+
+    }
+
+
+}
