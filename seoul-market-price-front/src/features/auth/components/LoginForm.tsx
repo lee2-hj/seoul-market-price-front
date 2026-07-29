@@ -1,5 +1,8 @@
 import { useState } from "react";
+
 import styles from "./LoginForm.module.css";
+
+
 
 
 function LoginForm() {
@@ -11,27 +14,168 @@ function LoginForm() {
 
 
 
-    const handleSubmit = (e: React.FormEvent) => {
 
-        e.preventDefault();
-
-
-        console.log({
-
-            userId,
-
-            password
-
-        });
+   const handleSubmit = async (
+    e: React.FormEvent
+) => {
 
 
-        // 추후 로그인 API 연결
+    e.preventDefault();
+
+
+
+    if(!userId || !password){
+
+
+        alert(
+            "아이디와 비밀번호를 입력해주세요."
+        );
+
+
+        return;
 
     }
 
 
 
+
+    try{
+
+
+        const response =
+            await fetch(
+                "http://localhost:8080/api/auth/login",
+                {
+
+
+                    method:"POST",
+
+
+                    headers:{
+
+
+                        "Content-Type":
+                        "application/json"
+
+
+                    },
+
+
+                    body:JSON.stringify({
+
+                        userId:userId,
+
+                        password:password
+
+                    })
+
+
+                }
+
+            );
+
+
+
+
+
+        if(!response.ok){
+
+
+            throw new Error(
+                "로그인 실패"
+            );
+
+
+        }
+
+
+
+
+
+        const data =
+            await response.json();
+
+
+
+
+
+
+        /*
+          백엔드 응답 예시
+
+          {
+             token:"xxxxx",
+             userId:"abc"
+          }
+
+        */
+
+
+
+
+
+
+        localStorage.setItem(
+
+            "token",
+
+            data.token
+
+        );
+
+
+
+
+        localStorage.setItem(
+
+            "userId",
+
+            data.userId
+
+        );
+
+
+
+
+
+        alert(
+            "로그인 되었습니다."
+        );
+
+
+
+
+
+        window.location.href="/";
+
+
+
+    }
+
+    catch(error){
+
+
+        console.error(error);
+
+
+
+        alert(
+            "아이디 또는 비밀번호가 맞지 않습니다."
+        );
+
+
+    }
+
+
+};
+
+
+
+
+
+
     return (
+
 
         <form
 
@@ -40,6 +184,7 @@ function LoginForm() {
             className={styles.form}
 
         >
+
 
 
             <input
@@ -57,6 +202,8 @@ function LoginForm() {
                 }
 
             />
+
+
 
 
 
@@ -78,14 +225,24 @@ function LoginForm() {
 
 
 
-            <button>
+
+
+
+            <button
+
+                type="submit"
+
+            >
 
                 로그인
+
 
             </button>
 
 
+
         </form>
+
 
     );
 

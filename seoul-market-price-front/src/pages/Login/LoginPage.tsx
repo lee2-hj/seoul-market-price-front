@@ -2,308 +2,272 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import LoginForm from "../../features/auth/components/LoginForm";
+import SocialLogin from "../../features/auth/components/SocialLogin";
+
 import styles from "./LoginPage.module.css";
 
 
 function LoginPage() {
 
 
-    const [activeItem, setActiveItem] =
-        useState<number | null>(null);
+  const [activeItem, setActiveItem] =
+    useState<number | null>(null);
 
 
 
-    const categoryItems = [
+  const categoryItems = [
+    "🍎",
+    "🥬",
+    "🐟",
+    "🛒"
+  ];
 
-        "🍎",
-        "🥬",
-        "🐟",
-        "🛒"
 
-    ];
 
+  const handleIconClick = (index:number)=>{
 
+    setActiveItem(
+      activeItem === index
+        ? null
+        : index
+    );
 
-    const handleIconClick = (index: number) => {
+  };
 
 
-        setActiveItem(
 
-            activeItem === index
 
-                ? null
+  return (
 
-                : index
 
-        );
+    <div className={styles.loginPage}>
 
 
-    };
+      <div className={styles.container}>
 
 
+        {/* 브랜드 영역 */}
 
+        <div className={styles.brandBox}>
 
-    return (
 
+          {/* 아이콘 */}
 
-        <div className={styles.loginPage}>
+          <div className={styles.categoryIcons}>
 
+            {
+              categoryItems.map((item,index)=>(
 
-            <div className={styles.container}>
+                <span
 
+                  key={index}
 
-                {/* ======================
-                    브랜드 영역
-                ====================== */}
+                  role="button"
 
-                <div className={styles.brandBox}>
+                  tabIndex={0}
 
+                  className={
+                    activeItem === index
+                    ? styles.activeIcon
+                    : ""
+                  }
 
-                    {/* 카테고리 아이콘 */}
 
-                    <div className={styles.categoryIcons}>
+                  onClick={() =>
+                    handleIconClick(index)
+                  }
 
 
-                        {
+                  onKeyDown={(e)=>{
 
-                            categoryItems.map(
+                    if(e.key==="Enter"){
 
-                                (item, index) => (
+                      handleIconClick(index);
 
+                    }
 
-                                    <span
+                  }}
 
+                >
 
-                                        key={index}
+                  {item}
 
+                </span>
 
 
-                                        role="button"
+              ))
 
+            }
 
+          </div>
 
-                                        tabIndex={0}
 
 
 
-                                        className={
 
-                                            activeItem === index
+            
 
-                                                ? styles.activeIcon
+          {/* 브랜드 문구 */}
 
-                                                : ""
+         <div className={styles.brandBox}>
 
-                                        }
 
+    <div className={styles.brandTitle}>
+        싸.농
+    </div>
 
 
-                                        onClick={() =>
+    <div className={styles.brandSubTitle}>
+        싸게 보는 내 주변 농수산물
+    </div>
 
-                                            handleIconClick(index)
 
-                                        }
+    <h1>
 
+        <span className={styles.catchPhrase}>
+            시세 미쳤습니까 휴먼?
+        </span>
 
 
-                                        onKeyDown={(e) => {
+        <span className={styles.description}>
+            월급 빼고 다 오르는데,
+            <br />
+            내 밥상 주식은 언제 사야 쌈?
+        </span>
 
+    </h1>
 
-                                            if (e.key === "Enter") {
 
-                                                handleIconClick(index);
+</div>
 
-                                            }
 
+        </div>
 
-                                        }}
 
 
-                                    >
 
-                                        {item}
 
 
-                                    </span>
 
 
-                                )
 
+        {/* 로그인 카드 */}
 
-                            )
 
-                        }
+        <div className={styles.loginBox}>
 
 
-                    </div>
+          <h2>
 
+            로그인
 
+          </h2>
 
 
 
-                    {/* 브랜드명 */}
 
-                    <div className={styles.brandTitle}>
+          <p className={styles.loginGuide}>
 
-                        SEOUL MARKET
 
-                    </div>
+            제철인지, 바가지인지 궁금할 땐?
 
+            <br />
 
+            "오늘 싸다! 지금이 풀매수 타이밍"
 
 
+          </p>
 
-                    {/* 서비스 설명 */}
 
-                    <h1>
 
-                        농수산물 가격 비교 서비스
 
-                    </h1>
 
+          <LoginForm />
 
 
-                    <p>
 
-                        신선한 가격 정보를 한눈에 비교하세요
 
-                    </p>
 
+          <SocialLogin mode="login" />
 
 
-                </div>
 
 
 
 
+          {/* 회원가입 안내 */}
 
 
+          <div className={styles.signupGuide}>
 
 
-                {/* ======================
-                    로그인 영역
-                ====================== */}
+            <span>
 
+              아직 계정이 없으신가요?
 
-                <div className={styles.loginBox}>
+            </span>
 
 
-                    <h2>
+            <Link to="/signup">
 
-                        로그인
+              회원가입
 
-                    </h2>
+            </Link>
 
 
+          </div>
 
-                    <p className={styles.loginGuide}>
 
-                        서울의 신선한 농수산물 가격을 비교하세요
 
-                    </p>
 
 
 
+          {/* 아이디 / 비밀번호 찾기 */}
 
 
-                    {/* 로그인 폼 */}
+          <div className={styles.links}>
 
-                    <LoginForm />
 
+            <Link to="/find-id">
 
+              아이디 찾기
 
+            </Link>
 
 
 
+            <span>
 
+              |
 
-                    {/* 메뉴 링크 */}
+            </span>
 
-                    <div className={styles.links}>
 
 
-                        <Link
+            <Link to="/find-password">
 
-                            to="/signup"
+              비밀번호 찾기
 
-                            className={styles.link}
+            </Link>
 
-                        >
 
-                            회원가입
-
-                        </Link>
-
-
-
-
-
-                        <span className={styles.divider}>
-
-                            |
-
-                        </span>
-
-
-
-
-
-                        <Link
-
-                            to="/find-id"
-
-                            className={styles.link}
-
-                        >
-
-                            아이디 찾기
-
-                        </Link>
-
-
-
-
-
-                        <span className={styles.divider}>
-
-                            /
-
-                        </span>
-
-
-
-
-
-                        <Link
-
-                            to="/find-password"
-
-                            className={styles.link}
-
-                        >
-
-                            비밀번호 찾기
-
-                        </Link>
-
-
-
-                    </div>
-
-
-
-                </div>
-
-
-
-            </div>
+          </div>
 
 
 
         </div>
 
 
-    );
+
+      </div>
+
+
+
+    </div>
+
+
+  );
+
 
 }
 

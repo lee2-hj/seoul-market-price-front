@@ -4,103 +4,124 @@
 
 .loginPage {
 
-    min-height: 100vh;
+    width:100%;
 
-    display: flex;
+    min-height:100vh;
 
-    justify-content: center;
+    display:flex;
 
-    align-items: center;
+    justify-content:center;
 
+    align-items:center;
 
     background:
-
-        linear-gradient(135deg,
+        linear-gradient(
+            135deg,
             #f5f8f3,
-            #e8f5e9);
+            #ffffff
+        );
+
+    padding:40px 20px;
+
+    box-sizing:border-box;
 
 }
 
 
-
-/* 좌우 영역 */
-
-.container {
-
-    display: flex;
-
-    align-items: center;
-
-    gap: 100px;
-
-}
 
 
 
 /* =================================
-   왼쪽 브랜드 영역
+   전체 컨테이너
+================================= */
+
+
+.container {
+
+    width:100%;
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:center;
+
+    align-items:center;
+
+    gap:45px;
+
+}
+
+
+
+
+
+/* =================================
+   브랜드 영역
 ================================= */
 
 
 .brandBox {
 
-    text-align: center;
+    width:420px;
 
-    animation: fadeInLeft 0.8s ease;
+    max-width:100%;
+
+    text-align:center;
+
+    animation:
+        fadeInLeft .6s ease;
 
 }
 
 
 
-/* 아이콘 영역 */
+
+
+/* =================================
+   아이콘 영역
+================================= */
+
 
 .categoryIcons {
 
-    display: flex;
+    display:flex;
 
-    justify-content: center;
+    justify-content:center;
 
-    gap: 18px;
+    gap:20px;
 
-    margin-bottom: 25px;
+    margin-bottom:30px;
 
 }
 
 
 
-/* 아이콘 */
+
 
 .categoryIcons span {
 
+    width:65px;
 
-    width: 65px;
+    height:65px;
 
-    height: 65px;
+    display:flex;
 
+    justify-content:center;
 
-    display: flex;
+    align-items:center;
 
-    justify-content: center;
+    background:white;
 
-    align-items: center;
+    border-radius:50%;
 
+    font-size:35px;
 
-    background: white;
-
-
-    border-radius: 50%;
-
-
-    font-size: 36px;
-
-
-    cursor: pointer;
-
+    cursor:pointer;
 
     box-shadow:
 
-        0 8px 20px rgba(0, 0, 0, 0.12);
-
+        0 8px 20px rgba(0,0,0,.12);
 
 
     animation:
@@ -108,73 +129,81 @@
         floatingIcon 3s ease-in-out infinite;
 
 
-
-    transition:
-
-        background 0.3s ease,
-
-        box-shadow 0.3s ease;
+    transition:.3s;
 
 }
 
 
 
-/* 아이콘 순차 움직임 */
-
-.categoryIcons span:nth-child(1) {
-
-    animation-delay: 0s;
-
-}
 
 
-.categoryIcons span:nth-child(2) {
+.categoryIcons span:hover {
 
-    animation-delay: 0.4s;
+    background:#e8f5e9;
 
-}
-
-
-.categoryIcons span:nth-child(3) {
-
-    animation-delay: 0.8s;
-
-}
-
-
-.categoryIcons span:nth-child(4) {
-
-    animation-delay: 1.2s;
+    transform:scale(1.15);
 
 }
 
 
 
-/* 계속 움직이는 애니메이션 */
+
+
+.categoryIcons span:nth-child(1){
+
+    animation-delay:0s;
+
+}
+
+
+.categoryIcons span:nth-child(2){
+
+    animation-delay:.3s;
+
+}
+
+
+.categoryIcons span:nth-child(3){
+
+    animation-delay:.6s;
+
+}
+
+
+.categoryIcons span:nth-child(4){
+
+    animation-delay:.9s;
+
+}
+
+
+
+
 
 @keyframes floatingIcon {
 
 
-    0% {
+    0%{
 
-        transform:
-            translateY(0) rotate(0deg);
-
-    }
-
-
-    50% {
-
-        transform:
-            translateY(-12px) rotate(5deg);
+        transform:translateY(0);
 
     }
 
 
-    100% {
+    50%{
 
         transform:
-            translateY(0) rotate(0deg);
+
+        translateY(-10px)
+
+        rotate(5deg);
+
+    }
+
+
+    100%{
+
+        transform:translateY(0);
 
     }
 
@@ -182,147 +211,179 @@
 
 
 
-/* 마우스 효과 */
 
-.categoryIcons span:hover {
-
-
-    background: #e8f5e9;
-
-
-    box-shadow:
-
-        0 15px 35px rgba(46, 125, 50, 0.3);
-
-}
-
-
-
-/* 클릭된 아이콘 */
 
 .activeIcon {
 
 
+    background:#c8e6c9;
+
     animation:
 
-        bounceIcon 0.6s ease !important;
-
-
-    background: #c8e6c9;
-
-
-    box-shadow:
-
-        0 15px 35px rgba(46, 125, 50, 0.35);
-
+        bounceIcon .6s ease;
 
 }
 
 
 
-/* 클릭 튀는 효과 */
+
 
 @keyframes bounceIcon {
 
 
-    0% {
+    0%{
 
-        transform: scale(1);
+        transform:scale(1);
 
     }
 
 
-    40% {
+    50%{
 
         transform:
-            scale(1.35) rotate(15deg);
+
+        scale(1.25)
+
+        rotate(10deg);
 
     }
 
 
-    70% {
+    100%{
 
-        transform:
-            scale(0.9) rotate(-10deg);
-
-    }
-
-
-    100% {
-
-        transform: scale(1);
+        transform:scale(1);
 
     }
 
 }
+
 
 
 
 
 /* =================================
-   SEOUL MARKET
+   싸.농 로고
 ================================= */
 
 
 .brandTitle {
 
 
-    font-size: 56px;
+    font-size:64px;
+
+    font-weight:900;
+
+    letter-spacing:-3px;
+
+    color:#1b5e20;
 
 
-    font-weight: 950;
+    /* 로고와 서비스 설명 사이 간격 */
 
-
-    letter-spacing: -3px;
-
-
-    color: #1b5e20;
-
-
-    margin: 25px 0;
-
+    margin-bottom:35px;
 
 
     text-shadow:
 
-        0 5px 12px rgba(0, 0, 0, 0.15);
-
+        0 5px 15px rgba(0,0,0,.12);
 
 }
 
 
 
-/* 서비스 설명 */
+
+
+/* =================================
+   서비스 설명
+================================= */
+
+
+.brandSubTitle {
+
+
+    font-size:20px;
+
+    font-weight:700;
+
+    color:#1d791d;
+
+
+    margin-bottom:30px;
+
+
+    letter-spacing:-1px;
+
+}
+
+
+
+
+
+/* =================================
+   브랜드 문구
+================================= */
 
 
 .brandBox h1 {
 
 
-    font-size: 24px;
+    display:flex;
 
 
-    font-weight: 700;
+    flex-direction:column;
 
 
-    color: #333;
+    gap:12px;
 
 
-    margin-bottom: 15px;
+    margin:0;
+
 
 }
 
 
 
-.brandBox p {
 
 
-    font-size: 15px;
+/* 시세 미쳤습니까 휴먼? */
+
+.catchPhrase {
 
 
-    color: #777;
+    font-size:20px;
 
 
-    line-height: 1.6;
+    font-weight:600;
+
+
+    color:#475047;
+
+
+    letter-spacing:-1px;
+
+}
+
+
+
+
+
+/* 월급 빼고 다 오르는데,
+   사과는 언제 사야 쌈? */
+
+
+.description {
+
+
+    font-size:15px;
+
+
+    font-weight:500;
+
+
+    color:#475047;
+
+
+    line-height:1.6;
 
 }
 
@@ -338,41 +399,39 @@
 .loginBox {
 
 
-    width: 380px;
+    width:380px;
 
 
-    padding: 45px;
+    max-width:100%;
 
 
-
-    background:
-
-        rgba(255, 255, 255, 0.95);
+    padding:45px;
 
 
+    background:white;
 
-    border-radius: 25px;
 
+    border-radius:25px;
+
+
+    box-sizing:border-box;
 
 
     box-shadow:
 
-        0 20px 50px rgba(0, 0, 0, 0.15);
 
-
-
-    backdrop-filter:
-
-        blur(10px);
-
+        0 20px 50px rgba(0,0,0,.15);
 
 
     animation:
 
-        fadeInRight 0.8s ease;
+        fadeInRight .8s ease;
 
+
+    transition:.3s;
 
 }
+
 
 
 
@@ -384,38 +443,25 @@
 
         translateY(-5px);
 
-
-
-    box-shadow:
-
-        0 25px 60px rgba(0, 0, 0, 0.18);
-
-
 }
 
 
 
-
-/* 로그인 제목 */
 
 
 .loginBox h2 {
 
 
-    text-align: center;
+    text-align:center;
 
 
-    font-size: 32px;
+    font-size:32px;
 
 
-    font-weight: 900;
+    font-weight:900;
 
 
-    color: #333;
-
-
-    margin-bottom: 20px;
-
+    margin:0 0 20px;
 
 }
 
@@ -423,22 +469,22 @@
 
 
 
-/* 안내문 */
-
-
 .loginGuide {
 
 
-    text-align: center;
+    text-align:center;
 
 
-    color: #888;
+    font-size:14px;
 
 
-    font-size: 14px;
+    color:#888;
 
 
-    margin-bottom: 25px;
+    line-height:1.6;
+
+
+    margin-bottom:25px;
 
 }
 
@@ -447,62 +493,133 @@
 
 
 /* =================================
-   링크 영역
+   회원가입 안내
+================================= */
+
+
+.signupGuide {
+
+
+    display:flex;
+
+
+    justify-content:center;
+
+
+    align-items:center;
+
+
+    gap:8px;
+
+
+    margin-top:25px;
+
+
+    font-size:14px;
+
+
+    color:#888;
+
+}
+
+
+
+
+
+.signupGuide a {
+
+
+    color:#1b5e20;
+
+
+    font-weight:700;
+
+
+    text-decoration:none;
+
+}
+
+
+
+
+
+.signupGuide a:hover {
+
+
+    text-decoration:underline;
+
+}
+
+
+
+
+
+/* =================================
+   하단 링크
 ================================= */
 
 
 .links {
 
 
-    display: flex;
+    display:flex;
 
 
-    justify-content: center;
+    justify-content:center;
 
 
-    align-items: center;
+    align-items:center;
 
 
-    gap: 25px;
+    gap:15px;
 
 
-    margin-top: 30px;
+    margin-top:20px;
 
+
+    flex-wrap:wrap;
 
 }
+
+
 
 
 
 .links a {
 
 
-    text-decoration: none;
+    text-decoration:none;
 
 
-    color: #777;
+    color:#777;
 
 
-    font-size: 14px;
-
-
-    transition: 0.3s;
-
+    font-size:14px;
 
 }
+
+
 
 
 
 .links a:hover {
 
 
-    color: #1b5e20;
+    color:#1b5e20;
 
 
-    font-weight: 700;
+    font-weight:bold;
+
+}
 
 
-    text-decoration: underline;
 
+
+
+.divider {
+
+
+    color:#aaa;
 
 }
 
@@ -511,27 +628,27 @@
 
 
 /* =================================
-   페이지 등장 효과
+   애니메이션
 ================================= */
 
 
 @keyframes fadeInLeft {
 
 
-    from {
+    from{
 
-        opacity: 0;
+        opacity:0;
 
-        transform: translateX(-40px);
+        transform:translateX(-50px);
 
     }
 
 
-    to {
+    to{
 
-        opacity: 1;
+        opacity:1;
 
-        transform: translateX(0);
+        transform:translateX(0);
 
     }
 
@@ -539,23 +656,25 @@
 
 
 
+
+
 @keyframes fadeInRight {
 
 
-    from {
+    from{
 
-        opacity: 0;
+        opacity:0;
 
-        transform: translateX(40px);
+        transform:translateX(50px);
 
     }
 
 
-    to {
+    to{
 
-        opacity: 1;
+        opacity:1;
 
-        transform: translateX(0);
+        transform:translateX(0);
 
     }
 
@@ -566,41 +685,242 @@
 
 
 /* =================================
-   반응형
+   태블릿
 ================================= */
 
 
-@media(max-width:900px) {
+@media(max-width:900px){
 
 
-    .container {
+    .container{
 
-
-        flex-direction: column;
-
-
-        gap: 40px;
+        gap:35px;
 
     }
 
 
 
-    .brandTitle {
+    .brandTitle{
 
+        font-size:48px;
 
-        font-size: 42px;
+        margin-bottom:25px;
 
     }
 
 
 
-    .loginBox {
+    .brandSubTitle{
+
+        font-size:18px;
+
+    }
 
 
-        width: 320px;
+
+    .catchPhrase{
+
+        font-size:22px;
+
+    }
 
 
-        padding: 35px;
+
+    .description{
+
+        font-size:14px;
+
+    }
+
+
+
+    .loginBox{
+
+        padding:40px;
+
+    }
+
+
+}
+
+
+
+
+
+/* =================================
+   모바일
+================================= */
+
+
+@media(max-width:600px){
+
+
+    .loginPage{
+
+        padding:30px 15px;
+
+    }
+
+
+
+    .categoryIcons{
+
+        gap:12px;
+
+        margin-bottom:25px;
+
+    }
+
+
+
+    .categoryIcons span{
+
+
+        width:50px;
+
+
+        height:50px;
+
+
+        font-size:26px;
+
+
+    }
+
+
+
+    .brandTitle{
+
+
+        font-size:38px;
+
+
+        letter-spacing:-2px;
+
+
+        margin-bottom:20px;
+
+
+    }
+
+
+
+    .brandSubTitle{
+
+
+        font-size:17px;
+
+
+        margin-bottom:25px;
+
+
+    }
+
+
+
+    .catchPhrase{
+
+
+        font-size:20px;
+
+
+    }
+
+
+
+    .description{
+
+
+        font-size:13px;
+
+
+    }
+
+
+
+    .loginBox{
+
+
+        padding:30px 20px;
+
+
+        border-radius:20px;
+
+
+    }
+
+
+
+    .loginBox h2{
+
+
+        font-size:26px;
+
+
+    }
+
+
+
+    .loginGuide{
+
+
+        font-size:13px;
+
+
+    }
+
+
+}
+
+
+
+
+
+/* =================================
+   작은 모바일
+================================= */
+
+
+@media(max-width:380px){
+
+
+    .brandTitle{
+
+        font-size:34px;
+
+        margin-bottom:18px;
+
+    }
+
+
+
+    .brandSubTitle{
+
+        font-size:16px;
+
+    }
+
+
+
+    .catchPhrase{
+
+        font-size:18px;
+
+    }
+
+
+
+    .description{
+
+        font-size:12px;
+
+    }
+
+
+
+    .loginBox{
+
+        padding:25px 15px;
 
     }
 

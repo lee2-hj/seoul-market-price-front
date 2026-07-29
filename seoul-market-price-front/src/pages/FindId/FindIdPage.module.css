@@ -1,0 +1,514 @@
+/* =====================================
+   전체 페이지
+===================================== */
+
+.container {
+
+    width:100%;
+
+    min-height:100vh;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+
+    background:
+        linear-gradient(
+            135deg,
+            #f5f8f3,
+            #ffffff
+        );
+
+
+    position:relative;
+
+    overflow:hidden;
+
+}
+
+
+
+/* =====================================
+   배경 장식
+===================================== */
+
+
+.container::before {
+
+
+    content:"";
+
+
+    position:absolute;
+
+
+    width:450px;
+
+    height:450px;
+
+
+    background:#c8e6c9;
+
+
+    border-radius:50%;
+
+
+    top:-180px;
+
+    left:-180px;
+
+
+    opacity:.5;
+
+
+}
+
+
+
+.container::after {
+
+
+    content:"";
+
+
+    position:absolute;
+
+
+    width:350px;
+
+    height:350px;
+
+
+    background:#fff3cd;
+
+
+    border-radius:50%;
+
+
+    right:-120px;
+
+    bottom:-120px;
+
+
+    opacity:.6;
+
+
+}
+
+
+
+/* =====================================
+   카드
+===================================== */
+
+
+.card {
+
+
+    width:420px;
+
+
+    max-width:90%;
+
+
+    padding:45px;
+
+
+    background:white;
+
+
+    border-radius:25px;
+
+
+    box-shadow:
+
+        0 20px 50px rgba(0,0,0,.15);
+
+
+
+    text-align:center;
+
+
+    z-index:1;
+
+
+    animation:
+
+        fadeIn .6s ease;
+
+
+}
+
+
+
+
+
+@keyframes fadeIn {
+
+
+    from {
+
+
+        opacity:0;
+
+        transform:translateY(30px);
+
+
+    }
+
+
+    to {
+
+
+        opacity:1;
+
+        transform:translateY(0);
+
+
+    }
+
+
+}
+
+
+
+/* =====================================
+   제목
+===================================== */
+
+
+.card h1 {
+
+
+    color:#2e7d32;
+
+
+    font-size:32px;
+
+
+    font-weight:800;
+
+
+    margin-bottom:15px;
+
+
+}
+
+
+
+
+
+.card p {
+
+
+    color:#777;
+
+
+    font-size:15px;
+
+
+    line-height:1.6;
+
+
+    margin-bottom:30px;
+
+
+}
+
+
+
+/* =====================================
+   입력 영역
+===================================== */
+
+
+.card input {
+
+
+    width:100%;
+
+
+    height:52px;
+
+
+    border-radius:12px;
+
+
+    border:1px solid #d8e8d8;
+
+
+    padding:0 16px;
+
+
+    font-size:15px;
+
+
+    background:#fbfffb;
+
+
+    box-sizing:border-box;
+
+
+    margin-bottom:15px;
+
+
+    transition:.3s;
+
+
+}
+
+
+
+
+.card input:focus {
+
+
+    outline:none;
+
+
+    border-color:#4caf50;
+
+
+    box-shadow:
+
+
+        0 0 0 3px rgba(76,175,80,.15);
+
+
+}
+
+
+
+/* =====================================
+   휴대폰 인증 영역
+===================================== */
+
+
+.phoneGroup {
+
+
+    display:flex;
+
+
+    gap:10px;
+
+
+}
+
+
+
+.phoneGroup input {
+
+
+    flex:1;
+
+
+}
+
+
+
+
+.phoneGroup button {
+
+
+    width:110px;
+
+
+}
+
+
+
+/* =====================================
+   버튼 공통
+===================================== */
+
+
+button {
+
+
+    height:52px;
+
+
+    border:none;
+
+
+    border-radius:12px;
+
+
+    cursor:pointer;
+
+
+    font-weight:700;
+
+
+    color:white;
+
+
+    background:#81c784;
+
+
+    transition:.3s;
+
+
+}
+
+
+
+button:hover {
+
+
+    background:#4caf50;
+
+
+}
+
+
+
+
+.mainButton {
+
+
+    width:100%;
+
+
+    margin-top:10px;
+
+
+    background:
+
+
+        linear-gradient(
+            135deg,
+            #66bb6a,
+            #2e7d32
+        );
+
+
+}
+
+
+
+.mainButton:hover {
+
+
+    transform:translateY(-2px);
+
+
+    box-shadow:
+
+        0 10px 20px rgba(46,125,50,.25);
+
+
+}
+
+
+
+/* =====================================
+   결과 영역
+===================================== */
+
+
+.result {
+
+
+    margin-top:25px;
+
+
+    padding:20px;
+
+
+    background:#f1f8e9;
+
+
+    border-radius:15px;
+
+
+    color:#2e7d32;
+
+
+    font-weight:bold;
+
+
+}
+
+
+
+
+/* =====================================
+   로그인 이동
+===================================== */
+
+
+.loginLink {
+
+
+    display:block;
+
+
+    margin-top:25px;
+
+
+    color:#2e7d32;
+
+
+    font-weight:bold;
+
+
+    text-decoration:none;
+
+
+}
+
+
+
+.loginLink:hover {
+
+
+    text-decoration:underline;
+
+
+}
+
+
+
+/* =====================================
+   모바일
+===================================== */
+
+
+@media(max-width:600px){
+
+
+    .card {
+
+
+        padding:30px 20px;
+
+
+    }
+
+
+
+    .card h1 {
+
+
+        font-size:26px;
+
+
+    }
+
+
+
+    .phoneGroup button {
+
+
+        width:90px;
+
+
+    }
+
+
+}
