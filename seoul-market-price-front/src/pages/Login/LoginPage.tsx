@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
-import LoginForm from "../../features/auth/components/LoginForm";
-import SocialLogin from "../../features/auth/components/SocialLogin";
+import LoginForm from "@/features/auth/components/LoginForm";
+import SocialLogin from "@/features/auth/components/SocialLogin";
 
 import styles from "./LoginPage.module.css";
 
@@ -24,7 +24,7 @@ function LoginPage() {
 
 
 
-  const handleIconClick = (index:number)=>{
+  const handleIconClick = (index: number) => {
 
     setActiveItem(
       activeItem === index
@@ -56,7 +56,7 @@ function LoginPage() {
           <div className={styles.categoryIcons}>
 
             {
-              categoryItems.map((item,index)=>(
+              categoryItems.map((item, index) => (
 
                 <span
 
@@ -68,8 +68,8 @@ function LoginPage() {
 
                   className={
                     activeItem === index
-                    ? styles.activeIcon
-                    : ""
+                      ? styles.activeIcon
+                      : ""
                   }
 
 
@@ -78,9 +78,9 @@ function LoginPage() {
                   }
 
 
-                  onKeyDown={(e)=>{
+                  onKeyDown={(e) => {
 
-                    if(e.key==="Enter"){
+                    if (e.key === "Enter") {
 
                       handleIconClick(index);
 
@@ -105,40 +105,40 @@ function LoginPage() {
 
 
 
-            
+
 
           {/* 브랜드 문구 */}
 
-         <div className={styles.brandBox}>
+          <div className={styles.brandBox}>
 
 
-    <div className={styles.brandTitle}>
-        싸.농
-    </div>
+            <div className={styles.brandTitle}>
+              싸.농
+            </div>
 
 
-    <div className={styles.brandSubTitle}>
-      <span className={styles.point}>싸</span>게 보는 내 주변{" "} <span className={styles.point}>농</span>수산물
-    </div>
+            <div className={styles.brandSubTitle}>
+              <span className={styles.point}>싸</span>게 보는 내 주변{" "} <span className={styles.point}>농</span>수산물
+            </div>
 
 
-    <h1>
+            <h1>
 
-        <span className={styles.catchPhrase}>
-            시세 미쳤습니까 휴먼?
-        </span>
-
-
-        <span className={styles.description}>
-            월급 빼고 다 오르는데,
-            <br />
-            내 밥상 주식은 언제 사야 쌈?
-        </span>
-
-    </h1>
+              <span className={styles.catchPhrase}>
+                시세 미쳤습니까 휴먼?
+              </span>
 
 
-</div>
+              <span className={styles.description}>
+                월급 빼고 다 오르는데,
+                <br />
+                내 밥상 주식은 언제 사야 쌈?
+              </span>
+
+            </h1>
+
+
+          </div>
 
 
         </div>

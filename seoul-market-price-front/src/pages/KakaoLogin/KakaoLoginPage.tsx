@@ -1,4 +1,5 @@
 import styles from "./KakaoLoginPage.module.css";
+import { getKakaoLoginUrl } from "@/api/api";
 
 
 function KakaoLoginPage() {
@@ -9,7 +10,7 @@ function KakaoLoginPage() {
 
         // Spring Boot OAuth2 카카오 인증 주소
         window.location.href =
-            "http://localhost:8080/oauth2/authorization/kakao";
+            getKakaoLoginUrl();
 
 
     };

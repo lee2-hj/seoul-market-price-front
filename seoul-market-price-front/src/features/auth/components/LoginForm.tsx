@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./LoginForm.module.css";
 import { saveLogin } from "../../auth/utils/auth";
+import { loginApi, isAuthError } from "@/api/api";
 
 
 function LoginForm() {
@@ -35,43 +36,11 @@ function LoginForm() {
         try {
 
 
-            const response =
-                await fetch(
-                    "http://localhost:8081/api/auth/login",
-                    {
-                        method:"POST",
-
-                        headers:{
-                            "Content-Type":
-                            "application/json"
-                        },
-
-                        body:JSON.stringify({
-
-                            userId:userId,
-                            password:password
-
-                        })
-
-                    }
-                );
-
-
-
-            if(!response.ok){
-
-                alert(
-                    "아이디 또는 비밀번호가 맞지 않습니다."
-                );
-
-                return;
-
-            }
-
-
-
             const data =
-                await response.json();
+                await loginApi(
+                    userId,
+                    password
+                );
 
 
 
@@ -106,9 +75,19 @@ function LoginForm() {
 
             console.error(error);
 
-            alert(
-                "서버 연결 실패"
-            );
+            if(isAuthError(error)){
+
+                alert(
+                    "아이디 또는 비밀번호가 맞지 않습니다."
+                );
+
+            } else {
+
+                alert(
+                    "서버 연결 실패"
+                );
+
+            }
 
         }
 

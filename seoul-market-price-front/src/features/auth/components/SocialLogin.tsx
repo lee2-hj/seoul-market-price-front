@@ -1,4 +1,5 @@
 import styles from "./SocialLogin.module.css";
+import { getKakaoLoginUrl } from "@/api/api";
 
 
 interface SocialLoginProps {
@@ -29,7 +30,7 @@ function SocialLogin({
 
         // Spring Boot OAuth 연결
         window.location.href =
-            "http://localhost:8080/oauth2/authorization/kakao";
+            getKakaoLoginUrl();
 
 
     };
