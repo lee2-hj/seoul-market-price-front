@@ -11,6 +11,7 @@ import FindPasswordPage from "../pages/FindPassword/FindPasswordPage";
 import FindIdPage from "../pages/FindId/FindIdPage";
 import KakaoLoginPage from "../pages/KakaoLogin/KakaoLoginPage";
 import MainPage from "../pages/Main/MainPage";
+import RequireAuth from "./RequireAuth";
 
 
 function Router() {
@@ -30,7 +31,11 @@ function Router() {
                 
                 <Route
                     path="/main"
-                    element={<MainPage />}
+                    element={
+                        <RequireAuth>
+                            <MainPage />
+                        </RequireAuth>
+                    }
                 />
 
                 <Route

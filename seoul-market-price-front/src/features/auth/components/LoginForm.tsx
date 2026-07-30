@@ -25,7 +25,8 @@ function LoginForm() {
                 );
 
             /* 예상 응답 {userId:"user", accessToken:"eyJhb..."}*/
-            saveLogin(data.userId, data.accessToken);
+            /* accessToken은 백엔드가 쿠키로 직접 심어주므로 별도 저장하지 않는다 */
+            saveLogin(data.userId);
             alert("로그인 성공!");
             navigate("/main");
         }
