@@ -118,7 +118,7 @@ function LoginPage() {
 
 
     <div className={styles.brandSubTitle}>
-        싸게 보는 내 주변 농수산물
+      <span className={styles.point}>싸</span>게 보는 내 주변{" "} <span className={styles.point}>농</span>수산물
     </div>
 
 

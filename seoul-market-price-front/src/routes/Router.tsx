@@ -10,7 +10,7 @@ import SignupPage from "../pages/Signup/SignupPage";
 import FindPasswordPage from "../pages/FindPassword/FindPasswordPage";
 import FindIdPage from "../pages/FindId/FindIdPage";
 import KakaoLoginPage from "../pages/KakaoLogin/KakaoLoginPage";
-
+import MainPage from "../pages/Main/MainPage";
 
 
 function Router() {
@@ -27,7 +27,11 @@ function Router() {
                     path="/"
                     element={<LoginPage />}
                 />
-
+                
+                <Route
+                    path="/main"
+                    element={<MainPage />}
+                />
 
                 <Route
                     path="/signup"
