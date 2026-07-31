@@ -1,45 +1,82 @@
 export interface LoginUser {
 
-    userId: string;
 
-    name: string;
+    userId:string;
 
-    role: string;
 
-    accessToken?: string;
+    name:string;
+
+
+    role:string;
+
+
+    accessToken?:string;
+
 
 }
 
 
 
-// 로그인 저장
+/*
+    로그인 정보 저장
+
+    localStorage
+
+    loginUser
+        ↓
+    사용자 정보
+
+    accessToken
+        ↓
+    JWT 인증
+
+*/
 
 export function saveLogin(
-    user: LoginUser
-) {
+    user:LoginUser
+){
+
+
+    const loginUser:LoginUser = {
+
+
+        userId:user.userId,
+
+
+        name:user.name,
+
+
+        role:user.role,
+
+
+        accessToken:user.accessToken
+
+
+    };
+
 
 
     localStorage.setItem(
+
         "loginUser",
-        JSON.stringify({
 
-            userId:user.userId,
+        JSON.stringify(loginUser)
 
-            name:user.name,
-
-            role:user.role
-
-        })
     );
 
 
 
     if(user.accessToken){
 
+
         localStorage.setItem(
+
             "accessToken",
+
             user.accessToken
+
         );
+
 
     }
 
@@ -47,55 +84,110 @@ export function saveLogin(
 
 
 
-// 로그인 사용자 조회
-
-export function getLoginUser(): LoginUser | null {
 
 
-    const user =
+/*
+    로그인 사용자 조회
+
+*/
+
+export function getLoginUser():LoginUser|null{
+
+
+    const savedUser =
+
         localStorage.getItem(
             "loginUser"
         );
 
 
-    if(!user){
+
+    if(!savedUser){
+
 
         return null;
+
 
     }
 
 
-    return JSON.parse(user) as LoginUser;
+
+    try{
+
+
+        return JSON.parse(
+            savedUser
+        ) as LoginUser;
+
+
+
+    }catch(error){
+
+
+        console.error(
+            "로그인 정보 파싱 오류",
+            error
+        );
+
+
+
+        logout();
+
+
+        return null;
+
+
+    }
+
 
 }
 
 
 
-// 토큰 조회
 
-export function getToken(): string | null {
+
+/*
+    JWT 토큰 조회
+
+*/
+
+export function getToken():string|null{
 
 
     return localStorage.getItem(
         "accessToken"
     );
 
-}
-
-
-
-// 로그인 상태 확인
-
-export function isLogin(): boolean {
-
-
-    return !!getToken();
 
 }
 
 
 
-// 로그아웃
+
+
+/*
+    로그인 여부
+
+*/
+
+export function isLogin():boolean{
+
+
+    return Boolean(
+        getToken()
+    );
+
+
+}
+
+
+
+
+
+/*
+    로그아웃
+
+*/
 
 export function logout(){
 
@@ -108,5 +200,6 @@ export function logout(){
     localStorage.removeItem(
         "accessToken"
     );
+
 
 }

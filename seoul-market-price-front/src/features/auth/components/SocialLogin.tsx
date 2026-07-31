@@ -1,28 +1,55 @@
+import { useState } from "react";
+
 import styles from "./SocialLogin.module.css";
-import { getKakaoLoginUrl } from "@/api/api";
+
+import { getKakaoLoginUrl, getGoogleLoginUrl } from "@/api/api";
 
 interface SocialLoginProps {
   mode?: "login" | "signup";
 }
 
 function SocialLogin({ mode = "login" }: SocialLoginProps) {
-  const handleKakao = () => {
-    console.log(mode === "login" ? "카카오 로그인" : "카카오 회원가입");
+  const [loading, setLoading] = useState(false);
 
-    // Spring Boot OAuth 연결
+  /*
+    카카오 OAuth 이동
+
+  */
+
+  const handleKakaoLogin = () => {
+    if (loading) {
+      return;
+    }
+
+    setLoading(true);
+
     window.location.href = getKakaoLoginUrl();
   };
 
-  const handleGoogle = () => {
-    console.log(mode === "login" ? "구글 로그인" : "구글 회원가입");
+  /*
+    구글 OAuth 이동
 
-    // Spring Boot OAuth 연결
-    window.location.href = "http://localhost:8081/oauth2/authorization/google";
+  */
+
+  const handleGoogleLogin = () => {
+    if (loading) {
+      return;
+    }
+
+    setLoading(true);
+
+    window.location.href = getGoogleLoginUrl();
   };
+
+  const kakaoText = mode === "login" ? "카카오로 로그인" : "카카오로 회원가입";
+
+  const googleText = mode === "login" ? "구글로 로그인" : "구글로 회원가입";
 
   return (
     <div className={styles.socialBox}>
-      {/* 구분선 */}
+      {/* =====================
+          구분선
+      ====================== */}
 
       <div className={styles.divider}>
         <span></span>
@@ -32,24 +59,32 @@ function SocialLogin({ mode = "login" }: SocialLoginProps) {
         <span></span>
       </div>
 
-      {/* 카카오 */}
+      {/* =====================
+          카카오 로그인
+      ====================== */}
 
       <button
         type="button"
         className={styles.kakaoButton}
-        onClick={handleKakao}
+        onClick={handleKakaoLogin}
+        disabled={loading}
+        aria-label={kakaoText}
       >
-        {mode === "login" ? "카카오로 로그인" : "카카오로 회원가입"}
+        {loading ? "이동중..." : kakaoText}
       </button>
 
-      {/* 구글 */}
+      {/* =====================
+          구글 로그인
+      ====================== */}
 
       <button
         type="button"
         className={styles.googleButton}
-        onClick={handleGoogle}
+        onClick={handleGoogleLogin}
+        disabled={loading}
+        aria-label={googleText}
       >
-        {mode === "login" ? "구글로 로그인" : "구글로 회원가입"}
+        {loading ? "이동중..." : googleText}
       </button>
     </div>
   );

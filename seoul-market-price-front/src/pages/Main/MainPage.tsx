@@ -1,16 +1,17 @@
-import { useNavigate } from "react-router-dom";
-import { logout } from "../../features/auth/utils/auth";
+import { logout } from "@/features/auth/utils/auth";
 
 function MainPage() {
-  const navigate = useNavigate();
-
-  // 로그아웃 처리
   const handleLogout = () => {
+    // 로그인 정보 삭제
+
     logout();
 
     alert("로그아웃 되었습니다.");
 
-    navigate("/");
+    // Home.tsx 다시 실행
+    // / 주소 유지
+
+    window.location.href = "/";
   };
 
   return (

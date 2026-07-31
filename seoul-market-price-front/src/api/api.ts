@@ -1,23 +1,63 @@
 import axios from "axios";
-import apiMiddleware, { BACKEND_URL } from "./middleware";
 
-
-// 모든 API 호출은 이 파일을 거쳐야 함
-// middleware.ts는 외부 노출 금지
+import apiMiddleware, {
+    BACKEND_URL
+} from "./middleware";
 
 
 
 // ===============================
-// 로그인 API
+// 사용자 타입
+// ===============================
+
+export interface User {
+
+    id?: number;
+
+    name:string;
+
+    userId:string;
+
+    role:string;
+
+    phone?:string;
+
+    email?:string;
+
+    address?:string;
+
+    detailAddress?:string;
+
+}
+
+
+
+// ===============================
+// 로그인 응답
+// ===============================
+
+export interface LoginResponse {
+
+    user:User;
+
+    accessToken:string;
+
+}
+
+
+
+// ===============================
+// 로그인
 // ===============================
 
 export async function loginApi(
-    userId: string,
-    password: string
-) {
+    userId:string,
+    password:string
+):Promise<LoginResponse>{
+
 
     const response =
-        await apiMiddleware.post(
+        await apiMiddleware.post<LoginResponse>(
             "/api/auth/login",
             {
                 userId,
@@ -32,14 +72,14 @@ export async function loginApi(
 
 
 
+
+
 // ===============================
-// 소셜 로그인 URL
+// OAuth
 // ===============================
 
 
-// 카카오 로그인
-
-export function getKakaoLoginUrl() {
+export function getKakaoLoginUrl(){
 
     return `${BACKEND_URL}/oauth2/authorization/kakao`;
 
@@ -47,9 +87,7 @@ export function getKakaoLoginUrl() {
 
 
 
-// 구글 로그인
-
-export function getGoogleLoginUrl() {
+export function getGoogleLoginUrl(){
 
     return `${BACKEND_URL}/oauth2/authorization/google`;
 
@@ -58,41 +96,188 @@ export function getGoogleLoginUrl() {
 
 
 
+
 // ===============================
-// 회원가입 API
+// 회원가입 요청
 // ===============================
+
+export interface SignupRequest {
+
+    name:string;
+
+    userId:string;
+
+    password:string;
+
+    phone:string;
+
+    address?:string;
+
+    detailAddress?:string;
+
+    email?:string;
+
+    phoneVerified:boolean;
+
+}
+
+
+
 
 
 export async function signupApi(
-    signupData: {
-
-        name: string;
-
-        userId: string;
-
-        password: string;
-
-        phone: string;
-
-        phoneVerified: boolean;
-
-    }
-) {
-
+    signupData:SignupRequest
+){
 
     const response =
         await apiMiddleware.post(
-
             "/api/users/signup",
-
             signupData
-
         );
 
 
     return response.data;
 
 }
+
+
+
+
+
+// ===============================
+// 아이디 찾기
+// ===============================
+
+export async function findIdApi(
+    phone:string
+){
+
+    const response =
+        await apiMiddleware.post(
+            "/api/users/find-id",
+            {
+                phone
+            }
+        );
+
+
+    return response.data;
+
+}
+
+
+
+
+
+// ===============================
+// 비밀번호 찾기
+// ===============================
+
+export async function findPasswordApi(
+    userId:string,
+    phone:string
+){
+
+    const response =
+        await apiMiddleware.post(
+            "/api/users/find-password",
+            {
+                userId,
+                phone
+            }
+        );
+
+
+    return response.data;
+
+}
+
+
+
+
+
+// ===============================
+// PASS 인증 요청
+// ===============================
+
+export interface PassResponse {
+
+    passUrl:string;
+
+}
+
+
+
+export async function requestPassApi(
+    phone:string
+):Promise<PassResponse>{
+
+
+    const response =
+        await apiMiddleware.post<PassResponse>(
+            "/api/pass/request",
+            {
+                phone
+            }
+        );
+
+
+    return response.data;
+
+}
+
+
+
+
+
+// ===============================
+// 휴대폰 SMS 인증 요청
+// ===============================
+
+export async function sendPhoneAuthApi(
+    phone:string
+){
+
+    const response =
+        await apiMiddleware.post(
+            "/api/sms/send",
+            {
+                phone
+            }
+        );
+
+
+    return response.data;
+
+}
+
+
+
+
+
+// ===============================
+// 휴대폰 SMS 인증 확인
+// ===============================
+
+export async function verifyPhoneAuthApi(
+    phone:string,
+    code:string
+){
+
+    const response =
+        await apiMiddleware.post(
+            "/api/sms/verify",
+            {
+                phone,
+                code
+            }
+        );
+
+
+    return response.data;
+
+}
+
 
 
 
@@ -101,58 +286,18 @@ export async function signupApi(
 // 아이디 중복 확인
 // ===============================
 
-
 export async function checkUserIdApi(
-    userId: string
-) {
-
+    userId:string
+){
 
     const response =
         await apiMiddleware.get(
-
             "/api/users/check-id",
-
             {
-
-                params: {
-
+                params:{
                     userId
-
                 }
-
             }
-
-        );
-
-
-    return response.data;
-
-}
-
-
-
-
-// ===============================
-// 휴대폰 인증번호 발송
-// ===============================
-
-
-export async function sendPhoneAuthApi(
-    phone: string
-) {
-
-
-    const response =
-        await apiMiddleware.post(
-
-            "/api/sms/send",
-
-            {
-
-                phone
-
-            }
-
         );
 
 
@@ -165,52 +310,14 @@ export async function sendPhoneAuthApi(
 
 
 // ===============================
-// 휴대폰 인증번호 확인
+// 인증 에러 확인
 // ===============================
-
-
-export async function verifyPhoneAuthApi(
-    phone: string,
-    code: string
-) {
-
-
-    const response =
-        await apiMiddleware.post(
-
-            "/api/sms/verify",
-
-            {
-
-                phone,
-
-                code
-
-            }
-
-        );
-
-
-    return response.data;
-
-}
-
-
-
-
-// ===============================
-// 에러 확인
-// ===============================
-
-
-// 서버 응답 에러인지,
-// 네트워크 에러인지 구분
 
 export function isAuthError(
-    error: unknown
-) {
+    error:unknown
+){
 
     return axios.isAxiosError(error)
-        && !!error.response;
+        && error.response?.status === 401;
 
 }
