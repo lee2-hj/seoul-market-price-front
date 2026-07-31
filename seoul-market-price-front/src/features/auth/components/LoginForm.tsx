@@ -28,8 +28,6 @@ function LoginForm() {
         accessToken: data.accessToken,
       });
 
-      alert("로그인 성공!");
-
       // 주소 변경 없음
       // /
       // 그대로 유지

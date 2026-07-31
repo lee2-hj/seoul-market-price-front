@@ -1,12 +1,21 @@
+import { useEffect } from "react";
+
 import LoginPage from "../Login/LoginPage";
 import MainPage from "../Main/MainPage";
 
-import { getToken } from "@/features/auth/utils/auth";
+import { isLogin, logout } from "@/features/auth/utils/auth";
 
 function Home() {
-  const token = getToken();
+  const loggedIn = isLogin();
 
-  if (token) {
+  // access_token이 없거나 유효하지 않으면 남아있는 로그인 정보를 정리한다.
+  useEffect(() => {
+    if (!loggedIn) {
+      logout();
+    }
+  }, [loggedIn]);
+
+  if (loggedIn) {
     return <MainPage />;
   }
 
