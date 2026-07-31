@@ -1,34 +1,16 @@
-import { useEffect } from "react";
 import type { ReactNode } from "react";
-import { isLogin } from "@/features/auth/utils/auth";
-import { handleSessionExpired } from "@/features/auth/utils/session";
+import { Navigate } from "react-router-dom";
 
+import { getLoginUser } from "@/features/auth/utils/auth";
 
-// accessToken 쿠키가 없으면(직접 삭제 등) 세션 만료 처리 후 로그인 페이지로 보낸다.
 function RequireAuth({ children }: { children: ReactNode }) {
+  const user = getLoginUser();
 
-    const loggedIn = isLogin();
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
 
-    useEffect(() => {
-
-        if (!loggedIn) {
-
-            void handleSessionExpired();
-
-        }
-
-    }, [loggedIn]);
-
-
-    if (!loggedIn) {
-
-        return null;
-
-    }
-
-
-    return <>{children}</>;
-
+  return <>{children}</>;
 }
 
 export default RequireAuth;

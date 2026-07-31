@@ -1,15 +1,15 @@
 import { useNavigate } from "react-router-dom";
+import { logout } from "../../features/auth/utils/auth";
 
 function MainPage() {
   const navigate = useNavigate();
 
   // 로그아웃 처리
   const handleLogout = () => {
-    // 저장된 로그인 정보 삭제
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("loginUser");
+    logout();
 
-    // 로그인 페이지 이동
+    alert("로그아웃 되었습니다.");
+
     navigate("/");
   };
 
@@ -34,7 +34,7 @@ function MainPage() {
           padding: "10px 25px",
           borderRadius: "8px",
           border: "none",
-          backgroundColor: "#4CAF50",
+          background: "#4CAF50",
           color: "white",
           fontSize: "16px",
           cursor: "pointer",

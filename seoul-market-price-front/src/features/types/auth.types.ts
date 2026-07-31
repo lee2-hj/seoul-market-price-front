@@ -1,6 +1,18 @@
+export interface LoginUser {
+
+    userId: string;
+
+    name: string;
+
+    role: string;
+
+}
+
+
+
 export interface LoginRequest {
 
-    email: string;
+    userId: string;
 
     password: string;
 
@@ -14,11 +26,6 @@ export interface LoginResponse {
 
     refreshToken: string;
 
-    user: {
-        id: number;
-        email: string;
-        name: string;
-        role: string;
-    }
+    user: LoginUser;
 
 }
