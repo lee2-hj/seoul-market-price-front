@@ -131,7 +131,7 @@ export async function checkUserIdApi(
     const response =
         await apiMiddleware.get(
 
-            "/api/users/check-id",
+            "/api/members/check-id",
 
             {
 
