@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-import LoginPage from "../pages/Login/LoginPage";
-import MainPage from "../pages/Main/MainPage";
+import Home from "../pages/Home/home";
 
 import SignupPage from "../pages/Signup/SignupPage";
 import FindPasswordPage from "../pages/FindPassword/FindPasswordPage";
@@ -11,13 +10,17 @@ function Router() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* 로그인 페이지 */}
+        {/* 
+            /
+            
+            로그인 전:
+            LoginPage
 
-        <Route path="/" element={<LoginPage />} />
+            로그인 후:
+            MainPage
+        */}
 
-        {/* 로그인 후 메인 페이지 */}
-
-        <Route path="/main" element={<MainPage />} />
+        <Route path="/" element={<Home />} />
 
         {/* 회원가입 */}
 

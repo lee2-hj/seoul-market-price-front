@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import styles from "./LoginForm.module.css";
 
@@ -7,8 +6,6 @@ import { saveLogin } from "../../auth/utils/auth";
 import { loginApi, isAuthError } from "@/api/api";
 
 function LoginForm() {
-  const navigate = useNavigate();
-
   const [userId, setUserId] = useState("");
 
   const [password, setPassword] = useState("");
@@ -25,24 +22,6 @@ function LoginForm() {
     try {
       const data = await loginApi(userId, password);
 
-      /*
-        백엔드 응답 예상
-
-        {
-          accessToken:"xxxxx",
-
-          user:{
-            id:1,
-            userId:"test",
-            name:"홍길동",
-            role:"USER"
-          }
-        }
-
-      */
-
-      // 로그인 정보 저장
-
       saveLogin({
         ...data.user,
 
@@ -51,9 +30,11 @@ function LoginForm() {
 
       alert("로그인 성공!");
 
-      // MainPage 이동
+      // 주소 변경 없음
+      // /
+      // 그대로 유지
 
-      navigate("/main");
+      window.location.reload();
     } catch (error) {
       console.error(error);
 

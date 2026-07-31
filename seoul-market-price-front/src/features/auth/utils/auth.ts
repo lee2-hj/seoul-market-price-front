@@ -19,25 +19,20 @@ export function saveLogin(
 ) {
 
 
-    // 사용자 정보 저장
-
     localStorage.setItem(
         "loginUser",
-
         JSON.stringify({
 
-            userId: user.userId,
+            userId:user.userId,
 
-            name: user.name,
+            name:user.name,
 
-            role: user.role
+            role:user.role
 
         })
     );
 
 
-
-    // JWT 저장
 
     if(user.accessToken){
 
@@ -49,7 +44,6 @@ export function saveLogin(
     }
 
 }
-
 
 
 
@@ -77,8 +71,7 @@ export function getLoginUser(): LoginUser | null {
 
 
 
-
-// ⭐ middleware.ts에서 사용하는 토큰 조회
+// 토큰 조회
 
 export function getToken(): string | null {
 
@@ -91,8 +84,7 @@ export function getToken(): string | null {
 
 
 
-
-// 로그인 여부 확인
+// 로그인 상태 확인
 
 export function isLogin(): boolean {
 
@@ -100,7 +92,6 @@ export function isLogin(): boolean {
     return !!getToken();
 
 }
-
 
 
 
