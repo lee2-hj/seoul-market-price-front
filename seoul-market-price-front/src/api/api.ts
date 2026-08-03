@@ -7,40 +7,20 @@ import apiMiddleware, {
 
 
 // ===============================
-// 사용자 타입
-// ===============================
-
-export interface User {
-
-    id?: number;
-
-    name:string;
-
-    userId:string;
-
-    role:string;
-
-    phone?:string;
-
-    email?:string;
-
-    address?:string;
-
-    detailAddress?:string;
-
-}
-
-
-
-// ===============================
 // 로그인 응답
 // ===============================
 
+// 백엔드 LoginResponse DTO(record)가 평평한 구조로 내려주므로 그대로 맞춘다.
+// refreshToken은 HttpOnly 쿠키로만 전달되어 응답 바디에 없다.
 export interface LoginResponse {
 
-    user:User;
-
     accessToken:string;
+
+    memberId:number;
+
+    userId:string;
+
+    name:string;
 
 }
 
@@ -63,6 +43,27 @@ export async function loginApi(
                 userId,
                 password
             }
+        );
+
+
+    return response.data;
+
+}
+
+
+
+// ===============================
+// 로그아웃 API
+// ===============================
+
+// HttpOnly인 refreshToken 쿠키는 프론트에서 지울 수 없어
+// 서버가 로그아웃 시 Set-Cookie로 만료시켜줘야 한다.
+
+export async function logoutApi(){
+
+    const response =
+        await apiMiddleware.post(
+            "/api/auth/logout"
         );
 
 

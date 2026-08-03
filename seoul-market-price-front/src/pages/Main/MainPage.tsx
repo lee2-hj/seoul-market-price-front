@@ -1,17 +1,23 @@
 import { logout } from "@/features/auth/utils/auth";
+import { logoutApi } from "@/api/api";
 
 function MainPage() {
-  const handleLogout = () => {
-    // 로그인 정보 삭제
+  const handleLogout = async () => {
+    try {
+      // HttpOnly인 refreshToken 쿠키는 서버만 지울 수 있어 로그아웃 API를 먼저 호출한다.
+      await logoutApi();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      // 로그인 정보 삭제
 
-    logout();
+      logout();
 
-    alert("로그아웃 되었습니다.");
+      // Home.tsx 다시 실행
+      // / 주소 유지
 
-    // Home.tsx 다시 실행
-    // / 주소 유지
-
-    window.location.href = "/";
+      window.location.href = "/";
+    }
   };
 
   return (

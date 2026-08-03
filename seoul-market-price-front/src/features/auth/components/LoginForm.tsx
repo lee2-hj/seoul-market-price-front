@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 import styles from "./LoginForm.module.css";
 
 import { saveLogin } from "../../auth/utils/auth";
-import { loginApi, isAuthError } from "@/api/api";
+import { loginApi } from "@/api/api";
 
 function LoginForm() {
   const navigate = useNavigate();
@@ -36,22 +37,20 @@ function LoginForm() {
       const data = await loginApi(trimUserId, password);
 
       /*
-        백엔드 응답 검증
-
-        예상 형태:
+        백엔드 LoginResponse는 평평한 구조로 내려온다.
 
         {
-          user:{
-            userId,
-            name,
-            role
-          },
-          accessToken
+          accessToken,
+          memberId,
+          userId,
+          name
         }
 
+        accessToken은 쿠키가 기준(source of truth)이므로
+        응답 바디 검증은 userId만으로 충분하다.
       */
 
-      if (!data?.user || !data?.accessToken) {
+      if (!data?.userId) {
         throw new Error("로그인 응답 데이터 오류");
       }
 
@@ -69,12 +68,15 @@ function LoginForm() {
       */
 
       saveLogin({
-        ...data.user,
+        userId: data.userId,
+
+        name: data.name,
+
+        // 백엔드 로그인 응답에는 role이 내려오지 않는다.
+        role: "",
 
         accessToken: data.accessToken,
       });
-
-      alert("로그인 성공!");
 
       /*
         주소 유지
@@ -89,11 +91,14 @@ function LoginForm() {
     } catch (error) {
       console.error("로그인 오류", error);
 
-      if (isAuthError(error)) {
-        alert("아이디 또는 비밀번호가 맞지 않습니다.");
-      } else {
-        alert("서버 연결 실패");
-      }
+      // 백엔드가 { code, message } 형태로 상태 메시지를 내려주므로
+      // 있으면 그 메시지를, 없으면(네트워크 오류 등) 기본 문구를 보여준다.
+      const message =
+        axios.isAxiosError(error) && error.response?.data?.message
+          ? error.response.data.message
+          : "서버 연결 실패";
+
+      alert(message);
     } finally {
       setLoading(false);
     }
