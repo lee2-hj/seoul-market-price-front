@@ -79,17 +79,24 @@ export async function loginApi(
 // ===============================
 
 
-export function getKakaoLoginUrl(){
+// 백엔드가 로그인용(kakao, google)과 회원가입용(kakao-signup, google-signup)
+// client 등록을 분리했으므로 registrationId도 mode에 맞게 골라야 한다.
 
-    return `${BACKEND_URL}/oauth2/authorization/kakao`;
+export function getKakaoLoginUrl(mode:"login"|"signup" = "login"){
+
+    const registrationId = mode === "signup" ? "kakao-signup" : "kakao";
+
+    return `${BACKEND_URL}/oauth2/authorization/${registrationId}`;
 
 }
 
 
 
-export function getGoogleLoginUrl(){
+export function getGoogleLoginUrl(mode:"login"|"signup" = "login"){
 
-    return `${BACKEND_URL}/oauth2/authorization/google`;
+    const registrationId = mode === "signup" ? "google-signup" : "google";
+
+    return `${BACKEND_URL}/oauth2/authorization/${registrationId}`;
 
 }
 

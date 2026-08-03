@@ -1,13 +1,11 @@
 import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 
-import { getLoginUser } from "@/features/auth/utils/auth";
+import { isLogin } from "@/features/auth/utils/auth";
 
 function RequireAuth({ children }: { children: ReactNode }) {
-  const user = getLoginUser();
-
-  if (!user) {
-    return <Navigate to="/" replace />;
+  if (!isLogin()) {
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;

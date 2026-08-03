@@ -23,7 +23,7 @@ function SocialLogin({ mode = "login" }: SocialLoginProps) {
 
     setLoading(true);
 
-    window.location.href = getKakaoLoginUrl();
+    window.location.href = getKakaoLoginUrl(mode);
   };
 
   /*
@@ -38,7 +38,7 @@ function SocialLogin({ mode = "login" }: SocialLoginProps) {
 
     setLoading(true);
 
-    window.location.href = getGoogleLoginUrl();
+    window.location.href = getGoogleLoginUrl(mode);
   };
 
   const kakaoText = mode === "login" ? "카카오로 로그인" : "카카오로 회원가입";
