@@ -74,16 +74,10 @@ function LoginForm() {
         accessToken: data.accessToken,
       });
 
-<<<<<<< HEAD
       alert("로그인 성공!");
 
       /*
         주소 유지
-=======
-      // 주소 변경 없음
-      // /
-      // 그대로 유지
->>>>>>> 6bbe5297d8c32f30031ef523190c3c0ce50f9c16
 
         /
         ↓
