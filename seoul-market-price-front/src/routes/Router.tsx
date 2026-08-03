@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Home from "../pages/Home/home";
 
@@ -52,6 +52,7 @@ function Router() {
             PASS 인증 사용
         ========================= */}
 
+<<<<<<< HEAD
         <Route
           path="/find-password"
           element={
@@ -74,6 +75,13 @@ function Router() {
         ========================= */}
 
         <Route path="/pass/callback" element={<PassCallbackPage />} />
+=======
+        <Route path="/find-password" element={<FindPasswordPage />} />
+
+        {/* 정의되지 않은 경로(예: /main)로 직접 접근한 경우
+            "/" 로 리다이렉트해 access_token 유효성 검사(Home)를 다시 거치게 한다. */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+>>>>>>> 6bbe5297d8c32f30031ef523190c3c0ce50f9c16
       </Routes>
     </BrowserRouter>
   );

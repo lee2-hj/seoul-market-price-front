@@ -75,7 +75,32 @@ export async function loginApi(
 
 
 // ===============================
+<<<<<<< HEAD
 // OAuth
+=======
+// 로그아웃 API
+// ===============================
+
+// HttpOnly인 refreshToken 쿠키는 프론트에서 지울 수 없어
+// 서버가 로그아웃 시 Set-Cookie로 만료시켜줘야 한다.
+
+export async function logoutApi() {
+
+    const response =
+        await apiMiddleware.post(
+            "/api/auth/logout"
+        );
+
+
+    return response.data;
+
+}
+
+
+
+// ===============================
+// 소셜 로그인 URL
+>>>>>>> 6bbe5297d8c32f30031ef523190c3c0ce50f9c16
 // ===============================
 
 
@@ -292,7 +317,13 @@ export async function checkUserIdApi(
 
     const response =
         await apiMiddleware.get(
+<<<<<<< HEAD
             "/api/users/check-id",
+=======
+
+            "/api/members/check-id",
+
+>>>>>>> 6bbe5297d8c32f30031ef523190c3c0ce50f9c16
             {
                 params:{
                     userId
