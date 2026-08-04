@@ -118,18 +118,6 @@ const getLoginUserId = (): string => {
   return user?.userId || "";
 };
 
-/* 로그인 사용자 이름 */
-
-const getLoginUserName = (): string => {
-  const user = getLoginUser();
-
-  if (!user) {
-    return "사용자";
-  }
-
-  return user.name || user.userName || user.userId || "사용자";
-};
-
 /* 관리자 여부 */
 
 const isAdminUser = (): boolean => {
@@ -157,12 +145,6 @@ function QnaPage() {
 
   const loginUserId = useMemo(() => {
     return isLoggedIn ? getLoginUserId() : "";
-  }, [isLoggedIn]);
-
-  /* 로그인 사용자 이름 */
-
-  const userName = useMemo(() => {
-    return isLoggedIn ? getLoginUserName() : "";
   }, [isLoggedIn]);
 
   /* 관리자 여부 */
@@ -421,7 +403,12 @@ function QnaPage() {
           <div className={styles.userArea}>
             {isLoggedIn ? (
               <>
-                <span className={styles.userName}>{userName}</span>
+                <span className={styles.userName}>
+                  {getLoginUser()?.name ||
+                    getLoginUser()?.userName ||
+                    getLoginUser()?.userId ||
+                    "사용자"}
+                </span>
 
                 {isAdmin && <span className={styles.adminBadge}>관리자</span>}
 
