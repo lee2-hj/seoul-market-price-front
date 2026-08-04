@@ -10,6 +10,7 @@ import FindIdPage from "../pages/FindId/FindIdPage";
 import PassCallbackPage from "../pages/PassCallback/PassCallbackPage";
 
 import PublicRoute from "./PublicRoute";
+import BoardFaq from "@/pages/Board/board_faq";
 
 function Router() {
   return (
@@ -73,6 +74,15 @@ function Router() {
           element={
             <PublicRoute>
               <FindPasswordPage />
+            </PublicRoute>
+          }
+        />
+
+        <Route
+          path="/board_faq"
+          element={
+            <PublicRoute>
+              <BoardFaq />
             </PublicRoute>
           }
         />
