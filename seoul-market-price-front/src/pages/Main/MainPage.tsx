@@ -1,7 +1,10 @@
+import { useNavigate } from "react-router-dom";
 import { logout } from "@/features/auth/utils/auth";
 import { logoutApi } from "@/api/api";
 
 function MainPage() {
+  const navigate = useNavigate();
+
   const handleLogout = async () => {
     try {
       // HttpOnly인 refreshToken 쿠키는 서버만 지울 수 있어 로그아웃 API를 먼저 호출한다.
@@ -35,9 +38,25 @@ function MainPage() {
       <p>로그인 성공!</p>
 
       <button
-        onClick={handleLogout}
+        onClick={() => navigate("/board")}
         style={{
           marginTop: "20px",
+          padding: "10px 25px",
+          borderRadius: "8px",
+          border: "none",
+          background: "#4CAF50",
+          color: "white",
+          fontSize: "16px",
+          cursor: "pointer",
+        }}
+      >
+        자주묻는질문
+      </button>
+
+      <button
+        onClick={handleLogout}
+        style={{
+          marginTop: "10px",
           padding: "10px 25px",
           borderRadius: "8px",
           border: "none",

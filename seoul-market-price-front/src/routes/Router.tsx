@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import LoginPage from "../pages/Login/LoginPage";
 import MainPage from "../pages/Main/MainPage";
+import HomeBoardPage from "../pages/Home/board";
 
 import SignupPage from "../pages/Signup/SignupPage";
 import FindPasswordPage from "../pages/FindPassword/FindPasswordPage";
@@ -21,6 +22,7 @@ function Router() {
         ========================= */}
 
         <Route path="/" element={<MainPage />} />
+        <Route path="/board" element={<HomeBoardPage />} />
 
         {/* =========================
             로그인
