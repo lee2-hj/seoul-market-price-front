@@ -208,6 +208,7 @@ function SignupPage() {
               name="name"
               placeholder="이름"
               value={form.name}
+              disabled={phoneVerified}
               onChange={handleChange}
             />
           </div>
@@ -226,8 +227,15 @@ function SignupPage() {
               />
 
               <PassAuth
-                phone={form.phone}
-                onSuccess={() => {
+                onSuccess={(result) => {
+                  setForm((prev) => ({
+                    ...prev,
+
+                    name: result.name,
+
+                    phone: result.phoneNumber,
+                  }));
+
                   setPhoneVerified(true);
                 }}
               />

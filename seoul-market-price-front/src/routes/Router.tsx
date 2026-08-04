@@ -10,7 +10,6 @@ import FindIdPage from "../pages/FindId/FindIdPage";
 import PassCallbackPage from "../pages/PassCallback/PassCallbackPage";
 
 import PublicRoute from "./PublicRoute";
-import RequireAuth from "./RequireAuth";
 
 function Router() {
   return (
@@ -18,18 +17,10 @@ function Router() {
       <Routes>
         {/* =========================
             메인 페이지
-            로그인 사용자만 접근
-            (미로그인 시 /login 으로 리다이렉트)
+            로그인 여부와 상관없이 누구나 접근 가능
         ========================= */}
 
-        <Route
-          path="/"
-          element={
-            <RequireAuth>
-              <MainPage />
-            </RequireAuth>
-          }
-        />
+        <Route path="/" element={<MainPage />} />
 
         {/* =========================
             로그인
@@ -100,9 +91,7 @@ function Router() {
 
         <Route path="/pass/callback" element={<PassCallbackPage />} />
 
-        {/* 정의되지 않은 경로(예: /main)로 직접 접근한 경우
-            "/" 로 리다이렉트해 RequireAuth의 로그인 상태 검사를 거치게 한다.
-            미로그인 상태라면 RequireAuth가 다시 /login 으로 보낸다. */}
+        {/* 정의되지 않은 경로(예: /main)로 직접 접근한 경우 "/" 로 리다이렉트한다. */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
