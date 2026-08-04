@@ -1,0 +1,890 @@
+/*  Q&A 상세 페이지 전체 */
+
+.page {
+  min-height: 100vh;
+  padding: 0 0 100px;
+  background: #f7f9f6;
+  color: #202620;
+  font-family:"Pretendard", "Noto Sans KR", Arial, sans-serif;
+  box-sizing: border-box;
+}
+
+
+/* 모든 요소 box-sizing */
+
+.page *,
+.page *::before,
+.page *::after {
+  box-sizing: border-box;
+}
+
+
+/* ========================================
+   최상단 사용자 영역
+======================================== */
+
+.topUserBar {
+  width: 100%;
+
+  height: 38px;
+
+  border-bottom: 1px solid #edf0ec;
+
+  background: #ffffff;
+}
+
+
+.topUserInner {
+  display: flex;
+
+  align-items: center;
+  justify-content: flex-end;
+
+  width: min(1180px, calc(100% - 48px));
+
+  height: 100%;
+
+  margin: 0 auto;
+}
+
+
+.userArea {
+  display: flex;
+
+  align-items: center;
+
+  gap: 14px;
+
+  color: #6f776f;
+
+  font-size: 12px;
+}
+
+
+.userName {
+  color: #4e564e;
+
+  font-size: 12px;
+
+  font-weight: 600;
+}
+
+
+.logoutButton,
+.loginLink {
+  padding: 0;
+
+  border: none;
+
+  background: transparent;
+
+  color: #8a9189;
+
+  font-family: inherit;
+
+  font-size: 11px;
+
+  cursor: pointer;
+}
+
+
+.logoutButton:hover,
+.loginLink:hover {
+  color: #4e9557;
+
+  text-decoration: underline;
+}
+
+
+/* ========================================
+   Header
+======================================== */
+
+.mainHeader {
+  position: relative;
+
+  z-index: 100;
+
+  width: 100%;
+
+  background: #ffffff;
+
+  border-bottom: 1px solid #e2e8e0;
+}
+
+
+.headerInner {
+  position: relative;
+
+  display: flex;
+
+  align-items: center;
+
+  width: min(1180px, calc(100% - 48px));
+
+  min-height: 76px;
+
+  margin: 0 auto;
+}
+
+
+/* ========================================
+   로고
+======================================== */
+
+.logo {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: flex-start;
+
+  flex-shrink: 0;
+
+  width: 145px;
+
+  height: 50px;
+
+  margin-right: 48px;
+
+  padding: 0;
+
+  border: none;
+
+  background: transparent;
+
+  color: #4e9557;
+
+  font-family: inherit;
+
+  font-size: 28px;
+
+  font-weight: 800;
+
+  letter-spacing: -1.5px;
+
+  cursor: pointer;
+}
+
+
+/* ========================================
+   상단 메뉴
+======================================== */
+
+.mainNav {
+  display: flex;
+
+  align-items: stretch;
+
+  height: 76px;
+
+  gap: 4px;
+}
+
+
+.navItem {
+  position: relative;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  height: 76px;
+
+  padding: 0 22px;
+
+  border: none;
+
+  background: transparent;
+
+  color: #3e463f;
+
+  font-family: inherit;
+
+  font-size: 14px;
+
+  font-weight: 600;
+
+  white-space: nowrap;
+
+  cursor: pointer;
+
+  transition: color 0.2s ease;
+}
+
+
+.navItem:hover {
+  color: #4e9557;
+}
+
+
+.navItem::after {
+  content: "";
+
+  position: absolute;
+
+  left: 20px;
+
+  right: 20px;
+
+  bottom: 0;
+
+  height: 2px;
+
+  background: transparent;
+
+  transition: background 0.2s ease;
+}
+
+
+.navItem:hover::after {
+  background: #5ca665;
+}
+
+
+/* ========================================
+   메가메뉴
+======================================== */
+
+.navMenu {
+  position: relative;
+
+  display: flex;
+
+  align-items: stretch;
+
+  height: 76px;
+}
+
+
+.megaMenu {
+  position: absolute;
+
+  top: 76px;
+
+  left: 50%;
+
+  z-index: 200;
+
+  display: flex;
+
+  min-width: 230px;
+
+  padding: 24px 26px;
+
+  border: 1px solid #e1e7df;
+
+  border-top: 2px solid #5ca665;
+
+  background: #ffffff;
+
+  box-shadow:
+    0 12px 30px rgba(40, 70, 40, 0.08);
+
+  opacity: 0;
+
+  visibility: hidden;
+
+  transform: translate(-50%, 8px);
+
+  transition:
+    opacity 0.18s ease,
+    visibility 0.18s ease,
+    transform 0.18s ease;
+}
+
+
+.navMenu:hover .megaMenu {
+  opacity: 1;
+
+  visibility: visible;
+
+  transform: translate(-50%, 0);
+}
+
+
+.megaColumn {
+  display: flex;
+
+  flex-direction: column;
+
+  min-width: 175px;
+}
+
+
+.megaColumn strong {
+  display: block;
+
+  margin-bottom: 14px;
+
+  color: #3e463f;
+
+  font-size: 13px;
+
+  font-weight: 700;
+}
+
+
+.megaColumn button {
+  width: 100%;
+
+  padding: 8px 0;
+
+  border: none;
+
+  background: transparent;
+
+  color: #777f77;
+
+  font-family: inherit;
+
+  font-size: 12px;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    color 0.2s ease,
+    padding-left 0.2s ease;
+}
+
+
+.megaColumn button:hover {
+  padding-left: 5px;
+
+  color: #4e9557;
+}
+
+
+/* ========================================
+   본문 Container
+======================================== */
+
+.container {
+  width: min(1100px, calc(100% - 48px));
+
+  margin: 0 auto;
+}
+
+
+/* ========================================
+   페이지 Header
+======================================== */
+
+.pageHeader {
+  display: flex;
+
+  align-items: flex-end;
+
+  justify-content: space-between;
+
+  margin-top: 42px;
+
+  margin-bottom: 30px;
+}
+
+
+.pageHeader h1 {
+  margin: 0;
+
+  color: #252c26;
+
+  font-size: 32px;
+
+  font-weight: 700;
+
+  letter-spacing: -1.5px;
+}
+
+
+.pageHeader p {
+  margin: 10px 0 0;
+
+  color: #899087;
+
+  font-size: 13px;
+
+  line-height: 1.5;
+}
+
+
+/* ========================================
+   게시글
+======================================== */
+
+.post {
+  overflow: hidden;
+
+  border-top: 2px solid #5b665b;
+
+  border-bottom: 1px solid #dfe5dc;
+
+  background: #ffffff;
+}
+
+
+/* ========================================
+   게시글 Header
+======================================== */
+
+.postHeader {
+  padding: 26px 30px 22px;
+
+  border-bottom: 1px solid #e5e9e3;
+
+  background: #ffffff;
+}
+
+
+.postHeader h2 {
+  margin: 0;
+
+  color: #303730;
+
+  font-size: 20px;
+
+  font-weight: 700;
+
+  line-height: 1.5;
+
+  letter-spacing: -0.5px;
+}
+
+
+/* ========================================
+   게시글 정보
+======================================== */
+
+.postMeta {
+  display: flex;
+
+  align-items: center;
+
+  gap: 20px;
+
+  margin-top: 16px;
+
+  color: #8a9289;
+
+  font-size: 12px;
+}
+
+
+.postMeta span {
+  position: relative;
+}
+
+
+.postMeta span + span::before {
+  content: "";
+
+  position: absolute;
+
+  left: -11px;
+
+  top: 50%;
+
+  width: 1px;
+
+  height: 11px;
+
+  background: #dfe4dd;
+
+  transform: translateY(-50%);
+}
+
+
+.postMeta strong {
+  color: #5e665e;
+
+  font-weight: 600;
+}
+
+
+/* ========================================
+   게시글 내용
+======================================== */
+
+.postContent {
+  min-height: 300px;
+
+  padding: 35px 30px 50px;
+
+  color: #505850;
+
+  font-size: 14px;
+
+  line-height: 1.9;
+
+  white-space: pre-wrap;
+
+  word-break: break-word;
+}
+
+
+/* ========================================
+   하단 버튼
+======================================== */
+
+.bottomActions {
+  display: flex;
+
+  justify-content: flex-end;
+
+  margin-top: 20px;
+}
+
+
+.listButton {
+  min-width: 90px;
+
+  height: 40px;
+
+  padding: 0 18px;
+
+  border: 1px solid #5ca665;
+
+  border-radius: 7px;
+
+  background: #5ca665;
+
+  color: #ffffff;
+
+  font-family: inherit;
+
+  font-size: 12px;
+
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+
+.listButton:hover {
+  border-color: #4e9557;
+
+  background: #4e9557;
+}
+
+
+/* ========================================
+   게시글 없음
+======================================== */
+
+.empty {
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  min-height: 450px;
+
+  padding: 50px 20px;
+
+  text-align: center;
+}
+
+
+.empty h2 {
+  margin: 0 0 10px;
+
+  color: #555d55;
+
+  font-size: 18px;
+
+  font-weight: 700;
+}
+
+
+.empty p {
+  margin: 0 0 25px;
+
+  color: #9aa198;
+
+  font-size: 13px;
+}
+
+
+.backButton {
+  height: 40px;
+
+  padding: 0 18px;
+
+  border: 1px solid #5ca665;
+
+  border-radius: 7px;
+
+  background: #5ca665;
+
+  color: #ffffff;
+
+  font-family: inherit;
+
+  font-size: 12px;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+.backButton:hover {
+  border-color: #4e9557;
+
+  background: #4e9557;
+}
+
+
+/* ========================================
+   Tablet
+======================================== */
+
+@media (max-width: 900px) {
+  .topUserInner,
+  .headerInner {
+    width: calc(100% - 36px);
+  }
+
+
+  .logo {
+    width: 120px;
+
+    margin-right: 25px;
+
+    font-size: 25px;
+  }
+
+
+  .mainNav {
+    gap: 0;
+  }
+
+
+  .navItem {
+    padding: 0 13px;
+
+    font-size: 13px;
+  }
+
+
+  .megaMenu {
+    min-width: 210px;
+  }
+
+
+  .container {
+    width: calc(100% - 36px);
+  }
+
+
+  .postHeader {
+    padding: 24px;
+  }
+
+
+  .postContent {
+    padding: 30px 24px 40px;
+  }
+}
+
+
+/* ========================================
+   Mobile
+======================================== */
+
+@media (max-width: 600px) {
+  .topUserBar {
+    height: 36px;
+  }
+
+
+  .topUserInner {
+    width: calc(100% - 30px);
+  }
+
+
+  .userArea {
+    gap: 10px;
+
+    font-size: 11px;
+  }
+
+
+  /* Header */
+
+  .mainHeader {
+    overflow: visible;
+  }
+
+
+  .headerInner {
+    display: block;
+
+    width: calc(100% - 30px);
+
+    min-height: auto;
+  }
+
+
+  .logo {
+    width: 100%;
+
+    height: 58px;
+
+    margin: 0;
+
+    font-size: 25px;
+  }
+
+
+  .mainNav {
+    display: flex;
+
+    width: 100%;
+
+    height: 52px;
+
+    overflow-x: auto;
+
+    overflow-y: visible;
+
+    border-top: 1px solid #f0f2ef;
+  }
+
+
+  .navItem {
+    flex-shrink: 0;
+
+    height: 52px;
+
+    padding: 0 13px;
+
+    font-size: 12px;
+  }
+
+
+  .navItem::after {
+    left: 10px;
+
+    right: 10px;
+  }
+
+
+  .navMenu {
+    flex-shrink: 0;
+
+    height: 52px;
+  }
+
+
+  .megaMenu {
+    top: 52px;
+
+    left: 0;
+
+    min-width: 190px;
+
+    padding: 18px 20px;
+
+    transform: translateY(8px);
+  }
+
+
+  .navMenu:hover .megaMenu {
+    transform: translateY(0);
+  }
+
+
+  /* 본문 */
+
+  .container {
+    width: calc(100% - 30px);
+  }
+
+
+  .pageHeader {
+    margin-top: 32px;
+
+    margin-bottom: 24px;
+  }
+
+
+  .pageHeader h1 {
+    font-size: 27px;
+  }
+
+
+  .pageHeader p {
+    margin-top: 8px;
+
+    font-size: 12px;
+  }
+
+
+  /* 게시글 */
+
+  .postHeader {
+    padding: 20px 18px;
+  }
+
+
+  .postHeader h2 {
+    font-size: 17px;
+
+    line-height: 1.5;
+  }
+
+
+  .postMeta {
+    flex-wrap: wrap;
+
+    gap: 8px 16px;
+
+    margin-top: 13px;
+
+    font-size: 11px;
+  }
+
+
+  .postMeta span + span::before {
+    display: none;
+  }
+
+
+  .postContent {
+    min-height: 280px;
+
+    padding: 25px 18px 40px;
+
+    font-size: 13px;
+
+    line-height: 1.8;
+  }
+
+
+  .bottomActions {
+    margin-top: 15px;
+  }
+
+
+  .listButton {
+    width: 100%;
+
+    height: 42px;
+  }
+
+
+  .empty {
+    min-height: 400px;
+  }
+}

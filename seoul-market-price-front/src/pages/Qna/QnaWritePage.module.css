@@ -1,0 +1,764 @@
+/* ========================================
+   전체 페이지
+======================================== */
+
+.page {
+  min-height: 100vh;
+
+  padding: 70px 0 100px;
+
+  background: #f7f9f6;
+  color: #202620;
+
+  font-family:
+    "Pretendard",
+    "Noto Sans KR",
+    Arial,
+    sans-serif;
+
+  box-sizing: border-box;
+}
+
+
+/* ========================================
+   전체 요소 box-sizing
+======================================== */
+
+.page *,
+.page *::before,
+.page *::after {
+  box-sizing: border-box;
+}
+
+
+/* ========================================
+   Container
+======================================== */
+
+.container {
+  width: min(1000px, calc(100% - 48px));
+
+  margin: 0 auto;
+}
+
+
+/* ========================================
+   페이지 Header
+======================================== */
+
+.pageHeader {
+  display: flex;
+
+  align-items: flex-end;
+  justify-content: space-between;
+
+  margin-bottom: 35px;
+}
+
+
+/* Header Text */
+
+.headerText {
+  display: flex;
+
+  flex-direction: column;
+}
+
+
+/* Q&A 라벨 */
+
+.pageLabel {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #62a967;
+
+  font-size: 11px;
+  font-weight: 800;
+
+  letter-spacing: 1.5px;
+}
+
+
+/* 페이지 제목 */
+
+.pageHeader h1 {
+  margin: 0 0 8px;
+
+  color: #252c26;
+
+  font-size: 32px;
+  font-weight: 700;
+
+  letter-spacing: -1.5px;
+}
+
+
+/* 페이지 설명 */
+
+.pageHeader p {
+  margin: 0;
+
+  color: #899087;
+
+  font-size: 13px;
+
+  line-height: 1.5;
+}
+
+
+/* ========================================
+   목록으로 버튼
+======================================== */
+
+.listButton {
+  flex-shrink: 0;
+
+  padding: 10px 17px;
+
+  border: 1px solid #dfe5dc;
+  border-radius: 8px;
+
+  background: #fff;
+
+  color: #626a62;
+
+  font-family: inherit;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+
+.listButton:hover {
+  border-color: #9cb49d;
+
+  background: #f8fbf7;
+
+  color: #4e7653;
+}
+
+
+/* ========================================
+   로그인 필요 화면
+======================================== */
+
+.loginRequired {
+  min-height: 420px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 50px 30px;
+
+  border: 1px solid #e2e8e0;
+  border-radius: 16px;
+
+  background: #fff;
+
+  box-shadow:
+    0 10px 30px rgba(50, 90, 50, 0.05);
+
+  text-align: center;
+}
+
+
+/* 로그인 아이콘 */
+
+.loginIcon {
+  width: 58px;
+  height: 58px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 20px;
+
+  border-radius: 50%;
+
+  background: #f0f7ef;
+
+  font-size: 24px;
+}
+
+
+/* 로그인 안내 제목 */
+
+.loginRequired h1 {
+  margin: 0 0 10px;
+
+  color: #252c26;
+
+  font-size: 24px;
+  font-weight: 700;
+
+  letter-spacing: -1px;
+}
+
+
+/* 로그인 안내 설명 */
+
+.loginRequired p {
+  margin: 0;
+
+  color: #899087;
+
+  font-size: 13px;
+
+  line-height: 1.6;
+}
+
+
+/* ========================================
+   로그인 안내 버튼 영역
+======================================== */
+
+.loginButtonArea {
+  display: flex;
+
+  justify-content: center;
+
+  gap: 10px;
+
+  margin-top: 28px;
+}
+
+
+/* ========================================
+   로그인 안내 버튼 공통
+======================================== */
+
+.backButton,
+.loginButton {
+  min-width: 140px;
+
+  height: 44px;
+
+  padding: 0 18px;
+
+  border-radius: 8px;
+
+  font-family: inherit;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+
+/* Q&A 돌아가기 */
+
+.backButton {
+  border: 1px solid #dfe5dc;
+
+  background: #fff;
+
+  color: #697169;
+}
+
+
+.backButton:hover {
+  border-color: #9cb49d;
+
+  background: #f8fbf7;
+
+  color: #4e7653;
+}
+
+
+/* 로그인하기 */
+
+.loginButton {
+  border: 1px solid #5ca665;
+
+  background: #5ca665;
+
+  color: #fff;
+}
+
+
+.loginButton:hover {
+  border-color: #4e9557;
+
+  background: #4e9557;
+}
+
+
+/* ========================================
+   작성 Form
+======================================== */
+
+.form {
+  padding: 40px;
+
+  border: 1px solid #e2e8e0;
+  border-radius: 16px;
+
+  background: #fff;
+
+  box-shadow:
+    0 10px 30px rgba(50, 90, 50, 0.05);
+}
+
+
+/* ========================================
+   Form Group
+======================================== */
+
+.formGroup {
+  margin-bottom: 25px;
+}
+
+
+/* ========================================
+   Label
+======================================== */
+
+.formGroup label {
+  display: block;
+
+  margin-bottom: 9px;
+
+  color: #404840;
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+
+/* 필수 표시 */
+
+.formGroup label span {
+  color: #e36d62;
+}
+
+
+/* ========================================
+   Input / Textarea 공통
+======================================== */
+
+.formGroup input,
+.formGroup textarea {
+  display: block;
+
+  width: 100%;
+
+  border: 1px solid #dfe5dc;
+  border-radius: 9px;
+
+  background: #fff;
+
+  color: #333;
+
+  font-family: inherit;
+
+  font-size: 13px;
+
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+
+/* ========================================
+   Input
+======================================== */
+
+.formGroup input {
+  height: 48px;
+
+  padding: 0 14px;
+}
+
+
+/* ========================================
+   Textarea
+======================================== */
+
+.formGroup textarea {
+  min-height: 260px;
+
+  padding: 14px;
+
+  resize: vertical;
+
+  line-height: 1.7;
+}
+
+
+/* ========================================
+   Focus
+======================================== */
+
+.formGroup input:focus,
+.formGroup textarea:focus {
+  border-color: #75aa79;
+
+  box-shadow:
+    0 0 0 3px rgba(92, 166, 101, 0.08);
+}
+
+
+/* ========================================
+   Placeholder
+======================================== */
+
+.formGroup input::placeholder,
+.formGroup textarea::placeholder {
+  color: #a4aaa3;
+}
+
+
+/* ========================================
+   로그인 회원 정보 - Disabled
+======================================== */
+
+.formGroup input:disabled {
+  background: #f6f8f5;
+
+  border-color: #e2e7df;
+
+  color: #737b72;
+
+  cursor: not-allowed;
+}
+
+
+/* ========================================
+   설명 문구
+======================================== */
+
+.formGroup small {
+  display: block;
+
+  margin-top: 7px;
+
+  color: #9aa198;
+
+  font-size: 11px;
+
+  line-height: 1.5;
+}
+
+
+/* ========================================
+   안내 문구
+======================================== */
+
+.notice {
+  display: flex;
+
+  align-items: flex-start;
+
+  gap: 8px;
+
+  margin-top: -5px;
+  margin-bottom: 25px;
+
+  padding: 12px 14px;
+
+  border-radius: 8px;
+
+  background: #f7faf6;
+}
+
+
+.notice span {
+  flex-shrink: 0;
+
+  margin-top: 1px;
+
+  font-size: 13px;
+}
+
+
+.notice p {
+  margin: 0;
+
+  color: #7d857c;
+
+  font-size: 11px;
+
+  line-height: 1.6;
+}
+
+
+/* ========================================
+   버튼 영역
+======================================== */
+
+.buttonArea {
+  display: flex;
+
+  justify-content: center;
+
+  gap: 10px;
+
+  padding-top: 15px;
+
+  border-top: 1px solid #edf0ec;
+}
+
+
+/* ========================================
+   취소 / 등록 버튼 공통
+======================================== */
+
+.cancelButton,
+.submitButton {
+  min-width: 120px;
+
+  height: 46px;
+
+  border-radius: 8px;
+
+  font-family: inherit;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+
+/* ========================================
+   취소 버튼
+======================================== */
+
+.cancelButton {
+  border: 1px solid #dfe5dc;
+
+  background: #fff;
+
+  color: #697169;
+}
+
+
+.cancelButton:hover {
+  border-color: #c6cec3;
+
+  background: #f8faf7;
+
+  color: #4f574f;
+}
+
+
+/* ========================================
+   등록 버튼
+======================================== */
+
+.submitButton {
+  border: 1px solid #5ca665;
+
+  background: #5ca665;
+
+  color: #fff;
+}
+
+
+.submitButton:hover {
+  border-color: #4e9557;
+
+  background: #4e9557;
+}
+
+
+/* ========================================
+   등록 중
+======================================== */
+
+.submitButton:disabled {
+  opacity: 0.6;
+
+  cursor: not-allowed;
+}
+
+
+/* ========================================
+   Tablet
+======================================== */
+
+@media (max-width: 800px) {
+
+  .page {
+    padding: 55px 0 80px;
+  }
+
+
+  .container {
+    width: calc(100% - 36px);
+  }
+
+
+  .form {
+    padding: 30px;
+  }
+
+}
+
+
+/* ========================================
+   Mobile
+======================================== */
+
+@media (max-width: 600px) {
+
+  .page {
+    padding: 45px 0 70px;
+  }
+
+
+  /* Container */
+
+  .container {
+    width: calc(100% - 30px);
+  }
+
+
+  /* Header */
+
+  .pageHeader {
+    align-items: flex-start;
+
+    gap: 20px;
+
+    margin-bottom: 28px;
+  }
+
+
+  .pageHeader h1 {
+    font-size: 27px;
+  }
+
+
+  .pageHeader p {
+    font-size: 12px;
+  }
+
+
+  .listButton {
+    flex-shrink: 0;
+
+    padding: 9px 13px;
+  }
+
+
+  /* Form */
+
+  .form {
+    padding: 25px 20px;
+
+    border-radius: 13px;
+  }
+
+
+  /* Form Group */
+
+  .formGroup {
+    margin-bottom: 22px;
+  }
+
+
+  /* Input */
+
+  .formGroup input {
+    height: 46px;
+  }
+
+
+  /* Textarea */
+
+  .formGroup textarea {
+    min-height: 220px;
+  }
+
+
+  /* Button */
+
+  .buttonArea {
+    flex-direction: column-reverse;
+
+    gap: 8px;
+  }
+
+
+  .cancelButton,
+  .submitButton {
+    width: 100%;
+  }
+
+
+  /* Login Required */
+
+  .loginRequired {
+    min-height: 360px;
+
+    padding: 35px 20px;
+
+    border-radius: 13px;
+  }
+
+
+  .loginRequired h1 {
+    font-size: 21px;
+  }
+
+
+  .loginRequired p {
+    font-size: 12px;
+  }
+
+
+  /* Login Buttons */
+
+  .loginButtonArea {
+    width: 100%;
+
+    flex-direction: column;
+
+    gap: 8px;
+  }
+
+
+  .backButton,
+  .loginButton {
+    width: 100%;
+  }
+
+
+  /* Notice */
+
+  .notice {
+    padding: 11px 12px;
+  }
+
+}

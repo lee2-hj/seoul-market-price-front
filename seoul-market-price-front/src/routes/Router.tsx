@@ -9,6 +9,13 @@ import FindIdPage from "../pages/FindId/FindIdPage";
 
 import PassCallbackPage from "../pages/PassCallback/PassCallbackPage";
 
+/* =========================
+   Q&A
+========================= */
+import QnaPage from "../pages/Qna/QnaPage";
+import QnaWritePage from "../pages/Qna/QnaWritePage";
+import QnaDetailPage from "../pages/Qna/QnaDetailPage";
+
 import PublicRoute from "./PublicRoute";
 
 function Router() {
@@ -79,19 +86,42 @@ function Router() {
 
         {/* =========================
             NICE PASS Callback
-
-            PASS 인증창
-                ↓
-            callback 이동
-                ↓
-            postMessage 전달
-
-            PublicRoute 적용 X
         ========================= */}
 
         <Route path="/pass/callback" element={<PassCallbackPage />} />
 
-        {/* 정의되지 않은 경로(예: /main)로 직접 접근한 경우 "/" 로 리다이렉트한다. */}
+        {/* =================================================
+            Q&A 게시판
+        ================================================= */}
+
+        {/* Q&A 목록
+            로그인 여부와 상관없이 누구나 접근 가능
+        */}
+
+        <Route path="/qna" element={<QnaPage />} />
+
+        {/* =================================================
+            Q&A 게시글 상세
+            예:
+            /qna/1
+            /qna/2
+            /qna/3
+        ================================================= */}
+
+        <Route path="/qna/:id" element={<QnaDetailPage />} />
+
+        {/* =================================================
+            Q&A 글쓰기
+            로그인 여부는 QnaWritePage에서 확인
+        ================================================= */}
+
+        <Route path="/qna/write" element={<QnaWritePage />} />
+
+        {/* =========================
+            정의되지 않은 경로
+            "/" 로 이동
+        ========================= */}
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
