@@ -1,0 +1,639 @@
+/* =========================================================
+   싸.농 게시글 상세 조회
+   BoardDetailPage.module.css
+========================================================= */
+
+/* =========================================================
+   전체 상세 페이지
+========================================================= */
+
+.detailPage {
+    width: 100%;
+    min-height: 100vh;
+
+    padding: 64px 24px 90px;
+
+    background: #f7f9f6;
+    color: #202620;
+
+    font-family:
+        "Pretendard",
+        "Noto Sans KR",
+        Arial,
+        sans-serif;
+}
+
+/*
+ * 상세 페이지 내부의 모든 요소에
+ * border-box 크기 계산 방식을 적용한다.
+ */
+.detailPage *,
+.detailPage *::before,
+.detailPage *::after {
+    box-sizing: border-box;
+}
+
+/*
+ * 버튼이 부모 페이지와 같은 글꼴을 사용하도록 한다.
+ */
+.detailPage button {
+    font: inherit;
+}
+
+/*
+ * 게시글 상세 내용을 중앙에 배치하는 컨테이너이다.
+ */
+.detailContainer {
+    width: min(1180px, 100%);
+    margin: 0 auto;
+}
+
+/* =========================================================
+   페이지 제목 영역
+========================================================= */
+
+.pageHeader {
+    margin-bottom: 38px;
+}
+
+/*
+ * 고객센터 / 일반게시판 경로를 표시한다.
+ */
+.pagePath {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    margin: 0 0 12px;
+
+    color: #7f897d;
+
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.pagePath span {
+    color: #b0b8ae;
+}
+
+/*
+ * 게시글 조회 페이지의 대표 제목이다.
+ */
+.pageTitle {
+    margin: 0;
+
+    color: #263329;
+
+    font-size: 36px;
+    font-weight: 900;
+
+    line-height: 1.25;
+    letter-spacing: -1.5px;
+}
+
+/*
+ * 페이지 제목 아래 안내 문구이다.
+ */
+.pageDescription {
+    margin: 12px 0 0;
+
+    color: #737d72;
+
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+/* =========================================================
+   게시글 상세 영역
+========================================================= */
+
+/*
+ * 게시글 제목, 작성 정보, 본문과 첨부파일을
+ * 감싸는 영역이다.
+ */
+.article {
+    overflow: hidden;
+
+    border: 1px solid #dce4da;
+    border-radius: 12px;
+
+    background: #ffffff;
+
+    box-shadow:
+        0 7px 24px rgba(45, 70, 45, 0.05);
+}
+
+/* =========================================================
+   게시글 제목 영역
+========================================================= */
+
+.titleArea {
+    padding: 28px 32px 24px;
+
+    border-bottom: 1px solid #e5eae3;
+}
+
+/*
+ * 공지사항과 일반 게시글을 구분하는
+ * 공통 배지 모양이다.
+ */
+.noticeBadge,
+.freeBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-width: 66px;
+
+    margin-bottom: 13px;
+    padding: 6px 12px;
+
+    border-radius: 999px;
+
+    font-size: 12px;
+    font-weight: 800;
+}
+
+/*
+ * 공지사항 배지이다.
+ */
+.noticeBadge {
+    background: #fff0c7;
+    color: #bd7b00;
+}
+
+/*
+ * 일반 게시글 배지이다.
+ */
+.freeBadge {
+    background: #e8f4e9;
+    color: #4c8c53;
+}
+
+/*
+ * 게시글 제목이다.
+ *
+ * 제목이 긴 경우에도 화면 밖으로 벗어나지 않도록
+ * 단어 위치와 관계없이 줄바꿈을 허용한다.
+ */
+.postTitle {
+    margin: 0;
+
+    color: #303a30;
+
+    font-size: 25px;
+    font-weight: 800;
+
+    line-height: 1.45;
+    letter-spacing: -0.5px;
+
+    overflow-wrap: anywhere;
+}
+
+/* =========================================================
+   작성 정보 영역
+========================================================= */
+
+/*
+ * 작성자, 작성일, 조회수를 한 줄에 배치한다.
+ */
+.metadata {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+    gap: 12px 32px;
+
+    margin: 0;
+    padding: 17px 32px;
+
+    border-bottom: 1px solid #e5eae3;
+
+    background: #f8faf7;
+}
+
+/*
+ * 각 작성 정보의 이름과 값을 가로로 배치한다.
+ */
+.metadataItem {
+    display: flex;
+    align-items: center;
+
+    gap: 9px;
+}
+
+.metadataItem dt {
+    color: #7a8479;
+
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.metadataItem dd {
+    margin: 0;
+
+    color: #505a50;
+
+    font-size: 13px;
+}
+
+/* =========================================================
+   게시글 본문
+========================================================= */
+
+/*
+ * 게시글 본문 영역이다.
+ *
+ * white-space: pre-wrap을 적용하여 Mock Data에 작성된
+ * 줄바꿈과 공백을 화면에서도 그대로 표시한다.
+ */
+.content {
+    min-height: 330px;
+
+    padding: 36px 32px;
+
+    color: #404940;
+
+    font-size: 16px;
+    line-height: 1.9;
+
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* =========================================================
+   첨부파일 영역
+========================================================= */
+
+.attachmentSection {
+    padding: 20px 32px;
+
+    border-top: 1px solid #e5eae3;
+
+    background: #f8faf7;
+}
+
+/*
+ * 첨부파일 영역 제목이다.
+ */
+.attachmentTitle {
+    margin: 0 0 11px;
+
+    color: #596359;
+
+    font-size: 14px;
+    font-weight: 800;
+}
+
+/*
+ * 첨부파일 한 개를 표시하는 영역이다.
+ */
+.attachmentItem {
+    min-height: 42px;
+
+    padding: 9px 13px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 9px;
+
+    border: 1px solid #dce4da;
+    border-radius: 7px;
+
+    background: #ffffff;
+}
+
+/*
+ * 첨부파일 아이콘이다.
+ */
+.fileIcon {
+    flex-shrink: 0;
+
+    font-size: 15px;
+}
+
+/*
+ * 첨부파일 이름이다.
+ *
+ * 현재는 화면 확인용이므로 다운로드 링크로
+ * 동작하지 않는다.
+ */
+.fileName {
+    min-width: 0;
+
+    overflow: hidden;
+
+    color: #4c8c53;
+
+    font-size: 13px;
+    font-weight: 700;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/*
+ * 현재 파일이 화면 확인용임을 표시한다.
+ */
+.fileGuide {
+    margin-left: auto;
+
+    flex-shrink: 0;
+
+    color: #9aa299;
+
+    font-size: 11px;
+}
+
+/*
+ * 첨부파일이 없는 경우 표시하는 문구이다.
+ */
+.emptyAttachment {
+    margin: 0;
+
+    color: #929b91;
+
+    font-size: 13px;
+}
+
+/* =========================================================
+   게시글 하단 버튼
+========================================================= */
+
+/*
+ * 목록 버튼은 왼쪽에 배치하고
+ * 수정·삭제 버튼은 오른쪽에 배치한다.
+ */
+.buttonArea {
+    margin-top: 24px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 12px;
+}
+
+/*
+ * 작성자 전용 수정·삭제 버튼을 묶는 영역이다.
+ */
+.ownerButtons {
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+}
+
+/*
+ * 목록, 수정, 삭제 버튼의 공통 모양이다.
+ */
+.listButton,
+.editButton,
+.deleteButton {
+    min-width: 92px;
+    height: 42px;
+
+    padding: 0 20px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 7px;
+
+    font-size: 14px;
+    font-weight: 700;
+
+    text-decoration: none;
+
+    cursor: pointer;
+
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease;
+}
+
+/*
+ * 목록 버튼이다.
+ */
+.listButton {
+    border: 1px solid #d5ddd3;
+
+    background: #ffffff;
+    color: #687267;
+}
+
+.listButton:hover {
+    border-color: #bfc9bd;
+    background: #f4f7f3;
+}
+
+/*
+ * 수정 버튼이다.
+ */
+.editButton {
+    border: 1px solid #4c9b55;
+
+    background: #4c9b55;
+    color: #ffffff;
+}
+
+.editButton:hover {
+    background: #438b4b;
+}
+
+/*
+ * 삭제 버튼이다.
+ *
+ * 실제 삭제 기능은 아직 연결하지 않고
+ * 화면에 버튼 모양만 표시한다.
+ */
+.deleteButton {
+    border: 1px solid #d97970;
+
+    background: #ffffff;
+    color: #c5554c;
+}
+
+.deleteButton:hover {
+    background: #fff3f1;
+}
+
+/* =========================================================
+   게시글 없음 화면
+========================================================= */
+
+/*
+ * 존재하지 않는 게시글 번호로 접근했을 때
+ * 표시하는 안내 화면이다.
+ */
+.notFound {
+    width: min(700px, 100%);
+    min-height: 480px;
+
+    margin: 0 auto;
+    padding: 50px 24px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    border: 1px solid #dce4da;
+    border-radius: 12px;
+
+    background: #ffffff;
+
+    text-align: center;
+
+    box-shadow:
+        0 7px 24px rgba(45, 70, 45, 0.05);
+}
+
+/*
+ * 게시글 없음 상태 코드이다.
+ */
+.notFoundCode {
+    margin: 0 0 13px;
+
+    color: #62a967;
+
+    font-size: 54px;
+    font-weight: 900;
+
+    line-height: 1;
+}
+
+/*
+ * 게시글 없음 대표 문구이다.
+ */
+.notFoundTitle {
+    margin: 0;
+
+    color: #303a30;
+
+    font-size: 25px;
+    font-weight: 800;
+}
+
+/*
+ * 게시글 없음 설명 문구이다.
+ */
+.notFoundDescription {
+    margin: 13px 0 26px;
+
+    color: #7c867b;
+
+    font-size: 14px;
+}
+
+/* =========================================================
+   태블릿 화면
+========================================================= */
+
+@media (max-width: 900px) {
+    .detailPage {
+        padding:
+            48px 20px 70px;
+    }
+
+    .pageTitle {
+        font-size: 32px;
+    }
+
+    .postTitle {
+        font-size: 23px;
+    }
+
+    .content {
+        min-height: 280px;
+    }
+}
+
+/* =========================================================
+   모바일 화면
+========================================================= */
+
+@media (max-width: 600px) {
+    .detailPage {
+        padding:
+            36px 16px 56px;
+    }
+
+    .pageHeader {
+        margin-bottom: 28px;
+    }
+
+    .pageTitle {
+        font-size: 28px;
+    }
+
+    .pageDescription {
+        font-size: 14px;
+    }
+
+    .titleArea {
+        padding: 23px 20px 20px;
+    }
+
+    .postTitle {
+        font-size: 21px;
+    }
+
+    /*
+   * 모바일에서는 작성자, 작성일, 조회수를
+   * 위아래로 배치한다.
+   */
+    .metadata {
+        padding: 16px 20px;
+
+        flex-direction: column;
+        align-items: flex-start;
+
+        gap: 9px;
+    }
+
+    .content {
+        min-height: 250px;
+
+        padding: 27px 20px;
+
+        font-size: 15px;
+    }
+
+    .attachmentSection {
+        padding: 18px 20px;
+    }
+
+    .attachmentItem {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .fileGuide {
+        width: 100%;
+
+        margin-left: 24px;
+    }
+
+    /*
+   * 모바일에서는 목록 버튼과 수정·삭제 버튼을
+   * 위아래로 배치한다.
+   */
+    .buttonArea {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .ownerButtons {
+        width: 100%;
+    }
+
+    .listButton,
+    .editButton,
+    .deleteButton {
+        width: 100%;
+    }
+}
