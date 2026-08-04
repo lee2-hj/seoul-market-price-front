@@ -87,6 +87,15 @@ function Router() {
           }
         />
 
+        <Route
+          path="/faq"
+          element={
+            <PublicRoute>
+              <BoardFaq />
+            </PublicRoute>
+          }
+        />
+
         {/* =========================
             NICE PASS Callback
 

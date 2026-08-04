@@ -782,7 +782,7 @@ function MainPage() {
       ===================================================== */}
 
       <section className={styles.serviceSection}>
-        <div className={styles.serviceCard}>
+        <div className={styles.serviceCard} onClick={() => navigate("/board_faq")}>
           <span>❓</span>
 
           <div>
@@ -790,7 +790,7 @@ function MainPage() {
             <p>가격정보와 서비스 이용방법을 확인하세요.</p>
           </div>
 
-          <Link to="/faq">바로가기 →</Link>
+          <Link to="/board_faq">바로가기 →</Link>
         </div>
 
         <div className={styles.serviceCard}>
