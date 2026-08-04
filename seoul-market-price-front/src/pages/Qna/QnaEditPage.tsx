@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
-import styles from "./QnaWritePage.module.css";
+import styles from "./QnaEditPage.module.css";
 
 interface QnaForm {
   title: string;
@@ -10,8 +10,8 @@ interface QnaForm {
 
 interface QnaPost {
   id: number;
-  author: string;
   authorId: string;
+  author: string;
   title: string;
   content: string;
   date: string;
@@ -25,7 +25,7 @@ interface LoginUser {
   role?: string;
 }
 
-/* 로그인 사용자 가져오기 */
+/* 로그인 사용자 정보 */
 
 const getLoginUser = (): LoginUser | null => {
   const storedUser = localStorage.getItem("loginUser");
@@ -49,6 +49,18 @@ const getLoginUser = (): LoginUser | null => {
   }
 };
 
+/* 로그인 사용자 ID */
+
+const getCurrentUserId = (): string => {
+  const user = getLoginUser();
+
+  if (!user) {
+    return "";
+  }
+
+  return user.userId || "";
+};
+
 /* 로그인 사용자 이름 */
 
 const getCurrentUserName = (): string => {
@@ -59,14 +71,6 @@ const getCurrentUserName = (): string => {
   }
 
   return user.name || user.userName || user.userId || "사용자";
-};
-
-/* 로그인 사용자 ID */
-
-const getCurrentUserId = (): string => {
-  const user = getLoginUser();
-
-  return user?.userId || "";
 };
 
 /* 관리자 여부 */
@@ -81,35 +85,93 @@ const isAdminUser = (): boolean => {
   return user.role === "ADMIN" || user.role === "ROLE_ADMIN";
 };
 
-/* Q&A Write Page */
+/* Q&A 게시글 조회 */
 
-function QnaWritePage() {
+const getPosts = (): QnaPost[] => {
+  const storedPosts = localStorage.getItem("qnaPosts");
+
+  if (!storedPosts) {
+    return [];
+  }
+
+  try {
+    const parsedPosts: QnaPost[] = JSON.parse(storedPosts);
+
+    return Array.isArray(parsedPosts) ? parsedPosts : [];
+  } catch (error) {
+    console.error("Q&A 게시글 불러오기 실패:", error);
+
+    return [];
+  }
+};
+
+/* Q&A Edit Page */
+
+function QnaEditPage() {
   const navigate = useNavigate();
-
-  /* 로그인 사용자 */
-
-  const currentUser = getLoginUser();
+  const { id } = useParams();
 
   /* 로그인 상태 */
 
-  const isLoggedIn = !!currentUser;
+  const isLoggedIn = !!localStorage.getItem("loginUser");
 
-  /* 로그인 사용자 ID */
+  /* 현재 로그인 사용자 */
 
-  const currentUserId = getCurrentUserId();
+  const currentUser = useMemo(() => {
+    return getLoginUser();
+  }, []);
+
+  /* 현재 로그인 사용자 ID */
+
+  const currentUserId = useMemo(() => {
+    return getCurrentUserId();
+  }, []);
 
   /* 관리자 여부 */
 
-  const isAdmin = isAdminUser();
+  const isAdmin = useMemo(() => {
+    return isAdminUser();
+  }, []);
+
+  /* 게시글 조회 */
+
+  const post = useMemo(() => {
+    const posts = getPosts();
+
+    return posts.find((item) => item.id === Number(id)) ?? null;
+  }, [id]);
+
+  /* 작성자 여부 */
+
+  const isAuthor = useMemo(() => {
+    if (!post || !currentUserId) {
+      return false;
+    }
+
+    return post.authorId === currentUserId;
+  }, [post, currentUserId]);
+
+  /*
+    수정 권한
+
+    현재 정책:
+    일반 회원 → 본인 게시글만 수정
+    관리자 → 다른 회원 게시글 수정 불가
+
+    관리자가 모든 게시글 수정까지 가능하도록
+    변경하고 싶다면 여기서 isAdmin을 포함하면 된다.
+  */
+
+  const canEdit = isAuthor;
 
   /* 작성 Form */
 
-  const [form, setForm] = useState<QnaForm>({
-    title: "",
-    content: "",
-  });
+  const [form, setForm] = useState<QnaForm>(() => ({
+    title: post?.title ?? "",
+    content: post?.content ?? "",
+  }));
 
-  /* 등록 중 */
+  /* 로딩 */
 
   const [loading, setLoading] = useState(false);
 
@@ -126,7 +188,7 @@ function QnaWritePage() {
     }));
   };
 
-  /* 제목 / 내용 검사 */
+  /* 입력값 검사 */
 
   const validateForm = (): boolean => {
     if (!form.title.trim()) {
@@ -152,19 +214,45 @@ function QnaWritePage() {
     return true;
   };
 
-  /* Q&A 등록 */
+  /* 게시글 수정 */
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    /* 현재 로그인 사용자 확인 */
+    /* 로그인 확인 */
 
-    const loginUser = getLoginUser();
-    const loginUserId = getCurrentUserId();
-
-    if (!loginUser || !loginUserId) {
-      alert("로그인 후 Q&A를 작성할 수 있습니다.");
+    if (!isLoggedIn || !currentUser || !currentUserId) {
+      alert("로그인 후 이용할 수 있습니다.");
       navigate("/login");
+      return;
+    }
+
+    /* 게시글 확인 */
+
+    if (!post) {
+      alert("게시글을 찾을 수 없습니다.");
+      navigate("/qna");
+      return;
+    }
+
+    /*
+      수정 권한 확인
+
+      일반 회원:
+      본인 게시글만 수정 가능
+
+      관리자:
+      현재 정책상 다른 회원 게시글 수정 불가
+    */
+
+    if (!canEdit) {
+      if (isAdmin) {
+        alert("관리자는 현재 다른 회원의 게시글을 수정할 수 없습니다.");
+      } else {
+        alert("본인이 작성한 게시글만 수정할 수 있습니다.");
+      }
+
+      navigate(`/qna/${post.id}`);
       return;
     }
 
@@ -177,86 +265,83 @@ function QnaWritePage() {
     try {
       setLoading(true);
 
-      /* 기존 게시글 불러오기 */
+      /* 최신 게시글 다시 조회 */
 
-      const storedPosts = localStorage.getItem("qnaPosts");
+      const posts = getPosts();
 
-      let existingPosts: QnaPost[] = [];
+      const targetPost = posts.find((item) => item.id === Number(id));
 
-      if (storedPosts) {
-        try {
-          const parsedPosts = JSON.parse(storedPosts);
+      /* 게시글이 삭제된 경우 */
 
-          if (Array.isArray(parsedPosts)) {
-            existingPosts = parsedPosts;
-          }
-        } catch (error) {
-          console.error("기존 Q&A 게시글 불러오기 실패:", error);
-        }
+      if (!targetPost) {
+        alert("게시글을 찾을 수 없습니다.");
+        navigate("/qna");
+        return;
       }
 
-      /* 작성자 정보 */
-
-      const currentUserName =
-        loginUser.name || loginUser.userName || loginUser.userId || "사용자";
-
       /*
-        날짜
+        수정 직전 권한 재확인
 
-        현재 날짜를 YYYY.MM.DD 형식으로 저장한다.
+        localStorage에 있는 최신 데이터를 기준으로
+        작성자 ID를 다시 확인한다.
       */
 
-      const now = new Date();
+      const targetIsAuthor = targetPost.authorId === currentUserId;
 
-      const formattedDate = [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, "0"),
-        String(now.getDate()).padStart(2, "0"),
-      ].join(".");
+      if (!targetIsAuthor) {
+        alert("본인이 작성한 게시글만 수정할 수 있습니다.");
+        navigate(`/qna/${targetPost.id}`);
+        return;
+      }
 
-      /*
-        새 게시글
+      /* 게시글 수정 */
 
-        author
-          → 화면에 표시되는 작성자 이름
+      const updatedPosts = posts.map((item) => {
+        if (item.id !== targetPost.id) {
+          return item;
+        }
 
-        authorId
-          → 게시글 소유자 확인용 ID
+        return {
+          ...item,
 
-        관리자 여부와 관계없이
-        실제 로그인한 사용자의 userId를 저장한다.
+          /*
+            기존 작성자 정보 유지
 
-        따라서 관리자도 본인이 작성한 글이라면
-        일반 회원과 동일하게 본인 게시글로 판별된다.
-      */
+            authorId
+              → 작성자 식별용 ID
 
-      const newPost: QnaPost = {
-        id: Date.now(),
-        author: currentUserName,
-        authorId: loginUserId,
-        title: form.title.trim(),
-        content: form.content.trim(),
-        date: formattedDate,
-        views: 0,
-      };
+            author
+              → 화면에 표시되는 작성자 이름
+          */
 
-      /* 최신 글을 가장 위에 추가 */
+          authorId: item.authorId,
+          author: item.author,
 
-      const updatedPosts: QnaPost[] = [newPost, ...existingPosts];
+          /* 수정 내용 */
+
+          title: form.title.trim(),
+          content: form.content.trim(),
+
+          /* 기존 정보 유지 */
+
+          date: item.date,
+          views: item.views,
+        };
+      });
 
       /* localStorage 저장 */
 
       localStorage.setItem("qnaPosts", JSON.stringify(updatedPosts));
 
-      alert("Q&A가 등록되었습니다.");
+      alert("Q&A가 수정되었습니다.");
 
-      /* Q&A 목록으로 이동 */
+      /* 상세 페이지 이동 */
 
-      navigate("/qna");
+      navigate(`/qna/${targetPost.id}`);
     } catch (error) {
-      console.error("Q&A 등록 실패:", error);
+      console.error("Q&A 수정 실패:", error);
 
-      alert("Q&A 등록에 실패했습니다. 다시 시도해주세요.");
+      alert("Q&A 수정에 실패했습니다. 다시 시도해주세요.");
     } finally {
       setLoading(false);
     }
@@ -272,9 +357,9 @@ function QnaWritePage() {
     navigate("/");
   };
 
-  /* 비로그인 상태 */
+  /* 로그인하지 않은 경우 */
 
-  if (!isLoggedIn || !currentUserId) {
+  if (!isLoggedIn || !currentUser || !currentUserId) {
     return (
       <div className={styles.page}>
         <div className={styles.container}>
@@ -283,7 +368,11 @@ function QnaWritePage() {
 
             <h1>로그인이 필요합니다.</h1>
 
-            <p>Q&A 글쓰기는 로그인한 회원만 이용할 수 있습니다.</p>
+            <p>
+              Q&A 게시글 수정은
+              <br />
+              로그인한 회원만 이용할 수 있습니다.
+            </p>
 
             <div className={styles.loginButtonArea}>
               <button
@@ -308,7 +397,85 @@ function QnaWritePage() {
     );
   }
 
-  /* 로그인 상태 → 작성 화면 */
+  /* 게시글이 없는 경우 */
+
+  if (!post) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.container}>
+          <div className={styles.loginRequired}>
+            <div className={styles.loginIcon}>❓</div>
+
+            <h1>게시글을 찾을 수 없습니다.</h1>
+
+            <p>삭제되었거나 존재하지 않는 게시글입니다.</p>
+
+            <div className={styles.loginButtonArea}>
+              <button
+                type="button"
+                className={styles.backButton}
+                onClick={() => navigate("/qna")}
+              >
+                Q&A 목록으로
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* 다른 사용자가 직접 URL 접근한 경우 */
+
+  if (!isAuthor) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.container}>
+          <div className={styles.loginRequired}>
+            <div className={styles.loginIcon}>🔒</div>
+
+            <h1>수정할 수 없는 게시글입니다.</h1>
+
+            <p>
+              {isAdmin ? (
+                <>
+                  관리자는 다른 회원의 게시글을
+                  <br />
+                  현재 수정할 수 없습니다.
+                </>
+              ) : (
+                <>
+                  본인이 작성한 Q&A 게시글만
+                  <br />
+                  수정할 수 있습니다.
+                </>
+              )}
+            </p>
+
+            <div className={styles.loginButtonArea}>
+              <button
+                type="button"
+                className={styles.backButton}
+                onClick={() => navigate(`/qna/${post.id}`)}
+              >
+                게시글로 돌아가기
+              </button>
+
+              <button
+                type="button"
+                className={styles.loginButton}
+                onClick={() => navigate("/qna")}
+              >
+                Q&A 목록으로
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* 게시글 수정 화면 */
 
   return (
     <div className={styles.page}>
@@ -485,28 +652,28 @@ function QnaWritePage() {
       {/* 본문 */}
 
       <main className={styles.container}>
-        {/* PAGE HEADER */}
+        {/* 페이지 제목 */}
 
-        <div className={styles.pageHeader}>
+        <section className={styles.pageHeader}>
           <div className={styles.headerText}>
             <span className={styles.pageLabel}>Q&A</span>
 
-            <h1>문의하기</h1>
+            <h1>문의 수정</h1>
 
-            <p>싸농 서비스 이용 중 궁금한 내용을 남겨주세요.</p>
+            <p>작성하신 문의 내용을 수정해주세요.</p>
           </div>
 
           <button
             type="button"
             className={styles.listButton}
-            onClick={() => navigate("/qna")}
+            onClick={() => navigate(`/qna/${post.id}`)}
             disabled={loading}
           >
-            목록으로
+            돌아가기
           </button>
-        </div>
+        </section>
 
-        {/* FORM */}
+        {/* 수정 Form */}
 
         <form className={styles.form} onSubmit={handleSubmit}>
           {/* 작성자 */}
@@ -514,14 +681,9 @@ function QnaWritePage() {
           <div className={styles.formGroup}>
             <label htmlFor="author">작성자</label>
 
-            <input
-              id="author"
-              type="text"
-              value={getCurrentUserName()}
-              disabled
-            />
+            <input id="author" type="text" value={post.author} disabled />
 
-            <small>현재 로그인한 회원 정보로 자동 등록됩니다.</small>
+            <small>작성자는 변경할 수 없습니다.</small>
           </div>
 
           {/* 제목 */}
@@ -572,19 +734,19 @@ function QnaWritePage() {
             <span>💡</span>
 
             <p>
-              Q&A 게시글은 작성자 본인이 확인할 수 있으며,
-              <br />
-              관리자는 모든 Q&A 게시글의 상세 내용을 확인할 수 있습니다.
+              본인이 작성한 게시글만 수정할 수 있습니다.
+              {isAdmin &&
+                " 관리자는 모든 Q&A 게시글을 조회하고 삭제할 수 있습니다."}
             </p>
           </div>
 
-          {/* BUTTON */}
+          {/* 버튼 */}
 
           <div className={styles.buttonArea}>
             <button
               type="button"
               className={styles.cancelButton}
-              onClick={() => navigate("/qna")}
+              onClick={() => navigate(`/qna/${post.id}`)}
               disabled={loading}
             >
               취소
@@ -595,7 +757,7 @@ function QnaWritePage() {
               className={styles.submitButton}
               disabled={loading}
             >
-              {loading ? "등록 중..." : "등록하기"}
+              {loading ? "수정 중..." : "수정하기"}
             </button>
           </div>
         </form>
@@ -604,4 +766,4 @@ function QnaWritePage() {
   );
 }
 
-export default QnaWritePage;
+export default QnaEditPage;
