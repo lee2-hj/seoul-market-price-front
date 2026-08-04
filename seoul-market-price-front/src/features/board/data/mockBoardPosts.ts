@@ -88,6 +88,16 @@ export const MOCK_BOARD_POSTS: BoardPost[] = [
         viewCount: 98,
     },
     {
+        id: 14,
+        type: "FREE",
+        title: "이번 주 배 가격",
+        content:
+            "이번 주에 배 가격을 확인해 보니 지난주보다 조금 올라간 것 같습니다.\n다른 지역의 가격도 비슷한지 궁금합니다.",
+        author: "홍길동",
+        createdAt: "2026.08.04",
+        viewCount: 15,
+    },
+    {
         id: 13,
         type: "FREE",
         title: "이번 주 사과 가격",
