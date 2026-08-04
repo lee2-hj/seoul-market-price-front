@@ -482,4 +482,22 @@
     .submitButton {
         width: 100%;
     }
+
+    /*
+ * 수정 또는 삭제 요청을 처리하는 동안
+ * 버튼을 비활성화한다.
+ */
+    .listButton:disabled,
+    .deleteButton:disabled,
+    .cancelButton:disabled,
+    .submitButton:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .submitButton:disabled {
+        background: #9fbea2;
+        border-color: #9fbea2;
+    }
+
 }

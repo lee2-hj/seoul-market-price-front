@@ -1,6 +1,5 @@
 import {
     useEffect,
-    useMemo,
     useState,
 } from "react";
 
@@ -16,8 +15,14 @@ import {
 } from "react-router-dom";
 
 import {
-    findMockBoardPost,
-} from "@/features/board/data/mockBoardPosts";
+    deleteBoardPostApi,
+    getBoardPostApi,
+    updateBoardPostApi,
+} from "@/api/boardApi";
+
+import type {
+    BoardDetail,
+} from "@/features/board/types/board.types";
 
 import styles from "./BoardEditPage.module.css";
 
@@ -32,7 +37,7 @@ const MAX_TITLE_LENGTH = 20;
 const MAX_CONTENT_LENGTH = 5000;
 
 /**
- * 수정 중 임시 저장하는 제목과 본문이다.
+ * 게시글 수정 중 임시 저장할 값이다.
  */
 interface BoardEditDraft {
     title: string;
@@ -40,7 +45,8 @@ interface BoardEditDraft {
 }
 
 /**
- * 상세 화면에서 수정 화면으로 이동할 때 전달하는 상태이다.
+ * 상세 화면에서 수정 화면으로 이동할 때
+ * 전달받는 Router State이다.
  */
 interface BoardEditLocationState {
     /**
@@ -51,34 +57,30 @@ interface BoardEditLocationState {
 }
 
 /**
- * 게시글별 수정 임시저장 Key를 생성한다.
- *
- * 게시글 번호를 포함하여 여러 게시글의 수정 내용이
- * 서로 덮어쓰지 않게 한다.
+ * 게시글 번호별 수정 임시저장 Key를 생성한다.
  */
 function createEditDraftKey(
-    postId: number,
+    boardId: number,
 ): string {
-    return `boardEditDraft:${postId}`;
+    return `boardEditDraft:${boardId}`;
 }
 
 /**
- * sessionStorage에서 수정 중인 내용을 가져온다.
+ * sessionStorage에 저장된 수정 내용을 가져온다.
  *
- * 임시 저장된 내용이 없다면 Mock 게시글의
- * 기존 제목과 본문을 초기값으로 사용한다.
+ * 저장된 내용이 없다면 API로 조회한
+ * 기존 게시글 제목과 본문을 사용한다.
  */
 function loadBoardEditDraft(
-    postId: number,
+    boardId: number,
     initialTitle: string,
     initialContent: string,
 ): BoardEditDraft {
-    const draftKey =
-        createEditDraftKey(postId);
-
     const savedDraft =
         sessionStorage.getItem(
-            draftKey,
+            createEditDraftKey(
+                boardId,
+            ),
         );
 
     if (!savedDraft) {
@@ -120,7 +122,9 @@ function loadBoardEditDraft(
         );
 
         sessionStorage.removeItem(
-            draftKey,
+            createEditDraftKey(
+                boardId,
+            ),
         );
 
         return {
@@ -129,22 +133,18 @@ function loadBoardEditDraft(
         };
     }
 }
-
 /**
- * 일반게시판 게시글 수정 화면이다.
+ * 일반게시판 게시글 수정 페이지이다.
  *
- * 현재는 화면 구성 단계이므로 Mock 게시글의 실제 내용은
- * 변경하지 않는다.
- *
- * 수정 중인 제목과 본문만 sessionStorage에 저장하여
- * 새로고침 후에도 입력값이 유지되도록 한다.
+ * 게시글 조회·수정·삭제를 boardApi를 통해 처리한다.
+ * 환경변수에 따라 Mock 또는 실제 백엔드 API가 선택된다.
  */
 function BoardEditPage() {
     const navigate = useNavigate();
     const location = useLocation();
 
     /**
-     * URL에서 게시글 번호를 가져온다.
+     * URL에서 수정할 게시글 번호를 가져온다.
      *
      * 예:
      * /board/13/edit
@@ -153,21 +153,11 @@ function BoardEditPage() {
         postId: string;
     }>();
 
-    const numericPostId = Number(postId);
+    const numericPostId =
+        Number(postId);
 
     /**
-     * Mock Data에서 수정 화면에 표시할 게시글을 조회한다.
-     */
-    const post = Number.isInteger(
-        numericPostId,
-    )
-        ? findMockBoardPost(
-            numericPostId,
-        )
-        : undefined;
-
-    /**
-     * 이전 게시판 목록 주소를 가져온다.
+     * 게시판 목록에서 전달한 기존 목록 주소이다.
      */
     const locationState =
         location.state as BoardEditLocationState | null;
@@ -176,38 +166,46 @@ function BoardEditPage() {
         locationState?.from ?? "/board";
 
     /**
-     * 게시글이 존재하면 임시저장 내용을 가져오고,
-     * 존재하지 않으면 빈 입력값을 사용한다.
+     * 게시글 상세 조회 API 응답이다.
      */
-    const initialDraft =
-        useMemo(() => {
-            if (!post) {
-                return {
-                    title: "",
-                    content: "",
-                };
-            }
+    const [
+        post,
+        setPost,
+    ] =
+        useState<BoardDetail | null>(
+            null,
+        );
 
-            return loadBoardEditDraft(
-                post.id,
-                post.title,
-                post.content,
-            );
-        }, [post]);
-
+    /**
+     * 수정 Form의 제목과 본문이다.
+     */
     const [
         title,
         setTitle,
-    ] = useState(
-        initialDraft.title,
-    );
+    ] = useState("");
 
     const [
         content,
         setContent,
-    ] = useState(
-        initialDraft.content,
-    );
+    ] = useState("");
+
+    /**
+     * API 및 입력 검증 상태이다.
+     */
+    const [
+        isLoading,
+        setIsLoading,
+    ] = useState(true);
+
+    const [
+        isSubmitting,
+        setIsSubmitting,
+    ] = useState(false);
+
+    const [
+        isDeleting,
+        setIsDeleting,
+    ] = useState(false);
 
     const [
         errorMessage,
@@ -215,11 +213,128 @@ function BoardEditPage() {
     ] = useState("");
 
     /**
-     * 제목이나 본문이 변경되면 게시글별 Key를 사용해
-     * sessionStorage에 임시 저장한다.
+     * 게시글 조회 실패 후 다시 시도할 때 사용하는 값이다.
+     */
+    const [
+        reloadKey,
+        setReloadKey,
+    ] = useState(0);
+
+    /**
+     * 수정할 게시글을 API로 조회한다.
      */
     useEffect(() => {
-        if (!post) {
+        let isCurrentRequest = true;
+
+        const loadBoardPost =
+            async () => {
+                /*
+                 * 게시글 번호가 올바르지 않으면
+                 * API 요청을 보내지 않는다.
+                 */
+                if (
+                    !Number.isInteger(
+                        numericPostId,
+                    ) ||
+                    numericPostId < 1
+                ) {
+                    setPost(null);
+
+                    setErrorMessage(
+                        "올바르지 않은 게시글 번호입니다.",
+                    );
+
+                    setIsLoading(false);
+
+                    return;
+                }
+
+                setIsLoading(true);
+                setErrorMessage("");
+
+                try {
+                    const response =
+                        await getBoardPostApi(
+                            numericPostId,
+                        );
+
+                    if (!isCurrentRequest) {
+                        return;
+                    }
+
+                    /*
+                     * 공지사항은 일반 사용자 수정 화면에서
+                     * 수정할 수 없다.
+                     */
+                    if (
+                        response.type ===
+                        "NOTICE"
+                    ) {
+                        setPost(null);
+
+                        setErrorMessage(
+                            "공지사항은 일반 사용자가 수정할 수 없습니다.",
+                        );
+
+                        return;
+                    }
+
+                    const draft =
+                        loadBoardEditDraft(
+                            response.boardId,
+                            response.title,
+                            response.content,
+                        );
+
+                    setPost(response);
+                    setTitle(draft.title);
+                    setContent(
+                        draft.content,
+                    );
+                } catch (error) {
+                    if (!isCurrentRequest) {
+                        return;
+                    }
+
+                    console.error(
+                        "수정할 게시글 조회 오류",
+                        error,
+                    );
+
+                    setPost(null);
+
+                    setErrorMessage(
+                        "수정할 게시글을 불러오지 못했습니다.",
+                    );
+                } finally {
+                    if (isCurrentRequest) {
+                        setIsLoading(false);
+                    }
+                }
+            };
+
+        void loadBoardPost();
+
+        return () => {
+            isCurrentRequest = false;
+        };
+    }, [
+        numericPostId,
+        reloadKey,
+    ]);
+    /**
+   * 제목이나 본문이 변경되면
+   * sessionStorage에 수정 중인 내용을 임시 저장한다.
+   */
+    useEffect(() => {
+        /*
+         * 게시글 조회가 완료되기 전에는
+         * 빈 입력값을 임시 저장하지 않는다.
+         */
+        if (
+            !post ||
+            isLoading
+        ) {
             return;
         }
 
@@ -230,18 +345,19 @@ function BoardEditPage() {
 
         sessionStorage.setItem(
             createEditDraftKey(
-                post.id,
+                post.boardId,
             ),
             JSON.stringify(draft),
         );
     }, [
         content,
+        isLoading,
         post,
         title,
     ]);
 
     /**
-     * 제목 입력을 최대 20자로 제한한다.
+     * 제목을 최대 20자로 제한한다.
      */
     const handleTitleChange = (
         event: ChangeEvent<HTMLInputElement>,
@@ -257,7 +373,7 @@ function BoardEditPage() {
     };
 
     /**
-     * 본문 입력을 최대 5,000자로 제한한다.
+     * 본문을 최대 5,000자로 제한한다.
      */
     const handleContentChange = (
         event: ChangeEvent<HTMLTextAreaElement>,
@@ -273,39 +389,178 @@ function BoardEditPage() {
     };
 
     /**
-     * 수정 버튼을 눌렀을 때 입력값을 검증한다.
-     *
-     * 현재는 실제 Mock Data를 변경하지 않고
-     * 화면 구현 단계라는 안내만 표시한다.
+     * 수정 버튼을 누르면 입력값을 검증한 후
+     * 게시글 수정 API를 호출한다.
      */
-    const handleSubmit = (
+    const handleSubmit = async (
         event: FormEvent<HTMLFormElement>,
     ) => {
         event.preventDefault();
 
-        if (!title.trim()) {
+        if (!post) {
+            setErrorMessage(
+                "수정할 게시글이 없습니다.",
+            );
+            return;
+        }
+
+        const trimmedTitle =
+            title.trim();
+
+        const trimmedContent =
+            content.trim();
+
+        if (!trimmedTitle) {
             setErrorMessage(
                 "제목을 입력해 주세요.",
             );
             return;
         }
 
-        if (!content.trim()) {
+        if (
+            trimmedTitle.length >
+            MAX_TITLE_LENGTH
+        ) {
+            setErrorMessage(
+                "제목은 20자 이내로 입력해 주세요.",
+            );
+            return;
+        }
+
+        if (!trimmedContent) {
             setErrorMessage(
                 "내용을 입력해 주세요.",
             );
             return;
         }
 
-        alert(
-            "현재는 화면 구현 단계이므로 게시글이 실제로 수정되지는 않습니다.",
-        );
+        /*
+         * 이미 수정 또는 삭제 요청이 처리 중이면
+         * 중복 요청을 보내지 않는다.
+         */
+        if (
+            isSubmitting ||
+            isDeleting
+        ) {
+            return;
+        }
+
+        setIsSubmitting(true);
+        setErrorMessage("");
+
+        try {
+            await updateBoardPostApi(
+                post.boardId,
+                {
+                    title: trimmedTitle,
+                    content:
+                        trimmedContent,
+                },
+            );
+
+            sessionStorage.removeItem(
+                createEditDraftKey(
+                    post.boardId,
+                ),
+            );
+
+            alert(
+                "게시글 수정 요청이 정상적으로 처리되었습니다.",
+            );
+
+            /*
+             * 수정 성공 후 상세 화면으로 이동한다.
+             */
+            navigate(
+                `/board/${post.boardId}`,
+                {
+                    replace: true,
+
+                    state: {
+                        from: listUrl,
+                    },
+                },
+            );
+        } catch (error) {
+            console.error(
+                "게시글 수정 오류",
+                error,
+            );
+
+            setErrorMessage(
+                "게시글을 수정하지 못했습니다.",
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+    /**
+   * 삭제 버튼을 누르면 확인 후
+   * 게시글 삭제 API를 호출한다.
+   */
+    const handleDelete = async () => {
+        if (
+            !post ||
+            isSubmitting ||
+            isDeleting
+        ) {
+            return;
+        }
+
+        const confirmed =
+            window.confirm(
+                "게시글을 삭제하시겠습니까?",
+            );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setIsDeleting(true);
+        setErrorMessage("");
+
+        try {
+            const response =
+                await deleteBoardPostApi(
+                    post.boardId,
+                );
+
+            if (!response.deleted) {
+                throw new Error(
+                    "게시글 삭제에 실패했습니다.",
+                );
+            }
+
+            sessionStorage.removeItem(
+                createEditDraftKey(
+                    post.boardId,
+                ),
+            );
+
+            alert(
+                "게시글 삭제 요청이 정상적으로 처리되었습니다.",
+            );
+
+            navigate(listUrl, {
+                replace: true,
+            });
+        } catch (error) {
+            console.error(
+                "게시글 삭제 오류",
+                error,
+            );
+
+            setErrorMessage(
+                "게시글을 삭제하지 못했습니다.",
+            );
+        } finally {
+            setIsDeleting(false);
+        }
     };
 
     /**
-     * 상세 화면으로 돌아간다.
-     *
-     * 작성 중인 변경사항이 있다면 이동 전에 확인한다.
+     * 수정 중인 내용을 취소하고
+     * 게시글 상세 화면으로 돌아간다.
      */
     const handleBackToDetail = () => {
         if (!post) {
@@ -328,12 +583,12 @@ function BoardEditPage() {
 
         sessionStorage.removeItem(
             createEditDraftKey(
-                post.id,
+                post.boardId,
             ),
         );
 
         navigate(
-            `/board/${post.id}`,
+            `/board/${post.boardId}`,
             {
                 state: {
                     from: listUrl,
@@ -343,13 +598,16 @@ function BoardEditPage() {
     };
 
     /**
-     * 목록 화면으로 이동한다.
+     * 수정 중인 내용을 취소하고
+     * 기존 검색 조건이 포함된 목록으로 돌아간다.
      */
     const handleBackToList = () => {
         if (
             post &&
-            (title !== post.title ||
-                content !== post.content) &&
+            (
+                title !== post.title ||
+                content !== post.content
+            ) &&
             !window.confirm(
                 "수정 중인 내용이 있습니다. 목록으로 이동하시겠습니까?",
             )
@@ -360,7 +618,7 @@ function BoardEditPage() {
         if (post) {
             sessionStorage.removeItem(
                 createEditDraftKey(
-                    post.id,
+                    post.boardId,
                 ),
             );
         }
@@ -369,32 +627,56 @@ function BoardEditPage() {
     };
 
     /**
-     * 삭제 버튼의 화면 동작이다.
-     *
-     * 실제 게시글은 삭제하지 않고 안내 메시지만 표시한다.
+     * 게시글을 불러오는 동안 표시한다.
      */
-    const handleDelete = () => {
-        alert(
-            "현재는 화면 구현 단계이므로 게시글이 실제로 삭제되지는 않습니다.",
+    if (isLoading) {
+        return (
+            <main
+                className={
+                    styles.editPage
+                }
+            >
+                <section
+                    className={
+                        styles.notFound
+                    }
+                >
+                    <p
+                        className={
+                            styles.notFoundDescription
+                        }
+                    >
+                        게시글을 불러오는 중입니다.
+                    </p>
+                </section>
+            </main>
         );
-    };
+    }
 
     /**
-     * 존재하지 않거나 공지사항인 경우
-     * 수정 Form 대신 안내 화면을 표시한다.
-     *
-     * 공지사항 수정은 관리자 화면에서 담당할 예정이다.
+     * 게시글 조회 실패 또는 수정할 수 없는
+     * 게시글 안내 화면이다.
      */
     if (
-        !post ||
-        post.type === "NOTICE"
+        errorMessage &&
+        !post
     ) {
         return (
-            <main className={styles.editPage}>
+            <main
+                className={
+                    styles.editPage
+                }
+            >
                 <section
-                    className={styles.notFound}
+                    className={
+                        styles.notFound
+                    }
                 >
-                    <p className={styles.notFoundCode}>
+                    <p
+                        className={
+                            styles.notFoundCode
+                        }
+                    >
                         안내
                     </p>
 
@@ -411,31 +693,78 @@ function BoardEditPage() {
                             styles.notFoundDescription
                         }
                     >
-                        게시글이 존재하지 않거나 일반 사용자가 수정할 수
-                        없는 게시글입니다.
+                        {errorMessage}
                     </p>
 
-                    <button
-                        type="button"
-                        className={styles.listButton}
-                        onClick={handleBackToList}
+                    <div
+                        className={
+                            styles.leftButtons
+                        }
                     >
-                        게시판 목록
-                    </button>
+                        <button
+                            type="button"
+                            className={
+                                styles.listButton
+                            }
+                            onClick={
+                                handleBackToList
+                            }
+                        >
+                            게시판 목록
+                        </button>
+
+                        <button
+                            type="button"
+                            className={
+                                styles.submitButton
+                            }
+                            onClick={() => {
+                                setReloadKey(
+                                    (
+                                        previous,
+                                    ) =>
+                                        previous + 1,
+                                );
+                            }}
+                        >
+                            다시 시도
+                        </button>
+                    </div>
                 </section>
             </main>
         );
     }
 
+    /*
+     * 오류 메시지는 없지만 게시글이 없는 비정상 상태에서는
+     * 화면을 표시하지 않는다.
+     */
+    if (!post) {
+        return null;
+    }
     return (
-        <main className={styles.editPage}>
-            <div className={styles.editContainer}>
-                {/* ================================================
-            페이지 제목
-        ================================================= */}
+        <main
+            className={
+                styles.editPage
+            }
+        >
+            <div
+                className={
+                    styles.editContainer
+                }
+            >
+                {/* 페이지 제목 */}
 
-                <header className={styles.pageHeader}>
-                    <p className={styles.pagePath}>
+                <header
+                    className={
+                        styles.pageHeader
+                    }
+                >
+                    <p
+                        className={
+                            styles.pagePath
+                        }
+                    >
                         고객센터
                         <span aria-hidden="true">
                             /
@@ -443,31 +772,49 @@ function BoardEditPage() {
                         일반게시판
                     </p>
 
-                    <h1 className={styles.pageTitle}>
+                    <h1
+                        className={
+                            styles.pageTitle
+                        }
+                    >
                         게시글 수정
                     </h1>
 
-                    <p className={styles.pageDescription}>
+                    <p
+                        className={
+                            styles.pageDescription
+                        }
+                    >
                         게시글의 제목과 내용을 수정할 수 있습니다.
                     </p>
                 </header>
 
-                {/* ================================================
-            게시글 수정 Form
-        ================================================= */}
+                {/* 게시글 수정 Form */}
 
                 <form
-                    className={styles.editForm}
+                    className={
+                        styles.editForm
+                    }
                     onSubmit={handleSubmit}
                     noValidate
                 >
                     {/* 제목 */}
 
-                    <div className={styles.field}>
-                        <div className={styles.labelRow}>
+                    <div
+                        className={
+                            styles.field
+                        }
+                    >
+                        <div
+                            className={
+                                styles.labelRow
+                            }
+                        >
                             <label
                                 htmlFor="board-edit-title"
-                                className={styles.label}
+                                className={
+                                    styles.label
+                                }
                             >
                                 제목
                             </label>
@@ -486,7 +833,9 @@ function BoardEditPage() {
                             id="board-edit-title"
                             type="text"
                             value={title}
-                            onChange={handleTitleChange}
+                            onChange={
+                                handleTitleChange
+                            }
                             maxLength={
                                 MAX_TITLE_LENGTH
                             }
@@ -497,16 +846,23 @@ function BoardEditPage() {
                         />
                     </div>
 
-                    {/* 작성 정보 */}
+                    {/* 작성자, 작성일, 조회수 */}
 
-                    <dl className={styles.metadata}>
+                    <dl
+                        className={
+                            styles.metadata
+                        }
+                    >
                         <div
                             className={
                                 styles.metadataItem
                             }
                         >
                             <dt>작성자</dt>
-                            <dd>{post.author}</dd>
+
+                            <dd>
+                                {post.authorName}
+                            </dd>
                         </div>
 
                         <div
@@ -515,7 +871,10 @@ function BoardEditPage() {
                             }
                         >
                             <dt>작성일</dt>
-                            <dd>{post.createdAt}</dd>
+
+                            <dd>
+                                {post.createdAt}
+                            </dd>
                         </div>
 
                         <div
@@ -524,17 +883,30 @@ function BoardEditPage() {
                             }
                         >
                             <dt>조회수</dt>
-                            <dd>{post.viewCount}</dd>
+
+                            <dd>
+                                {post.viewCount}
+                            </dd>
                         </div>
                     </dl>
 
                     {/* 본문 */}
 
-                    <div className={styles.field}>
-                        <div className={styles.labelRow}>
+                    <div
+                        className={
+                            styles.field
+                        }
+                    >
+                        <div
+                            className={
+                                styles.labelRow
+                            }
+                        >
                             <label
                                 htmlFor="board-edit-content"
-                                className={styles.label}
+                                className={
+                                    styles.label
+                                }
                             >
                                 내용
                             </label>
@@ -564,7 +936,7 @@ function BoardEditPage() {
                         />
                     </div>
 
-                    {/* 첨부파일 표시 */}
+                    {/* 첨부파일 */}
 
                     <section
                         className={
@@ -589,8 +961,17 @@ function BoardEditPage() {
                                     styles.attachmentGuide
                                 }
                             >
-                                {post.attachmentName ??
-                                    "첨부파일이 없습니다."}
+                                {post.attachments.length >
+                                    0
+                                    ? post.attachments
+                                        .map(
+                                            (
+                                                attachment,
+                                            ) =>
+                                                attachment.fileName,
+                                        )
+                                        .join(", ")
+                                    : "첨부파일이 없습니다."}
                             </span>
 
                             <button
@@ -612,8 +993,7 @@ function BoardEditPage() {
                             적용할 예정입니다.
                         </p>
                     </section>
-
-                    {/* 입력 오류 */}
+                    {/* 입력 또는 API 오류 메시지 */}
 
                     {errorMessage && (
                         <p
@@ -628,7 +1008,11 @@ function BoardEditPage() {
 
                     {/* 하단 버튼 */}
 
-                    <div className={styles.buttonArea}>
+                    <div
+                        className={
+                            styles.buttonArea
+                        }
+                    >
                         <div
                             className={
                                 styles.leftButtons
@@ -642,6 +1026,10 @@ function BoardEditPage() {
                                 onClick={
                                     handleBackToList
                                 }
+                                disabled={
+                                    isSubmitting ||
+                                    isDeleting
+                                }
                             >
                                 목록
                             </button>
@@ -651,9 +1039,17 @@ function BoardEditPage() {
                                 className={
                                     styles.deleteButton
                                 }
-                                onClick={handleDelete}
+                                onClick={() => {
+                                    void handleDelete();
+                                }}
+                                disabled={
+                                    isSubmitting ||
+                                    isDeleting
+                                }
                             >
-                                삭제
+                                {isDeleting
+                                    ? "삭제 중..."
+                                    : "삭제"}
                             </button>
                         </div>
 
@@ -670,6 +1066,10 @@ function BoardEditPage() {
                                 onClick={
                                     handleBackToDetail
                                 }
+                                disabled={
+                                    isSubmitting ||
+                                    isDeleting
+                                }
                             >
                                 취소
                             </button>
@@ -679,8 +1079,14 @@ function BoardEditPage() {
                                 className={
                                     styles.submitButton
                                 }
+                                disabled={
+                                    isSubmitting ||
+                                    isDeleting
+                                }
                             >
-                                수정
+                                {isSubmitting
+                                    ? "수정 중..."
+                                    : "수정"}
                             </button>
                         </div>
                     </div>

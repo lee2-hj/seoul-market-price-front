@@ -1,6 +1,5 @@
 import {
     useEffect,
-    useMemo,
     useState,
 } from "react";
 
@@ -15,35 +14,25 @@ import {
 } from "react-router-dom";
 
 import {
-    MOCK_BOARD_POSTS,
-} from "@/features/board/data/mockBoardPosts";
+    getBoardPostsApi,
+} from "@/api/boardApi";
 
 import type {
-    BoardPost,
-} from "@/features/board/data/mockBoardPosts";
+    BoardPageResponse,
+    BoardSearchType,
+} from "@/features/board/types/board.types";
 
 import styles from "./BoardPage.module.css";
 
 /**
- * 게시글 검색 종류이다.
- */
-type BoardSearchType =
-    | "title"
-    | "author";
-
-/**
  * 한 페이지에 표시할 일반 게시글 개수이다.
- *
- * 공지사항은 페이지 개수에 포함하지 않고
- * 모든 페이지의 위쪽에 고정하여 표시한다.
+ * 공지사항은 페이지 개수에 포함하지 않는다.
  */
 const PAGE_SIZE = 5;
 
 /**
- * URL에서 전달받은 검색 종류가 올바른 값인지 확인한다.
- *
- * @param value URL에서 가져온 검색 종류
- * @returns 올바른 검색 종류이면 true
+ * URL에서 가져온 검색 종류가
+ * 정상적인 값인지 확인한다.
  */
 function isBoardSearchType(
     value: string | null,
@@ -55,13 +44,8 @@ function isBoardSearchType(
 }
 
 /**
- * URL에서 현재 페이지 번호를 가져온다.
- *
- * 페이지 번호가 없거나 올바르지 않은 경우
- * 첫 번째 페이지인 1을 반환한다.
- *
- * @param value URL에서 가져온 페이지 문자열
- * @returns 사용할 페이지 번호
+ * URL의 페이지 값을 숫자로 변환한다.
+ * 잘못된 값이면 1페이지를 사용한다.
  */
 function parsePageNumber(
     value: string | null,
@@ -79,23 +63,35 @@ function parsePageNumber(
 }
 
 /**
+ * 백엔드 날짜를 화면에 표시할 형식으로 변환한다.
+ */
+function formatBoardDate(
+    createdAt: string,
+): string {
+    const date = new Date(createdAt);
+
+    if (Number.isNaN(date.getTime())) {
+        return createdAt;
+    }
+
+    return new Intl.DateTimeFormat(
+        "ko-KR",
+        {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        },
+    ).format(date);
+}
+/**
  * 일반게시판 목록 페이지이다.
  *
- * 검색 조건과 페이지 번호를 URL Query Parameter에 저장한다.
- *
- * 예:
- *
- * /board?searchType=title&keyword=사과&page=2
- *
- * URL에 목록 상태를 저장하므로 새로고침하거나
- * 상세 화면에서 뒤로 가기를 실행해도 기존 검색 상태를 유지한다.
+ * Mock Data를 직접 사용하지 않고 boardApi를 호출한다.
+ * 환경변수에 따라 Mock 또는 실제 백엔드 API가 선택된다.
  */
 function BoardPage() {
     const location = useLocation();
 
-    /**
-     * URL Query Parameter를 조회하고 변경한다.
-     */
     const [
         searchParams,
         setSearchParams,
@@ -103,40 +99,34 @@ function BoardPage() {
 
     /**
      * URL에 저장된 검색 종류를 가져온다.
-     *
-     * 잘못된 값이 들어온 경우 제목 검색을 기본값으로 사용한다.
      */
+    const searchTypeValue =
+        searchParams.get(
+            "searchType",
+        );
+
     const searchType: BoardSearchType =
         isBoardSearchType(
-            searchParams.get(
-                "searchType",
-            ),
+            searchTypeValue,
         )
-            ? searchParams.get(
-                "searchType",
-            ) as BoardSearchType
+            ? searchTypeValue
             : "title";
 
     /**
-     * URL에 저장된 검색어를 가져온다.
+     * URL에 저장된 검색어와 페이지를 가져온다.
      */
     const keyword =
-        searchParams.get("keyword")?.trim() ??
-        "";
+        searchParams
+            .get("keyword")
+            ?.trim() ?? "";
 
-    /**
-     * URL에 저장된 현재 페이지 번호를 가져온다.
-     */
     const requestedPage =
         parsePageNumber(
             searchParams.get("page"),
         );
 
     /**
-     * 검색 입력창에서 변경 중인 검색 종류이다.
-     *
-     * 사용자가 검색 버튼을 누르기 전까지는
-     * URL Query Parameter를 바로 변경하지 않는다.
+     * 검색 입력창에서 작성 중인 값이다.
      */
     const [
         inputSearchType,
@@ -145,175 +135,127 @@ function BoardPage() {
         searchType,
     );
 
-    /**
-     * 검색 입력창에서 작성 중인 검색어이다.
-     */
     const [
         inputKeyword,
         setInputKeyword,
     ] = useState(keyword);
 
     /**
-     * 브라우저 뒤로 가기나 앞으로 가기로 URL이 변경되면
-     * 검색 입력창도 현재 URL 상태에 맞게 변경한다.
+     * 게시판 API 응답과 화면 상태이다.
+     */
+    const [
+        boardPage,
+        setBoardPage,
+    ] =
+        useState<BoardPageResponse | null>(
+            null,
+        );
+
+    const [
+        isLoading,
+        setIsLoading,
+    ] = useState(true);
+
+    const [
+        errorMessage,
+        setErrorMessage,
+    ] = useState("");
+
+    /**
+     * 다시 시도 버튼을 눌렀을 때
+     * API를 재호출하기 위한 값이다.
+     */
+    const [
+        reloadKey,
+        setReloadKey,
+    ] = useState(0);
+
+    /**
+     * 뒤로 가기 등으로 URL이 변경되면
+     * 검색 입력창도 현재 URL에 맞게 변경한다.
      */
     useEffect(() => {
-        setInputSearchType(searchType);
-        setInputKeyword(keyword);
+        setInputSearchType(
+            searchType,
+        );
+
+        setInputKeyword(
+            keyword,
+        );
     }, [
         keyword,
         searchType,
     ]);
-
     /**
-     * 현재 검색 조건에 맞는 게시글만 조회한다.
-     */
-    const filteredPosts =
-        useMemo(() => {
-            /*
-             * 검색어가 없다면 전체 게시글을 반환한다.
-             */
-            if (!keyword) {
-                return MOCK_BOARD_POSTS;
-            }
+   * 검색 조건이나 페이지 번호가 변경되면
+   * 게시글 목록 API를 다시 호출한다.
+   */
+    useEffect(() => {
+        let isCurrentRequest = true;
 
-            const normalizedKeyword =
-                keyword.toLocaleLowerCase();
+        const loadBoardPosts =
+            async () => {
+                setIsLoading(true);
+                setErrorMessage("");
 
-            return MOCK_BOARD_POSTS.filter(
-                (post) => {
-                    const targetValue =
-                        searchType === "title"
-                            ? post.title
-                            : post.author;
+                try {
+                    const response =
+                        await getBoardPostsApi({
+                            searchType,
+                            keyword,
+                            page: requestedPage,
+                            size: PAGE_SIZE,
+                        });
 
-                    return targetValue
-                        .toLocaleLowerCase()
-                        .includes(
-                            normalizedKeyword,
-                        );
-                },
-            );
-        }, [
-            keyword,
-            searchType,
-        ]);
+                    /*
+                     * 화면이 이동된 후 완료된 이전 요청은
+                     * 현재 화면 상태에 반영하지 않는다.
+                     */
+                    if (!isCurrentRequest) {
+                        return;
+                    }
 
-    /**
-     * 검색 결과 중 공지사항만 분리한다.
-     *
-     * 공지사항은 일반 게시글 페이지 번호와 관계없이
-     * 게시판 목록 위쪽에 고정한다.
-     */
-    const noticePosts =
-        useMemo(
-            () =>
-                filteredPosts.filter(
-                    (post) =>
-                        post.type === "NOTICE",
-                ),
-            [filteredPosts],
-        );
+                    setBoardPage(response);
+                } catch (error) {
+                    if (!isCurrentRequest) {
+                        return;
+                    }
 
-    /**
-     * 검색 결과 중 일반 게시글만 분리한다.
-     */
-    const freePosts =
-        useMemo(
-            () =>
-                filteredPosts.filter(
-                    (post) =>
-                        post.type === "FREE",
-                ),
-            [filteredPosts],
-        );
+                    console.error(
+                        "게시글 목록 조회 오류",
+                        error,
+                    );
 
-    /**
-     * 일반 게시글 개수를 기준으로 전체 페이지 수를 계산한다.
-     *
-     * 게시글이 없는 경우에도 첫 번째 페이지를 표시하기 위해
-     * 최소 페이지 수를 1로 지정한다.
-     */
-    const totalPages = Math.max(
-        1,
-        Math.ceil(
-            freePosts.length /
-            PAGE_SIZE,
-        ),
-    );
+                    setBoardPage(null);
 
-    /**
-     * URL에 전체 페이지 수보다 큰 페이지 번호가 들어오면
-     * 마지막 페이지를 사용한다.
-     */
-    const currentPage = Math.min(
+                    setErrorMessage(
+                        "게시글 목록을 불러오지 못했습니다.",
+                    );
+                } finally {
+                    if (isCurrentRequest) {
+                        setIsLoading(false);
+                    }
+                }
+            };
+
+        void loadBoardPosts();
+
+        /*
+         * 검색 조건이 변경되거나 화면이 사라지면
+         * 이전 요청의 상태 반영을 중단한다.
+         */
+        return () => {
+            isCurrentRequest = false;
+        };
+    }, [
+        keyword,
+        reloadKey,
         requestedPage,
-        totalPages,
-    );
+        searchType,
+    ]);
 
     /**
-     * 현재 페이지에 표시할 일반 게시글을 계산한다.
-     */
-    const pagedFreePosts =
-        useMemo(() => {
-            const startIndex =
-                (currentPage - 1) *
-                PAGE_SIZE;
-
-            return freePosts.slice(
-                startIndex,
-                startIndex +
-                PAGE_SIZE,
-            );
-        }, [
-            currentPage,
-            freePosts,
-        ]);
-
-    /**
-     * 공지사항과 현재 페이지의 일반 게시글을 합친다.
-     *
-     * 공지사항을 먼저 배치하여 항상 목록 위쪽에 표시한다.
-     */
-    const visiblePosts =
-        useMemo(
-            () => [
-                ...noticePosts,
-                ...pagedFreePosts,
-            ],
-            [
-                noticePosts,
-                pagedFreePosts,
-            ],
-        );
-
-    /**
-     * 화면에 표시할 페이지 번호 배열을 생성한다.
-     *
-     * 현재는 전체 페이지 번호를 모두 표시한다.
-     */
-    const pageNumbers =
-        useMemo(
-            () =>
-                Array.from(
-                    {
-                        length: totalPages,
-                    },
-                    (_, index) =>
-                        index + 1,
-                ),
-            [totalPages],
-        );
-
-    /**
-     * URL Query Parameter를 변경한다.
-     *
-     * 기본값인 경우에는 URL을 간결하게 유지하기 위해
-     * 해당 Query Parameter를 추가하지 않는다.
-     *
-     * @param nextSearchType 적용할 검색 종류
-     * @param nextKeyword 적용할 검색어
-     * @param nextPage 이동할 페이지 번호
+     * 검색 조건과 페이지를 URL Query Parameter에 저장한다.
      */
     const updateSearchParams = (
         nextSearchType: BoardSearchType,
@@ -326,6 +268,9 @@ function BoardPage() {
         const trimmedKeyword =
             nextKeyword.trim();
 
+        /*
+         * 기본 검색 종류인 title은 URL에서 생략한다.
+         */
         if (
             nextSearchType !== "title"
         ) {
@@ -342,6 +287,9 @@ function BoardPage() {
             );
         }
 
+        /*
+         * 첫 번째 페이지는 URL에서 생략한다.
+         */
         if (nextPage > 1) {
             nextParams.set(
                 "page",
@@ -353,9 +301,7 @@ function BoardPage() {
     };
 
     /**
-     * 검색 Form을 제출한다.
-     *
-     * 새로운 검색을 시작하면 첫 번째 페이지로 이동한다.
+     * 검색 버튼을 누르면 첫 번째 페이지부터 검색한다.
      */
     const handleSearch = (
         event: FormEvent<HTMLFormElement>,
@@ -368,12 +314,14 @@ function BoardPage() {
             1,
         );
     };
-
     /**
-     * 검색 조건과 페이지 번호를 모두 초기화한다.
-     */
+   * 검색 조건과 페이지 번호를 초기화한다.
+   */
     const handleReset = () => {
-        setInputSearchType("title");
+        setInputSearchType(
+            "title",
+        );
+
         setInputKeyword("");
 
         setSearchParams(
@@ -382,15 +330,19 @@ function BoardPage() {
     };
 
     /**
+     * 현재 검색 조건을 유지하면서
      * 선택한 페이지로 이동한다.
-     *
-     * 현재 검색 종류와 검색어는 그대로 유지한다.
-     *
-     * @param page 이동할 페이지 번호
      */
     const handlePageChange = (
         page: number,
     ) => {
+        const totalPages =
+            boardPage?.totalPages ?? 1;
+
+        const currentPage =
+            boardPage?.page ??
+            requestedPage;
+
         if (
             page < 1 ||
             page > totalPages ||
@@ -407,24 +359,80 @@ function BoardPage() {
     };
 
     /**
-     * 상세 화면에서 다시 목록으로 돌아올 때 사용할
-     * 현재 목록 주소이다.
-     *
-     * 검색 조건과 페이지 번호가 모두 포함된다.
+     * API 응답에서 현재 화면에 사용할 값을 가져온다.
+     */
+    const currentPage =
+        boardPage?.page ??
+        requestedPage;
+
+    const totalPages =
+        boardPage?.totalPages ?? 1;
+
+    const notices =
+        boardPage?.notices ?? [];
+
+    const items =
+        boardPage?.items ?? [];
+
+    /**
+     * 공지사항을 일반 게시글보다 먼저 배치한다.
+     */
+    const visiblePosts = [
+        ...notices,
+        ...items,
+    ];
+
+    /**
+     * 공지사항과 일반 게시글을 포함한
+     * 현재 검색 결과 개수이다.
+     */
+    const totalResultCount =
+        (boardPage?.totalElements ??
+            0) + notices.length;
+
+    /**
+     * 전체 페이지 번호 배열을 생성한다.
+     */
+    const pageNumbers =
+        Array.from(
+            {
+                length: totalPages,
+            },
+            (_, index) =>
+                index + 1,
+        );
+
+    /**
+     * 상세·글쓰기 화면에서 목록으로 돌아올 때 사용할
+     * 검색 조건과 페이지가 포함된 현재 주소이다.
      */
     const currentListUrl =
         location.pathname +
         location.search;
 
     return (
-        <main className={styles.boardPage}>
-            <div className={styles.boardContainer}>
-                {/* ================================================
-            페이지 제목 영역
-        ================================================= */}
+        <main
+            className={
+                styles.boardPage
+            }
+        >
+            <div
+                className={
+                    styles.boardContainer
+                }
+            >
+                {/* 페이지 제목 */}
 
-                <header className={styles.pageHeader}>
-                    <p className={styles.pagePath}>
+                <header
+                    className={
+                        styles.pageHeader
+                    }
+                >
+                    <p
+                        className={
+                            styles.pagePath
+                        }
+                    >
                         고객센터
                         <span aria-hidden="true">
                             /
@@ -432,22 +440,30 @@ function BoardPage() {
                         일반게시판
                     </p>
 
-                    <h1 className={styles.pageTitle}>
+                    <h1
+                        className={
+                            styles.pageTitle
+                        }
+                    >
                         일반게시판
                     </h1>
 
-                    <p className={styles.pageDescription}>
+                    <p
+                        className={
+                            styles.pageDescription
+                        }
+                    >
                         농수산물 가격정보와 싸농 서비스에 관한 이야기를
                         자유롭게 나누는 공간입니다.
                     </p>
                 </header>
 
-                {/* ================================================
-            게시판 이동 메뉴
-        ================================================= */}
+                {/* 게시판 이동 탭 */}
 
                 <nav
-                    className={styles.boardTabs}
+                    className={
+                        styles.boardTabs
+                    }
                     aria-label="게시판 메뉴"
                 >
                     <span
@@ -456,21 +472,28 @@ function BoardPage() {
                         일반게시판
                     </span>
 
-                    <span className={styles.tabItem}>
+                    <span
+                        className={
+                            styles.tabItem
+                        }
+                    >
                         Q&amp;A 게시판
                     </span>
 
-                    <span className={styles.tabItem}>
+                    <span
+                        className={
+                            styles.tabItem
+                        }
+                    >
                         자주 묻는 질문
                     </span>
                 </nav>
-
-                {/* ================================================
-            게시글 검색 영역
-        ================================================= */}
+                {/* 게시글 검색 Form */}
 
                 <form
-                    className={styles.searchSection}
+                    className={
+                        styles.searchSection
+                    }
                     onSubmit={handleSearch}
                 >
                     <label
@@ -482,7 +505,9 @@ function BoardPage() {
 
                     <select
                         id="board-search-type"
-                        className={styles.searchSelect}
+                        className={
+                            styles.searchSelect
+                        }
                         value={inputSearchType}
                         onChange={(event) => {
                             setInputSearchType(
@@ -510,7 +535,9 @@ function BoardPage() {
                     <input
                         id="board-search-keyword"
                         type="search"
-                        className={styles.searchInput}
+                        className={
+                            styles.searchInput
+                        }
                         value={inputKeyword}
                         onChange={(event) => {
                             setInputKeyword(
@@ -522,65 +549,112 @@ function BoardPage() {
 
                     <button
                         type="submit"
-                        className={styles.searchButton}
+                        className={
+                            styles.searchButton
+                        }
                     >
                         검색
                     </button>
 
                     <button
                         type="button"
-                        className={styles.resetButton}
+                        className={
+                            styles.resetButton
+                        }
                         onClick={handleReset}
                     >
                         초기화
                     </button>
                 </form>
 
-                {/* ================================================
-            게시글 목록 영역
-        ================================================= */}
+                {/* 게시글 목록 */}
 
-                <section className={styles.listSection}>
-                    <div className={styles.listInformation}>
+                <section
+                    className={
+                        styles.listSection
+                    }
+                >
+                    <div
+                        className={
+                            styles.listInformation
+                        }
+                    >
                         <p>
                             검색 결과{" "}
                             <strong>
-                                {filteredPosts.length}
+                                {totalResultCount}
                             </strong>
                             건
                         </p>
 
-                        {/*
-                        * 현재 검색 조건과 페이지 번호가 포함된 목록 주소를
-                        * Router State로 전달한다.
-                        *
-                        * 글쓰기 화면에서 목록 버튼을 누르면
-                        * 이전 게시판 상태로 돌아갈 수 있다.
-                        */}
                         <Link
                             to="/board/write"
                             state={{
-                                from: currentListUrl,
+                                from:
+                                    currentListUrl,
                             }}
-                            className={styles.writeButton}
+                            className={
+                                styles.writeButton
+                            }
                         >
                             글쓰기
                         </Link>
                     </div>
 
-                    <div className={styles.tableWrapper}>
-                        <table className={styles.boardTable}>
-                            <caption className={styles.srOnly}>
+                    <div
+                        className={
+                            styles.tableWrapper
+                        }
+                    >
+                        <table
+                            className={
+                                styles.boardTable
+                            }
+                        >
+                            <caption
+                                className={
+                                    styles.srOnly
+                                }
+                            >
                                 일반게시판 게시글 목록
                             </caption>
 
                             <colgroup>
-                                <col className={styles.numberColumn} />
-                                <col className={styles.typeColumn} />
-                                <col className={styles.titleColumn} />
-                                <col className={styles.authorColumn} />
-                                <col className={styles.dateColumn} />
-                                <col className={styles.viewColumn} />
+                                <col
+                                    className={
+                                        styles.numberColumn
+                                    }
+                                />
+
+                                <col
+                                    className={
+                                        styles.typeColumn
+                                    }
+                                />
+
+                                <col
+                                    className={
+                                        styles.titleColumn
+                                    }
+                                />
+
+                                <col
+                                    className={
+                                        styles.authorColumn
+                                    }
+                                />
+
+                                <col
+                                    className={
+                                        styles.dateColumn
+                                    }
+                                />
+
+                                <col
+                                    className={
+                                        styles.viewColumn
+                                    }
+                                />
                             </colgroup>
 
                             <thead>
@@ -612,19 +686,89 @@ function BoardPage() {
                             </thead>
 
                             <tbody>
-                                {visiblePosts.length >
-                                    0 ? (
+                                {/* 게시글 로딩 상태 */}
+
+                                {isLoading && (
+                                    <tr>
+                                        <td
+                                            colSpan={6}
+                                            className={
+                                                styles.emptyRow
+                                            }
+                                        >
+                                            게시글을 불러오는 중입니다.
+                                        </td>
+                                    </tr>
+                                )}
+
+                                {/* 게시글 조회 실패 */}
+
+                                {!isLoading &&
+                                    errorMessage && (
+                                        <tr>
+                                            <td
+                                                colSpan={6}
+                                                className={
+                                                    styles.emptyRow
+                                                }
+                                            >
+                                                <p>
+                                                    {errorMessage}
+                                                </p>
+
+                                                <button
+                                                    type="button"
+                                                    className={
+                                                        styles.resetButton
+                                                    }
+                                                    onClick={() => {
+                                                        setReloadKey(
+                                                            (
+                                                                previous,
+                                                            ) =>
+                                                                previous +
+                                                                1,
+                                                        );
+                                                    }}
+                                                >
+                                                    다시 시도
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    )}
+                                {/* 검색 결과 없음 */}
+
+                                {!isLoading &&
+                                    !errorMessage &&
+                                    visiblePosts.length ===
+                                    0 && (
+                                        <tr>
+                                            <td
+                                                colSpan={6}
+                                                className={
+                                                    styles.emptyRow
+                                                }
+                                            >
+                                                검색 결과가 없습니다.
+                                            </td>
+                                        </tr>
+                                    )}
+
+                                {/* 게시글 목록 출력 */}
+
+                                {!isLoading &&
+                                    !errorMessage &&
                                     visiblePosts.map(
-                                        (
-                                            post: BoardPost,
-                                        ) => {
+                                        (post) => {
                                             const isNotice =
                                                 post.type ===
                                                 "NOTICE";
 
                                             return (
                                                 <tr
-                                                    key={post.id}
+                                                    key={
+                                                        post.boardId
+                                                    }
                                                     className={
                                                         isNotice
                                                             ? styles.noticeRow
@@ -634,7 +778,7 @@ function BoardPage() {
                                                     <td>
                                                         {isNotice
                                                             ? "공지"
-                                                            : post.id}
+                                                            : post.boardId}
                                                     </td>
 
                                                     <td>
@@ -656,12 +800,8 @@ function BoardPage() {
                                                             styles.titleCell
                                                         }
                                                     >
-                                                        {/*
-                             * 상세 화면으로 이동할 때 현재 목록 주소를
-                             * Router State로 함께 전달한다.
-                             */}
                                                         <Link
-                                                            to={`/board/${post.id}`}
+                                                            to={`/board/${post.boardId}`}
                                                             state={{
                                                                 from:
                                                                     currentListUrl,
@@ -678,13 +818,15 @@ function BoardPage() {
                                                     </td>
 
                                                     <td>
-                                                        {post.author}
+                                                        {
+                                                            post.authorName
+                                                        }
                                                     </td>
 
                                                     <td>
-                                                        {
-                                                            post.createdAt
-                                                        }
+                                                        {formatBoardDate(
+                                                            post.createdAt,
+                                                        )}
                                                     </td>
 
                                                     <td>
@@ -695,92 +837,89 @@ function BoardPage() {
                                                 </tr>
                                             );
                                         },
-                                    )
-                                ) : (
-                                    <tr>
-                                        <td
-                                            colSpan={6}
-                                            className={
-                                                styles.emptyRow
-                                            }
-                                        >
-                                            검색 결과가 없습니다.
-                                        </td>
-                                    </tr>
-                                )}
+                                    )}
                             </tbody>
                         </table>
                     </div>
 
-                    {/* ==============================================
-              페이지 이동 영역
-          =============================================== */}
+                    {/* 페이지 이동 */}
 
-                    <nav
-                        className={styles.pagination}
-                        aria-label="게시글 페이지 이동"
-                    >
-                        <button
-                            type="button"
-                            className={styles.pageArrow}
-                            aria-label="이전 페이지"
-                            disabled={
-                                currentPage === 1
-                            }
-                            onClick={() =>
-                                handlePageChange(
-                                    currentPage - 1,
-                                )
-                            }
-                        >
-                            &lt;
-                        </button>
-
-                        {pageNumbers.map(
-                            (pageNumber) => (
+                    {!isLoading &&
+                        !errorMessage && (
+                            <nav
+                                className={
+                                    styles.pagination
+                                }
+                                aria-label="게시글 페이지 이동"
+                            >
                                 <button
-                                    key={pageNumber}
                                     type="button"
                                     className={
-                                        pageNumber ===
-                                            currentPage
-                                            ? `${styles.pageButton} ${styles.currentPage}`
-                                            : styles.pageButton
+                                        styles.pageArrow
                                     }
-                                    aria-current={
-                                        pageNumber ===
-                                            currentPage
-                                            ? "page"
-                                            : undefined
+                                    aria-label="이전 페이지"
+                                    disabled={
+                                        currentPage === 1
                                     }
-                                    onClick={() =>
+                                    onClick={() => {
                                         handlePageChange(
-                                            pageNumber,
-                                        )
-                                    }
+                                            currentPage - 1,
+                                        );
+                                    }}
                                 >
-                                    {pageNumber}
+                                    &lt;
                                 </button>
-                            ),
-                        )}
 
-                        <button
-                            type="button"
-                            className={styles.pageArrow}
-                            aria-label="다음 페이지"
-                            disabled={
-                                currentPage ===
-                                totalPages
-                            }
-                            onClick={() =>
-                                handlePageChange(
-                                    currentPage + 1,
-                                )
-                            }
-                        >
-                            &gt;
-                        </button>
-                    </nav>
+                                {pageNumbers.map(
+                                    (pageNumber) => (
+                                        <button
+                                            key={
+                                                pageNumber
+                                            }
+                                            type="button"
+                                            className={
+                                                pageNumber ===
+                                                    currentPage
+                                                    ? `${styles.pageButton} ${styles.currentPage}`
+                                                    : styles.pageButton
+                                            }
+                                            aria-current={
+                                                pageNumber ===
+                                                    currentPage
+                                                    ? "page"
+                                                    : undefined
+                                            }
+                                            onClick={() => {
+                                                handlePageChange(
+                                                    pageNumber,
+                                                );
+                                            }}
+                                        >
+                                            {pageNumber}
+                                        </button>
+                                    ),
+                                )}
+
+                                <button
+                                    type="button"
+                                    className={
+                                        styles.pageArrow
+                                    }
+                                    aria-label="다음 페이지"
+                                    disabled={
+                                        currentPage ===
+                                        totalPages
+                                    }
+                                    onClick={() => {
+                                        handlePageChange(
+                                            currentPage + 1,
+                                        );
+                                    }}
+                                >
+                                    &gt;
+                                </button>
+                            </nav>
+                        )}
                 </section>
             </div>
         </main>

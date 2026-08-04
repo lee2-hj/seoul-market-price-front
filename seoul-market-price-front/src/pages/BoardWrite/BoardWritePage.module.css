@@ -417,4 +417,14 @@
     .submitButton {
         width: 100%;
     }
+
+    /*
+ * 게시글 등록 처리 중에는 버튼을 비활성화한다.
+ */
+    .submitButton:disabled {
+        background: #9fbea2;
+        border-color: #9fbea2;
+        cursor: not-allowed;
+    }
+
 }

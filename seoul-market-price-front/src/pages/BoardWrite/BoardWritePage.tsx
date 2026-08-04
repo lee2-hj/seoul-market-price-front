@@ -18,6 +18,10 @@ import {
     getLoginUser,
 } from "@/features/auth/utils/auth";
 
+import {
+    createBoardPostApi,
+} from "@/api/boardApi";
+
 import styles from "./BoardWritePage.module.css";
 
 /**
@@ -188,6 +192,16 @@ function BoardWritePage() {
     ] = useState("");
 
     /**
+ * 게시글 등록 API가 처리 중인지 나타낸다.
+ *
+ * 중복으로 등록 버튼을 누르는 것을 방지할 때 사용한다.
+ */
+    const [
+        isSubmitting,
+        setIsSubmitting,
+    ] = useState(false);
+
+    /**
      * 작성 화면을 처음 열었을 때 표시할 작성일이다.
      *
      * 화면이 다시 렌더링되더라도 날짜 계산을 반복하지 않도록
@@ -260,12 +274,10 @@ function BoardWritePage() {
     };
 
     /**
-     * 등록 버튼을 눌렀을 때 입력값을 검증한다.
-     *
-     * 현재 작업 범위에서는 실제 게시글 등록 API를 호출하지 않고
-     * 화면단 구현이 완료되었다는 안내만 표시한다.
-     */
-    const handleSubmit = (
+ * 제목과 본문을 검증한 후
+ * 게시글 등록 API를 호출한다.
+ */
+    const handleSubmit = async (
         event: FormEvent<HTMLFormElement>,
     ) => {
         event.preventDefault();
@@ -300,9 +312,56 @@ function BoardWritePage() {
             return;
         }
 
-        alert(
-            "현재는 화면 구현 단계이므로 게시글이 실제로 등록되지는 않습니다.",
-        );
+        /*
+         * 이미 등록 요청을 처리하고 있다면
+         * 중복 요청을 보내지 않는다.
+         */
+        if (isSubmitting) {
+            return;
+        }
+
+        setIsSubmitting(true);
+        setErrorMessage("");
+
+        try {
+            await createBoardPostApi({
+                title: trimmedTitle,
+                content: trimmedContent,
+            });
+
+            /*
+             * 등록이 성공하면 임시 저장 내용을 삭제한다.
+             */
+            sessionStorage.removeItem(
+                BOARD_WRITE_DRAFT_KEY,
+            );
+
+            alert(
+                "게시글 등록 요청이 정상적으로 처리되었습니다.",
+            );
+
+            /*
+             * 현재 Mock 모드는 게시글을 실제로 저장하지 않으므로
+             * 등록 후 기존 게시판 목록으로 이동한다.
+             *
+             * 실제 백엔드 모드에서는 목록을 다시 조회하여
+             * 방금 등록한 게시글을 확인할 수 있다.
+             */
+            navigate(listUrl, {
+                replace: true,
+            });
+        } catch (error) {
+            console.error(
+                "게시글 등록 오류",
+                error,
+            );
+
+            setErrorMessage(
+                "게시글을 등록하지 못했습니다.",
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     /**
@@ -567,8 +626,11 @@ function BoardWritePage() {
                             className={
                                 styles.submitButton
                             }
+                            disabled={isSubmitting}
                         >
-                            등록
+                            {isSubmitting
+                                ? "등록 중..."
+                                : "등록"}
                         </button>
                     </div>
                 </form>
