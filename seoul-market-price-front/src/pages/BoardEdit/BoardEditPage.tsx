@@ -267,7 +267,7 @@ function BoardEditPage() {
                      * 수정할 수 없다.
                      */
                     if (
-                        response.type ===
+                        response.postType ===
                         "NOTICE"
                     ) {
                         setPost(null);

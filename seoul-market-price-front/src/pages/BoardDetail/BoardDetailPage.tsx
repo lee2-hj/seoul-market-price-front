@@ -299,7 +299,7 @@ function BoardDetailPage() {
    * 공지사항 여부를 확인한다.
    */
     const isNotice =
-        post.type === "NOTICE";
+        post.postType === "NOTICE";
 
     return (
         <main

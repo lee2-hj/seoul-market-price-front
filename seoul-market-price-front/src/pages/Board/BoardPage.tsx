@@ -26,9 +26,10 @@ import styles from "./BoardPage.module.css";
 
 /**
  * 한 페이지에 표시할 일반 게시글 개수이다.
- * 공지사항은 페이지 개수에 포함하지 않는다.
+ *
+ * 공지사항은 이 개수에 포함하지 않는다.
  */
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 8;
 
 /**
  * URL에서 가져온 검색 종류가
@@ -45,6 +46,7 @@ function isBoardSearchType(
 
 /**
  * URL의 페이지 값을 숫자로 변환한다.
+ *
  * 잘못된 값이면 1페이지를 사용한다.
  */
 function parsePageNumber(
@@ -83,8 +85,9 @@ function formatBoardDate(
         },
     ).format(date);
 }
+
 /**
- * 일반게시판 목록 페이지이다.
+ * 게시판 목록 페이지이다.
  *
  * Mock Data를 직접 사용하지 않고 boardApi를 호출한다.
  * 환경변수에 따라 Mock 또는 실제 백엔드 API가 선택된다.
@@ -186,10 +189,11 @@ function BoardPage() {
         keyword,
         searchType,
     ]);
+
     /**
-   * 검색 조건이나 페이지 번호가 변경되면
-   * 게시글 목록 API를 다시 호출한다.
-   */
+     * 검색 조건이나 페이지 번호가 변경되면
+     * 게시글 목록 API를 다시 호출한다.
+     */
     useEffect(() => {
         let isCurrentRequest = true;
 
@@ -229,7 +233,7 @@ function BoardPage() {
                     setBoardPage(null);
 
                     setErrorMessage(
-                        "게시글 목록을 불러오지 못했습니다.",
+                        "게시글을 불러오지 못했습니다.",
                     );
                 } finally {
                     if (isCurrentRequest) {
@@ -314,9 +318,10 @@ function BoardPage() {
             1,
         );
     };
+
     /**
-   * 검색 조건과 페이지 번호를 초기화한다.
-   */
+     * 검색 조건과 페이지 번호를 초기화한다.
+     */
     const handleReset = () => {
         setInputSearchType(
             "title",
@@ -371,16 +376,22 @@ function BoardPage() {
     const notices =
         boardPage?.notices ?? [];
 
-    const items =
-        boardPage?.items ?? [];
+
 
     /**
-     * 공지사항을 일반 게시글보다 먼저 배치한다.
-     */
-    const visiblePosts = [
-        ...notices,
-        ...items,
-    ];
+ * API에서 이미 정리한 화면 표시 순서이다.
+ *
+ * 1. 중요 공지 1개
+ * 2. 최근 공지 1개
+ * 3. 남은 공지와 일반 게시글이 섞인 목록 10개
+ */
+    const visiblePosts =
+        boardPage === null
+            ? []
+            : [
+                ...boardPage.notices,
+                ...boardPage.items,
+            ];
 
     /**
      * 공지사항과 일반 게시글을 포함한
@@ -437,7 +448,7 @@ function BoardPage() {
                         <span aria-hidden="true">
                             /
                         </span>
-                        일반게시판
+                        게시판
                     </p>
 
                     <h1
@@ -445,7 +456,7 @@ function BoardPage() {
                             styles.pageTitle
                         }
                     >
-                        일반게시판
+                        게시판
                     </h1>
 
                     <p
@@ -469,7 +480,7 @@ function BoardPage() {
                     <span
                         className={`${styles.tabItem} ${styles.activeTab}`}
                     >
-                        일반게시판
+                        게시판
                     </span>
 
                     <span
@@ -488,6 +499,7 @@ function BoardPage() {
                         자주 묻는 질문
                     </span>
                 </nav>
+
                 {/* 게시글 검색 Form */}
 
                 <form
@@ -616,7 +628,7 @@ function BoardPage() {
                                     styles.srOnly
                                 }
                             >
-                                일반게시판 게시글 목록
+                                게시판 게시글 목록
                             </caption>
 
                             <colgroup>
@@ -736,6 +748,7 @@ function BoardPage() {
                                             </td>
                                         </tr>
                                     )}
+
                                 {/* 검색 결과 없음 */}
 
                                 {!isLoading &&
@@ -761,7 +774,7 @@ function BoardPage() {
                                     visiblePosts.map(
                                         (post) => {
                                             const isNotice =
-                                                post.type ===
+                                                post.postType ===
                                                 "NOTICE";
 
                                             return (
