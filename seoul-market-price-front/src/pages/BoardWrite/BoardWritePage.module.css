@@ -1,0 +1,430 @@
+/* =========================================================
+   게시글 작성 페이지 전체 영역
+========================================================= */
+
+.writePage {
+    width: 100%;
+    min-height: 100vh;
+    padding: 64px 24px 90px;
+    background: #f7f9f6;
+    color: #202620;
+    font-family:
+        "Pretendard",
+        "Noto Sans KR",
+        Arial,
+        sans-serif;
+}
+
+.writePage *,
+.writePage *::before,
+.writePage *::after {
+    box-sizing: border-box;
+}
+
+.writePage button,
+.writePage input,
+.writePage textarea {
+    font: inherit;
+}
+
+/* 게시글 작성 내용을 중앙에 배치한다. */
+.writeContainer {
+    width: min(1180px, 100%);
+    margin: 0 auto;
+}
+
+/* =========================================================
+   페이지 제목
+========================================================= */
+
+.pageHeader {
+    margin-bottom: 38px;
+}
+
+.pagePath {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 12px;
+    color: #7f897d;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.pagePath span {
+    color: #b0b8ae;
+}
+
+.pageTitle {
+    margin: 0;
+    color: #263329;
+    font-size: 36px;
+    font-weight: 900;
+    line-height: 1.25;
+    letter-spacing: -1.5px;
+}
+
+.pageDescription {
+    margin: 12px 0 0;
+    color: #737d72;
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+/* =========================================================
+   글쓰기 Form
+========================================================= */
+
+.writeForm {
+    overflow: hidden;
+    border: 1px solid #dce4da;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow:
+        0 7px 24px rgba(45, 70, 45, 0.05);
+}
+
+.field {
+    padding: 25px 30px;
+    border-bottom: 1px solid #e5eae3;
+}
+
+/* 입력항목 이름과 글자 수를 양쪽에 배치한다. */
+.labelRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 11px;
+}
+
+.label {
+    color: #4d574d;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.characterCounter {
+    color: #8d968c;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* =========================================================
+   제목 입력창
+========================================================= */
+
+.titleInput {
+    width: 100%;
+    height: 49px;
+    padding: 0 16px;
+    border: 1px solid #d8e0d6;
+    border-radius: 7px;
+    outline: none;
+    background: #ffffff;
+    color: #333c33;
+    font-size: 15px;
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.titleInput::placeholder {
+    color: #a4aca2;
+}
+
+.titleInput:focus {
+    border-color: #62a967;
+    box-shadow:
+        0 0 0 3px rgba(98, 169, 103, 0.12);
+}
+
+/* =========================================================
+   작성자, 작성일, 조회수
+========================================================= */
+
+.metadata {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px 32px;
+    margin: 0;
+    padding: 17px 30px;
+    border-bottom: 1px solid #e5eae3;
+    background: #f8faf7;
+}
+
+.metadataItem {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.metadataItem dt {
+    color: #7a8479;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.metadataItem dd {
+    margin: 0;
+    color: #505a50;
+    font-size: 13px;
+}
+
+/* =========================================================
+   본문 입력창
+========================================================= */
+
+.contentInput {
+    width: 100%;
+    min-height: 330px;
+    padding: 17px 18px;
+    resize: vertical;
+    border: 1px solid #d8e0d6;
+    border-radius: 7px;
+    outline: none;
+    background: #ffffff;
+    color: #333c33;
+    font-size: 15px;
+    line-height: 1.8;
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.contentInput::placeholder {
+    color: #a4aca2;
+}
+
+.contentInput:focus {
+    border-color: #62a967;
+    box-shadow:
+        0 0 0 3px rgba(98, 169, 103, 0.12);
+}
+
+/* =========================================================
+   첨부파일 영역
+========================================================= */
+
+.attachmentSection {
+    padding: 23px 30px;
+    border-bottom: 1px solid #e5eae3;
+    background: #f8faf7;
+}
+
+.attachmentTitle {
+    margin: 0 0 11px;
+    color: #4d574d;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.attachmentBox {
+    min-height: 50px;
+    padding: 7px 8px 7px 15px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid #d8e0d6;
+    border-radius: 7px;
+    background: #ffffff;
+}
+
+.attachmentGuide {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    color: #979f96;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 현재는 화면만 표시하는 파일 선택 버튼이다. */
+.fileButton {
+    min-width: 92px;
+    height: 36px;
+    padding: 0 15px;
+    flex-shrink: 0;
+    border: 1px solid #cfd8cd;
+    border-radius: 6px;
+    background: #f4f7f3;
+    color: #626c61;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.fileButton:hover {
+    border-color: #aebbaa;
+    background: #edf3ec;
+}
+
+.attachmentDescription {
+    margin: 9px 0 0;
+    color: #919a90;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* =========================================================
+   입력 오류 메시지
+========================================================= */
+
+.errorMessage {
+    margin: 0;
+    padding: 15px 30px;
+    border-bottom: 1px solid #f2d3cf;
+    background: #fff6f5;
+    color: #c24f46;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+/* =========================================================
+   하단 버튼
+========================================================= */
+
+.buttonArea {
+    padding: 22px 30px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    background: #ffffff;
+}
+
+.listButton,
+.submitButton {
+    min-width: 96px;
+    height: 43px;
+    padding: 0 20px;
+    border-radius: 7px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease;
+}
+
+.listButton {
+    border: 1px solid #d5ddd3;
+    background: #ffffff;
+    color: #687267;
+}
+
+.listButton:hover {
+    border-color: #bfc9bd;
+    background: #f4f7f3;
+}
+
+/* 실제 등록 API는 연결하지 않은 화면용 버튼이다. */
+.submitButton {
+    border: 1px solid #4c9b55;
+    background: #4c9b55;
+    color: #ffffff;
+}
+
+.submitButton:hover {
+    background: #438b4b;
+}
+
+/* =========================================================
+   태블릿
+========================================================= */
+
+@media (max-width: 900px) {
+    .writePage {
+        padding: 48px 20px 70px;
+    }
+
+    .pageTitle {
+        font-size: 32px;
+    }
+
+    .contentInput {
+        min-height: 290px;
+    }
+}
+
+/* =========================================================
+   모바일
+========================================================= */
+
+@media (max-width: 600px) {
+    .writePage {
+        padding: 36px 16px 56px;
+    }
+
+    .pageHeader {
+        margin-bottom: 28px;
+    }
+
+    .pageTitle {
+        font-size: 28px;
+    }
+
+    .pageDescription {
+        font-size: 14px;
+    }
+
+    .field {
+        padding: 21px 18px;
+    }
+
+    .metadata {
+        padding: 16px 18px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 9px;
+    }
+
+    .contentInput {
+        min-height: 260px;
+    }
+
+    .attachmentSection {
+        padding: 20px 18px;
+    }
+
+    .attachmentBox {
+        padding: 12px;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .attachmentGuide {
+        padding: 4px;
+    }
+
+    .fileButton {
+        width: 100%;
+    }
+
+    .errorMessage {
+        padding: 14px 18px;
+    }
+
+    .buttonArea {
+        padding: 18px;
+        flex-direction: column-reverse;
+    }
+
+    .listButton,
+    .submitButton {
+        width: 100%;
+    }
+
+    /*
+ * 게시글 등록 처리 중에는 버튼을 비활성화한다.
+ */
+    .submitButton:disabled {
+        background: #9fbea2;
+        border-color: #9fbea2;
+        cursor: not-allowed;
+    }
+
+}
