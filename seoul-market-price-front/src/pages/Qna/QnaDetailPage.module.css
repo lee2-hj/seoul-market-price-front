@@ -42,14 +42,28 @@
 }
 
 .userName {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   color: #4e564e;
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
 }
 
-.logoutButton,
-.loginLink {
+.adminBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #edf6e9;
+  color: #4e9557;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.logoutButton {
   padding: 0;
   border: none;
   background: transparent;
@@ -59,8 +73,7 @@
   cursor: pointer;
 }
 
-.logoutButton:hover,
-.loginLink:hover {
+.logoutButton:hover {
   color: #4e9557;
   text-decoration: underline;
 }
@@ -253,6 +266,19 @@
   line-height: 1.5;
 }
 
+/* 관리자 안내 */
+
+.adminNotice {
+  margin-bottom: 16px;
+  padding: 13px 16px;
+  border: 1px solid #e1e9de;
+  border-radius: 8px;
+  background: #f3f6f2;
+  color: #657064;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 /* 게시글 */
 
 .post {
@@ -326,22 +352,311 @@
   overflow-wrap: anywhere;
 }
 
+/* 관리자 답변 */
+
+.answerSection {
+  margin-top: 28px;
+  border: 1px solid #dfe8dc;
+  background: #ffffff;
+}
+
+.answerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e8ede6;
+  background: #f8faf7;
+}
+
+.answerLabel {
+  display: block;
+  margin-bottom: 5px;
+  color: #6d9a65;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.answerHeader h3 {
+  margin: 0;
+  color: #394239;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.answerStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #eaf4e7;
+  color: #4e8a47;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* 답변 내용 */
+
+.answerBox {
+  padding: 22px 24px 24px;
+}
+
+.answerMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding-bottom: 14px;
+  color: #8a9289;
+  font-size: 11px;
+}
+
+.answerAuthor {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.answerIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: #5ca665;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.answerAuthor strong {
+  color: #4b554b;
+  font-size: 12px;
+}
+
+.answerAdminBadge {
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #edf5eb;
+  color: #568750;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.answerContent {
+  padding: 18px 0 5px;
+  border-top: 1px solid #edf0eb;
+  color: #505850;
+  font-size: 13px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* 답변 버튼 */
+
+.answerActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.answerEditButton,
+.answerDeleteButton {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.answerEditButton {
+  border: 1px solid #d7dfd4;
+  background: #ffffff;
+  color: #657064;
+}
+
+.answerEditButton:hover {
+  background: #f5f8f3;
+  color: #4e8a47;
+}
+
+.answerDeleteButton {
+  border: 1px solid #ead8d5;
+  background: #ffffff;
+  color: #bd6258;
+}
+
+.answerDeleteButton:hover {
+  background: #fff7f5;
+}
+
+/* 답변 없음 */
+
+.noAnswer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 130px;
+  padding: 25px;
+  color: #999f98;
+  text-align: center;
+}
+
+.noAnswer span {
+  margin-bottom: 8px;
+  font-size: 23px;
+}
+
+.noAnswer p {
+  margin: 0;
+  font-size: 12px;
+}
+
+/* 답변 작성 폼 */
+
+.answerForm {
+  padding: 22px 24px 24px;
+  background: #fbfcfa;
+}
+
+.answerFormTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 12px;
+}
+
+.answerFormTitle {
+  color: #485248;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.answerWriter {
+  color: #8a9289;
+  font-size: 11px;
+}
+
+.answerForm textarea {
+  display: block;
+  width: 100%;
+  min-height: 180px;
+  padding: 14px;
+  border: 1px solid #dce3da;
+  border-radius: 8px;
+  outline: none;
+  background: #ffffff;
+  color: #303730;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.7;
+  resize: vertical;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.answerForm textarea:focus {
+  border-color: #6f9b66;
+  box-shadow: 0 0 0 3px rgba(111, 155, 102, 0.1);
+}
+
+.answerForm textarea:disabled {
+  background: #f3f5f2;
+  cursor: not-allowed;
+}
+
+.answerFieldBottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.answerFieldBottom small {
+  margin-top: 7px;
+  color: #919891;
+  font-size: 10px;
+}
+
+.answerFieldBottom span {
+  flex-shrink: 0;
+  color: #919891;
+  font-size: 10px;
+}
+
+.answerFormActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.answerCancelButton,
+.answerSubmitButton {
+  height: 40px;
+  padding: 0 17px;
+  border-radius: 7px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.answerCancelButton {
+  border: 1px solid #d8ded5;
+  background: #ffffff;
+  color: #626a62;
+}
+
+.answerCancelButton:hover {
+  background: #f5f7f4;
+}
+
+.answerSubmitButton {
+  border: 1px solid #5ca665;
+  background: #5ca665;
+  color: #ffffff;
+}
+
+.answerSubmitButton:hover {
+  border-color: #4e9557;
+  background: #4e9557;
+}
+
+.answerCancelButton:disabled,
+.answerSubmitButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* 하단 버튼 */
 
 .bottomActions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   margin-top: 20px;
 }
 
-.listButton {
-  min-width: 90px;
+.listButton,
+.editButton,
+.deleteButton {
+  min-width: 80px;
   height: 40px;
   padding: 0 18px;
-  border: 1px solid #5ca665;
   border-radius: 7px;
-  background: #5ca665;
-  color: #ffffff;
   font-family: inherit;
   font-size: 12px;
   font-weight: 700;
@@ -352,12 +667,43 @@
     transform 0.2s ease;
 }
 
+.listButton {
+  border: 1px solid #5ca665;
+  background: #5ca665;
+  color: #ffffff;
+}
+
 .listButton:hover {
   border-color: #4e9557;
   background: #4e9557;
 }
 
-.listButton:active {
+.editButton {
+  border: 1px solid #d8dfd5;
+  background: #ffffff;
+  color: #596259;
+}
+
+.editButton:hover {
+  border-color: #aebbad;
+  background: #f5f8f3;
+  color: #4e8a47;
+}
+
+.deleteButton {
+  border: 1px solid #e5c9c5;
+  background: #ffffff;
+  color: #bd6258;
+}
+
+.deleteButton:hover {
+  border-color: #d99c95;
+  background: #fff7f5;
+}
+
+.listButton:active,
+.editButton:active,
+.deleteButton:active {
   transform: translateY(1px);
 }
 
@@ -373,6 +719,18 @@
   text-align: center;
 }
 
+.emptyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 18px;
+  border-radius: 50%;
+  background: #eef4eb;
+  font-size: 25px;
+}
+
 .empty h2 {
   margin: 0 0 10px;
   color: #555d55;
@@ -384,6 +742,7 @@
   margin: 0 0 25px;
   color: #9aa198;
   font-size: 13px;
+  line-height: 1.7;
 }
 
 .backButton {
@@ -397,9 +756,6 @@
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease;
 }
 
 .backButton:hover {
@@ -475,8 +831,7 @@
     font-size: 11px;
   }
 
-  .logoutButton,
-  .loginLink {
+  .logoutButton {
     font-size: 10px;
   }
 
@@ -593,13 +948,65 @@
     line-height: 1.8;
   }
 
+  /* 답변 */
+
+  .answerHeader {
+    align-items: flex-start;
+    padding: 18px;
+  }
+
+  .answerBox {
+    padding: 18px;
+  }
+
+  .answerMeta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .answerForm {
+    padding: 18px;
+  }
+
+  .answerFormTop {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .answerForm textarea {
+    min-height: 180px;
+  }
+
+  .answerFormActions {
+    flex-direction: column-reverse;
+  }
+
+  .answerCancelButton,
+  .answerSubmitButton {
+    width: 100%;
+  }
+
+  .answerActions {
+    flex-direction: column;
+  }
+
+  .answerEditButton,
+  .answerDeleteButton {
+    width: 100%;
+  }
+
   /* 하단 버튼 */
 
   .bottomActions {
+    flex-direction: column;
     margin-top: 15px;
   }
 
-  .listButton {
+  .listButton,
+  .editButton,
+  .deleteButton {
     width: 100%;
     height: 42px;
   }

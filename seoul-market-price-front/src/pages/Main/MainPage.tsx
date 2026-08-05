@@ -134,7 +134,7 @@ const NOTICES = [
   },
 ];
 
-/* Q&A */
+/* 질의응답 */
 
 const QNA_LIST = [
   {
@@ -227,11 +227,13 @@ function MainPage() {
           {/* Navigation */}
 
           <nav className={styles.nav}>
-            <Link to="/main" className={styles.navItem}>
+            {/* 홈 */}
+
+            <Link to="/" className={styles.navItem}>
               홈
             </Link>
 
-            {/* 가격정보 */}
+            {/* 가격 상세 정보 */}
 
             <div className={styles.navDropdown}>
               <Link to="/price" className={styles.navItem}>
@@ -256,28 +258,28 @@ function MainPage() {
 
               <div className={styles.dropdownMenu}>
                 <Link to="/region-price">자치구 지도 비교</Link>
-                <Link to="/region-price/my-area">자치구간 1: 1 비교</Link>
+                <Link to="/region-price/my-area">자치구간 1:1 비교</Link>
               </div>
             </div>
 
             {/* 스마트 추천 */}
 
             <div className={styles.navDropdown}>
-              <Link to="/region-price" className={styles.navItem}>
+              <Link to="/recommendation" className={styles.navItem}>
                 스마트 추천
                 <span className={styles.arrow}>▼</span>
               </Link>
 
               <div className={styles.dropdownMenu}>
-                <Link to="/region-price">오늘의 알뜰 품목</Link>
-                <Link to="/region-price/my-area">
-                  오늘의 가격하락 품목 추천
-                </Link>
-                <Link to="/region-price/my-area">이달의 제철 농수산물</Link>
+                <Link to="/recommendation">오늘의 알뜰 품목</Link>
+
+                <Link to="/recommendation">오늘의 가격하락 품목 추천</Link>
+
+                <Link to="/recommendation">이달의 제철 농수산물</Link>
               </div>
             </div>
 
-            {/* 고객 센터 */}
+            {/* 고객센터 */}
 
             <div className={styles.navDropdown}>
               <span className={styles.navItem}>
@@ -287,7 +289,7 @@ function MainPage() {
 
               <div className={styles.dropdownMenu}>
                 <Link to="/notice">공지사항</Link>
-                <Link to="/qna">Q&A</Link>
+                <Link to="/qna">질의응답</Link>
                 <Link to="/faq">자주 묻는 질문</Link>
               </div>
             </div>
@@ -295,15 +297,19 @@ function MainPage() {
             {/* 마이페이지 */}
 
             <div className={styles.navDropdown}>
-              <span className={styles.navItem}>
+              <Link to="/mypage" className={styles.navItem}>
                 마이페이지
                 <span className={styles.arrow}>▼</span>
-              </span>
+              </Link>
 
               <div className={styles.dropdownMenu}>
-                <Link to="/notice">내 정보 수정</Link>
-                <Link to="/qna">관심품목&우리동네 설정</Link>
-                <Link to="/faq">가격변동 타겟 알림설정</Link>
+                <Link to="/mypage/profile">내 정보 수정</Link>
+
+                <Link to="/mypage/preferences">
+                  관심품목 &amp; 우리동네 설정
+                </Link>
+
+                <Link to="/mypage/alerts">가격 변동 타겟 알림</Link>
               </div>
             </div>
           </nav>
@@ -311,15 +317,9 @@ function MainPage() {
           {/* 사용자 영역 */}
 
           <div className={styles.userArea}>
-            <button
-              type="button"
-              className={styles.userButton}
-              onClick={() => navigate("/mypage")}
-            >
-              <span>👤</span>
-
-              <strong>{loginUser?.name ?? "사용자"}님</strong>
-            </button>
+            <span className={styles.userName}>
+              {loginUser?.name ?? "사용자"}님
+            </span>
 
             <button
               type="button"
@@ -458,7 +458,7 @@ function MainPage() {
             <b>→</b>
           </Link>
 
-          <Link to="/price/detail" className={styles.quickCard}>
+          <Link to="/recommendation" className={styles.quickCard}>
             <span>📊</span>
 
             <div>
@@ -474,7 +474,7 @@ function MainPage() {
 
             <div>
               <strong>고객센터</strong>
-              <small>공지사항과 Q&A를 확인하세요</small>
+              <small>공지사항과 질의응답을 확인하세요</small>
             </div>
 
             <b>→</b>
@@ -677,7 +677,7 @@ function MainPage() {
         </div>
       </section>
 
-      {/* 공지사항 및 Q&A */}
+      {/* 공지사항 및 질의응답 */}
 
       <section className={styles.boardSection}>
         <div className={styles.boardHeader}>
@@ -723,13 +723,13 @@ function MainPage() {
             </div>
           </div>
 
-          {/* Q&A */}
+          {/* 질의응답 */}
 
           <div className={styles.boardBox}>
             <div className={styles.boardBoxHeader}>
               <div>
-                <span>Q&A</span>
-                <h3>Q&A</h3>
+                <span>Q&amp;A</span>
+                <h3>질의응답</h3>
               </div>
 
               <Link to="/qna">더보기 →</Link>
@@ -783,22 +783,11 @@ function MainPage() {
           <span>💬</span>
 
           <div>
-            <strong>Q&A 게시판</strong>
+            <strong>질의응답 게시판</strong>
             <p>궁금한 내용을 문의하고 답변을 확인하세요.</p>
           </div>
 
           <Link to="/qna">바로가기 →</Link>
-        </div>
-
-        <div className={styles.serviceCard}>
-          <span>👤</span>
-
-          <div>
-            <strong>마이페이지</strong>
-            <p>관심 품목과 가격 알림을 관리하세요.</p>
-          </div>
-
-          <Link to="/mypage">바로가기 →</Link>
         </div>
       </section>
 
@@ -834,7 +823,7 @@ function MainPage() {
             <Link to="/price">가격정보</Link>
             <Link to="/region-price">지역별 가격</Link>
             <Link to="/notice">공지사항</Link>
-            <Link to="/qna">Q&A</Link>
+            <Link to="/qna">질의응답</Link>
             <Link to="/mypage">마이페이지</Link>
           </div>
 

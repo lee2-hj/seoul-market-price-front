@@ -3,20 +3,36 @@ import { useNavigate } from "react-router-dom";
 
 import styles from "./QnaWritePage.module.css";
 
+/* 질의응답 작성 폼 */
+
 interface QnaForm {
   title: string;
   content: string;
 }
 
+/* 질의응답 게시글 */
+
 interface QnaPost {
   id: number;
+
+  /* 질문 정보 */
+
   author: string;
   authorId: string;
   title: string;
   content: string;
   date: string;
   views: number;
+
+  /* 답변 정보 */
+
+  answer: string;
+  answerAuthor?: string;
+  answerAuthorId?: string;
+  answerDate?: string;
 }
+
+/* 로그인 사용자 */
 
 interface LoginUser {
   userId?: string;
@@ -25,7 +41,7 @@ interface LoginUser {
   role?: string;
 }
 
-/* 로그인 사용자 가져오기 */
+/* 로그인 사용자 조회 */
 
 const getLoginUser = (): LoginUser | null => {
   const storedUser = localStorage.getItem("loginUser");
@@ -35,13 +51,17 @@ const getLoginUser = (): LoginUser | null => {
   }
 
   try {
-    const parsedUser = JSON.parse(storedUser);
+    const parsedUser: unknown = JSON.parse(storedUser);
 
-    if (!parsedUser || typeof parsedUser !== "object") {
+    if (
+      !parsedUser ||
+      typeof parsedUser !== "object" ||
+      Array.isArray(parsedUser)
+    ) {
       return null;
     }
 
-    return parsedUser;
+    return parsedUser as LoginUser;
   } catch (error) {
     console.error("로그인 사용자 정보 확인 실패:", error);
 
@@ -51,9 +71,7 @@ const getLoginUser = (): LoginUser | null => {
 
 /* 로그인 사용자 이름 */
 
-const getCurrentUserName = (): string => {
-  const user = getLoginUser();
-
+const getLoginUserName = (user: LoginUser | null): string => {
   if (!user) {
     return "사용자";
   }
@@ -61,27 +79,31 @@ const getCurrentUserName = (): string => {
   return user.name || user.userName || user.userId || "사용자";
 };
 
-/* 로그인 사용자 ID */
-
-const getCurrentUserId = (): string => {
-  const user = getLoginUser();
-
-  return user?.userId || "";
-};
-
 /* 관리자 여부 */
 
-const isAdminUser = (): boolean => {
-  const user = getLoginUser();
-
-  if (!user) {
+const isAdminUser = (user: LoginUser | null): boolean => {
+  if (!user?.role) {
     return false;
   }
 
-  return user.role === "ADMIN" || user.role === "ROLE_ADMIN";
+  const role = user.role.toUpperCase();
+
+  return role === "ADMIN" || role === "ROLE_ADMIN";
 };
 
-/* Q&A Write Page */
+/* 현재 날짜 */
+
+const getCurrentDate = (): string => {
+  const now = new Date();
+
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join(".");
+};
+
+/* 질의응답 Write Page */
 
 function QnaWritePage() {
   const navigate = useNavigate();
@@ -90,26 +112,20 @@ function QnaWritePage() {
 
   const currentUser = getLoginUser();
 
-  /* 로그인 상태 */
+  const currentUserId = currentUser?.userId ?? "";
+  const currentUserName = getLoginUserName(currentUser);
 
-  const isLoggedIn = !!currentUser;
+  const isLoggedIn = Boolean(currentUser && currentUserId);
+  const isAdmin = isAdminUser(currentUser);
 
-  /* 로그인 사용자 ID */
-
-  const currentUserId = getCurrentUserId();
-
-  /* 관리자 여부 */
-
-  const isAdmin = isAdminUser();
-
-  /* 작성 Form */
+  /* 작성 폼 */
 
   const [form, setForm] = useState<QnaForm>({
     title: "",
     content: "",
   });
 
-  /* 등록 중 */
+  /* 등록 상태 */
 
   const [loading, setLoading] = useState(false);
 
@@ -126,25 +142,28 @@ function QnaWritePage() {
     }));
   };
 
-  /* 제목 / 내용 검사 */
+  /* 입력값 검사 */
 
   const validateForm = (): boolean => {
-    if (!form.title.trim()) {
+    const title = form.title.trim();
+    const content = form.content.trim();
+
+    if (!title) {
       alert("제목을 입력해주세요.");
       return false;
     }
 
-    if (form.title.trim().length > 100) {
+    if (title.length > 100) {
       alert("제목은 100자 이내로 입력해주세요.");
       return false;
     }
 
-    if (!form.content.trim()) {
+    if (!content) {
       alert("내용을 입력해주세요.");
       return false;
     }
 
-    if (form.content.trim().length > 5000) {
+    if (content.length > 5000) {
       alert("내용은 5,000자 이내로 입력해주세요.");
       return false;
     }
@@ -152,19 +171,66 @@ function QnaWritePage() {
     return true;
   };
 
-  /* Q&A 등록 */
+  /* 기존 질의응답 게시글 조회 */
+
+  const getStoredPosts = (): QnaPost[] => {
+    const storedPosts = localStorage.getItem("qnaPosts");
+
+    if (!storedPosts) {
+      return [];
+    }
+
+    try {
+      const parsedPosts: unknown = JSON.parse(storedPosts);
+
+      if (!Array.isArray(parsedPosts)) {
+        return [];
+      }
+
+      /*
+        기존 데이터에 answer 필드가 없는 경우에도
+        답변 기능이 정상적으로 동작하도록 기본값을 넣는다.
+      */
+
+      return parsedPosts.map((post) => {
+        const item = post as Partial<QnaPost>;
+
+        return {
+          id: item.id ?? Date.now(),
+          author: item.author ?? "사용자",
+          authorId: item.authorId ?? "",
+          title: item.title ?? "",
+          content: item.content ?? "",
+          date: item.date ?? "",
+          views: item.views ?? 0,
+
+          answer: item.answer ?? "",
+          answerAuthor: item.answerAuthor,
+          answerAuthorId: item.answerAuthorId,
+          answerDate: item.answerDate,
+        };
+      });
+    } catch (error) {
+      console.error("질의응답 게시글 조회 실패:", error);
+
+      return [];
+    }
+  };
+
+  /* 질의응답 등록 */
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    /* 현재 로그인 사용자 확인 */
+    /* 최신 로그인 사용자 확인 */
 
     const loginUser = getLoginUser();
-    const loginUserId = getCurrentUserId();
 
-    if (!loginUser || !loginUserId) {
-      alert("로그인 후 Q&A를 작성할 수 있습니다.");
+    if (!loginUser?.userId) {
+      alert("로그인 후 질의응답을 작성할 수 있습니다.");
+
       navigate("/login");
+
       return;
     }
 
@@ -177,86 +243,49 @@ function QnaWritePage() {
     try {
       setLoading(true);
 
-      /* 기존 게시글 불러오기 */
-
-      const storedPosts = localStorage.getItem("qnaPosts");
-
-      let existingPosts: QnaPost[] = [];
-
-      if (storedPosts) {
-        try {
-          const parsedPosts = JSON.parse(storedPosts);
-
-          if (Array.isArray(parsedPosts)) {
-            existingPosts = parsedPosts;
-          }
-        } catch (error) {
-          console.error("기존 Q&A 게시글 불러오기 실패:", error);
-        }
-      }
-
-      /* 작성자 정보 */
-
-      const currentUserName =
-        loginUser.name || loginUser.userName || loginUser.userId || "사용자";
-
       /*
-        날짜
+        현재는 프론트 테스트를 위해 localStorage 사용.
 
-        현재 날짜를 YYYY.MM.DD 형식으로 저장한다.
+        추후 Spring Boot + MySQL 연결 시
+        이 부분을 POST /api/qna 요청으로 교체한다.
+
+        답변 기능을 고려하여 새 게시글 생성 시
+        answer는 빈 문자열로 저장한다.
       */
 
-      const now = new Date();
-
-      const formattedDate = [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, "0"),
-        String(now.getDate()).padStart(2, "0"),
-      ].join(".");
-
-      /*
-        새 게시글
-
-        author
-          → 화면에 표시되는 작성자 이름
-
-        authorId
-          → 게시글 소유자 확인용 ID
-
-        관리자 여부와 관계없이
-        실제 로그인한 사용자의 userId를 저장한다.
-
-        따라서 관리자도 본인이 작성한 글이라면
-        일반 회원과 동일하게 본인 게시글로 판별된다.
-      */
+      const existingPosts = getStoredPosts();
 
       const newPost: QnaPost = {
         id: Date.now(),
-        author: currentUserName,
-        authorId: loginUserId,
+
+        /* 질문 정보 */
+
+        author: getLoginUserName(loginUser),
+        authorId: loginUser.userId,
         title: form.title.trim(),
         content: form.content.trim(),
-        date: formattedDate,
+        date: getCurrentDate(),
         views: 0,
-      };
 
-      /* 최신 글을 가장 위에 추가 */
+        /* 답변 정보 */
+
+        answer: "",
+        answerAuthor: undefined,
+        answerAuthorId: undefined,
+        answerDate: undefined,
+      };
 
       const updatedPosts: QnaPost[] = [newPost, ...existingPosts];
 
-      /* localStorage 저장 */
-
       localStorage.setItem("qnaPosts", JSON.stringify(updatedPosts));
 
-      alert("Q&A가 등록되었습니다.");
-
-      /* Q&A 목록으로 이동 */
+      alert("답변이 등록되었습니다.");
 
       navigate("/qna");
     } catch (error) {
-      console.error("Q&A 등록 실패:", error);
+      console.error("답변 등록 실패:", error);
 
-      alert("Q&A 등록에 실패했습니다. 다시 시도해주세요.");
+      alert("답변 등록에 실패했습니다. 다시 시도해주세요.");
     } finally {
       setLoading(false);
     }
@@ -272,18 +301,20 @@ function QnaWritePage() {
     navigate("/");
   };
 
-  /* 비로그인 상태 */
+  /* 로그인하지 않은 경우 */
 
-  if (!isLoggedIn || !currentUserId) {
+  if (!isLoggedIn) {
     return (
       <div className={styles.page}>
         <div className={styles.container}>
-          <div className={styles.loginRequired}>
+          <section className={styles.loginRequired}>
             <div className={styles.loginIcon}>🔒</div>
+
+            <span className={styles.pageLabel}>질의응답</span>
 
             <h1>로그인이 필요합니다.</h1>
 
-            <p>Q&A 글쓰기는 로그인한 회원만 이용할 수 있습니다.</p>
+            <p>질의응답 글쓰기는 로그인한 회원만 이용할 수 있습니다.</p>
 
             <div className={styles.loginButtonArea}>
               <button
@@ -291,7 +322,7 @@ function QnaWritePage() {
                 className={styles.backButton}
                 onClick={() => navigate("/qna")}
               >
-                Q&A로 돌아가기
+                목록으로 돌아가기
               </button>
 
               <button
@@ -302,13 +333,13 @@ function QnaWritePage() {
                 로그인하기
               </button>
             </div>
-          </div>
+          </section>
         </div>
       </div>
     );
   }
 
-  /* 로그인 상태 → 작성 화면 */
+  /* 로그인 상태 */
 
   return (
     <div className={styles.page}>
@@ -318,8 +349,9 @@ function QnaWritePage() {
         <div className={styles.topUserInner}>
           <div className={styles.userArea}>
             <span className={styles.userName}>
-              {getCurrentUserName()}
-              {isAdmin && " (관리자)"}
+              {currentUserName}
+
+              {isAdmin && <span className={styles.adminBadge}>관리자</span>}
             </span>
 
             <button
@@ -464,12 +496,8 @@ function QnaWritePage() {
                 <div className={styles.megaColumn}>
                   <strong>고객센터</strong>
 
-                  <button type="button" onClick={() => navigate("/board")}>
-                    공지사항
-                  </button>
-
                   <button type="button" onClick={() => navigate("/qna")}>
-                    Q&A
+                    질의응답
                   </button>
 
                   <button type="button" onClick={() => navigate("/faq")}>
@@ -485,11 +513,11 @@ function QnaWritePage() {
       {/* 본문 */}
 
       <main className={styles.container}>
-        {/* PAGE HEADER */}
+        {/* 페이지 제목 */}
 
-        <div className={styles.pageHeader}>
+        <section className={styles.pageHeader}>
           <div className={styles.headerText}>
-            <span className={styles.pageLabel}>Q&A</span>
+            <span className={styles.pageLabel}>질의응답</span>
 
             <h1>문의하기</h1>
 
@@ -504,9 +532,9 @@ function QnaWritePage() {
           >
             목록으로
           </button>
-        </div>
+        </section>
 
-        {/* FORM */}
+        {/* 질의응답 작성 폼 */}
 
         <form className={styles.form} onSubmit={handleSubmit}>
           {/* 작성자 */}
@@ -514,12 +542,7 @@ function QnaWritePage() {
           <div className={styles.formGroup}>
             <label htmlFor="author">작성자</label>
 
-            <input
-              id="author"
-              type="text"
-              value={getCurrentUserName()}
-              disabled
-            />
+            <input id="author" type="text" value={currentUserName} disabled />
 
             <small>현재 로그인한 회원 정보로 자동 등록됩니다.</small>
           </div>
@@ -540,9 +563,14 @@ function QnaWritePage() {
               placeholder="문의 제목을 입력해주세요."
               maxLength={100}
               disabled={loading}
+              autoFocus
             />
 
-            <small>최대 100자까지 입력할 수 있습니다.</small>
+            <div className={styles.fieldBottom}>
+              <small>최대 100자까지 입력할 수 있습니다.</small>
+
+              <span>{form.title.length} / 100</span>
+            </div>
           </div>
 
           {/* 내용 */}
@@ -563,22 +591,32 @@ function QnaWritePage() {
               disabled={loading}
             />
 
-            <small>최대 5,000자까지 입력할 수 있습니다.</small>
+            <div className={styles.fieldBottom}>
+              <small>최대 5,000자까지 입력할 수 있습니다.</small>
+
+              <span>{form.content.length.toLocaleString()} / 5,000</span>
+            </div>
           </div>
 
           {/* 안내 문구 */}
 
           <div className={styles.notice}>
-            <span>💡</span>
+            <span className={styles.noticeIcon}>💡</span>
 
-            <p>
-              Q&A 게시글은 작성자 본인이 확인할 수 있으며,
-              <br />
-              관리자는 모든 Q&A 게시글의 상세 내용을 확인할 수 있습니다.
-            </p>
+            <div>
+              <strong>질의응답 이용 안내</strong>
+
+              <p>
+                작성한 질의응답는 작성자 본인이 확인할 수 있으며,
+                <br />
+                관리자는 모든 질의응답 게시글을 확인하고 답변할 수 있습니다.
+                <br />
+                답변이 등록되면 게시글 상세 화면에서 확인할 수 있습니다.
+              </p>
+            </div>
           </div>
 
-          {/* BUTTON */}
+          {/* 버튼 */}
 
           <div className={styles.buttonArea}>
             <button

@@ -9,9 +9,8 @@ import FindIdPage from "../pages/FindId/FindIdPage";
 
 import PassCallbackPage from "../pages/PassCallback/PassCallbackPage";
 
-/* =========================
-   Q&A
-========================= */
+/* Q&A */
+
 import QnaPage from "../pages/Qna/QnaPage";
 import QnaWritePage from "../pages/Qna/QnaWritePage";
 import QnaDetailPage from "../pages/Qna/QnaDetailPage";
@@ -22,17 +21,11 @@ function Router() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* =========================
-            메인 페이지
-            로그인 여부와 상관없이 누구나 접근 가능
-        ========================= */}
+        {/* 메인 페이지 */}
 
         <Route path="/" element={<MainPage />} />
 
-        {/* =========================
-            로그인
-            비로그인 사용자만 접근
-        ========================= */}
+        {/* 로그인 */}
 
         <Route
           path="/login"
@@ -43,10 +36,7 @@ function Router() {
           }
         />
 
-        {/* =========================
-            회원가입
-            비로그인 사용자만 접근
-        ========================= */}
+        {/* 회원가입 */}
 
         <Route
           path="/signup"
@@ -57,9 +47,7 @@ function Router() {
           }
         />
 
-        {/* =========================
-            아이디 찾기
-        ========================= */}
+        {/* 아이디 찾기 */}
 
         <Route
           path="/find-id"
@@ -70,10 +58,7 @@ function Router() {
           }
         />
 
-        {/* =========================
-            비밀번호 찾기
-            PASS 인증 사용
-        ========================= */}
+        {/* 비밀번호 찾기 */}
 
         <Route
           path="/find-password"
@@ -84,43 +69,23 @@ function Router() {
           }
         />
 
-        {/* =========================
-            NICE PASS Callback
-        ========================= */}
+        {/* NICE PASS Callback */}
 
         <Route path="/pass/callback" element={<PassCallbackPage />} />
 
-        {/* =================================================
-            Q&A 게시판
-        ================================================= */}
-
-        {/* Q&A 목록
-            로그인 여부와 상관없이 누구나 접근 가능
-        */}
+        {/* Q&A 목록 */}
 
         <Route path="/qna" element={<QnaPage />} />
 
-        {/* =================================================
-            Q&A 게시글 상세
-            예:
-            /qna/1
-            /qna/2
-            /qna/3
-        ================================================= */}
+        {/* Q&A 게시글 상세 */}
 
         <Route path="/qna/:id" element={<QnaDetailPage />} />
 
-        {/* =================================================
-            Q&A 글쓰기
-            로그인 여부는 QnaWritePage에서 확인
-        ================================================= */}
+        {/* Q&A 글쓰기 */}
 
         <Route path="/qna/write" element={<QnaWritePage />} />
 
-        {/* =========================
-            정의되지 않은 경로
-            "/" 로 이동
-        ========================= */}
+        {/* 존재하지 않는 경로 */}
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

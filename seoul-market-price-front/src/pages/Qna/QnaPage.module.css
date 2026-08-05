@@ -19,8 +19,6 @@
   box-sizing: border-box;
 }
 
-/* 버튼 / 입력 기본 스타일 */
-
 .page button,
 .page input,
 .page select {
@@ -85,6 +83,22 @@
 .loginLink:hover {
   color: #4e9557;
   text-decoration: underline;
+}
+
+/* 관리자 배지 */
+
+.adminBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  padding: 2px 7px;
+  border: 1px solid #dce8dd;
+  border-radius: 5px;
+  background: #f3f8f3;
+  color: #4e9557;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 /* 메인 Header */
@@ -311,16 +325,6 @@
   background: #4e9557;
 }
 
-/* 전체 메뉴 Overlay */
-
-.allMenuOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 999;
-  background: rgba(20, 30, 20, 0.28);
-  animation: fadeIn 0.2s ease;
-}
-
 /* 전체 메뉴 Panel */
 
 .allMenuPanel {
@@ -373,8 +377,6 @@
   letter-spacing: -1px;
 }
 
-/* 전체 메뉴 닫기 */
-
 .allMenuClose {
   display: flex;
   align-items: center;
@@ -410,8 +412,6 @@
   padding-top: 8px;
 }
 
-/* 전체 메뉴 그룹 */
-
 .allMenuGroup {
   padding: 22px 0;
   border-bottom: 1px solid #edf0ec;
@@ -429,8 +429,6 @@
   font-weight: 700;
   letter-spacing: -0.3px;
 }
-
-/* 전체 메뉴 하위 항목 */
 
 .allMenuItem {
   display: block;
@@ -452,18 +450,6 @@
 .allMenuItem:hover {
   color: #4e9557;
   transform: translateX(4px);
-}
-
-/* 전체 메뉴 Animation */
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
 }
 
 @keyframes slideIn {
@@ -513,7 +499,7 @@
   line-height: 1.5;
 }
 
-/* 공지사항 탭 */
+/* 게시판 탭 */
 
 .boardTabs {
   display: flex;
@@ -604,12 +590,10 @@
   font-size: 12px;
   outline: none;
   cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
 }
 
-.searchSelect:focus {
+.searchSelect:focus,
+.searchInput:focus {
   border-color: #75aa79;
   box-shadow: 0 0 0 3px rgba(92, 166, 101, 0.08);
 }
@@ -627,14 +611,6 @@
   font-family: inherit;
   font-size: 12px;
   outline: none;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.searchInput:focus {
-  border-color: #75aa79;
-  box-shadow: 0 0 0 3px rgba(92, 166, 101, 0.08);
 }
 
 .searchInput::placeholder {
@@ -655,19 +631,11 @@
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.15s ease;
 }
 
 .searchButton:hover {
   border-color: #4e9557;
   background: #4e9557;
-}
-
-.searchButton:active {
-  transform: translateY(1px);
 }
 
 /* 글쓰기 버튼 */
@@ -689,19 +657,11 @@
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.15s ease;
 }
 
 .writeButton:hover {
   border-color: #4e9557;
   background: #4e9557;
-}
-
-.writeButton:active {
-  transform: translateY(1px);
 }
 
 .writeIcon {
@@ -728,7 +688,6 @@
 
 .searchResult strong {
   color: #4e9557;
-  font-weight: 700;
 }
 
 .searchResult button {
@@ -800,7 +759,7 @@
   cursor: pointer;
   transition:
     background 0.2s ease,
-    color 0.2s ease;
+    opacity 0.2s ease;
 }
 
 .tableRow:last-child {
@@ -811,87 +770,20 @@
   background: #f8fbf7;
 }
 
-/* 관리자 답글 Row */
+/* 본인 게시글 */
 
-.replyRow {
-  position: relative;
-  background: #fbfdfb;
-  border-bottom: 1px solid #edf0ec;
+.myPostRow {
+  background: #ffffff;
 }
 
-.replyRow:hover {
-  background: #f5faf5;
+/* 다른 사용자 게시글 */
+
+.lockedPostRow {
+  background: #fbfcfb;
 }
 
-/* 답글 번호 영역 */
-
-.replyRow .numberColumn {
-  color: transparent;
-}
-
-.replyRow .numberColumn::before {
-  content: "↳";
-  display: inline-block;
-  color: #8eaa91;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-/* 답글 제목 영역 */
-
-.replyRow .titleColumn {
-  position: relative;
-  padding-left: 38px;
-}
-
-.replyRow .titleColumn::before {
-  content: "";
-  position: absolute;
-  left: 17px;
-  top: 50%;
-  width: 10px;
-  height: 10px;
-  border-left: 1px solid #b8c9b9;
-  border-bottom: 1px solid #b8c9b9;
-  transform: translateY(-65%);
-}
-
-/* 답글 제목 */
-
-.replyRow .postTitle {
-  color: #687268;
-  font-size: 12px;
-  font-weight: 400;
-}
-
-.replyRow:hover .postTitle {
-  color: #4e9557;
-}
-
-/* RE: 표시 */
-
-.replyPrefix {
-  margin-right: 6px;
-  color: #5ca665;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-/* 관리자 표시 */
-
-.adminReplyBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 7px;
-  padding: 2px 6px;
-  border: 1px solid #d7e6d8;
-  border-radius: 4px;
-  background: #f1f7f1;
-  color: #5a8f60;
-  font-size: 9px;
-  font-weight: 600;
-  line-height: 1;
+.lockedPostRow:hover {
+  background: #f5f7f5;
 }
 
 /* Column */
@@ -907,22 +799,42 @@
   text-overflow: ellipsis;
 }
 
+/* 제목 영역 */
+
 .titleColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 5px;
   min-width: 0;
-  padding: 0 15px;
-  text-align: left;
+  padding: 8px 15px;
   overflow: hidden;
+  text-align: left;
 }
 
-/* 제목 */
+/* 제목 + 잠금 아이콘 */
+
+.titleLine {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  gap: 6px;
+}
+
+/* 게시글 제목 */
 
 .postTitle {
   display: block;
+  flex: 1;
+  width: 100%;
   min-width: 0;
   overflow: hidden;
   color: #333a33;
   font-size: 13px;
   font-weight: 500;
+  line-height: 1.4;
   white-space: nowrap;
   text-overflow: ellipsis;
   transition: color 0.2s ease;
@@ -932,28 +844,80 @@
   color: #4e9557;
 }
 
-/* 관리자 답글 작성자 */
+/* 다른 사람 글 제목 */
 
-.replyRow .authorColumn {
-  color: #5a8f60;
-  font-weight: 600;
+.lockedPostRow .postTitle {
+  color: #687068;
 }
 
-/* 관리자 답글 날짜 */
+/* 잠금 표시 */
 
-.replyRow .dateColumn {
-  color: #8c968b;
-}
-
-/* 관리자 답글 조회수 */
-
-.replyRow .viewsColumn {
-  color: #8c968b;
+.lockIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  color: #a0a69f;
   font-size: 11px;
+  line-height: 1;
 }
 
-.replyRow:hover .viewsColumn {
-  color: #5a8f60;
+.lockedPostRow:hover .lockIcon {
+  color: #7f897f;
+}
+
+/* 본인 글 표시 */
+
+.myPostBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 18px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #eef6ee;
+  color: #5a9761;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* 답변 완료 상태 */
+
+.answerStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  margin: 0;
+  color: #6b9b70;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.answerArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: #82a985;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.tableRow:hover .answerStatus {
+  color: #4e9557;
+}
+
+.tableRow:hover .answerArrow {
+  color: #5ca665;
 }
 
 /* 조회수 */
@@ -1031,9 +995,6 @@
   font-weight: 400;
   line-height: 1;
   cursor: pointer;
-  transition:
-    color 0.2s ease,
-    font-weight 0.2s ease;
 }
 
 .pageNumber:hover,
@@ -1059,7 +1020,6 @@
 .pageNumber:disabled {
   color: #d5dad4;
   cursor: default;
-  opacity: 1;
 }
 
 .pageNumber:disabled:hover,
@@ -1086,133 +1046,6 @@
 .loginInfo {
   color: #a0a69f;
   font-size: 11px;
-}
-
-/* 관리자 답글 작성 버튼 */
-
-.replyButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 32px;
-  padding: 0 12px;
-  border: 1px solid #cfe0d0;
-  border-radius: 6px;
-  background: #f5faf5;
-  color: #4e9557;
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease;
-}
-
-.replyButton:hover {
-  border-color: #5ca665;
-  background: #5ca665;
-  color: #ffffff;
-}
-
-/* 관리자 전용 답글 영역 */
-
-.adminReplyArea {
-  margin-top: 20px;
-  padding: 20px;
-  border: 1px solid #dfe8df;
-  border-radius: 10px;
-  background: #f8fbf8;
-}
-
-.adminReplyHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.adminReplyTitle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #4e9557;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.adminReplyTitle::before {
-  content: "RE:";
-  color: #5ca665;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.adminReplyTextarea {
-  width: 100%;
-  min-height: 130px;
-  padding: 13px;
-  border: 1px solid #dfe5dc;
-  border-radius: 7px;
-  background: #ffffff;
-  color: #333333;
-  font-family: inherit;
-  font-size: 12px;
-  line-height: 1.6;
-  resize: vertical;
-  outline: none;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.adminReplyTextarea:focus {
-  border-color: #75aa79;
-  box-shadow: 0 0 0 3px rgba(92, 166, 101, 0.08);
-}
-
-.adminReplyTextarea::placeholder {
-  color: #a4aaa3;
-}
-
-.adminReplyActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.adminReplyCancel,
-.adminReplySubmit {
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 6px;
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.adminReplyCancel {
-  border: 1px solid #dfe5dc;
-  background: #ffffff;
-  color: #777f77;
-}
-
-.adminReplyCancel:hover {
-  background: #f5f7f4;
-}
-
-.adminReplySubmit {
-  border: 1px solid #5ca665;
-  background: #5ca665;
-  color: #ffffff;
-}
-
-.adminReplySubmit:hover {
-  border-color: #4e9557;
-  background: #4e9557;
 }
 
 /* Tablet */
@@ -1276,12 +1109,21 @@
     width: 380px;
   }
 
-  .replyRow .titleColumn {
-    padding-left: 34px;
+  .titleColumn {
+    gap: 4px;
+    padding: 7px 12px;
   }
 
-  .replyRow .titleColumn::before {
-    left: 14px;
+  .answerStatus {
+    font-size: 10px;
+  }
+
+  .answerArrow {
+    font-size: 13px;
+  }
+
+  .myPostBadge {
+    font-size: 8px;
   }
 }
 
@@ -1309,6 +1151,12 @@
     font-size: 11px;
   }
 
+  .adminBadge {
+    min-height: 18px;
+    padding: 2px 5px;
+    font-size: 9px;
+  }
+
   /* Header */
 
   .mainHeader {
@@ -1320,8 +1168,6 @@
     width: calc(100% - 30px);
     min-height: auto;
   }
-
-  /* 로고 */
 
   .logo {
     width: 100%;
@@ -1350,8 +1196,6 @@
     display: none;
   }
 
-  /* 메뉴 항목 */
-
   .navItem {
     flex-shrink: 0;
     height: 52px;
@@ -1369,7 +1213,7 @@
     height: 52px;
   }
 
-  /* 모바일 전체 메뉴 버튼 */
+  /* 모바일 전체 메뉴 */
 
   .allMenuButton {
     position: sticky;
@@ -1384,10 +1228,6 @@
     box-shadow: -4px 0 8px rgba(40, 60, 40, 0.04);
   }
 
-  .allMenuButton:hover {
-    background: #f7faf6;
-  }
-
   .menuIcon {
     width: 21px;
     height: 21px;
@@ -1398,7 +1238,7 @@
     width: 21px;
   }
 
-  /* 모바일 Hover 메가메뉴 */
+  /* 모바일 메가메뉴 */
 
   .megaMenu {
     top: 52px;
@@ -1515,8 +1355,6 @@
     width: 100%;
   }
 
-  /* Write Button */
-
   .writeButton {
     width: 100%;
   }
@@ -1552,66 +1390,64 @@
   }
 
   .tableRow {
-    min-height: 58px;
+    min-height: 68px;
   }
 
+  /* 제목과 답변 상태를 세로로 표시 */
+
   .titleColumn {
-    padding: 0 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
+    padding: 7px 12px;
+    overflow: hidden;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .titleLine {
+    gap: 5px;
   }
 
   .postTitle {
+    display: block;
+    width: 100%;
+    min-width: 0;
     font-size: 12px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
-  /* 모바일 답글 */
-
-  .replyRow .titleColumn {
-    padding-left: 36px;
-  }
-
-  .replyRow .titleColumn::before {
-    left: 15px;
-    width: 9px;
-    height: 9px;
-  }
-
-  .replyRow .postTitle {
-    font-size: 11px;
-  }
-
-  .replyPrefix {
-    margin-right: 5px;
+  .lockIcon {
+    width: 16px;
+    height: 16px;
     font-size: 10px;
   }
 
-  .adminReplyBadge {
-    margin-left: 5px;
-    padding: 2px 5px;
+  .myPostBadge {
+    min-height: 16px;
+    padding: 2px 4px;
     font-size: 8px;
   }
 
-  .replyRow .numberColumn::before {
+  .answerStatus {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    flex: 0 0 auto;
+    margin: 0;
+    font-size: 10px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .answerArrow {
+    flex: 0 0 auto;
     font-size: 13px;
-  }
-
-  /* 관리자 답글 영역 */
-
-  .adminReplyArea {
-    margin-top: 15px;
-    padding: 15px;
-  }
-
-  .adminReplyTextarea {
-    min-height: 110px;
-  }
-
-  .adminReplyActions {
-    width: 100%;
-  }
-
-  .adminReplyCancel,
-  .adminReplySubmit {
-    flex: 1;
   }
 
   /* 페이지네이션 */
@@ -1671,6 +1507,39 @@
     padding: 12px 4px;
     font-size: 11px;
   }
+
+  /* 작은 화면에서도 답변 상태를 제목 아래 유지 */
+
+  .titleColumn {
+    gap: 4px;
+    padding: 7px 10px;
+  }
+
+  .titleLine {
+    gap: 4px;
+  }
+
+  .postTitle {
+    font-size: 11px;
+  }
+
+  .lockIcon {
+    width: 15px;
+    height: 15px;
+    font-size: 9px;
+  }
+
+  .myPostBadge {
+    font-size: 7px;
+  }
+
+  .answerStatus {
+    font-size: 9px;
+  }
+
+  .answerArrow {
+    font-size: 12px;
+  }
 }
 
 /* 모션 최소화 환경 대응 */
@@ -1685,4 +1554,3 @@
     animation-iteration-count: 1 !important;
   }
 }
-

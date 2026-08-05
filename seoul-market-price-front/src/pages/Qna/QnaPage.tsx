@@ -3,6 +3,13 @@ import { useNavigate } from "react-router-dom";
 
 import styles from "./QnaPage.module.css";
 
+interface QnaAttachment {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+}
+
 interface QnaPost {
   id: number;
   authorId: string;
@@ -11,11 +18,11 @@ interface QnaPost {
   content: string;
   date: string;
   views: number;
+  answer?: string;
+  attachments?: QnaAttachment[];
 }
 
 type SearchType = "title" | "author" | "content";
-
-/* 초기 Q&A 샘플 데이터 */
 
 const INITIAL_QNA_POSTS: QnaPost[] = [
   {
@@ -23,16 +30,17 @@ const INITIAL_QNA_POSTS: QnaPost[] = [
     authorId: "park123",
     author: "박채소",
     title: "모바일 화면에서도 확인 가능한가요?",
-    content: "웹사이트와 동일하게 모바일 화면에서도 확인가능한가요?",
+    content: "웹사이트와 동일하게 모바일 화면에서도 확인 가능한가요?",
     date: "2026.08.04",
     views: 24,
+    answer: "네, 싸농은 PC와 모바일 환경 모두에서 이용하실 수 있습니다.",
   },
   {
     id: 2,
     authorId: "kim123",
     author: "김채소",
     title: "농수산물이 어떤 방법으로 조사 되는지 알 수 있을까요?",
-    content: "어떤 데이터를 토대로 조사가 되는건가요?",
+    content: "어떤 데이터를 토대로 조사가 되는 건가요?",
     date: "2026.08.03",
     views: 18,
   },
@@ -40,14 +48,12 @@ const INITIAL_QNA_POSTS: QnaPost[] = [
     id: 1,
     authorId: "lee123",
     author: "이채소",
-    title: "관심품목 설정은 어디서 하나요",
+    title: "관심품목 설정은 어디서 하나요?",
     content: "내가 사는 지역의 관심품목을 설정하고 싶어요.",
     date: "2026.08.01",
     views: 12,
   },
 ];
-
-/* 로그인 사용자 정보 */
 
 interface LoginUser {
   userId?: string;
@@ -78,7 +84,7 @@ const getInitialPosts = (): QnaPost[] => {
 
     return parsedPosts;
   } catch (error) {
-    console.error("Q&A 게시글 불러오기 실패:", error);
+    console.error("질의응답 게시글 불러오기 실패:", error);
 
     localStorage.setItem("qnaPosts", JSON.stringify(INITIAL_QNA_POSTS));
 
@@ -118,6 +124,18 @@ const getLoginUserId = (): string => {
   return user?.userId || "";
 };
 
+/* 로그인 사용자 이름 */
+
+const getLoginUserName = (): string => {
+  const user = getLoginUser();
+
+  if (!user) {
+    return "사용자";
+  }
+
+  return user.name || user.userName || user.userId || "사용자";
+};
+
 /* 관리자 여부 */
 
 const isAdminUser = (): boolean => {
@@ -132,7 +150,11 @@ const isAdminUser = (): boolean => {
   return role === "ADMIN" || role === "ROLE_ADMIN";
 };
 
-/* Q&A Page */
+/* 답변 완료 여부 */
+
+const hasAnswer = (post: QnaPost): boolean => {
+  return typeof post.answer === "string" && post.answer.trim().length > 0;
+};
 
 function QnaPage() {
   const navigate = useNavigate();
@@ -144,13 +166,21 @@ function QnaPage() {
   /* 로그인 사용자 ID */
 
   const loginUserId = useMemo(() => {
-    return isLoggedIn ? getLoginUserId() : "";
+    if (!isLoggedIn) {
+      return "";
+    }
+
+    return getLoginUserId();
   }, [isLoggedIn]);
 
   /* 관리자 여부 */
 
   const isAdmin = useMemo(() => {
-    return isLoggedIn && isAdminUser();
+    if (!isLoggedIn) {
+      return false;
+    }
+
+    return isAdminUser();
   }, [isLoggedIn]);
 
   /* 게시글 */
@@ -164,7 +194,9 @@ function QnaPage() {
   /* 검색 */
 
   const [searchType, setSearchType] = useState<SearchType>("title");
+
   const [searchKeyword, setSearchKeyword] = useState("");
+
   const [appliedKeyword, setAppliedKeyword] = useState("");
 
   /* 페이지네이션 */
@@ -287,18 +319,19 @@ function QnaPage() {
   };
 
   /*
-    게시글 클릭
+    게시글 클릭 권한
 
-    일반 회원
-      → 본인 게시글만 상세 조회 가능
+    비로그인 사용자
+      → 게시글 내용 확인 불가
+
+    일반 로그인 사용자
+      → 본인이 작성한 게시글만 확인 가능
 
     관리자
-      → 모든 게시글 상세 조회 가능
+      → 모든 게시글 확인 가능
   */
 
   const handlePostClick = (post: QnaPost) => {
-    /* 로그인 여부 확인 */
-
     if (!isLoggedIn || !loginUserId) {
       alert("로그인 후 게시글 내용을 확인할 수 있습니다.");
 
@@ -307,17 +340,13 @@ function QnaPage() {
       return;
     }
 
-    /* 게시글 조회 권한 */
+    const isMyPost = post.authorId === loginUserId;
 
-    const canViewPost = isAdmin || post.authorId === loginUserId;
-
-    if (!canViewPost) {
+    if (!isAdmin && !isMyPost) {
       alert("본인이 작성한 게시글만 내용을 확인할 수 있습니다.");
 
       return;
     }
-
-    /* 조회수 증가 */
 
     const updatedPosts = posts.map((item) => {
       if (item.id === post.id) {
@@ -392,8 +421,6 @@ function QnaPage() {
     return date || "-";
   };
 
-  /* 화면 */
-
   return (
     <div className={styles.page}>
       {/* 최상단 사용자 영역 */}
@@ -403,12 +430,7 @@ function QnaPage() {
           <div className={styles.userArea}>
             {isLoggedIn ? (
               <>
-                <span className={styles.userName}>
-                  {getLoginUser()?.name ||
-                    getLoginUser()?.userName ||
-                    getLoginUser()?.userId ||
-                    "사용자"}
-                </span>
+                <span className={styles.userName}>{getLoginUserName()}</span>
 
                 {isAdmin && <span className={styles.adminBadge}>관리자</span>}
 
@@ -451,7 +473,7 @@ function QnaPage() {
             싸농
           </button>
 
-          {/* 상단 메뉴 */}
+          {/* 상단 가로 메뉴 */}
 
           <nav className={styles.mainNav} aria-label="주요 메뉴">
             {/* 홈 */}
@@ -486,7 +508,10 @@ function QnaPage() {
                     가격 추이 그래프
                   </button>
 
-                  <button type="button" onClick={() => navigate("/price")}>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/price/detail")}
+                  >
                     급상승 / 급락 품목
                   </button>
                 </div>
@@ -567,16 +592,51 @@ function QnaPage() {
                 <div className={styles.megaColumn}>
                   <strong>고객센터</strong>
 
-                  <button type="button" onClick={() => navigate("/board")}>
+                  <button type="button" onClick={() => navigate("/notice")}>
                     공지사항
                   </button>
 
                   <button type="button" onClick={() => navigate("/qna")}>
-                    Q&A
+                    질의응답
                   </button>
 
                   <button type="button" onClick={() => navigate("/faq")}>
                     자주 묻는 질문
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 마이페이지 */}
+
+            <div className={styles.navMenu}>
+              <button type="button" className={styles.navItem}>
+                마이페이지
+              </button>
+
+              <div className={styles.megaMenu}>
+                <div className={styles.megaColumn}>
+                  <strong>마이페이지</strong>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate("/mypage/info")}
+                  >
+                    내 정보 수정
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate("/mypage/interests")}
+                  >
+                    관심품목 & 우리동네 설정
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate("/mypage/alerts")}
+                  >
+                    가격 변동 타겟 알림
                   </button>
                 </div>
               </div>
@@ -714,7 +774,7 @@ function QnaPage() {
                   <button
                     type="button"
                     className={styles.allMenuItem}
-                    onClick={() => handleAllMenuNavigate("/board")}
+                    onClick={() => handleAllMenuNavigate("/notice")}
                   >
                     공지사항
                   </button>
@@ -724,7 +784,7 @@ function QnaPage() {
                     className={styles.allMenuItem}
                     onClick={() => handleAllMenuNavigate("/qna")}
                   >
-                    Q&A
+                    질의응답
                   </button>
 
                   <button
@@ -735,20 +795,52 @@ function QnaPage() {
                     자주 묻는 질문
                   </button>
                 </div>
+
+                {/* 마이페이지 */}
+
+                <div className={styles.allMenuGroup}>
+                  <strong className={styles.allMenuGroupTitle}>
+                    마이페이지
+                  </strong>
+
+                  <button
+                    type="button"
+                    className={styles.allMenuItem}
+                    onClick={() => handleAllMenuNavigate("/mypage/info")}
+                  >
+                    내 정보 수정
+                  </button>
+
+                  <button
+                    type="button"
+                    className={styles.allMenuItem}
+                    onClick={() => handleAllMenuNavigate("/mypage/interests")}
+                  >
+                    관심품목 & 우리동네 설정
+                  </button>
+
+                  <button
+                    type="button"
+                    className={styles.allMenuItem}
+                    onClick={() => handleAllMenuNavigate("/mypage/alerts")}
+                  >
+                    가격 변동 타겟 알림
+                  </button>
+                </div>
               </div>
             </div>
           )}
         </div>
       </header>
 
-      {/* Q&A 본문 */}
+      {/* 질의응답 본문 */}
 
       <main className={styles.container}>
         {/* 페이지 제목 */}
 
         <section className={styles.pageHeader}>
           <div className={styles.headerText}>
-            <h1>Q&A</h1>
+            <h1>질의응답</h1>
 
             <p>궁금한 점이나 서비스 이용 관련 문의를 남겨주세요.</p>
           </div>
@@ -760,7 +852,7 @@ function QnaPage() {
           <button
             type="button"
             className={styles.boardTab}
-            onClick={() => navigate("/board")}
+            onClick={() => navigate("/notice")}
           >
             공지사항
           </button>
@@ -770,7 +862,7 @@ function QnaPage() {
             className={`${styles.boardTab} ${styles.active}`}
             aria-current="page"
           >
-            Q&A게시판
+            질의응답 게시판
           </button>
 
           <button
@@ -784,7 +876,7 @@ function QnaPage() {
 
         {/* 검색 */}
 
-        <section className={styles.searchArea} aria-label="Q&A 검색">
+        <section className={styles.searchArea} aria-label="질의응답 검색">
           <div className={styles.searchBox}>
             <label htmlFor="qna-search" className={styles.searchLabel}>
               검색어
@@ -827,7 +919,7 @@ function QnaPage() {
             className={styles.writeButton}
             onClick={handleWrite}
             title={
-              !isLoggedIn ? "로그인 후 글쓰기가 가능합니다." : "Q&A 글쓰기"
+              !isLoggedIn ? "로그인 후 글쓰기가 가능합니다." : "질의응답 글쓰기"
             }
           >
             <span className={styles.writeIcon}>+</span>
@@ -847,9 +939,9 @@ function QnaPage() {
           </div>
         )}
 
-        {/* Q&A 게시글 목록 */}
+        {/* 질의응답 게시글 목록 */}
 
-        <section className={styles.board} aria-label="Q&A 게시글 목록">
+        <section className={styles.board} aria-label="질의응답 게시글 목록">
           <div className={styles.tableHeader}>
             <div className={styles.numberColumn}>번호</div>
 
@@ -869,7 +961,7 @@ function QnaPage() {
                   filteredPosts.length -
                   ((currentPage - 1) * POSTS_PER_PAGE + index);
 
-                const isMyPost = !!loginUserId && post.authorId === loginUserId;
+                const answered = hasAnswer(post);
 
                 return (
                   <button
@@ -880,7 +972,7 @@ function QnaPage() {
                     title={
                       isAdmin
                         ? "관리자 권한으로 게시글 보기"
-                        : isMyPost
+                        : loginUserId && post.authorId === loginUserId
                           ? "내 게시글 보기"
                           : isLoggedIn
                             ? "본인이 작성한 게시글만 확인할 수 있습니다."
@@ -891,6 +983,16 @@ function QnaPage() {
 
                     <div className={styles.titleColumn}>
                       <span className={styles.postTitle}>{post.title}</span>
+
+                      {answered && (
+                        <span
+                          className={styles.answerStatus}
+                          aria-label="답변 완료"
+                        >
+                          <span className={styles.answerArrow}>↳</span>
+                          답변이 완료되었습니다
+                        </span>
+                      )}
                     </div>
 
                     <div className={styles.authorColumn}>{post.author}</div>
@@ -908,9 +1010,9 @@ function QnaPage() {
             <div className={styles.empty}>
               <div className={styles.emptyIcon}>🔍</div>
 
-              <h3>등록된 Q&A가 없습니다.</h3>
+              <h3>등록된 질의응답이 없습니다.</h3>
 
-              <p>궁금한 내용을 Q&A 글쓰기로 등록해주세요.</p>
+              <p>궁금한 내용을 질의응답 글쓰기로 등록해주세요.</p>
             </div>
           )}
         </section>
@@ -918,7 +1020,7 @@ function QnaPage() {
         {/* 페이지네이션 */}
 
         {filteredPosts.length > 0 && (
-          <nav className={styles.pagination} aria-label="Q&A 페이지 이동">
+          <nav className={styles.pagination} aria-label="질의응답 페이지 이동">
             <button
               type="button"
               className={styles.pageArrow}
@@ -970,7 +1072,7 @@ function QnaPage() {
 
           <span className={styles.loginInfo}>
             {isAdmin
-              ? "🛡️ 관리자 계정은 모든 Q&A 게시글을 확인할 수 있습니다."
+              ? "🛡️ 관리자 계정은 모든 질의응답 게시글을 확인할 수 있습니다."
               : "🔒 게시글 내용은 작성자 본인만 확인할 수 있습니다."}
           </span>
         </div>

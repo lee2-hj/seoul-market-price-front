@@ -1,7 +1,18 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import styles from "./QnaDetailPage.module.css";
+
+/* Q&A 답변 */
+
+interface QnaAnswer {
+  authorId: string;
+  author: string;
+  content: string;
+  date: string;
+}
+
+/* Q&A 게시글 */
 
 interface QnaPost {
   id: number;
@@ -11,7 +22,10 @@ interface QnaPost {
   content: string;
   date: string;
   views: number;
+  answer?: QnaAnswer | null;
 }
+
+/* 로그인 사용자 */
 
 interface LoginUser {
   userId?: string;
@@ -31,6 +45,7 @@ const INITIAL_QNA_POSTS: QnaPost[] = [
     content: "웹사이트와 동일하게 모바일 화면에서도 확인가능한가요?",
     date: "2026.08.04",
     views: 24,
+    answer: null,
   },
   {
     id: 2,
@@ -40,6 +55,7 @@ const INITIAL_QNA_POSTS: QnaPost[] = [
     content: "어떤 데이터를 토대로 조사가 되는건가요?",
     date: "2026.08.03",
     views: 18,
+    answer: null,
   },
   {
     id: 1,
@@ -49,6 +65,7 @@ const INITIAL_QNA_POSTS: QnaPost[] = [
     content: "내가 사는 지역의 관심품목을 설정하고 싶어요.",
     date: "2026.08.01",
     views: 12,
+    answer: null,
   },
 ];
 
@@ -62,13 +79,13 @@ const getPosts = (): QnaPost[] => {
   }
 
   try {
-    const parsedPosts = JSON.parse(storedPosts);
+    const parsedPosts: unknown = JSON.parse(storedPosts);
 
     if (!Array.isArray(parsedPosts)) {
       return INITIAL_QNA_POSTS;
     }
 
-    return parsedPosts;
+    return parsedPosts as QnaPost[];
   } catch (error) {
     console.error("Q&A 게시글 불러오기 실패:", error);
 
@@ -86,13 +103,17 @@ const getLoginUser = (): LoginUser | null => {
   }
 
   try {
-    const parsedUser = JSON.parse(storedUser);
+    const parsedUser: unknown = JSON.parse(storedUser);
 
-    if (!parsedUser || typeof parsedUser !== "object") {
+    if (
+      !parsedUser ||
+      typeof parsedUser !== "object" ||
+      Array.isArray(parsedUser)
+    ) {
       return null;
     }
 
-    return parsedUser;
+    return parsedUser as LoginUser;
   } catch (error) {
     console.error("로그인 사용자 정보 확인 실패:", error);
 
@@ -102,9 +123,7 @@ const getLoginUser = (): LoginUser | null => {
 
 /* 로그인 사용자 이름 */
 
-const getLoginUserName = (): string => {
-  const user = getLoginUser();
-
+const getLoginUserName = (user: LoginUser | null): string => {
   if (!user) {
     return "사용자";
   }
@@ -112,7 +131,31 @@ const getLoginUserName = (): string => {
   return user.name || user.userName || user.userId || "사용자";
 };
 
-/* Q&A Detail Page */
+/* 관리자 여부 */
+
+const isAdminUser = (user: LoginUser | null): boolean => {
+  if (!user?.role) {
+    return false;
+  }
+
+  const role = user.role.toUpperCase();
+
+  return role === "ADMIN" || role === "ROLE_ADMIN";
+};
+
+/* 현재 날짜 */
+
+const getCurrentDate = (): string => {
+  const now = new Date();
+
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join(".");
+};
+
+/* Q&A 상세 페이지 */
 
 function QnaDetailPage() {
   const navigate = useNavigate();
@@ -126,19 +169,19 @@ function QnaDetailPage() {
 
   /* 로그인 상태 */
 
-  const isLoggedIn = !!currentUser;
+  const isLoggedIn = Boolean(currentUser?.userId);
 
   /* 로그인 사용자 ID */
 
-  const loginUserId = useMemo(() => {
-    return currentUser?.userId || "";
-  }, [currentUser]);
+  const loginUserId = currentUser?.userId || "";
+
+  /* 로그인 사용자 이름 */
+
+  const loginUserName = getLoginUserName(currentUser);
 
   /* 관리자 여부 */
 
-  const isAdmin = useMemo(() => {
-    return currentUser?.role?.toUpperCase() === "ADMIN";
-  }, [currentUser]);
+  const isAdmin = isAdminUser(currentUser);
 
   /* 게시글 조회 */
 
@@ -147,6 +190,63 @@ function QnaDetailPage() {
 
     return posts.find((item) => item.id === Number(id));
   }, [id]);
+
+  /* 조회수 표시 상태 */
+
+  /*
+    상세 페이지에 처음 진입할 때
+    기존 조회수 + 1을 화면에 바로 표시한다.
+
+    useEffect 내부에서 setViewCount()를 호출하지 않기 때문에
+    React의 cascading render 경고도 발생하지 않는다.
+  */
+
+  const [viewCount] = useState(() => {
+    return post ? post.views + 1 : 0;
+  });
+
+  /* 현재 화면에서 조회수를 이미 증가시켰는지 확인 */
+
+  const viewedPostIdRef = useRef<number | null>(null);
+
+  /* 게시글 상세 진입 시 조회수 증가 */
+
+  useEffect(() => {
+    if (!post) {
+      return;
+    }
+
+    const postId = post.id;
+
+    if (viewedPostIdRef.current === postId) {
+      return;
+    }
+
+    viewedPostIdRef.current = postId;
+
+    const posts = getPosts();
+
+    const targetPost = posts.find((item) => item.id === postId);
+
+    if (!targetPost) {
+      return;
+    }
+
+    const updatedViewCount = targetPost.views + 1;
+
+    const updatedPosts = posts.map((item) => {
+      if (item.id !== postId) {
+        return item;
+      }
+
+      return {
+        ...item,
+        views: updatedViewCount,
+      };
+    });
+
+    localStorage.setItem("qnaPosts", JSON.stringify(updatedPosts));
+  }, [post]);
 
   /* 본인 게시글 여부 */
 
@@ -158,42 +258,202 @@ function QnaDetailPage() {
     return post.authorId === loginUserId;
   }, [post, loginUserId]);
 
-  /*
-    상세 조회 권한
-
-    일반 회원
-      → 본인 게시글만 조회 가능
-
-    관리자
-      → 모든 게시글 조회 가능
-  */
+  /* 상세 조회 권한 */
 
   const canView = isAdmin || isAuthor;
 
-  /*
-    수정 권한
-
-    일반 회원
-      → 본인 게시글만 수정 가능
-
-    관리자
-      → 본인 게시글이면 수정 가능
-      → 다른 회원 게시글은 수정 불가
-  */
+  /* 수정 권한 */
 
   const canEdit = isAuthor;
 
-  /*
-    삭제 권한
-
-    일반 회원
-      → 본인 게시글만 삭제 가능
-
-    관리자
-      → 모든 게시글 삭제 가능
-  */
+  /* 삭제 권한 */
 
   const canDelete = isAdmin || isAuthor;
+
+  /* 답변 내용 */
+
+  const [answerContent, setAnswerContent] = useState("");
+
+  /* 답변 처리 중 */
+
+  const [answerLoading, setAnswerLoading] = useState(false);
+
+  /* 답변 수정 모드 */
+
+  const [isEditingAnswer, setIsEditingAnswer] = useState(false);
+
+  /* 답변 등록 */
+
+  const handleAnswerSubmit = () => {
+    if (!post) {
+      alert("게시글을 찾을 수 없습니다.");
+      return;
+    }
+
+    if (!isAdmin) {
+      alert("관리자만 답변을 작성할 수 있습니다.");
+      return;
+    }
+
+    const content = answerContent.trim();
+
+    if (!content) {
+      alert("답변 내용을 입력해주세요.");
+      return;
+    }
+
+    if (content.length > 5000) {
+      alert("답변은 5,000자 이내로 입력해주세요.");
+      return;
+    }
+
+    const latestUser = getLoginUser();
+
+    if (!isAdminUser(latestUser)) {
+      alert("관리자 권한이 필요합니다.");
+      return;
+    }
+
+    const posts = getPosts();
+
+    const targetPost = posts.find((item) => item.id === post.id);
+
+    if (!targetPost) {
+      alert("게시글을 찾을 수 없습니다.");
+      return;
+    }
+
+    if (targetPost.answer && !isEditingAnswer) {
+      alert("이미 답변이 등록되어 있습니다.");
+      return;
+    }
+
+    try {
+      setAnswerLoading(true);
+
+      const newAnswer: QnaAnswer = {
+        authorId: latestUser?.userId || "",
+        author: getLoginUserName(latestUser),
+        content,
+        date: getCurrentDate(),
+      };
+
+      const updatedPosts = posts.map((item) => {
+        if (item.id !== targetPost.id) {
+          return item;
+        }
+
+        return {
+          ...item,
+          answer: newAnswer,
+        };
+      });
+
+      localStorage.setItem("qnaPosts", JSON.stringify(updatedPosts));
+
+      setAnswerContent("");
+      setIsEditingAnswer(false);
+
+      alert(
+        isEditingAnswer ? "답변이 수정되었습니다." : "답변이 등록되었습니다.",
+      );
+
+      window.location.reload();
+    } catch (error) {
+      console.error("Q&A 답변 등록 실패:", error);
+
+      alert("답변 등록에 실패했습니다. 다시 시도해주세요.");
+    } finally {
+      setAnswerLoading(false);
+    }
+  };
+
+  /* 답변 수정 시작 */
+
+  const handleAnswerEdit = () => {
+    if (!post?.answer) {
+      return;
+    }
+
+    if (!isAdmin) {
+      alert("관리자만 답변을 수정할 수 있습니다.");
+      return;
+    }
+
+    setAnswerContent(post.answer.content);
+    setIsEditingAnswer(true);
+
+    window.scrollTo({
+      top: document.body.scrollHeight,
+      behavior: "smooth",
+    });
+  };
+
+  /* 답변 수정 취소 */
+
+  const handleAnswerCancel = () => {
+    setAnswerContent("");
+    setIsEditingAnswer(false);
+  };
+
+  /* 답변 삭제 */
+
+  const handleAnswerDelete = () => {
+    if (!post?.answer) {
+      alert("삭제할 답변이 없습니다.");
+      return;
+    }
+
+    if (!isAdmin) {
+      alert("관리자만 답변을 삭제할 수 있습니다.");
+      return;
+    }
+
+    const deleteConfirm = window.confirm("등록된 답변을 삭제하시겠습니까?");
+
+    if (!deleteConfirm) {
+      return;
+    }
+
+    const latestUser = getLoginUser();
+
+    if (!isAdminUser(latestUser)) {
+      alert("관리자 권한이 필요합니다.");
+      return;
+    }
+
+    const posts = getPosts();
+
+    const targetPost = posts.find((item) => item.id === post.id);
+
+    if (!targetPost) {
+      alert("게시글을 찾을 수 없습니다.");
+      return;
+    }
+
+    try {
+      const updatedPosts = posts.map((item) => {
+        if (item.id !== targetPost.id) {
+          return item;
+        }
+
+        return {
+          ...item,
+          answer: null,
+        };
+      });
+
+      localStorage.setItem("qnaPosts", JSON.stringify(updatedPosts));
+
+      alert("답변이 삭제되었습니다.");
+
+      window.location.reload();
+    } catch (error) {
+      console.error("Q&A 답변 삭제 실패:", error);
+
+      alert("답변 삭제에 실패했습니다.");
+    }
+  };
 
   /* 로그아웃 */
 
@@ -213,10 +473,6 @@ function QnaDetailPage() {
       return;
     }
 
-    /*
-      현재 페이지에서 1차 권한 확인
-    */
-
     if (!canDelete) {
       alert("게시글을 삭제할 권한이 없습니다.");
       return;
@@ -232,10 +488,6 @@ function QnaDetailPage() {
       return;
     }
 
-    /*
-      삭제 직전 최신 데이터 다시 조회
-    */
-
     const posts = getPosts();
 
     const targetPost = posts.find((item) => item.id === post.id);
@@ -245,10 +497,6 @@ function QnaDetailPage() {
       return;
     }
 
-    /*
-      삭제 직전 로그인 사용자 다시 확인
-    */
-
     const latestUser = getLoginUser();
 
     if (!latestUser) {
@@ -257,27 +505,16 @@ function QnaDetailPage() {
       return;
     }
 
+    const latestIsAdmin = isAdminUser(latestUser);
     const latestUserId = latestUser.userId || "";
 
-    const latestIsAdmin = latestUser.role?.toUpperCase() === "ADMIN";
-
     const latestIsAuthor =
-      !!latestUserId && targetPost.authorId === latestUserId;
-
-    /*
-      최종 삭제 권한 확인
-
-      관리자 OR 작성자
-    */
+      Boolean(latestUserId) && targetPost.authorId === latestUserId;
 
     if (!latestIsAdmin && !latestIsAuthor) {
       alert("게시글을 삭제할 권한이 없습니다.");
       return;
     }
-
-    /*
-      게시글 삭제
-    */
 
     const updatedPosts = posts.filter((item) => item.id !== targetPost.id);
 
@@ -299,12 +536,6 @@ function QnaDetailPage() {
       alert("게시글을 찾을 수 없습니다.");
       return;
     }
-
-    /*
-      수정은 본인 게시글만 가능
-
-      관리자라도 다른 회원의 게시글은 수정할 수 없다.
-    */
 
     if (!canEdit) {
       alert("본인이 작성한 게시글만 수정할 수 있습니다.");
@@ -364,25 +595,15 @@ function QnaDetailPage() {
     );
   }
 
-  /*
-    접근 권한 없음
-
-    일반 회원
-      → 본인 게시글이 아니면 접근 제한
-
-    관리자
-      → 모든 게시글 접근 가능
-  */
+  /* 접근 권한 없음 */
 
   if (!canView) {
     return (
       <div className={styles.page}>
-        {/* 사용자 영역 */}
-
         <div className={styles.topUserBar}>
           <div className={styles.topUserInner}>
             <div className={styles.userArea}>
-              <span className={styles.userName}>{getLoginUserName()}</span>
+              <span className={styles.userName}>{loginUserName}</span>
 
               <button
                 type="button"
@@ -395,12 +616,8 @@ function QnaDetailPage() {
           </div>
         </div>
 
-        {/* Header */}
-
         <header className={styles.mainHeader}>
           <div className={styles.headerInner}>
-            {/* 로고 */}
-
             <button
               type="button"
               className={styles.logo}
@@ -410,11 +627,7 @@ function QnaDetailPage() {
               싸농
             </button>
 
-            {/* 메인 메뉴 */}
-
             <nav className={styles.mainNav} aria-label="주요 메뉴">
-              {/* 홈 */}
-
               <button
                 type="button"
                 className={styles.navItem}
@@ -422,8 +635,6 @@ function QnaDetailPage() {
               >
                 홈
               </button>
-
-              {/* 가격 상세 정보 */}
 
               <div className={styles.navMenu}>
                 <button type="button" className={styles.navItem}>
@@ -452,8 +663,6 @@ function QnaDetailPage() {
                 </div>
               </div>
 
-              {/* 자치구별 가격정보 */}
-
               <div className={styles.navMenu}>
                 <button type="button" className={styles.navItem}>
                   자치구별 가격정보
@@ -479,8 +688,6 @@ function QnaDetailPage() {
                   </div>
                 </div>
               </div>
-
-              {/* 스마트 추천 */}
 
               <div className={styles.navMenu}>
                 <button type="button" className={styles.navItem}>
@@ -515,8 +722,6 @@ function QnaDetailPage() {
                 </div>
               </div>
 
-              {/* 고객센터 */}
-
               <div className={styles.navMenu}>
                 <button type="button" className={styles.navItem}>
                   고객센터
@@ -544,8 +749,6 @@ function QnaDetailPage() {
           </div>
         </header>
 
-        {/* 접근 제한 */}
-
         <main className={styles.container}>
           <div className={styles.empty}>
             <div className={styles.emptyIcon}>🔒</div>
@@ -571,19 +774,7 @@ function QnaDetailPage() {
     );
   }
 
-  /*
-    상세 페이지
-
-    여기까지 도달했다면
-
-    일반 회원
-      → 본인 게시글
-
-    관리자
-      → 모든 게시글
-
-    중 하나이다.
-  */
+  /* 상세 페이지 */
 
   return (
     <div className={styles.page}>
@@ -592,19 +783,11 @@ function QnaDetailPage() {
       <div className={styles.topUserBar}>
         <div className={styles.topUserInner}>
           <div className={styles.userArea}>
-            <span className={styles.userName}>{getLoginUserName()}</span>
+            <span className={styles.userName}>
+              {loginUserName}
 
-            {isAdmin && (
-              <span
-                style={{
-                  marginLeft: "8px",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                }}
-              >
-                관리자
-              </span>
-            )}
+              {isAdmin && <span className={styles.adminBadge}>관리자</span>}
+            </span>
 
             <button
               type="button"
@@ -621,8 +804,6 @@ function QnaDetailPage() {
 
       <header className={styles.mainHeader}>
         <div className={styles.headerInner}>
-          {/* 로고 */}
-
           <button
             type="button"
             className={styles.logo}
@@ -632,11 +813,7 @@ function QnaDetailPage() {
             싸농
           </button>
 
-          {/* 메인 메뉴 */}
-
           <nav className={styles.mainNav} aria-label="주요 메뉴">
-            {/* 홈 */}
-
             <button
               type="button"
               className={styles.navItem}
@@ -644,8 +821,6 @@ function QnaDetailPage() {
             >
               홈
             </button>
-
-            {/* 가격 상세 정보 */}
 
             <div className={styles.navMenu}>
               <button type="button" className={styles.navItem}>
@@ -674,8 +849,6 @@ function QnaDetailPage() {
               </div>
             </div>
 
-            {/* 자치구별 가격정보 */}
-
             <div className={styles.navMenu}>
               <button type="button" className={styles.navItem}>
                 자치구별 가격정보
@@ -701,8 +874,6 @@ function QnaDetailPage() {
                 </div>
               </div>
             </div>
-
-            {/* 스마트 추천 */}
 
             <div className={styles.navMenu}>
               <button type="button" className={styles.navItem}>
@@ -736,8 +907,6 @@ function QnaDetailPage() {
                 </div>
               </div>
             </div>
-
-            {/* 고객센터 */}
 
             <div className={styles.navMenu}>
               <button type="button" className={styles.navItem}>
@@ -782,15 +951,7 @@ function QnaDetailPage() {
         {/* 관리자 안내 */}
 
         {isAdmin && !isAuthor && (
-          <div
-            style={{
-              marginBottom: "16px",
-              padding: "12px 16px",
-              borderRadius: "8px",
-              background: "#f3f6f2",
-              fontSize: "14px",
-            }}
-          >
+          <div className={styles.adminNotice}>
             관리자 권한으로 전체 게시글을 확인하고 있습니다.
           </div>
         )}
@@ -809,7 +970,7 @@ function QnaDetailPage() {
               <span>{post.date}</span>
 
               <span>
-                조회수 <strong>{post.views}</strong>
+                조회수 <strong>{viewCount}</strong>
               </span>
             </div>
           </header>
@@ -819,11 +980,131 @@ function QnaDetailPage() {
           <div className={styles.postContent}>{post.content}</div>
         </article>
 
+        {/* 관리자 답변 */}
+
+        <section className={styles.answerSection}>
+          <div className={styles.answerHeader}>
+            <div>
+              <span className={styles.answerLabel}>ANSWER</span>
+
+              <h3>관리자 답변</h3>
+            </div>
+
+            {post.answer && (
+              <span className={styles.answerStatus}>답변완료</span>
+            )}
+          </div>
+
+          {/* 답변이 있는 경우 */}
+
+          {post.answer && !isEditingAnswer && (
+            <div className={styles.answerBox}>
+              <div className={styles.answerMeta}>
+                <div className={styles.answerAuthor}>
+                  <span className={styles.answerIcon}>A</span>
+
+                  <strong>{post.answer.author}</strong>
+
+                  <span className={styles.answerAdminBadge}>관리자</span>
+                </div>
+
+                <span>{post.answer.date}</span>
+              </div>
+
+              <div className={styles.answerContent}>{post.answer.content}</div>
+
+              {isAdmin && (
+                <div className={styles.answerActions}>
+                  <button
+                    type="button"
+                    className={styles.answerEditButton}
+                    onClick={handleAnswerEdit}
+                  >
+                    답변 수정
+                  </button>
+
+                  <button
+                    type="button"
+                    className={styles.answerDeleteButton}
+                    onClick={handleAnswerDelete}
+                  >
+                    답변 삭제
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 답변이 없는 경우 */}
+
+          {!post.answer && !isAdmin && (
+            <div className={styles.noAnswer}>
+              <span>💬</span>
+
+              <p>아직 관리자 답변이 등록되지 않았습니다.</p>
+            </div>
+          )}
+
+          {/* 관리자 답변 작성/수정 */}
+
+          {isAdmin && (!post.answer || isEditingAnswer) && (
+            <div className={styles.answerForm}>
+              <div className={styles.answerFormTop}>
+                <span className={styles.answerFormTitle}>
+                  {isEditingAnswer ? "답변 수정" : "답변 작성"}
+                </span>
+
+                <span className={styles.answerWriter}>
+                  작성자 : {loginUserName}
+                </span>
+              </div>
+
+              <textarea
+                value={answerContent}
+                onChange={(event) => setAnswerContent(event.target.value)}
+                placeholder="회원의 문의에 대한 답변을 입력해주세요."
+                maxLength={5000}
+                disabled={answerLoading}
+              />
+
+              <div className={styles.answerFieldBottom}>
+                <small>답변은 5,000자 이내로 입력해주세요.</small>
+
+                <span>{answerContent.length.toLocaleString()} / 5,000</span>
+              </div>
+
+              <div className={styles.answerFormActions}>
+                {isEditingAnswer && (
+                  <button
+                    type="button"
+                    className={styles.answerCancelButton}
+                    onClick={handleAnswerCancel}
+                    disabled={answerLoading}
+                  >
+                    취소
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className={styles.answerSubmitButton}
+                  onClick={handleAnswerSubmit}
+                  disabled={answerLoading}
+                >
+                  {answerLoading
+                    ? "처리 중..."
+                    : isEditingAnswer
+                      ? "답변 수정"
+                      : "답변 등록"}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+
         {/* 하단 버튼 */}
 
         <div className={styles.bottomActions}>
-          {/* 목록 */}
-
           <button
             type="button"
             className={styles.listButton}
@@ -831,8 +1112,6 @@ function QnaDetailPage() {
           >
             목록
           </button>
-
-          {/* 본인 게시글만 수정 */}
 
           {canEdit && (
             <button
@@ -843,8 +1122,6 @@ function QnaDetailPage() {
               수정
             </button>
           )}
-
-          {/* 관리자 또는 작성자 삭제 */}
 
           {canDelete && (
             <button
