@@ -1,18 +1,37 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
 import axios from "axios";
 
-import styles from "./LoginForm.module.css";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 import { saveLogin } from "../../auth/utils/auth";
 import { loginApi } from "@/api/api";
 
+/* ===============================
+   로그인 폼 입력값 타입
+=============================== */
+
+type LoginFormValues = {
+  userId: string;
+  password: string;
+};
+
+const defaultValues: LoginFormValues = {
+  userId: "",
+  password: "",
+};
+
+const inputClassName =
+  "h-[52px] border-[#d8e8d8] bg-[#fbfffb] px-[16px] py-0 text-[15px] shadow-none transition-all duration-300 placeholder:text-[14px] placeholder:text-[#aaa] focus-visible:border-[#4caf50] focus-visible:ring-[#4caf50]/15 md:text-[15px] max-[600px]:h-[48px] max-[600px]:text-[14px]";
+
 function LoginForm() {
   const navigate = useNavigate();
 
-  const [userId, setUserId] = useState("");
-
-  const [password, setPassword] = useState("");
+  const { getValues, setValue, watch } = useForm<LoginFormValues>({
+    defaultValues,
+  });
 
   const [loading, setLoading] = useState(false);
 
@@ -23,9 +42,10 @@ function LoginForm() {
       return;
     }
 
-    const trimUserId = userId.trim();
+    const values = getValues();
+    const trimUserId = values.userId.trim();
 
-    if (!trimUserId || !password) {
+    if (!trimUserId || !values.password) {
       alert("아이디와 비밀번호를 입력해주세요.");
 
       return;
@@ -34,7 +54,7 @@ function LoginForm() {
     try {
       setLoading(true);
 
-      const data = await loginApi(trimUserId, password);
+      const data = await loginApi(trimUserId, values.password);
 
       /*
         백엔드 LoginResponse는 평평한 구조로 내려온다.
@@ -105,30 +125,32 @@ function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className={styles.form}>
-      <input
+    <form onSubmit={handleSubmit} className="flex w-full flex-col gap-[16px]">
+      <Input
         type="text"
         placeholder="아이디"
-        value={userId}
+        value={watch("userId")}
         disabled={loading}
-        onChange={(e) => {
-          setUserId(e.target.value);
-        }}
+        onChange={(e) => setValue("userId", e.target.value)}
+        className={inputClassName}
       />
 
-      <input
+      <Input
         type="password"
         placeholder="비밀번호"
-        value={password}
+        value={watch("password")}
         disabled={loading}
-        onChange={(e) => {
-          setPassword(e.target.value);
-        }}
+        onChange={(e) => setValue("password", e.target.value)}
+        className={inputClassName}
       />
 
-      <button type="submit" className={styles.loginButton} disabled={loading}>
+      <Button
+        type="submit"
+        disabled={loading}
+        className="mt-[8px] h-[54px] w-full rounded-[14px] border-0 bg-gradient-to-br from-[#66bb6a] to-[#2e7d32] text-[17px] font-extrabold text-white shadow-none transition-all duration-300 hover:-translate-y-0.5 hover:cursor-pointer hover:opacity-100 hover:shadow-[0_10px_25px_rgba(46,125,50,0.25)] active:scale-[0.98] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none max-[600px]:h-[50px] max-[600px]:text-[16px]"
+      >
         {loading ? "로그인 중..." : "로그인"}
-      </button>
+      </Button>
     </form>
   );
 }
