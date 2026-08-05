@@ -1,17 +1,51 @@
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
+import {
+  clearAllSignupStorage,
+  isFlowPathMatch,
+  isPageReload,
+} from "@/lib/signupFlow";
 
 import LoginPage from "../pages/Login/LoginPage";
 import MainPage from "../pages/Main/MainPage";
 
 import SignupPage from "../pages/Signup/SignupPage";
+import SignupSelectPage from "../pages/SignupSelect/SignupSelectPage";
+import SignupTermsPage from "../pages/SignupTerms/SignupTermsPage";
+import SignupVerifyPage from "../pages/SignupVerify/SignupVerifyPage";
 import FindPasswordPage from "../pages/FindPassword/FindPasswordPage";
 import FindIdPage from "../pages/FindId/FindIdPage";
 
 import PassCallbackPage from "../pages/PassCallback/PassCallbackPage";
 
 import PublicRoute from "./PublicRoute";
+import SignupFlowLayout from "./SignupFlowLayout";
 
 function Router() {
+  /* =========================
+     앱(문서)이 새로고침이 아닌 방식으로 새로 열릴 때마다
+     (주소창 직접 입력, 다른 링크로 이동, 새 진입 등)
+     이전에 남아있을 수 있는 회원가입 플로우 sessionStorage를
+     전부(흐름 메타데이터 + 약관 동의 + PASS 인증 결과) 정리한다.
+
+     지금 머물러 있던 페이지와 다른 URL이 새 문서로 열렸다는 뜻이므로,
+     이전 플로우의 잔여값을 그대로 남겨두면 안 된다.
+     새로고침일 때는 값을 그대로 유지해야 하므로 건드리지 않는다.
+
+     주소창에 "마지막으로 머물렀던 페이지와 동일한 URL"을 직접
+     입력해 새 문서가 열린 경우도 마찬가지로 건드리지 않는다 —
+     SignupFlowLayout이 이를 새로고침과 동일하게 취급해 그대로
+     머무르게 하는데, 여기서 먼저 지워버리면 그 판단 근거가 되는
+     sessionStorage 값이 사라져버린다.
+  ========================= */
+
+  useEffect(() => {
+    if (!isPageReload() && !isFlowPathMatch(window.location.pathname)) {
+      clearAllSignupStorage();
+    }
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>
@@ -37,18 +71,55 @@ function Router() {
         />
 
         {/* =========================
-            회원가입
+            회원가입 방법 선택
             비로그인 사용자만 접근
         ========================= */}
 
         <Route
-          path="/signup"
+          path="/signup/select"
           element={
             <PublicRoute>
-              <SignupPage />
+              <SignupSelectPage />
             </PublicRoute>
           }
         />
+
+        {/* =========================
+            회원가입 약관 동의 → 본인인증 → 회원가입
+
+            /signup/select 를 거쳐 진입한 경우에만 접근 가능
+            (SignupFlowLayout 에서 sessionStorage 플래그로 검증)
+            비로그인 사용자만 접근
+        ========================= */}
+
+        <Route element={<SignupFlowLayout />}>
+          <Route
+            path="/signup/terms"
+            element={
+              <PublicRoute>
+                <SignupTermsPage />
+              </PublicRoute>
+            }
+          />
+
+          <Route
+            path="/signup/verify"
+            element={
+              <PublicRoute>
+                <SignupVerifyPage />
+              </PublicRoute>
+            }
+          />
+
+          <Route
+            path="/signup"
+            element={
+              <PublicRoute>
+                <SignupPage />
+              </PublicRoute>
+            }
+          />
+        </Route>
 
         {/* =========================
             아이디 찾기
