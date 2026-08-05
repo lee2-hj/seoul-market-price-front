@@ -1,12 +1,6 @@
-/* =========================================================
-   싸.농 MainPage
-   MainPage.module.css
-========================================================= */
+/* MainPage.module.css */
 
-
-/* =========================================================
-   GLOBAL SCROLL
-========================================================= */
+/* Global scroll */
 
 :global(html) {
   width: 100%;
@@ -31,14 +25,11 @@
 }
 
 
-/* =========================================================
-   MAIN PAGE
-========================================================= */
+/* Main page */
 
 .mainPage {
   width: 100%;
   min-height: 100vh;
-
   overflow-x: hidden;
 
   background: #f7f9f6;
@@ -52,9 +43,7 @@
 }
 
 
-/* =========================================================
-   RESET
-========================================================= */
+/* Reset */
 
 .mainPage *,
 .mainPage *::before,
@@ -78,9 +67,7 @@
 }
 
 
-/* =========================================================
-   HEADER
-========================================================= */
+/* Header */
 
 .header {
   position: sticky;
@@ -90,7 +77,6 @@
   width: 100%;
 
   background: rgba(255, 255, 255, 0.97);
-
   border-bottom: 1px solid #e8ece6;
 
   backdrop-filter: blur(12px);
@@ -109,9 +95,7 @@
 }
 
 
-/* =========================================================
-   LOGO
-========================================================= */
+/* Logo */
 
 .logo {
   display: flex;
@@ -120,7 +104,6 @@
   gap: 9px;
 
   min-width: 245px;
-
   flex-shrink: 0;
 }
 
@@ -150,9 +133,7 @@
 }
 
 
-/* =========================================================
-   NAV
-========================================================= */
+/* Navigation */
 
 .nav {
   height: 76px;
@@ -178,7 +159,6 @@
   gap: 5px;
 
   background: transparent;
-
   color: #505850;
 
   font-size: 14px;
@@ -210,9 +190,7 @@
 }
 
 
-/* =========================================================
-   NAV DROPDOWN WRAPPER
-========================================================= */
+/* Navigation dropdown wrapper */
 
 .navDropdown {
   position: static;
@@ -226,9 +204,7 @@
 }
 
 
-/* =========================================================
-   ARROW
-========================================================= */
+/* Navigation arrow */
 
 .arrow {
   display: inline-block;
@@ -246,14 +222,11 @@
 
 .navDropdown:hover .arrow {
   color: #4c9b55;
-
   transform: rotate(180deg);
 }
 
 
-/* =========================================================
-   MEGA DROPDOWN
-========================================================= */
+/* Mega dropdown */
 
 .dropdownMenu {
   position: fixed;
@@ -264,7 +237,6 @@
   z-index: 999;
 
   width: 100%;
-
   min-height: 145px;
 
   padding: 30px 0 34px;
@@ -307,9 +279,7 @@
 }
 
 
-/* =========================================================
-   DROPDOWN LINK
-========================================================= */
+/* Dropdown link */
 
 .dropdownMenu a {
   position: relative;
@@ -353,7 +323,6 @@
 
 .dropdownMenu a:hover {
   background: #f3f8f2;
-
   color: #4c9956;
 
   transform: translateX(3px);
@@ -364,9 +333,7 @@
 }
 
 
-/* =========================================================
-   USER AREA
-========================================================= */
+/* User area */
 
 .userArea {
   display: flex;
@@ -386,7 +353,6 @@
   padding: 9px 12px;
 
   background: transparent;
-
   color: #3f473f;
 
   cursor: pointer;
@@ -394,7 +360,6 @@
 
 .userButton strong {
   font-size: 13px;
-
   white-space: nowrap;
 }
 
@@ -405,13 +370,11 @@
   border-radius: 8px;
 
   background: #fff;
-
   color: #626a62;
 
   font-size: 12px;
 
   cursor: pointer;
-
   white-space: nowrap;
 
   transition: 0.2s;
@@ -419,14 +382,11 @@
 
 .logoutButton:hover {
   border-color: #9cb49d !important;
-
   background: #f8fbf7;
 }
 
 
-/* =========================================================
-   HERO
-========================================================= */
+/* Hero */
 
 .hero {
   border-bottom: 1px solid #e1e9df;
@@ -447,7 +407,6 @@
 
 .heroInner {
   width: min(1280px, calc(100% - 48px));
-
   min-height: 465px;
 
   margin: 0 auto;
@@ -461,7 +420,6 @@
 
 .heroText {
   flex: 1;
-
   max-width: 700px;
 }
 
@@ -471,7 +429,6 @@
   color: #242b25;
 
   font-size: 48px;
-
   line-height: 1.18;
 
   letter-spacing: -2.5px;
@@ -487,18 +444,14 @@
   color: #6e776d;
 
   font-size: 16px;
-
   line-height: 1.75;
 }
 
 
-/* =========================================================
-   SEARCH
-========================================================= */
+/* Search */
 
 .searchBox {
   width: min(650px, 100%);
-
   height: 62px;
 
   padding: 0 7px 0 20px;
@@ -507,7 +460,6 @@
   align-items: center;
 
   border: 1px solid #d9e4d8;
-
   border-radius: 14px;
 
   background: #fff;
@@ -518,7 +470,6 @@
 
 .searchBox > span {
   margin-right: 10px;
-
   font-size: 18px;
 }
 
@@ -529,11 +480,9 @@
   height: 100%;
 
   border: 0;
-
   outline: 0;
 
   background: transparent;
-
   color: #333;
 
   font-size: 14px;
@@ -551,7 +500,6 @@
   border-radius: 10px;
 
   background: #5ca665;
-
   color: #fff;
 
   font-size: 14px;
@@ -567,14 +515,11 @@
 }
 
 
-/* =========================================================
-   QUICK SEARCH
-========================================================= */
+/* Quick search */
 
 .quickSearch {
   display: flex;
   align-items: center;
-
   flex-wrap: wrap;
 
   gap: 8px;
@@ -590,11 +535,9 @@
   padding: 5px 10px;
 
   border: 1px solid #dce5da;
-
   border-radius: 20px;
 
   background: #fff;
-
   color: #626b62;
 
   cursor: pointer;
@@ -604,14 +547,11 @@
 
 .quickSearch button:hover {
   border-color: #8db891;
-
   color: #4e9557;
 }
 
 
-/* =========================================================
-   HERO PRICE
-========================================================= */
+/* Hero price */
 
 .heroPrice {
   width: 330px;
@@ -619,7 +559,6 @@
   padding: 29px;
 
   border: 1px solid #e0e9df;
-
   border-radius: 22px;
 
   background: rgba(255, 255, 255, 0.9);
@@ -638,13 +577,11 @@
 
 .heroPriceHeader span {
   font-size: 13px;
-
   font-weight: 700;
 }
 
 .heroPriceHeader small {
   color: #969d95;
-
   font-size: 10px;
 }
 
@@ -680,7 +617,6 @@
 
 .heroProduct div span {
   color: #899187;
-
   font-size: 11px;
 }
 
@@ -713,7 +649,6 @@
   justify-content: space-between;
 
   padding-top: 15px;
-
   margin-top: 15px;
 
   border-top: 1px solid #edf0ec;
@@ -729,7 +664,6 @@
 
 .heroDetail {
   width: 100%;
-
   height: 43px;
 
   margin-top: 22px;
@@ -737,7 +671,6 @@
   border-radius: 9px;
 
   background: #f0f6ef;
-
   color: #4e9257;
 
   font-size: 12px;
@@ -753,13 +686,10 @@
 }
 
 
-/* =========================================================
-   QUICK MENU
-========================================================= */
+/* Quick menu */
 
 .quickSection {
   background: #fff;
-
   border-bottom: 1px solid #e8ece7;
 }
 
@@ -826,20 +756,16 @@
 
 .quickCard small {
   color: #929990;
-
   font-size: 11px;
 }
 
 .quickCard b {
   color: #9ba39a;
-
   font-size: 16px;
 }
 
 
-/* =========================================================
-   COMMON SECTION
-========================================================= */
+/* Common section */
 
 .section,
 .comparisonSection,
@@ -890,9 +816,8 @@
 
 .sectionTitle > a,
 .sectionTitle > button {
-  color: #5b9661;
-
   background: transparent;
+  color: #5b9661;
 
   font-size: 12px;
   font-weight: 700;
@@ -901,9 +826,7 @@
 }
 
 
-/* =========================================================
-   FILTER
-========================================================= */
+/* Filter */
 
 .filterTabs {
   display: flex;
@@ -917,11 +840,9 @@
   padding: 9px 16px;
 
   border: 1px solid #dfe5dc;
-
   border-radius: 20px;
 
   background: #fff;
-
   color: #727970;
 
   font-size: 12px;
@@ -939,14 +860,11 @@
   border-color: #5da566;
 
   background: #5da566;
-
   color: #fff;
 }
 
 
-/* =========================================================
-   PRODUCT
-========================================================= */
+/* Product */
 
 .productGrid {
   display: grid;
@@ -964,7 +882,6 @@
   text-align: left;
 
   border: 1px solid #e4e9e2;
-
   border-radius: 15px;
 
   background: #fff;
@@ -1002,7 +919,6 @@
   border-radius: 5px;
 
   background: #f2f5f1;
-
   color: #8b9389;
 
   font-size: 9px;
@@ -1036,7 +952,6 @@
   justify-content: space-between;
 
   padding-top: 17px;
-
   margin-top: 18px;
 
   border-top: 1px solid #eef1ed;
@@ -1055,9 +970,7 @@
 }
 
 
-/* =========================================================
-   PRICE COMPARISON
-========================================================= */
+/* Price comparison */
 
 .comparisonSection {
   width: 100%;
@@ -1087,7 +1000,6 @@
 
 .currentPriceCard > span {
   color: #7f887e;
-
   font-size: 12px;
 }
 
@@ -1101,7 +1013,6 @@
 
 .currentPriceCard > strong small {
   margin-left: 3px;
-
   font-size: 13px;
 }
 
@@ -1176,9 +1087,7 @@
 }
 
 
-/* =========================================================
-   DISTRICT
-========================================================= */
+/* District */
 
 .districtLayout {
   display: grid;
@@ -1204,7 +1113,6 @@
   text-align: left;
 
   border: 1px solid #e5eae3;
-
   border-radius: 10px;
 
   background: #fff;
@@ -1240,7 +1148,6 @@
   margin-left: 2px;
 
   font-size: 9px;
-
   font-weight: 500;
 }
 
@@ -1250,7 +1157,6 @@
   margin-top: 6px;
 
   font-size: 10px;
-
   font-style: normal;
 }
 
@@ -1260,13 +1166,11 @@
   border-radius: 16px;
 
   background: #2f4a34;
-
   color: #fff;
 }
 
 .districtSummary > span {
   color: #bdcdbd;
-
   font-size: 10px;
 }
 
@@ -1282,7 +1186,6 @@
 
 .districtSummary > strong small {
   margin-left: 2px;
-
   font-size: 12px;
 }
 
@@ -1292,7 +1195,6 @@
   color: #d3ddd3;
 
   font-size: 11px;
-
   line-height: 1.7;
 }
 
@@ -1302,13 +1204,11 @@
 
 .districtSummary button {
   width: 100%;
-
   height: 42px;
 
   border-radius: 8px;
 
   background: #fff;
-
   color: #39543d;
 
   font-size: 11px;
@@ -1319,17 +1219,14 @@
 
 .regionSelect {
   min-width: 120px;
-
   height: 38px;
 
   padding: 0 10px;
 
   border: 1px solid #dfe5dc;
-
   border-radius: 8px;
 
   background: #fff;
-
   color: #555d55;
 
   font-size: 12px;
@@ -1340,9 +1237,7 @@
 }
 
 
-/* =========================================================
-   BOARD SECTION
-========================================================= */
+/* Board section */
 
 .boardSection {
   width: 100%;
@@ -1384,9 +1279,7 @@
 }
 
 
-/* =========================================================
-   BOARD GRID
-========================================================= */
+/* Board grid */
 
 .boardGrid {
   display: grid;
@@ -1397,15 +1290,12 @@
 }
 
 
-/* =========================================================
-   BOARD BOX
-========================================================= */
+/* Board box */
 
 .boardBox {
   overflow: hidden;
 
   border: 1px solid #e4e9e2;
-
   border-radius: 16px;
 
   background: #fff;
@@ -1423,9 +1313,7 @@
 }
 
 
-/* =========================================================
-   BOARD BOX HEADER
-========================================================= */
+/* Board box header */
 
 .boardBoxHeader {
   min-height: 72px;
@@ -1471,9 +1359,7 @@
 }
 
 
-/* =========================================================
-   BOARD LIST
-========================================================= */
+/* Board list */
 
 .boardList {
   padding: 5px 22px 8px;
@@ -1481,7 +1367,6 @@
 
 .boardItem {
   width: 100%;
-
   min-height: 53px;
 
   padding: 0;
@@ -1494,7 +1379,6 @@
   border-bottom: 1px solid #f0f2ef;
 
   background: transparent;
-
   color: #505850;
 
   text-align: left;
@@ -1515,9 +1399,7 @@
 }
 
 
-/* =========================================================
-   BOARD ITEM TITLE
-========================================================= */
+/* Board item title */
 
 .boardItemTitle {
   flex: 1;
@@ -1536,16 +1418,13 @@
   overflow: hidden;
 
   text-overflow: ellipsis;
-
   white-space: nowrap;
 
   font-weight: 500;
 }
 
 
-/* =========================================================
-   BOARD DATE
-========================================================= */
+/* Board date */
 
 .boardDate {
   flex-shrink: 0;
@@ -1556,9 +1435,7 @@
 }
 
 
-/* =========================================================
-   NOTICE BADGE
-========================================================= */
+/* Notice badge */
 
 .noticeBadge {
   flex-shrink: 0;
@@ -1568,7 +1445,6 @@
   border-radius: 5px;
 
   background: #edf5eb;
-
   color: #57935e;
 
   font-size: 9px;
@@ -1576,9 +1452,7 @@
 }
 
 
-/* =========================================================
-   Q&A STATUS
-========================================================= */
+/* Q&A status */
 
 .answerComplete,
 .answerWaiting {
@@ -1594,20 +1468,16 @@
 
 .answerComplete {
   background: #eaf4eb;
-
   color: #57935e;
 }
 
 .answerWaiting {
   background: #f3f5f2;
-
   color: #899187;
 }
 
 
-/* =========================================================
-   SERVICE
-========================================================= */
+/* Service */
 
 .serviceSection {
   width: min(1280px, calc(100% - 48px));
@@ -1630,7 +1500,6 @@
   padding: 21px;
 
   border: 1px solid #e4e9e2;
-
   border-radius: 13px;
 
   background: #fff;
@@ -1677,7 +1546,6 @@
   color: #969d94;
 
   font-size: 10px;
-
   line-height: 1.5;
 }
 
@@ -1691,9 +1559,7 @@
 }
 
 
-/* =========================================================
-   API NOTICE
-========================================================= */
+/* API notice */
 
 .apiNotice {
   width: min(1280px, calc(100% - 48px));
@@ -1707,7 +1573,6 @@
   justify-content: space-between;
 
   border: 1px solid #dce8da;
-
   border-radius: 12px;
 
   background: #f1f7ef;
@@ -1742,36 +1607,29 @@
   color: #4d9457;
 
   font-size: 10px;
-
   font-weight: 700;
 
   white-space: nowrap;
 }
 
 
-/* =========================================================
-   FOOTER
-========================================================= */
+/* Footer */
 
 .footer {
   width: 100%;
 
   background: #263329;
-
   color: #fff;
 }
 
 .footerInner {
   width: min(1280px, calc(100% - 48px));
-
   min-height: 180px;
 
   margin: 0 auto;
 
   display: flex;
-
   align-items: center;
-
   justify-content: space-between;
 
   gap: 30px;
@@ -1779,7 +1637,6 @@
 
 .footerLogo {
   display: flex;
-
   align-items: center;
 
   gap: 8px;
@@ -1826,12 +1683,9 @@
 }
 
 
-/* =========================================================
-   RESPONSIVE 1200
-========================================================= */
+/* Responsive: 1200px */
 
 @media (max-width: 1200px) {
-
   .headerInner {
     gap: 20px;
   }
@@ -1854,12 +1708,9 @@
 }
 
 
-/* =========================================================
-   RESPONSIVE 1100
-========================================================= */
+/* Responsive: 1100px */
 
 @media (max-width: 1100px) {
-
   .nav {
     gap: 17px;
   }
@@ -1909,12 +1760,9 @@
 }
 
 
-/* =========================================================
-   RESPONSIVE 950
-========================================================= */
+/* Responsive: 950px */
 
 @media (max-width: 950px) {
-
   .headerInner {
     gap: 15px;
   }
@@ -1947,13 +1795,10 @@
 }
 
 
-/* =========================================================
-   TABLET / MOBILE 850
-========================================================= */
+/* Responsive: 850px */
 
 @media (max-width: 850px) {
-
-  /* HEADER */
+  /* Header */
 
   .header {
     position: relative;
@@ -1961,7 +1806,6 @@
 
   .headerInner {
     height: auto;
-
     min-height: 70px;
 
     flex-wrap: wrap;
@@ -1973,13 +1817,11 @@
     order: 3;
 
     width: 100%;
-
     height: auto;
 
     justify-content: flex-start;
 
     overflow-x: auto;
-
     overflow-y: visible;
 
     gap: 22px;
@@ -2006,7 +1848,7 @@
   }
 
 
-  /* MOBILE DROPDOWN */
+  /* Mobile dropdown */
 
   .navDropdown {
     position: relative;
@@ -2031,7 +1873,6 @@
     left: 50%;
 
     width: 230px;
-
     min-height: auto;
 
     padding: 16px;
@@ -2042,7 +1883,6 @@
     gap: 3px;
 
     border: 1px solid #dfe7dd;
-
     border-radius: 12px;
 
     box-shadow:
@@ -2057,7 +1897,6 @@
 
   .dropdownMenu a {
     width: 100%;
-
     min-width: 0;
 
     padding: 10px 12px;
@@ -2066,33 +1905,31 @@
   }
 
 
-  /* HERO */
+  /* Hero */
 
   .heroInner {
     padding: 55px 0;
 
     flex-direction: column;
-
     align-items: stretch;
   }
 
   .heroPrice {
     width: 100%;
-
     max-width: 430px;
 
     margin: 0 auto;
   }
 
 
-  /* COMPARISON */
+  /* Comparison */
 
   .comparisonGrid {
     grid-template-columns: 1fr;
   }
 
 
-  /* DISTRICT */
+  /* District */
 
   .districtLayout {
     grid-template-columns: 1fr;
@@ -2103,21 +1940,21 @@
   }
 
 
-  /* BOARD */
+  /* Board */
 
   .boardGrid {
     grid-template-columns: 1fr;
   }
 
 
-  /* SERVICE */
+  /* Service */
 
   .serviceSection {
     grid-template-columns: 1fr;
   }
 
 
-  /* FOOTER */
+  /* Footer */
 
   .footerInner {
     flex-direction: column;
@@ -2129,12 +1966,9 @@
 }
 
 
-/* =========================================================
-   MOBILE 600
-========================================================= */
+/* Responsive: 600px */
 
 @media (max-width: 600px) {
-
   .headerInner,
   .heroInner,
   .section,
@@ -2145,7 +1979,7 @@
   }
 
 
-  /* HEADER */
+  /* Header */
 
   .logoName {
     font-size: 21px;
@@ -2160,7 +1994,7 @@
   }
 
 
-  /* HERO */
+  /* Hero */
 
   .heroText h1 {
     font-size: 34px;
@@ -2185,7 +2019,7 @@
   }
 
 
-  /* QUICK MENU */
+  /* Quick menu */
 
   .quickMenu {
     width: 100%;
@@ -2195,25 +2029,21 @@
 
   .quickCard {
     border-left: 0 !important;
-
     border-right: 0 !important;
-
     border-bottom: 1px solid #edf0ec;
   }
 
 
-  /* SECTION */
+  /* Section */
 
   .section,
   .comparisonSection {
     padding-top: 60px;
-
     padding-bottom: 60px;
   }
 
   .boardSection {
-    padding:
-      60px 15px;
+    padding: 60px 15px;
   }
 
   .sectionTitle {
@@ -2229,7 +2059,7 @@
   }
 
 
-  /* PRODUCT */
+  /* Product */
 
   .productGrid {
     grid-template-columns: repeat(2, 1fr);
@@ -2244,14 +2074,14 @@
   }
 
 
-  /* DISTRICT */
+  /* District */
 
   .districtGrid {
     grid-template-columns: repeat(2, 1fr);
   }
 
 
-  /* REFERENCE */
+  /* Reference */
 
   .referenceCard {
     grid-template-columns: repeat(2, 1fr);
@@ -2267,7 +2097,7 @@
   }
 
 
-  /* BOARD */
+  /* Board */
 
   .boardHeader h2 {
     font-size: 24px;
@@ -2279,7 +2109,6 @@
 
   .boardList {
     padding-left: 17px;
-
     padding-right: 17px;
   }
 
@@ -2292,7 +2121,7 @@
   }
 
 
-  /* SERVICE */
+  /* Service */
 
   .serviceSection {
     margin-bottom: 45px;
@@ -2314,7 +2143,7 @@
   }
 
 
-  /* FOOTER */
+  /* Footer */
 
   .footerLinks {
     flex-wrap: wrap;
@@ -2324,12 +2153,9 @@
 }
 
 
-/* =========================================================
-   SMALL MOBILE 400
-========================================================= */
+/* Responsive: 400px */
 
 @media (max-width: 400px) {
-
   .logoIcon {
     font-size: 23px;
   }
@@ -2365,7 +2191,6 @@
 
   .referenceCard > div {
     border-right: 0;
-
     border-bottom: 1px solid #edf0ec;
   }
 
