@@ -36,6 +36,8 @@ import BoardEditPage from "../pages/BoardEdit/BoardEditPage";
 
 import PublicRoute from "./PublicRoute";
 import MyPage from "@/pages/MyPage/MyPage";
+import QnaPage from "@/pages/Qna/QnaPage";
+import QnaWritePage from "@/pages/Qna/QnaWritePage";
 
 /**
  * 애플리케이션의 화면 경로를 관리한다.
@@ -115,6 +117,18 @@ function Router() {
           path="/board/:postId"
           element={<BoardDetailPage />}
         />
+
+        {/* =========================
+            QnA 게시판
+        ========================= */}
+
+        <Route path="/Qna" element={<QnaPage />} />
+
+        {/* =========================
+            QnA 글쓰기
+        ========================= */}
+
+        <Route path="/Qna/write" element={<QnaWritePage />} />
 
         <Route
           path="/mypage"
