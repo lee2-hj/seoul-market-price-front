@@ -35,6 +35,7 @@ import BoardWritePage from "../pages/BoardWrite/BoardWritePage";
 import BoardEditPage from "../pages/BoardEdit/BoardEditPage";
 
 import PublicRoute from "./PublicRoute";
+import MyPage from "@/pages/MyPage/MyPage";
 
 /**
  * 애플리케이션의 화면 경로를 관리한다.
@@ -113,6 +114,11 @@ function Router() {
         <Route
           path="/board/:postId"
           element={<BoardDetailPage />}
+        />
+
+        <Route
+          path="/mypage"
+          element={<MyPage />}
         />
 
         {/* =========================
