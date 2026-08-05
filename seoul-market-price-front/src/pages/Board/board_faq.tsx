@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import styles from "./board.module.css";
 
 interface FaqItem {
@@ -9,7 +8,7 @@ interface FaqItem {
   answer: string;
 }
 
-interface PostItem {
+export interface PostItem {
   id: number;
   title: string;
   author: string;
@@ -139,7 +138,6 @@ const NAV_ITEMS = [
 ];
 
 function BoardFaq() {
-  const navigate = useNavigate();
   const [activeNav, setActiveNav] = useState<string>("고객센터");
   const [activeBoard, setActiveBoard] = useState<string>("자주묻는질문");
 
@@ -198,14 +196,6 @@ function BoardFaq() {
             <span className={styles.logoBadge}>싸.농</span>
             <span className={styles.logoTitle}>농산물 가격 정보 서비스</span>
           </div>
-
-          <button
-            type="button"
-            className={styles.loginNavBtn}
-            onClick={() => navigate("/login")}
-          >
-            로그인 화면으로
-          </button>
         </div>
 
         {/* 상단 가로 메뉴바 */}
@@ -240,21 +230,21 @@ function BoardFaq() {
           <div className={styles.subHeaderLeft}>
             <h2 className={styles.boardTitle}>
               {activeBoard === "자주묻는질문" && "자주묻는 질문"}
-              {activeBoard === "일반게시판" && "일반게시판"}
-              {activeBoard === "Q&A게시판" && "Q&A게시판"}
+              {activeBoard === "게시판" && "게시판"}
+              {activeBoard === "질의응답" && "질의응답"}
             </h2>
             <p className={styles.boardSubtitle}>
               {activeBoard === "자주묻는질문" &&
                 "공지사항과 사용자 게시글을 확인하세요"}
-              {activeBoard === "일반게시판" &&
+              {activeBoard === "게시판" &&
                 "농산물 관련 자유로운 소통과 소식을 나눠보세요"}
-              {activeBoard === "Q&A게시판" &&
+              {activeBoard === "질의응답" &&
                 "궁금한 질문을 남기고 실시간 답변을 받아보세요"}
             </p>
           </div>
 
           <div className={styles.subHeaderRight}>
-            {["일반게시판", "Q&A게시판", "자주묻는질문"].map((boardName) => (
+            {["게시판", "질의응답", "자주묻는질문"].map((boardName) => (
               <button
                 key={boardName}
                 type="button"
@@ -291,14 +281,17 @@ function BoardFaq() {
                 )}
               </div>
 
-              <div className={styles.searchBox}>
+              <form className={styles.searchBox} onSubmit={(e) => e.preventDefault()}>
                 <input
                   type="text"
                   placeholder="궁금한 단어나 키워드를 검색하세요..."
                   value={searchTerm}
                   onChange={(e) => handleSearchChange(e.target.value)}
                 />
-              </div>
+                <button type="submit" className={styles.searchBtn}>
+                  🔍 검색
+                </button>
+              </form>
             </div>
 
             {/* Global Controls */}
@@ -401,25 +394,25 @@ function BoardFaq() {
         )}
 
         {/* ========================================================
-            2. 일반게시판 (추후 페이지 연결 예정)
+            2. 게시판 (추후 페이지 연결 예정)
         ======================================================== */}
-        {activeBoard === "일반게시판" && (
+        {activeBoard === "게시판" && (
           <div className={styles.emptyNotice}>
-            <p>🔍 일반게시판 페이지 준비 중입니다.</p>
+            <p>🔍 게시판 페이지 준비 중입니다.</p>
             <span style={{ fontSize: "0.9rem", color: "#64748b", marginTop: "8px", display: "block" }}>
-              추후 일반게시판 페이지가 연결될 예정입니다.
+              추후 게시판 페이지가 연결될 예정입니다.
             </span>
           </div>
         )}
 
         {/* ========================================================
-            3. Q&A게시판 (추후 페이지 연결 예정)
+            3. 질의응답 (추후 페이지 연결 예정)
         ======================================================== */}
-        {activeBoard === "Q&A게시판" && (
+        {activeBoard === "질의응답" && (
           <div className={styles.emptyNotice}>
-            <p>🔍 Q&A게시판 페이지 준비 중입니다.</p>
+            <p>🔍 질의응답 페이지 준비 중입니다.</p>
             <span style={{ fontSize: "0.9rem", color: "#64748b", marginTop: "8px", display: "block" }}>
-              추후 Q&A게시판 페이지가 연결될 예정입니다.
+              추후 질의응답 페이지가 연결될 예정입니다.
             </span>
           </div>
         )}
