@@ -121,11 +121,25 @@ export interface SignupRequest {
 
     address?:string;
 
-    detailAddress?:string;
+    addressDetail?:string;
+
+    zipcode?:string;
 
     email?:string;
 
-    phoneVerified:boolean;
+    is_terms_agreed:number;
+
+    is_location_agreed:number;
+
+    is_privacy_agreed:number;
+
+    myLocation?:string;
+
+}
+
+export interface SignupResponse {
+
+    msg:string;
 
 }
 
@@ -138,8 +152,8 @@ export async function signupApi(
 ){
 
     const response =
-        await apiMiddleware.post(
-            "/api/users/signup",
+        await apiMiddleware.post<SignupResponse>(
+            "/api/members/signup",
             signupData
         );
 
@@ -304,6 +318,39 @@ export async function checkUserIdApi(
             {
                 params:{
                     userId
+                }
+            }
+        );
+
+
+    return response.data;
+
+}
+
+
+
+// ===============================
+// 가입 여부 확인 (이름 + 휴대폰 번호)
+// ===============================
+
+export interface CheckMemberResponse {
+
+    isduplicated:boolean;
+
+}
+
+export async function checkMemberApi(
+    name:string,
+    phone:string
+){
+
+    const response =
+        await apiMiddleware.get<CheckMemberResponse>(
+            "/api/members/check-member",
+            {
+                params:{
+                    name,
+                    phone
                 }
             }
         );
