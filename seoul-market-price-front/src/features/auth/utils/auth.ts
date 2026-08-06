@@ -56,37 +56,45 @@ export function getLoginUser(): LoginUser | null {
 /* 쿠키 조회 */
 
 function getCookie(name: string): string | null {
-  const match = document.cookie.match(
-    new RegExp(
-      "(?:^|; )" +
-        name.replace(
-          /([.$?*|{}()[\]\\/+^])/g,
-          "\\$1"
-        ) +
-        "=([^;]*)"
-    )
-  );
+  try {
+    const match = document.cookie.match(
+      new RegExp(
+        "(?:^|; )" +
+          name.replace(
+            /([.$?*|{}()[\]\\/+^])/g,
+            "\\$1"
+          ) +
+          "=([^;]*)"
+      )
+    );
 
-  return match
-    ? decodeURIComponent(match[1])
-    : null;
+    return match
+      ? decodeURIComponent(match[1])
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 /* 쿠키 삭제 */
 
 function deleteCookie(name: string) {
-  const expire =
-    "expires=Thu, 01 Jan 1970 00:00:00 UTC; max-age=0";
+  try {
+    const expire =
+      "expires=Thu, 01 Jan 1970 00:00:00 UTC; max-age=0";
 
-  const host = window.location.hostname;
+    const host = window.location.hostname;
 
-  [
-    `${name}=; ${expire}; path=/;`,
-    `${name}=; ${expire}; path=/; domain=${host};`,
-    `${name}=; ${expire}; path=/; domain=.${host};`,
-  ].forEach((cookieString) => {
-    document.cookie = cookieString;
-  });
+    [
+      `${name}=; ${expire}; path=/;`,
+      `${name}=; ${expire}; path=/; domain=${host};`,
+      `${name}=; ${expire}; path=/; domain=.${host};`,
+    ].forEach((cookieString) => {
+      document.cookie = cookieString;
+    });
+  } catch (e) {
+    console.warn("Cookie delete error", e);
+  }
 }
 
 /* JWT 토큰 조회 */
@@ -135,34 +143,45 @@ function decodeTokenPayload(
 export function isTokenExpired(
   token: string
 ): boolean {
-  const decoded = decodeTokenPayload(token);
+  try {
+    const decoded = decodeTokenPayload(token);
 
-  if (!decoded || !decoded.exp) {
+    if (!decoded || !decoded.exp) {
+      return true;
+    }
+
+    return decoded.exp * 1000 <= Date.now();
+  } catch {
     return true;
   }
-
-  return decoded.exp * 1000 <= Date.now();
 }
 
 /* 로그인 여부 확인 */
 
 export function isLogin(): boolean {
-  const token = getToken();
+  try {
+    const token = getToken();
 
-  if (!token) {
+    if (!token) {
+      return false;
+    }
+
+    return !isTokenExpired(token);
+  } catch {
     return false;
   }
-
-  return !isTokenExpired(token);
 }
 
 /* 로그아웃 */
 
 export function logout() {
-  localStorage.removeItem("loginUser");
-  localStorage.removeItem("accessToken");
+  try {
+    localStorage.removeItem("loginUser");
+    localStorage.removeItem("accessToken");
 
-  deleteCookie("accessToken");
-  deleteCookie("refreshToken");
+    deleteCookie("accessToken");
+    deleteCookie("refreshToken");
+  } catch (e) {
+    console.warn("Logout error", e);
+  }
 }
-
