@@ -311,6 +311,16 @@ function SignupPage() {
                     {checkingId ? '확인 중...' : '중복 확인'}
                   </Button>
                 </div>
+                {isIdUnique === true && (
+                  <p className="text-xs font-semibold text-primary">
+                    ✔ 사용 가능한 아이디입니다.
+                  </p>
+                )}
+                {isIdUnique === false && (
+                  <p className="text-xs font-semibold text-red-500">
+                    ❌ 이미 사용 중인 아이디입니다.
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col gap-2">
