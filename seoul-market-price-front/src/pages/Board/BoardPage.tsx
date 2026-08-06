@@ -1,942 +1,391 @@
-import {
-    useEffect,
-    useState,
-} from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 
-import type {
-    FormEvent,
-} from "react";
-
-import {
-    Link,
-    useLocation,
-    useSearchParams,
-} from "react-router-dom";
-
-import {
-    getBoardPostsApi,
-} from "@/api/boardApi";
-
-import type {
-    BoardPageResponse,
-    BoardSearchType,
-} from "@/features/board/types/board.types";
-
-import styles from "./BoardPage.module.css";
+import { getBoardPostsApi } from "@/api/boardApi";
+import type { BoardListItem, BoardSearchType } from "@/features/board/types/board.types";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 /**
- * 한 페이지에 표시할 일반 게시글 개수이다.
- *
- * 공지사항은 이 개수에 포함하지 않는다.
+ * 날짜 문자열을 YYYY-MM-DD 포맷으로 변환하는 함수
  */
-const PAGE_SIZE = 8;
-
-/**
- * URL에서 가져온 검색 종류가
- * 정상적인 값인지 확인한다.
- */
-function isBoardSearchType(
-    value: string | null,
-): value is BoardSearchType {
-    return (
-        value === "title" ||
-        value === "author"
-    );
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 /**
- * URL의 페이지 값을 숫자로 변환한다.
- *
- * 잘못된 값이면 1페이지를 사용한다.
+ * 제목을 최대 20자로 제한하는 헬퍼 함수
  */
-function parsePageNumber(
-    value: string | null,
-): number {
-    const parsedPage = Number(value);
-
-    if (
-        !Number.isInteger(parsedPage) ||
-        parsedPage < 1
-    ) {
-        return 1;
-    }
-
-    return parsedPage;
+function truncateTitle(title: string, maxLength = 20): string {
+  if (title.length > maxLength) {
+    return title.slice(0, maxLength) + "...";
+  }
+  return title;
 }
 
 /**
- * 백엔드 날짜를 화면에 표시할 형식으로 변환한다.
+ * 오리지널 디자인 규격의 게시글 테이블 행 컴포넌트
  */
-function formatBoardDate(
-    createdAt: string,
-): string {
-    const date = new Date(createdAt);
-
-    if (Number.isNaN(date.getTime())) {
-        return createdAt;
-    }
-
-    return new Intl.DateTimeFormat(
-        "ko-KR",
-        {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-        },
-    ).format(date);
+interface BoardRowProps {
+  item: BoardListItem;
+  displayNo: string | number;
+  isTopNotice?: boolean;
 }
 
-/**
- * 게시판 목록 페이지이다.
- *
- * Mock Data를 직접 사용하지 않고 boardApi를 호출한다.
- * 환경변수에 따라 Mock 또는 실제 백엔드 API가 선택된다.
- */
-function BoardPage() {
-    const location = useLocation();
+function BoardRow({ item, displayNo, isTopNotice = false }: BoardRowProps) {
+  const isNotice = isTopNotice || item.postType === "NOTICE";
 
-    const [
-        searchParams,
-        setSearchParams,
-    ] = useSearchParams();
+  return (
+    <tr
+      className={
+        isNotice
+          ? "bg-[#fff9e9] hover:bg-[#fff6dc] transition-colors border-b border-[#edf1ec]"
+          : "bg-white hover:bg-[#f8faf7] transition-colors border-b border-[#edf1ec]"
+      }
+    >
+      {/* 1. 번호 (9%) */}
+      <td className="h-[62px] px-3.5 text-center text-[13px] text-[#5a6459] align-middle font-medium">
+        {isNotice ? "공지" : displayNo}
+      </td>
 
-    /**
-     * URL에 저장된 검색 종류를 가져온다.
-     */
-    const searchTypeValue =
-        searchParams.get(
-            "searchType",
-        );
-
-    const searchType: BoardSearchType =
-        isBoardSearchType(
-            searchTypeValue,
-        )
-            ? searchTypeValue
-            : "title";
-
-    /**
-     * URL에 저장된 검색어와 페이지를 가져온다.
-     */
-    const keyword =
-        searchParams
-            .get("keyword")
-            ?.trim() ?? "";
-
-    const requestedPage =
-        parsePageNumber(
-            searchParams.get("page"),
-        );
-
-    /**
-     * 검색 입력창에서 작성 중인 값이다.
-     */
-    const [
-        inputSearchType,
-        setInputSearchType,
-    ] = useState<BoardSearchType>(
-        searchType,
-    );
-
-    const [
-        inputKeyword,
-        setInputKeyword,
-    ] = useState(keyword);
-
-    /**
-     * 게시판 API 응답과 화면 상태이다.
-     */
-    const [
-        boardPage,
-        setBoardPage,
-    ] =
-        useState<BoardPageResponse | null>(
-            null,
-        );
-
-    const [
-        isLoading,
-        setIsLoading,
-    ] = useState(true);
-
-    const [
-        errorMessage,
-        setErrorMessage,
-    ] = useState("");
-
-    /**
-     * 다시 시도 버튼을 눌렀을 때
-     * API를 재호출하기 위한 값이다.
-     */
-    const [
-        reloadKey,
-        setReloadKey,
-    ] = useState(0);
-
-    /**
-     * 뒤로 가기 등으로 URL이 변경되면
-     * 검색 입력창도 현재 URL에 맞게 변경한다.
-     */
-    useEffect(() => {
-        setInputSearchType(
-            searchType,
-        );
-
-        setInputKeyword(
-            keyword,
-        );
-    }, [
-        keyword,
-        searchType,
-    ]);
-
-    /**
-     * 검색 조건이나 페이지 번호가 변경되면
-     * 게시글 목록 API를 다시 호출한다.
-     */
-    useEffect(() => {
-        let isCurrentRequest = true;
-
-        const loadBoardPosts =
-            async () => {
-                setIsLoading(true);
-                setErrorMessage("");
-
-                try {
-                    const response =
-                        await getBoardPostsApi({
-                            searchType,
-                            keyword,
-                            page: requestedPage,
-                            size: PAGE_SIZE,
-                        });
-
-                    /*
-                     * 화면이 이동된 후 완료된 이전 요청은
-                     * 현재 화면 상태에 반영하지 않는다.
-                     */
-                    if (!isCurrentRequest) {
-                        return;
-                    }
-
-                    setBoardPage(response);
-                } catch (error) {
-                    if (!isCurrentRequest) {
-                        return;
-                    }
-
-                    console.error(
-                        "게시글 목록 조회 오류",
-                        error,
-                    );
-
-                    setBoardPage(null);
-
-                    setErrorMessage(
-                        "게시글을 불러오지 못했습니다.",
-                    );
-                } finally {
-                    if (isCurrentRequest) {
-                        setIsLoading(false);
-                    }
-                }
-            };
-
-        void loadBoardPosts();
-
-        /*
-         * 검색 조건이 변경되거나 화면이 사라지면
-         * 이전 요청의 상태 반영을 중단한다.
-         */
-        return () => {
-            isCurrentRequest = false;
-        };
-    }, [
-        keyword,
-        reloadKey,
-        requestedPage,
-        searchType,
-    ]);
-
-    /**
-     * 검색 조건과 페이지를 URL Query Parameter에 저장한다.
-     */
-    const updateSearchParams = (
-        nextSearchType: BoardSearchType,
-        nextKeyword: string,
-        nextPage: number,
-    ) => {
-        const nextParams =
-            new URLSearchParams();
-
-        const trimmedKeyword =
-            nextKeyword.trim();
-
-        /*
-         * 기본 검색 종류인 title은 URL에서 생략한다.
-         */
-        if (
-            nextSearchType !== "title"
-        ) {
-            nextParams.set(
-                "searchType",
-                nextSearchType,
-            );
-        }
-
-        if (trimmedKeyword) {
-            nextParams.set(
-                "keyword",
-                trimmedKeyword,
-            );
-        }
-
-        /*
-         * 첫 번째 페이지는 URL에서 생략한다.
-         */
-        if (nextPage > 1) {
-            nextParams.set(
-                "page",
-                String(nextPage),
-            );
-        }
-
-        setSearchParams(nextParams);
-    };
-
-    /**
-     * 검색 버튼을 누르면 첫 번째 페이지부터 검색한다.
-     */
-    const handleSearch = (
-        event: FormEvent<HTMLFormElement>,
-    ) => {
-        event.preventDefault();
-
-        updateSearchParams(
-            inputSearchType,
-            inputKeyword,
-            1,
-        );
-    };
-
-    /**
-     * 검색 조건과 페이지 번호를 초기화한다.
-     */
-    const handleReset = () => {
-        setInputSearchType(
-            "title",
-        );
-
-        setInputKeyword("");
-
-        setSearchParams(
-            new URLSearchParams(),
-        );
-    };
-
-    /**
-     * 현재 검색 조건을 유지하면서
-     * 선택한 페이지로 이동한다.
-     */
-    const handlePageChange = (
-        page: number,
-    ) => {
-        const totalPages =
-            boardPage?.totalPages ?? 1;
-
-        const currentPage =
-            boardPage?.page ??
-            requestedPage;
-
-        if (
-            page < 1 ||
-            page > totalPages ||
-            page === currentPage
-        ) {
-            return;
-        }
-
-        updateSearchParams(
-            searchType,
-            keyword,
-            page,
-        );
-    };
-
-    /**
-     * API 응답에서 현재 화면에 사용할 값을 가져온다.
-     */
-    const currentPage =
-        boardPage?.page ??
-        requestedPage;
-
-    const totalPages =
-        boardPage?.totalPages ?? 1;
-
-    const notices =
-        boardPage?.notices ?? [];
-
-
-
-    /**
- * API에서 이미 정리한 화면 표시 순서이다.
- *
- * 1. 중요 공지 1개
- * 2. 최근 공지 1개
- * 3. 남은 공지와 일반 게시글이 섞인 목록 10개
- */
-    const visiblePosts =
-        boardPage === null
-            ? []
-            : [
-                ...boardPage.notices,
-                ...boardPage.items,
-            ];
-
-    /**
-     * 공지사항과 일반 게시글을 포함한
-     * 현재 검색 결과 개수이다.
-     */
-    const totalResultCount =
-        (boardPage?.totalElements ??
-            0) + notices.length;
-
-    /**
-     * 전체 페이지 번호 배열을 생성한다.
-     */
-    const pageNumbers =
-        Array.from(
-            {
-                length: totalPages,
-            },
-            (_, index) =>
-                index + 1,
-        );
-
-    /**
-     * 상세·글쓰기 화면에서 목록으로 돌아올 때 사용할
-     * 검색 조건과 페이지가 포함된 현재 주소이다.
-     */
-    const currentListUrl =
-        location.pathname +
-        location.search;
-
-    return (
-        <main
-            className={
-                styles.boardPage
-            }
+      {/* 2. 구분 배지 (10%) */}
+      <td className="h-[62px] px-3.5 text-center align-middle">
+        <span
+          className={
+            isNotice
+              ? "inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#fff0c7] text-[#bd7b00]"
+              : "inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#e8f4e9] text-[#4c8c53]"
+          }
         >
-            <div
-                className={
-                    styles.boardContainer
-                }
-            >
-                {/* 페이지 제목 */}
+          {isNotice ? "공지" : "일반"}
+        </span>
+      </td>
 
-                <header
-                    className={
-                        styles.pageHeader
-                    }
-                >
-                    <p
-                        className={
-                            styles.pagePath
-                        }
-                    >
-                        고객센터
-                        <span aria-hidden="true">
-                            /
-                        </span>
-                        게시판
-                    </p>
+      {/* 3. 제목 (43%) */}
+      <td className="h-[62px] px-3.5 text-left align-middle overflow-hidden whitespace-nowrap text-ellipsis">
+        <Link
+          to={`/board/${item.boardId}`}
+          className={
+            isNotice
+              ? "block w-full overflow-hidden text-ellipsis whitespace-nowrap text-[14px] font-bold text-[#7e5b16] hover:underline"
+              : "block w-full overflow-hidden text-ellipsis whitespace-nowrap text-[14px] font-semibold text-[#384138] hover:underline hover:text-[#4c9b55]"
+          }
+          title={item.title}
+        >
+          {truncateTitle(item.title)}
+        </Link>
+      </td>
 
-                    <h1
-                        className={
-                            styles.pageTitle
-                        }
-                    >
-                        게시판
-                    </h1>
+      {/* 4. 작성자 (14%) */}
+      <td className="h-[62px] px-3.5 text-center text-[13px] text-[#5a6459] align-middle">
+        {item.authorName}
+      </td>
 
-                    <p
-                        className={
-                            styles.pageDescription
-                        }
-                    >
-                        농수산물 가격정보와 싸농 서비스에 관한 이야기를
-                        자유롭게 나누는 공간입니다.
-                    </p>
-                </header>
+      {/* 5. 작성일 (15%) */}
+      <td className="h-[62px] px-3.5 text-center text-[13px] text-[#5a6459] align-middle">
+        {formatDate(item.createdAt)}
+      </td>
 
-                {/* 게시판 이동 탭 */}
-
-                <nav
-                    className={
-                        styles.boardTabs
-                    }
-                    aria-label="게시판 메뉴"
-                >
-                    <span
-                        className={`${styles.tabItem} ${styles.activeTab}`}
-                    >
-                        게시판
-                    </span>
-
-                    <span
-                        className={
-                            styles.tabItem
-                        }
-                    >
-                        Q&amp;A 게시판
-                    </span>
-
-                    <span
-                        className={
-                            styles.tabItem
-                        }
-                    >
-                        자주 묻는 질문
-                    </span>
-                </nav>
-
-                {/* 게시글 검색 Form */}
-
-                <form
-                    className={
-                        styles.searchSection
-                    }
-                    onSubmit={handleSearch}
-                >
-                    <label
-                        htmlFor="board-search-type"
-                        className={styles.srOnly}
-                    >
-                        검색 조건
-                    </label>
-
-                    <select
-                        id="board-search-type"
-                        className={
-                            styles.searchSelect
-                        }
-                        value={inputSearchType}
-                        onChange={(event) => {
-                            setInputSearchType(
-                                event.target
-                                    .value as BoardSearchType,
-                            );
-                        }}
-                    >
-                        <option value="title">
-                            제목
-                        </option>
-
-                        <option value="author">
-                            작성자
-                        </option>
-                    </select>
-
-                    <label
-                        htmlFor="board-search-keyword"
-                        className={styles.srOnly}
-                    >
-                        검색어
-                    </label>
-
-                    <input
-                        id="board-search-keyword"
-                        type="search"
-                        className={
-                            styles.searchInput
-                        }
-                        value={inputKeyword}
-                        onChange={(event) => {
-                            setInputKeyword(
-                                event.target.value,
-                            );
-                        }}
-                        placeholder="검색어를 입력하세요."
-                    />
-
-                    <button
-                        type="submit"
-                        className={
-                            styles.searchButton
-                        }
-                    >
-                        검색
-                    </button>
-
-                    <button
-                        type="button"
-                        className={
-                            styles.resetButton
-                        }
-                        onClick={handleReset}
-                    >
-                        초기화
-                    </button>
-                </form>
-
-                {/* 게시글 목록 */}
-
-                <section
-                    className={
-                        styles.listSection
-                    }
-                >
-                    <div
-                        className={
-                            styles.listInformation
-                        }
-                    >
-                        <p>
-                            검색 결과{" "}
-                            <strong>
-                                {totalResultCount}
-                            </strong>
-                            건
-                        </p>
-
-                        <Link
-                            to="/board/write"
-                            state={{
-                                from:
-                                    currentListUrl,
-                            }}
-                            className={
-                                styles.writeButton
-                            }
-                        >
-                            글쓰기
-                        </Link>
-                    </div>
-
-                    <div
-                        className={
-                            styles.tableWrapper
-                        }
-                    >
-                        <table
-                            className={
-                                styles.boardTable
-                            }
-                        >
-                            <caption
-                                className={
-                                    styles.srOnly
-                                }
-                            >
-                                게시판 게시글 목록
-                            </caption>
-
-                            <colgroup>
-                                <col
-                                    className={
-                                        styles.numberColumn
-                                    }
-                                />
-
-                                <col
-                                    className={
-                                        styles.typeColumn
-                                    }
-                                />
-
-                                <col
-                                    className={
-                                        styles.titleColumn
-                                    }
-                                />
-
-                                <col
-                                    className={
-                                        styles.authorColumn
-                                    }
-                                />
-
-                                <col
-                                    className={
-                                        styles.dateColumn
-                                    }
-                                />
-
-                                <col
-                                    className={
-                                        styles.viewColumn
-                                    }
-                                />
-                            </colgroup>
-
-                            <thead>
-                                <tr>
-                                    <th scope="col">
-                                        No
-                                    </th>
-
-                                    <th scope="col">
-                                        구분
-                                    </th>
-
-                                    <th scope="col">
-                                        제목
-                                    </th>
-
-                                    <th scope="col">
-                                        작성자
-                                    </th>
-
-                                    <th scope="col">
-                                        작성일
-                                    </th>
-
-                                    <th scope="col">
-                                        조회수
-                                    </th>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                {/* 게시글 로딩 상태 */}
-
-                                {isLoading && (
-                                    <tr>
-                                        <td
-                                            colSpan={6}
-                                            className={
-                                                styles.emptyRow
-                                            }
-                                        >
-                                            게시글을 불러오는 중입니다.
-                                        </td>
-                                    </tr>
-                                )}
-
-                                {/* 게시글 조회 실패 */}
-
-                                {!isLoading &&
-                                    errorMessage && (
-                                        <tr>
-                                            <td
-                                                colSpan={6}
-                                                className={
-                                                    styles.emptyRow
-                                                }
-                                            >
-                                                <p>
-                                                    {errorMessage}
-                                                </p>
-
-                                                <button
-                                                    type="button"
-                                                    className={
-                                                        styles.resetButton
-                                                    }
-                                                    onClick={() => {
-                                                        setReloadKey(
-                                                            (
-                                                                previous,
-                                                            ) =>
-                                                                previous +
-                                                                1,
-                                                        );
-                                                    }}
-                                                >
-                                                    다시 시도
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    )}
-
-                                {/* 검색 결과 없음 */}
-
-                                {!isLoading &&
-                                    !errorMessage &&
-                                    visiblePosts.length ===
-                                    0 && (
-                                        <tr>
-                                            <td
-                                                colSpan={6}
-                                                className={
-                                                    styles.emptyRow
-                                                }
-                                            >
-                                                검색 결과가 없습니다.
-                                            </td>
-                                        </tr>
-                                    )}
-
-                                {/* 게시글 목록 출력 */}
-
-                                {!isLoading &&
-                                    !errorMessage &&
-                                    visiblePosts.map(
-                                        (post) => {
-                                            const isNotice =
-                                                post.postType ===
-                                                "NOTICE";
-
-                                            return (
-                                                <tr
-                                                    key={
-                                                        post.boardId
-                                                    }
-                                                    className={
-                                                        isNotice
-                                                            ? styles.noticeRow
-                                                            : styles.freeRow
-                                                    }
-                                                >
-                                                    <td>
-                                                        {isNotice
-                                                            ? "공지"
-                                                            : post.boardId}
-                                                    </td>
-
-                                                    <td>
-                                                        <span
-                                                            className={
-                                                                isNotice
-                                                                    ? styles.noticeBadge
-                                                                    : styles.freeBadge
-                                                            }
-                                                        >
-                                                            {isNotice
-                                                                ? "공지"
-                                                                : "일반"}
-                                                        </span>
-                                                    </td>
-
-                                                    <td
-                                                        className={
-                                                            styles.titleCell
-                                                        }
-                                                    >
-                                                        <Link
-                                                            to={`/board/${post.boardId}`}
-                                                            state={{
-                                                                from:
-                                                                    currentListUrl,
-                                                            }}
-                                                            className={
-                                                                styles.postTitle
-                                                            }
-                                                            title={
-                                                                post.title
-                                                            }
-                                                        >
-                                                            {post.title}
-                                                        </Link>
-                                                    </td>
-
-                                                    <td>
-                                                        {
-                                                            post.authorName
-                                                        }
-                                                    </td>
-
-                                                    <td>
-                                                        {formatBoardDate(
-                                                            post.createdAt,
-                                                        )}
-                                                    </td>
-
-                                                    <td>
-                                                        {
-                                                            post.viewCount
-                                                        }
-                                                    </td>
-                                                </tr>
-                                            );
-                                        },
-                                    )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* 페이지 이동 */}
-
-                    {!isLoading &&
-                        !errorMessage && (
-                            <nav
-                                className={
-                                    styles.pagination
-                                }
-                                aria-label="게시글 페이지 이동"
-                            >
-                                <button
-                                    type="button"
-                                    className={
-                                        styles.pageArrow
-                                    }
-                                    aria-label="이전 페이지"
-                                    disabled={
-                                        currentPage === 1
-                                    }
-                                    onClick={() => {
-                                        handlePageChange(
-                                            currentPage - 1,
-                                        );
-                                    }}
-                                >
-                                    &lt;
-                                </button>
-
-                                {pageNumbers.map(
-                                    (pageNumber) => (
-                                        <button
-                                            key={
-                                                pageNumber
-                                            }
-                                            type="button"
-                                            className={
-                                                pageNumber ===
-                                                    currentPage
-                                                    ? `${styles.pageButton} ${styles.currentPage}`
-                                                    : styles.pageButton
-                                            }
-                                            aria-current={
-                                                pageNumber ===
-                                                    currentPage
-                                                    ? "page"
-                                                    : undefined
-                                            }
-                                            onClick={() => {
-                                                handlePageChange(
-                                                    pageNumber,
-                                                );
-                                            }}
-                                        >
-                                            {pageNumber}
-                                        </button>
-                                    ),
-                                )}
-
-                                <button
-                                    type="button"
-                                    className={
-                                        styles.pageArrow
-                                    }
-                                    aria-label="다음 페이지"
-                                    disabled={
-                                        currentPage ===
-                                        totalPages
-                                    }
-                                    onClick={() => {
-                                        handlePageChange(
-                                            currentPage + 1,
-                                        );
-                                    }}
-                                >
-                                    &gt;
-                                </button>
-                            </nav>
-                        )}
-                </section>
-            </div>
-        </main>
-    );
+      {/* 6. 조회수 (9%) */}
+      <td className="h-[62px] px-3.5 text-center text-[13px] text-[#5a6459] align-middle">
+        {item.viewCount}
+      </td>
+    </tr>
+  );
 }
 
-export default BoardPage;
+/**
+ * 오리지널 디자인 게시판 메인 컴포넌트
+ */
+export default function BoardPage() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // 1. URL Query Parameters 파싱
+  const pageParam = parseInt(searchParams.get("page") || "1", 10);
+  const page = isNaN(pageParam) || pageParam < 1 ? 1 : pageParam;
+  const searchTypeParam = searchParams.get("searchType");
+  const searchType: BoardSearchType = searchTypeParam === "author" ? "author" : "title";
+  const keyword = searchParams.get("keyword") || "";
+
+  // 2. 로컬 검색 State
+  const [inputSearchType, setInputSearchType] = useState<BoardSearchType>(searchType);
+  const [inputKeyword, setInputKeyword] = useState<string>(keyword);
+
+  useEffect(() => {
+    setInputSearchType(searchType);
+    setInputKeyword(keyword);
+  }, [searchType, keyword]);
+
+  // 3. TanStack Query 서버 데이터 수신
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["boards", { page, searchType, keyword }],
+    queryFn: () => getBoardPostsApi({ page, size: 10, searchType, keyword }),
+  });
+
+  // 4. 검색 Form 제출 핸들러
+  const handleSearchSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      setSearchParams({
+        page: "1",
+        searchType: inputSearchType,
+        keyword: inputKeyword.trim(),
+      });
+    },
+    [inputSearchType, inputKeyword, setSearchParams]
+  );
+
+  // 검색 초기화
+  const handleResetSearch = useCallback(() => {
+    setInputSearchType("title");
+    setInputKeyword("");
+    setSearchParams({ page: "1", searchType: "title", keyword: "" });
+  }, [setSearchParams]);
+
+  // 5. 페이지 이동 핸들러
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      setSearchParams({
+        page: String(newPage),
+        searchType,
+        keyword,
+      });
+    },
+    [searchType, keyword, setSearchParams]
+  );
+
+  // 6. 탭 이동 핸들러
+  const handleTabClick = (tabKey: string) => {
+    if (tabKey === "qna") {
+      navigate("/Qna");
+    } else if (tabKey === "faq") {
+      alert("자주묻는질문 페이지는 준비 중입니다.");
+    }
+  };
+
+  // 7. 페이지 번호 목록 생성
+  const pageNumbers = useMemo(() => {
+    if (!data || data.totalPages <= 1) return [];
+    const totalPages = data.totalPages;
+    const pages: number[] = [];
+
+    let startPage = Math.max(1, page - 2);
+    let endPage = Math.min(totalPages, startPage + 4);
+
+    if (endPage - startPage < 4) {
+      startPage = Math.max(1, endPage - 4);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }, [data, page]);
+
+  const notices = data?.notices || [];
+  const items = data?.items || [];
+  const totalElements = data?.totalElements || 0;
+
+  return (
+    <div className="min-h-screen bg-[#fafcf9] py-12 px-5 sm:px-8">
+      <div className="max-w-[1000px] mx-auto space-y-8">
+        {/* 오리지널 헤더 영역 */}
+        <div className="text-center space-y-2 mb-8">
+          <span className="inline-block px-3 py-1 bg-[#e8f3e9] text-[#3f8a47] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
+            CUSTOMER CENTER
+          </span>
+          <h1 className="text-[36px] font-black text-[#242b23] tracking-tight">
+            게시판
+          </h1>
+          <p className="text-[15px] text-[#667065]">
+            서울시 농수산물 가격 정보 서비스의 주요 공지사항과 시민 소통 공간입니다.
+          </p>
+        </div>
+
+        {/* 오리지널 카테고리 탭 ([일반게시판] [Q&A게시판] [자주묻는질문]) */}
+        <div className="flex justify-center mb-6">
+          <div className="flex items-center gap-2 p-1 bg-white rounded-[10px] border border-[#dce4da] shadow-sm">
+            <button
+              onClick={() => handleTabClick("board")}
+              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#4c9b55] text-white transition-all"
+            >
+              일반게시판
+            </button>
+            <button
+              onClick={() => handleTabClick("qna")}
+              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all"
+            >
+              Q&A게시판
+            </button>
+            <button
+              onClick={() => handleTabClick("faq")}
+              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all"
+            >
+              자주묻는질문
+            </button>
+          </div>
+        </div>
+
+        {/* 오리지널 검색 영역 (연한 녹색 틴트 박스 #f4f7f3) */}
+        <div className="bg-[#f4f7f3] border border-[#dce4da] rounded-[12px] p-5 mb-6">
+          <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row items-center gap-3">
+            <select
+              value={inputSearchType}
+              onChange={(e) => setInputSearchType(e.target.value as BoardSearchType)}
+              className="h-[44px] w-full md:w-[130px] rounded-[7px] border border-[#dce4da] bg-white px-3 text-[14px] text-[#3e483d] focus:outline-none focus:border-[#4c9b55]"
+            >
+              <option value="title">제목</option>
+              <option value="author">작성자</option>
+            </select>
+            <Input
+              type="text"
+              placeholder="검색어를 입력하세요."
+              value={inputKeyword}
+              onChange={(e) => setInputKeyword(e.target.value)}
+              className="h-[44px] flex-1 bg-white border-[#dce4da] text-[14px] placeholder:text-[#939c92] focus-visible:ring-[#4c9b55]"
+            />
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <Button
+                type="submit"
+                className="h-[44px] px-6 bg-[#343c33] hover:bg-[#252b24] text-white text-[14px] font-bold rounded-[7px] flex-1 md:flex-none"
+              >
+                검색
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleResetSearch}
+                className="h-[44px] px-5 bg-white border-[#dce4da] text-[#5a6459] hover:bg-[#eef3ed] text-[14px] font-bold rounded-[7px] flex-1 md:flex-none"
+              >
+                초기화
+              </Button>
+            </div>
+          </form>
+        </div>
+
+        {/* 목록 건수 정보 & 글쓰기 버튼 영역 */}
+        <div className="flex items-center justify-between mb-3 min-h-[44px]">
+          <p className="text-[14px] text-[#667065]">
+            전체 <strong className="text-[#4c9b55] font-extrabold">{totalElements}</strong>개의 게시글이 있습니다.
+          </p>
+          <Link
+            to="/board/write"
+            className="inline-flex items-center justify-center min-w-[94px] h-[42px] px-5 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[14px] font-bold rounded-[7px] transition-colors border border-[#4c9b55]"
+          >
+            글쓰기
+          </Link>
+        </div>
+
+        {/* 오리지널 테이블 영역 */}
+        <div className="w-full overflow-x-auto bg-white border border-[#dce4da] rounded-[12px] shadow-[0_7px_24px_rgba(45,70,45,0.05)]">
+          {isLoading ? (
+            <div className="p-16 text-center text-[#8a9388] text-[14px]">
+              게시글 목록을 불러오는 중입니다...
+            </div>
+          ) : isError ? (
+            <div className="p-16 text-center text-rose-500 text-[14px]">
+              오류가 발생했습니다: {(error as Error).message}
+            </div>
+          ) : notices.length === 0 && items.length === 0 ? (
+            <div className="p-16 text-center text-[#8a9388] text-[14px]">
+              등록된 게시글이 없습니다.
+            </div>
+          ) : (
+            <table className="w-full min-w-[820px] border-collapse table-fixed">
+              <thead className="bg-[#eef3ed]">
+                <tr>
+                  <th className="w-[9%] h-[55px] px-3.5 border-b border-[#dce4da] text-[#3e483d] text-[13px] font-extrabold text-center">
+                    번호
+                  </th>
+                  <th className="w-[10%] h-[55px] px-3.5 border-b border-[#dce4da] text-[#3e483d] text-[13px] font-extrabold text-center">
+                    구분
+                  </th>
+                  <th className="w-[43%] h-[55px] px-3.5 border-b border-[#dce4da] text-[#3e483d] text-[13px] font-extrabold text-center">
+                    제목
+                  </th>
+                  <th className="w-[14%] h-[55px] px-3.5 border-b border-[#dce4da] text-[#3e483d] text-[13px] font-extrabold text-center">
+                    작성자
+                  </th>
+                  <th className="w-[15%] h-[55px] px-3.5 border-b border-[#dce4da] text-[#3e483d] text-[13px] font-extrabold text-center">
+                    작성일
+                  </th>
+                  <th className="w-[9%] h-[55px] px-3.5 border-b border-[#dce4da] text-[#3e483d] text-[13px] font-extrabold text-center">
+                    조회수
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* 상단 공지사항 */}
+                {notices.map((notice) => (
+                  <BoardRow
+                    key={`notice-${notice.boardId}`}
+                    item={notice}
+                    displayNo="공지"
+                    isTopNotice
+                  />
+                ))}
+
+                {/* 일반 게시글 */}
+                {items.map((item, index) => {
+                  const displayNo = totalElements - ((page - 1) * 10 + index);
+                  return (
+                    <BoardRow
+                      key={`item-${item.boardId}`}
+                      item={item}
+                      displayNo={displayNo > 0 ? displayNo : index + 1}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* 오리지널 페이지네이션 */}
+        {data && data.totalPages > 1 && (
+          <nav className="flex items-center justify-center gap-1.5 pt-6">
+            <button
+              type="button"
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page <= 1}
+              className="w-[38px] h-[38px] inline-flex items-center justify-center border border-[#dce4da] rounded-[7px] bg-white text-[#6a7469] font-bold text-[13px] hover:border-[#8fbd94] hover:bg-[#f0f6ef] hover:text-[#4c9b55] disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-[#6a7469] disabled:hover:border-[#dce4da]"
+            >
+              &lt;
+            </button>
+
+            {pageNumbers.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => handlePageChange(p)}
+                className={
+                  p === page
+                    ? "w-[38px] h-[38px] inline-flex items-center justify-center border border-[#4c9b55] rounded-[7px] bg-[#4c9b55] text-white font-bold text-[13px]"
+                    : "w-[38px] h-[38px] inline-flex items-center justify-center border border-[#dce4da] rounded-[7px] bg-white text-[#6a7469] font-bold text-[13px] hover:border-[#8fbd94] hover:bg-[#f0f6ef] hover:text-[#4c9b55]"
+                }
+              >
+                {p}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= data.totalPages}
+              className="w-[38px] h-[38px] inline-flex items-center justify-center border border-[#dce4da] rounded-[7px] bg-white text-[#6a7469] font-bold text-[13px] hover:border-[#8fbd94] hover:bg-[#f0f6ef] hover:text-[#4c9b55] disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-[#6a7469] disabled:hover:border-[#dce4da]"
+            >
+              &gt;
+            </button>
+          </nav>
+        )}
+      </div>
+    </div>
+  );
+}
