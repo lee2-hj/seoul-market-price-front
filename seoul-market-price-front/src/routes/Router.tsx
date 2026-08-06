@@ -75,21 +75,14 @@ function Router() {
             메인 페이지
             로그인 여부와 상관없이 누구나 접근 가능
         ========================= */}
-
         <Route path="/" element={<MainPage />} />
-
         {/* =========================
             일반게시판 목록
 
             주소:
             /board
         ========================= */}
-
-        <Route
-          path="/board"
-          element={<BoardPage />}
-        />
-
+        <Route path="/board" element={<BoardPage />} />
         {/* =========================
             일반게시판 글쓰기
 
@@ -99,12 +92,7 @@ function Router() {
             현재는 화면 확인 단계이므로
             로그인 권한 검사를 적용하지 않는다.
         ========================= */}
-
-        <Route
-          path="/board/write"
-          element={<BoardWritePage />}
-        />
-
+        <Route path="/board/write" element={<BoardWritePage />} />
         {/* =========================
             일반게시판 수정
 
@@ -117,12 +105,7 @@ function Router() {
             현재는 화면 확인 단계이므로
             작성자 권한 검사를 적용하지 않는다.
         ========================= */}
-
-        <Route
-          path="/board/:postId/edit"
-          element={<BoardEditPage />}
-        />
-
+        <Route path="/board/:postId/edit" element={<BoardEditPage />} />
         {/* =========================
             일반게시판 상세 조회
 
@@ -132,33 +115,42 @@ function Router() {
             수정 주소인 /board/:postId/edit보다
             아래에 배치한다.
         ========================= */}
-
-        <Route
-          path="/board/:postId"
-          element={<BoardDetailPage />}
-        />
+        <Route path="/board/:postId" element={<BoardDetailPage />} />
 
         {/* =========================
-            QnA 게시판
+            시세 조회
+            모든 사용자 접근 가능
         ========================= */}
-
-        <Route path="/Qna" element={<QnaPage />} />
-
+        <Route path="/price" element={<PricePage />} />
         {/* =========================
-            QnA 글쓰기
+            PASS 인증 콜백
+            본인인증 완료 후 접근
         ========================= */}
-
-        <Route path="/Qna/write" element={<QnaWritePage />} />
-
-        <Route
-          path="/mypage"
-          element={<MyPage />}
-        />
+        <Route path="/pass/callback" element={<PassCallbackPage />} />
+        {/* =========================
+            Q&A 목록
+            모든 사용자 접근 가능
+        ========================= */}
+        <Route path="/qna" element={<QnaPage />} />
+        {/* =========================
+            Q&A 작성
+            로그인 사용자만 접근
+        ========================= */}
+        <Route path="/qna/write" element={<QnaWritePage />} />
+        {/* =========================
+            Q&A 상세
+            모든 사용자 접근 가능
+        ========================= */}
+        <Route path="/qna/:id" element={<QnaDetailPage />} />
+        {/* =========================
+            Q&A 수정
+            작성자 또는 관리자만 접근
+        ========================= */}
+        <Route path="/qna/:id/edit" element={<QnaEditPage />} />
         {/* =========================
             로그인
             비로그인 사용자만 접근
         ========================= */}
-
         <Route
           path="/login"
           element={
@@ -168,12 +160,10 @@ function Router() {
           }
         />
 
-
         {/* =========================
             회원가입 방법 선택
             비로그인 사용자만 접근
         ========================= */}
-
         <Route
           path="/signup/select"
           element={
@@ -182,7 +172,6 @@ function Router() {
             </PublicRoute>
           }
         />
-
         {/* =========================
             회원가입 약관 동의 → 본인인증 → 회원가입
 
@@ -190,7 +179,6 @@ function Router() {
             (SignupFlowLayout 에서 sessionStorage 플래그로 검증)
             비로그인 사용자만 접근
         ========================= */}
-
         <Route element={<SignupFlowLayout />}>
           <Route
             path="/signup/terms"
@@ -219,11 +207,9 @@ function Router() {
             }
           />
         </Route>
-
         {/* =========================
             아이디 찾기
         ========================= */}
-
         <Route
           path="/find-id"
           element={
@@ -232,12 +218,10 @@ function Router() {
             </PublicRoute>
           }
         />
-
         {/* =========================
             비밀번호 찾기
             PASS 인증 사용
         ========================= */}
-
         <Route
           path="/find-password"
           element={
@@ -246,7 +230,6 @@ function Router() {
             </PublicRoute>
           }
         />
-
         {/* =========================
             NICE PASS Callback
 
@@ -258,9 +241,7 @@ function Router() {
 
             PublicRoute 적용 X
         ========================= */}
-
         <Route path="/pass/callback" element={<PassCallbackPage />} />
-
         {/* 정의되지 않은 경로(예: /main)로 직접 접근한 경우 "/" 로 리다이렉트한다. */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
