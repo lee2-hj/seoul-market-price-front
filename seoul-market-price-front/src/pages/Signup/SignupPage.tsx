@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
 
-import { signupApi } from "@/api/api";
+import { signupApi, checkUserIdApi } from "@/api/api";
 import { clearAllSignupStorage, getPassVerifiedInfo } from "@/lib/signupFlow";
 import { isValidEmail, isValidPassword } from "@/lib/validators";
 
@@ -53,13 +53,25 @@ const defaultValues: SignupFormValues = {
 function SignupPage() {
   const navigate = useNavigate();
 
-  /* ===============================
-     회원 정보 (react-hook-form)
-  =============================== */
-
+  // Form handling (react-hook-form)
   const { getValues, setValue, watch } = useForm<SignupFormValues>({
     defaultValues,
   });
+
+  // ID duplication check state
+  const [isIdUnique, setIsIdUnique] = useState<boolean | null>(null);
+  const [checkingId, setCheckingId] = useState(false);
+
+  // Reset ID check when userId changes
+  const userId = watch("userId");
+  useEffect(() => {
+    setIsIdUnique(null);
+  }, [userId]);
+
+
+
+
+
 
   /* ===============================
      PASS 인증
@@ -102,6 +114,31 @@ function SignupPage() {
       (e: React.ChangeEvent<HTMLInputElement>) => {
         setValue(field, e.target.value);
       };
+
+  // ID duplicate check handler
+  const handleCheckId = async () => {
+    if (!userId.trim()) {
+      alert('아이디를 입력해주세요.');
+      return;
+    }
+    setCheckingId(true);
+    try {
+      const available = await checkUserIdApi(userId.trim());
+      // API returns { available: boolean } or boolean directly
+      const isAvailable = typeof available === 'object' && typeof available.available === 'boolean' ? available.available : !!available;
+      setIsIdUnique(isAvailable);
+      if (isAvailable) {
+        alert('사용 가능한 아이디입니다.');
+      } else {
+        alert('이미 사용 중인 아이디입니다.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('아이디 확인 중 오류가 발생했습니다.');
+    } finally {
+      setCheckingId(false);
+    }
+  };
 
   /* ===============================
      주소 검색
@@ -256,15 +293,24 @@ function SignupPage() {
                 <Label htmlFor="userId">
                   아이디<span className="text-red-500">*</span>
                 </Label>
-
-                <Input
-                  id="userId"
-                  type="text"
-                  name="userId"
-                  placeholder="아이디"
-                  value={watch("userId")}
-                  onChange={(e) => setValue("userId", e.target.value)}
-                />
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <Input
+                    id="userId"
+                    type="text"
+                    name="userId"
+                    placeholder="아이디"
+                    value={watch("userId")}
+                    onChange={(e) => setValue("userId", e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleCheckId}
+                    disabled={checkingId || signupMutation.isPending}
+                  >
+                    {checkingId ? '확인 중...' : '중복 확인'}
+                  </Button>
+                </div>
               </div>
 
               <div className="flex flex-col gap-2">
@@ -395,12 +441,12 @@ function SignupPage() {
                 </div>
               </div>
 
-              <Button
-                type="submit"
-                size="lg"
-                className="mt-1 w-full border-0 hover:cursor-pointer"
-                disabled={signupMutation.isPending}
-              >
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="mt-1 w-full border-0 hover:cursor-pointer"
+                  disabled={signupMutation.isPending || isIdUnique !== true}
+                >
                 {signupMutation.isPending ? "가입 중..." : "가입하기"}
               </Button>
             </form>
