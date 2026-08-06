@@ -152,17 +152,7 @@ function Router() {
 
             PublicRoute 적용 X
         ========================= */}
-        {/* 품목별 시세 조회 */}
-        <Route path="/price" element={<PricePage />} />
-        <Route path="/pass/callback" element={<PassCallbackPage />} />
-        /* Q&A 목록 */
-        <Route path="/qna" element={<QnaPage />} />
-        /* Q&A 글쓰기 */
-        <Route path="/qna/write" element={<QnaWritePage />} />
-        /* Q&A 상세 */
-        <Route path="/qna/:id" element={<QnaDetailPage />} />
-        {/* Q&A 수정 */}
-        <Route path="/qna/:id/edit" element={<QnaEditPage />} />
+
         {/* 정의되지 않은 경로(예: /main)로 직접 접근한 경우 "/" 로 리다이렉트한다. */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
