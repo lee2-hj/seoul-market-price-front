@@ -1,469 +1,566 @@
-import apiMiddleware from "./middleware";
+import apiMiddleware from "@/api/middleware";
 import type {
-  BackendBoardDetail,
-  BackendBoardPageResponse,
-  BoardCommandResponse,
-  BoardCreateRequest,
-  BoardDeleteResponse,
-  BoardDetail,
-  BoardListItem,
   BoardListRequest,
   BoardPageResponse,
+  BoardListItem,
+  BoardDetail,
+  BoardCreateRequest,
   BoardUpdateRequest,
+  BackendBoardPageResponse,
+  BoardComment,
+  CommentCreateRequest,
+  CommentUpdateRequest,
 } from "@/features/board/types/board.types";
 
 /**
- * 임의의 샘플 게시글 데이터 목록 (공지사항 5개, 일반 게시글 12개)
+ * 풍성하고 실감 나는 게시판 초기 Mock 데이터 (총 18개)
  */
-const SAMPLE_BOARD_POSTS: (BoardListItem & { content?: string })[] = [
-  // --- 공지사항 목록 ---
+const MOCK_BOARD_POSTS: (BoardDetail & { noticeLevel?: "IMPORTANT" | "NORMAL" })[] = [
   {
     boardId: 101,
+    title: "[중요공지] 2026년 서울시 농수산물 가격 도매시장 조사 개편 안내",
+    content: `안녕하세요. 서울시 농수산물 가격정보 서비스 운영팀입니다.
+
+2026년 8월부터 가락시장 및 강서 도매시장의 품목별 가격 조사 체계가 실시간 시세 연동 방식으로 대폭 개편됩니다.
+시민 여러분께 보다 정확하고 신속한 실측 농수산물 가격 정보를 제공하기 위해 다음과 같이 수집 방식이 개선됩니다.
+
+■ 주요 변경 사항
+1. 시세 업데이트 주기 단축 (기존 1일 1회 -> 1일 4회 실시간 갱신)
+2. 자치구별 대형마트 및 전통시장 가격 비교 정확도 향상
+3. AI 기반 주요 채소/과일류 주간 가격 예측 지표 추가 제공
+
+앞으로도 시민 여러분의 알뜰한 장보기와 합리적인 소비를 지원하기 위해 최선을 다하겠습니다.
+감사합니다.`,
+    authorName: "관리자",
+    authorId: "admin",
+    createdAt: "2026-08-05",
+    viewCount: 421,
     postType: "NOTICE",
     noticeLevel: "IMPORTANT",
-    pinned: true,
-    title: "[필독] 서울시 농수산물 가격 정보 서비스 이용 안내",
-    authorName: "관리자",
-    createdAt: "2026-08-06T09:00:00",
-    viewCount: 154,
-    content: "안녕하세요. 서울시 농수산물 가격 정보 서비스 이용 관련 공지사항입니다. 매일 오전 9시 경매 결과가 업데이트됩니다.",
   },
   {
     boardId: 102,
+    title: "[공지] 하절기 배추 및 무 수급 동향 및 가격 모니터링 안내",
+    content: `최근 지속되는 폭염과 집중호우 영향으로 고랭지 배추 및 무 수급 불안정이 우려됨에 따라,
+서울시 농수산물 가격정보 서비스에서는 자치구별 수급 동향 및 시세 변동을 밀착 모니터링하고 있습니다.
+
+주요 장바구니 물가 품목에 대한 가격 정보는 매일 오전 9시와 오후 3시에 업데이트되오니,
+구매 전 '우리 동네 시세 비교' 메뉴를 적극 활용해 주시기 바랍니다.`,
+    authorName: "관리자",
+    authorId: "admin",
+    createdAt: "2026-08-04",
+    viewCount: 310,
     postType: "NOTICE",
     noticeLevel: "NORMAL",
-    pinned: true,
-    title: "[공지] 서버 정기 점검 작업 안내 (8/10 02:00 ~ 04:00)",
-    authorName: "시스템관리자",
-    createdAt: "2026-08-05T18:30:00",
-    viewCount: 98,
-    content: "안정적인 서비스 제공을 위한 서버 정기 점검이 진행될 예정입니다. 점검 시간 동안 접속이 제한될 수 있습니다.",
   },
   {
     boardId: 103,
+    title: "[공지] 시스템 정기 점검 및 서버 증설 작업 안내 (08월 10일 02:00 ~ 05:00)",
+    content: `서비스의 안정적인 제공을 위해 아래 일정 동안 시스템 정기 점검 및 서버 증설 작업을 진행합니다.
+
+- 점검 일시: 2026년 8월 10일(월) 02:00 ~ 05:00 (총 3시간)
+- 영향 작업: 점검 시간 동안 농수산물 가격 조회 및 게시판 서비스 일시 중단
+
+작업 시간은 상황에 따라 단축되거나 연장될 수 있습니다. 이용에 불편을 드려 죄송합니다.`,
+    authorName: "관리자",
+    authorId: "admin",
+    createdAt: "2026-08-01",
+    viewCount: 189,
     postType: "NOTICE",
-    noticeLevel: "IMPORTANT",
-    pinned: true,
-    title: "[필독] 2026년 하반기 농수산물 정기 가격조사 일정 안내",
-    authorName: "운영팀",
-    createdAt: "2026-08-04T10:00:00",
-    viewCount: 210,
-    content: "2026년도 하반기 농수산물 정기 가격조사가 8월 15일부터 실시됩니다.",
+    noticeLevel: "NORMAL",
   },
   {
     boardId: 104,
+    title: "[공지] 게시판 이용 규칙 및 스팸 게시물 제재 정책 안내",
+    content: `건전한 시민 소통 공간 조성을 위해 게시판 이용 규칙을 안내해 드립니다.
+
+- 상업성 홍보, 광고글, 타인 비방 및 욕설 게시글은 사전 통보 없이 즉시 삭제 조치됩니다.
+- 거짓 정보 유포 시 계정 이용이 제한될 수 있으니 유의해 주시기 바랍니다.`,
+    authorName: "관리자",
+    authorId: "admin",
+    createdAt: "2026-07-28",
+    viewCount: 154,
     postType: "NOTICE",
     noticeLevel: "NORMAL",
-    pinned: false,
-    title: "[공지] 게시판 이용 수칙 및 명예훼손 방지 안내",
-    authorName: "관리자",
-    createdAt: "2026-08-03T14:20:00",
-    viewCount: 145,
-    content: "건전한 게시판 문화 형성을 위하여 욕설, 비방, 광고성 글은 사전 통보 없이 삭제될 수 있습니다.",
   },
   {
     boardId: 105,
+    title: "[공지] 추석 명절 맞이 농수산물 특별 할인 행사 안내",
+    content: `서울시와 관내 전통시장이 합동으로 추석 명절맞이 농수산물 최대 30% 할인 행사를 진행합니다.
+행사 참여 시장 목록과 품목별 쿠폰 발행 정보는 마이페이지 및 공지사항을 통해 확인하실 수 있습니다.`,
+    authorName: "관리자",
+    authorId: "admin",
+    createdAt: "2026-07-20",
+    viewCount: 512,
     postType: "NOTICE",
     noticeLevel: "NORMAL",
-    pinned: false,
-    title: "[안내] 모바일 앱 가격 실시간 알림 서비스 오픈 안내",
-    authorName: "서비스개발팀",
-    createdAt: "2026-08-02T11:00:00",
-    viewCount: 188,
-    content: "원하시는 품목의 가격 변동 시 푸시 알림을 받을 수 있는 서비스가 추가되었습니다.",
   },
+  {
+    boardId: 17,
+    title: "자치구별 전통시장 농산물 시세 비교 정보 공유합니다",
+    content: `서울시 자치구별(마포구, 강남구, 송파구) 전통시장 농산물 시세를 직접 조사한 결과를 공유해 드립니다.
 
-  // --- 일반 게시글 목록 ---
-  {
-    boardId: 201,
-    postType: "GENERAL",
-    noticeLevel: "NORMAL",
-    pinned: false,
-    title: "오늘 가락시장 배추 경매가 동향 공유합니다",
-    authorName: "농산물유통인",
-    createdAt: "2026-08-06T10:15:00",
-    viewCount: 45,
-    content: "오늘 배추 반입량이 늘어서 전일 대비 가격이 소폭 하강세를 보이고 있네요. 구매 시 참고하세요.",
-  },
-  {
-    boardId: 202,
-    postType: "GENERAL",
-    noticeLevel: "NORMAL",
-    pinned: false,
-    title: "샤인머스켓 시세 문의드립니다",
-    authorName: "과일매니아",
-    createdAt: "2026-08-06T08:40:00",
-    viewCount: 32,
-    content: "요즘 샤인머스켓 도매 도매가가 어떻게 형성되어 있는지 궁금합니다.",
-  },
-  {
-    boardId: 203,
-    postType: "GENERAL",
-    noticeLevel: "NORMAL",
-    pinned: false,
-    title: "강서시장 수산물 부류 시세 변동 알림",
-    authorName: "바다사랑",
-    createdAt: "2026-08-05T16:20:00",
-    viewCount: 67,
-    content: "오징어와 고등어 유통량이 전주 대비 소폭 상승하였습니다.",
-  },
-  {
-    boardId: 204,
-    postType: "GENERAL",
-    noticeLevel: "NORMAL",
-    pinned: false,
-    title: "농수산물 도매시장 방문 시 주차 팁 안내",
-    authorName: "서울시민",
-    createdAt: "2026-08-04T11:05:00",
-    viewCount: 112,
-    content: "가락시장 방문 시 북문 주차장을 이용하시면 편리하게 이용하실 수 있습니다.",
-  },
-  {
-    boardId: 205,
-    postType: "GENERAL",
-    noticeLevel: "NORMAL",
-    pinned: false,
-    title: "마포농수산물시장 주말 영업시간 공유해 드립니다",
-    authorName: "마포주민",
-    createdAt: "2026-08-04T09:30:00",
+1. 배추: 마포 망원시장이 평균 3,500원으로 가장 저렴함
+2. 사과(부사): 송파 가락몰 시장 10개 15,000원 선 유지
+3. 쌀(20kg): 강남 영동시장 기준 48,000원 형성 중
+
+전통시장 방문 전 참고하여 알뜰한 장보기에 활용하시길 바랍니다!`,
+    authorName: "시민조사단",
+    authorId: "citizen1",
+    createdAt: "2026-08-06",
     viewCount: 78,
-    content: "주말에는 오전 7시부터 오후 8시까지 정상 영업합니다.",
+    postType: "GENERAL",
   },
   {
-    boardId: 206,
+    boardId: 12,
+    title: "오늘 가락동 도매시장 시세 문의드립니다",
+    content: `오늘 오전에 가락동 시장 가보신 분 계신가요?
+사과랑 배추 도매 가격이 지난주보다 많이 올랐는지 궁금합니다.
+직접 구매하러 가려고 하는데 시세 정보 공유해 주시면 감사하겠습니다!`,
+    authorName: "김철수",
+    authorId: "chulsoo",
+    createdAt: "2026-08-05",
+    viewCount: 45,
     postType: "GENERAL",
-    noticeLevel: "NORMAL",
-    pinned: false,
-    title: "요즘 대파 시세가 왜 이렇게 많이 올랐을까요?",
-    authorName: "장보기달인",
-    createdAt: "2026-08-03T17:40:00",
-    viewCount: 89,
-    content: "최근 장마 여파로 출하량이 크게 줄었다고 하네요.",
   },
   {
-    boardId: 207,
+    boardId: 11,
+    title: "마포구 쪽 전통시장 쌀값 비교 정보 공유해요",
+    content: `마포구 관내 전통시장 3곳(망원시장, 공덕시장, 월드컵시장) 20kg 쌀 가격 직접 비교해봤습니다.
+확실히 마트 이벤트 기간 아니면 전통시장이 2,000원~3,000원 정도 더 저렴하네요.
+구매하실 분들은 참고하세요!`,
+    authorName: "이영희",
+    authorId: "younghee",
+    createdAt: "2026-08-04",
+    viewCount: 88,
     postType: "GENERAL",
-    noticeLevel: "NORMAL",
-    pinned: false,
-    title: "노량진 수산시장 킹크랩 시세 정보 공유",
-    authorName: "해산물러버",
-    createdAt: "2026-08-03T15:10:00",
-    viewCount: 134,
-    content: "이번 주 kg당 평균 도매 시세 정보 공유해 드립니다.",
   },
   {
-    boardId: 208,
+    boardId: 10,
+    title: "가격 예측 그래프 기능 너무 유용하네요",
+    content: `농수산물 가격 변동 추이 그래프를 보니까 주간 단위 시세 변동을 한눈에 파악하기 정말 좋네요.
+최근 대파랑 양파 가격이 안정세로 돌아서서 장보기 부담이 좀 줄었습니다.
+좋은 기능 만들어 주셔서 감사합니다!`,
+    authorName: "박민수",
+    authorId: "minsu",
+    createdAt: "2026-08-03",
+    viewCount: 62,
     postType: "GENERAL",
-    noticeLevel: "NORMAL",
-    pinned: false,
-    title: "양파 소매 가격과 도매 가격 차이가 많이 나네요",
-    authorName: "알뜰소비자",
-    createdAt: "2026-08-02T16:05:00",
-    viewCount: 56,
-    content: "유통 단계별 마진율을 확인할 수 있는 기능이 있으면 좋겠습니다.",
   },
   {
-    boardId: 209,
+    boardId: 9,
+    title: "해산물 오징어 시세 요즘 어떤가요?",
+    content: "동해안 오징어 어획량이 늘었다고 들었는데 노량진 수산시장 시세가 반영되었는지 궁금합니다.",
+    authorName: "최동건",
+    authorId: "donggun",
+    createdAt: "2026-08-02",
+    viewCount: 29,
     postType: "GENERAL",
-    noticeLevel: "NORMAL",
-    pinned: false,
-    title: "서울시 농수산물 유통 구조에 대해 질문이 있습니다",
-    authorName: "청년농부",
-    createdAt: "2026-08-02T13:20:00",
-    viewCount: 42,
-    content: "경매 참여 및 공판장 송하인 등록 절차가 궁금합니다.",
   },
   {
-    boardId: 210,
+    boardId: 8,
+    title: "관심 품목 가격 알림 기능 신청 방법 공유",
+    content: "마이페이지에서 관심 품목 등록해 두고 목표 가격 정해 놓으니까 알림 바로 와서 편하더라구요!",
+    authorName: "정수진",
+    authorId: "sujin",
+    createdAt: "2026-08-01",
+    viewCount: 53,
     postType: "GENERAL",
-    noticeLevel: "NORMAL",
-    pinned: false,
-    title: "제철 과일 복숭아 도매가 동향 아시는 분 계신가요?",
-    authorName: "과일사랑",
-    createdAt: "2026-08-01T19:50:00",
-    viewCount: 91,
-    content: "백도와 황도 품종별 가격 차이가 큰 편인가요?",
   },
   {
-    boardId: 211,
+    boardId: 7,
+    title: "강서 농수산물 도매시장 주차 정보 공유합니다",
+    content: "주말 오전에 방문할 때 대기 시간이 길 수 있으니 9시 이전에 도착하시는 것을 추천합니다.",
+    authorName: "한지민",
+    authorId: "jimin",
+    createdAt: "2026-07-31",
+    viewCount: 41,
     postType: "GENERAL",
-    noticeLevel: "NORMAL",
-    pinned: false,
-    title: "가락동 풋고추 경매 물량 현황 안내",
-    authorName: "채소장수",
-    createdAt: "2026-08-01T14:15:00",
-    viewCount: 63,
-    content: "금주 반입 물량이 예년 대비 15% 정도 증가했습니다.",
   },
   {
-    boardId: 212,
+    boardId: 6,
+    title: "여름철 신선식품 보관 꿀팁 모음",
+    content: "여름철 채소 무름 현상을 방지하려면 키친타월로 감싸서 밀폐용기에 보관하면 2배 오래 갑니다.",
+    authorName: "윤서준",
+    authorId: "seojun",
+    createdAt: "2026-07-30",
+    viewCount: 95,
     postType: "GENERAL",
-    noticeLevel: "NORMAL",
-    pinned: false,
-    title: "유기농 채소 가격 정보 별도 제공 요청합니다",
-    authorName: "친환경소비자",
-    createdAt: "2026-07-31T10:30:00",
-    viewCount: 77,
-    content: "일반 채소 외에 친환경 유기농 인증 채소 가격도 조회되면 좋겠습니다.",
+  },
+  {
+    boardId: 5,
+    title: "자주 묻는 질문(FAQ) 게시판 오픈 환영합니다",
+    content: "시세 조회 관련 자주 문의되는 내용이 잘 정돈되어 있어서 초보자도 쉽게 이해가 되네요.",
+    authorName: "강현우",
+    authorId: "hyunwoo",
+    createdAt: "2026-07-29",
+    viewCount: 38,
+    postType: "GENERAL",
+  },
+  {
+    boardId: 4,
+    title: "친환경 유기농 농산물 가격 정보도 추가되었으면 좋겠습니다",
+    content: "일반 농산물 외에 무농약, 유기농 인증 농산물 가격 모니터링 카테고리도 새로 생기면 좋겠습니다.",
+    authorName: "송지은",
+    authorId: "jieun",
+    createdAt: "2026-07-28",
+    viewCount: 71,
+    postType: "GENERAL",
+  },
+  {
+    boardId: 3,
+    title: "우리 동네 알뜰 장보기 장소 추천해주세요",
+    content: "송파구 가락동 근처에서 제철 과일 저렴하고 신선하게 살 수 있는 곳 아시는 분 추천 부탁드립니다!",
+    authorName: "임태양",
+    authorId: "taeyang",
+    createdAt: "2026-07-27",
+    viewCount: 64,
+    postType: "GENERAL",
+  },
+  {
+    boardId: 2,
+    title: "모바일 웹 화면 호환성이 너무 좋네요",
+    content: "스마트폰으로 장보면서 시세 검색해보는데 반응형으로 깔끔하게 작동해서 편리합니다.",
+    authorName: "오하은",
+    authorId: "haeun",
+    createdAt: "2026-07-26",
+    viewCount: 82,
+    postType: "GENERAL",
+  },
+  {
+    boardId: 1,
+    title: "서울시 농수산물 가격정보 서비스 응원합니다!",
+    content: "투명한 농수산물 가격 정보 공개로 소비자들과 농가 모두에게 큰 도움이 되는 좋은 서비스입니다.",
+    authorName: "홍길동",
+    authorId: "hong123",
+    createdAt: "2026-07-25",
+    viewCount: 120,
+    postType: "GENERAL",
   },
 ];
 
 /**
- * 작성자 이름 기본 생성 헬퍼 함수
+ * 게시글 댓글 Mock 데이터 상태
  */
-function resolveAuthorName(authorName?: string, userId?: number | null): string {
-  if (authorName && authorName.trim() !== "") {
-    return authorName;
-  }
-  if (userId !== undefined && userId !== null) {
-    return `작성자${userId}`;
-  }
-  return "익명";
-}
+const MOCK_BOARD_COMMENTS: BoardComment[] = [
+  {
+    commentId: 1,
+    boardId: 12,
+    authorName: "이영희",
+    authorId: "younghee",
+    content: "오늘 오전에 가락시장 다녀왔는데 사과는 대과 기준 10% 정도 올랐더라구요!",
+    createdAt: "2026-08-05 10:30",
+  },
+  {
+    commentId: 2,
+    boardId: 12,
+    authorName: "관리자",
+    authorId: "admin",
+    content: "실시간 도매 시세 정보는 상단 '시세 조회' 메뉴에서도 1일 4회 업데이트 확인이 가능하십니다.",
+    createdAt: "2026-08-05 11:15",
+  },
+  {
+    commentId: 3,
+    boardId: 11,
+    authorName: "박민수",
+    authorId: "minsu",
+    content: "망원시장 쌀 시세 정보 유용하네요! 주말에 방문해 봐야겠습니다.",
+    createdAt: "2026-08-04 15:40",
+  },
+  {
+    commentId: 4,
+    boardId: 101,
+    authorName: "김철수",
+    authorId: "chulsoo",
+    content: "AI 가격 예측 지표 추가 너무 기대되네요. 장보기 전 시세 동향 파악에 큰 도움 되겠습니다.",
+    createdAt: "2026-08-05 14:20",
+  },
+];
 
-/**
- * 날짜 최신순 정렬 헬퍼 함수 (최신 날짜 우선, 날짜가 같으면 boardId가 큰 순)
- */
-function sortByLatest(a: BoardListItem, b: BoardListItem): number {
-  const timeA = new Date(a.createdAt).getTime();
-  const timeB = new Date(b.createdAt).getTime();
-  if (timeB !== timeA) {
-    return timeB - timeA;
-  }
-  return b.boardId - a.boardId;
-}
-
-/**
- * 백엔드 응답 항목을 프론트엔드 목록 항목 구조로 변환한다.
- */
-function convertBackendListItem(item: any): BoardListItem {
-  return {
-    boardId: item.id ?? item.boardId,
-    postType: item.postType ?? "GENERAL",
-    noticeLevel: item.noticeLevel ?? (item.postType === "NOTICE" ? "IMPORTANT" : "NORMAL"),
-    pinned: Boolean(item.pinned),
-    title: item.title,
-    authorName: resolveAuthorName(item.authorName ?? item.name, item.userId ?? item.memberId),
-    createdAt: item.createdAt,
-    viewCount: item.viewCount ?? 0,
-    userId: item.userId ?? item.memberId ?? null,
-  };
-}
-
-/**
- * 백엔드 상세 응답 데이터를 프론트엔드 상세 데이터 구조로 변환한다.
- */
-function convertBackendDetail(item: BackendBoardDetail): BoardDetail {
-  return {
-    boardId: item.id,
-    postType: item.postType,
-    noticeLevel: item.noticeLevel ?? (item.postType === "NOTICE" ? "IMPORTANT" : "NORMAL"),
-    pinned: Boolean(item.pinned),
-    title: item.title,
-    content: item.content,
-    userId: item.userId ?? item.memberId ?? null,
-    authorName: resolveAuthorName(item.authorName, item.userId ?? item.memberId),
-    createdAt: item.createdAt,
-    updatedAt: item.updatedAt ?? null,
-    viewCount: item.viewCount ?? 0,
-  };
-}
+let mockPostIdCounter = 200;
+let mockCommentIdCounter = 100;
 
 /**
  * 게시글 목록 조회 API (GET /api/boards)
- * 
- * [공지사항 및 목록 정렬 규칙]
- * 1. 맨 위에 최신 중요 공지 1개를 상단 고정합니다.
- * 2. 그 아래에 최신 일반 공지 1개를 상단 고정합니다.
- * 3. 상단 고정 2개를 제외한 지나간 공지사항과 일반 게시글은 작성시각 최신순으로 정렬되어 아래 목록으로 내려갑니다.
- * 4. 상단 공지 2개를 제외한 목록은 페이지당 10개씩 표시합니다.
  */
 export async function getBoardPostsApi(
-  request: BoardListRequest
+  params: BoardListRequest = {}
 ): Promise<BoardPageResponse> {
-  const backendPage = Math.max(0, request.page - 1);
-  let rawList: BoardListItem[] = [];
+  const { page = 1, size = 10, searchType, keyword } = params;
 
   try {
     const response = await apiMiddleware.get<BackendBoardPageResponse>("/api/boards", {
       params: {
-        page: backendPage,
-        size: request.size,
-        searchType: request.searchType,
-        keyword: request.keyword || undefined,
+        page: page - 1,
+        size,
+        searchType,
+        keyword,
       },
     });
 
-    rawList = (response.data.content || []).map(convertBackendListItem);
-  } catch (e) {
-    console.warn("백엔드 API 호출 실패 또는 미연결로 인해 샘플 데이터를 사용합니다.");
-  }
+    const backendData: any = response.data || {};
+    const contentArray = backendData.content || backendData.items || [];
 
-  // 서버 데이터 미존재 시 샘플 데이터 사용
-  if (rawList.length === 0) {
-    rawList = [...SAMPLE_BOARD_POSTS];
-  } else {
-    const hasNotice = rawList.some((i) => i.postType === "NOTICE");
-    if (!hasNotice) {
-      rawList = [...SAMPLE_BOARD_POSTS.filter((i) => i.postType === "NOTICE"), ...rawList];
+    // 백엔드 데이터가 비어있거나 배열이 아닐 경우 Mock 데이터로 자동 Fallback
+    if (!Array.isArray(contentArray) || contentArray.length === 0) {
+      throw new Error("백엔드 게시글 데이터가 없어 Mock 데이터로 전환합니다.");
     }
-  }
 
-  // Client-side 검색어 필터링
-  const keyword = request.keyword.trim().toLowerCase();
-  const filteredList = rawList.filter((item) => {
-    if (!keyword) return true;
-    if (request.searchType === "author") {
-      return item.authorName.toLowerCase().includes(keyword);
+    const allItems: BoardListItem[] = contentArray.map((item: any) => ({
+      boardId: item.boardId || item.id,
+      title: item.title || item.boardTitle || item.subject || "게시글 제목",
+      authorName: item.authorName || item.writerName || item.writer || "작성자",
+      createdAt: item.createdAt || item.createDate || item.regDate || "2026-08-06",
+      viewCount: item.viewCount ?? item.hit ?? item.readCount ?? 0,
+      postType: item.postType || item.type || "GENERAL",
+      noticeLevel: item.noticeLevel,
+    }));
+
+    const notices = allItems
+      .filter((i) => i.postType === "NOTICE")
+      .sort((a, b) => (b.noticeLevel === "IMPORTANT" ? 1 : 0) - (a.noticeLevel === "IMPORTANT" ? 1 : 0));
+
+    const pinnedNotices = notices.slice(0, 2);
+    const items = allItems.filter((i) => !pinnedNotices.some((p) => p.boardId === i.boardId));
+
+    return {
+      notices: pinnedNotices,
+      items,
+      totalPages: backendData.totalPages || 1,
+      totalElements: backendData.totalElements || allItems.length,
+      currentPage: (backendData.number ?? 0) + 1,
+    };
+  } catch (error) {
+    console.warn("백엔드 연결 실패 또는 데이터 0건, Mock 데이터 목록을 사용합니다.", error);
+
+    let filtered = [...MOCK_BOARD_POSTS];
+
+    if (keyword && keyword.trim() !== "") {
+      const kw = keyword.trim().toLowerCase();
+      filtered = filtered.filter((post) => {
+        if (searchType === "author") {
+          return post.authorName.toLowerCase().includes(kw);
+        }
+        return post.title.toLowerCase().includes(kw);
+      });
     }
-    return item.title.toLowerCase().includes(keyword);
-  });
 
-  // 1. 최신순으로 전체 정렬
-  const sortedList = [...filteredList].sort(sortByLatest);
+    const importantNotice = filtered.find(
+      (p) => p.postType === "NOTICE" && p.noticeLevel === "IMPORTANT"
+    );
+    const normalNotice = filtered.find(
+      (p) => p.postType === "NOTICE" && p.noticeLevel === "NORMAL"
+    );
 
-  // 2. 중요 공지 최신 1개 추출
-  const importantNotices = sortedList.filter(
-    (item) => item.postType === "NOTICE" && (item.noticeLevel === "IMPORTANT" || item.pinned)
-  );
-  const latestImportantNotice = importantNotices[0];
+    const pinnedNoticesList: BoardListItem[] = [];
+    if (importantNotice) pinnedNoticesList.push(importantNotice);
+    if (normalNotice) pinnedNoticesList.push(normalNotice);
 
-  // 3. 일반 공지 최신 1개 추출 (중요 공지로 선정된 게시글 제외)
-  const normalNotices = sortedList.filter(
-    (item) => item.postType === "NOTICE" && item !== latestImportantNotice
-  );
-  const latestNormalNotice = normalNotices[0];
+    const remainingItems = filtered
+      .filter((p) => !pinnedNoticesList.some((n) => n.boardId === p.boardId))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  // 4. 상단 고정 공지 2개 구성
-  const topNotices: BoardListItem[] = [];
-  if (latestImportantNotice) topNotices.push(latestImportantNotice);
-  if (latestNormalNotice) topNotices.push(latestNormalNotice);
+    const totalElements = remainingItems.length;
+    const totalPages = Math.ceil(totalElements / size) || 1;
+    const safePage = Math.min(page, totalPages);
+    const startIndex = (safePage - 1) * size;
+    const paginatedItems = remainingItems.slice(startIndex, startIndex + size);
 
-  const topNoticeIds = new Set(topNotices.map((n) => n.boardId));
-
-  // 5. 상단 2개를 제외한 나머지 (지나간 공지사항 + 일반 게시글) -> 최신순 정렬 유지
-  const mainItems = sortedList.filter((item) => !topNoticeIds.has(item.boardId));
-
-  const totalElements = mainItems.length;
-  const totalPages = Math.max(1, Math.ceil(totalElements / request.size));
-
-  // 6. 페이지당 10개씩 페이징 슬라이스
-  const startIndex = (request.page - 1) * request.size;
-  const paginatedItems = mainItems.slice(startIndex, startIndex + request.size);
-
-  return {
-    notices: topNotices,
-    items: paginatedItems,
-    totalElements,
-    totalPages,
-    page: request.page,
-    size: request.size,
-  };
+    return {
+      notices: pinnedNoticesList,
+      items: paginatedItems,
+      totalPages,
+      totalElements,
+      currentPage: safePage,
+    };
+  }
 }
 
 /**
- * 게시글 상세 조회 API (GET /api/boards/{id})
+ * 게시글 단건 상세 조회 API (GET /api/boards/:postId)
  */
 export async function getBoardPostApi(boardId: number): Promise<BoardDetail> {
   try {
-    const response = await apiMiddleware.get<BackendBoardDetail>(`/api/boards/${boardId}`);
-    return convertBackendDetail(response.data);
-  } catch (e) {
-    const sample = SAMPLE_BOARD_POSTS.find((p) => p.boardId === boardId);
-    if (sample) {
-      return {
-        boardId: sample.boardId,
-        postType: sample.postType,
-        noticeLevel: sample.noticeLevel,
-        pinned: sample.pinned,
-        title: sample.title,
-        content: sample.content || "게시글 본문 내용입니다.",
-        userId: 1,
-        authorName: sample.authorName,
-        createdAt: sample.createdAt,
-        updatedAt: null,
-        viewCount: sample.viewCount,
-      };
+    const response = await apiMiddleware.get<any>(`/api/boards/${boardId}`);
+    const data = response.data || {};
+
+    const title = data.title || data.boardTitle || data.subject || "";
+    const content = data.content || data.boardContent || data.body || "";
+    const authorName = data.authorName || data.writerName || data.writer || data.userName || "";
+    const authorId = data.authorId || data.writerId || data.userId || "user";
+    const createdAt = data.createdAt || data.createDate || data.regDate || data.createdDate || "";
+    const viewCount = data.viewCount ?? data.hit ?? data.readCount ?? data.views ?? 0;
+    const postType = data.postType || data.type || "GENERAL";
+
+    const foundMock = MOCK_BOARD_POSTS.find((p) => p.boardId === boardId);
+
+    return {
+      boardId: data.boardId || data.id || boardId,
+      title: title || foundMock?.title || `게시글 #${boardId} 제목`,
+      content:
+        content ||
+        foundMock?.content ||
+        `안녕하세요. #${boardId}번 게시글의 상세 내용입니다.\n\n서울시 농수산물 가격 정보 서비스를 통해 다양한 시세 정보와 장보기 정보를 확인하실 수 있습니다.`,
+      authorName: authorName || foundMock?.authorName || "시민작성자",
+      authorId: authorId || foundMock?.authorId || "user",
+      createdAt: createdAt || foundMock?.createdAt || "2026-08-06",
+      viewCount: viewCount || foundMock?.viewCount || 1,
+      postType: postType || foundMock?.postType || "GENERAL",
+    };
+  } catch (error) {
+    console.warn("백엔드 연결 실패, 게시글 상세 Mock 데이터를 사용합니다.", error);
+    const found = MOCK_BOARD_POSTS.find((p) => p.boardId === boardId);
+    if (found) {
+      found.viewCount += 1;
+      return found;
     }
-    throw e;
+    return {
+      boardId,
+      title: `게시글 #${boardId} 제목`,
+      content: `안녕하세요. #${boardId}번 게시글의 상세 내용입니다.\n\n서울시 농수산물 가격 정보 서비스를 이용해 주셔서 감사합니다. 자치구별 농수산물 가격 정보를 더 신속하게 확인해보세요.`,
+      authorName: "시민작성자",
+      authorId: "user",
+      createdAt: "2026-08-06",
+      viewCount: 1,
+      postType: "GENERAL",
+    };
   }
 }
 
 /**
- * 일반 게시글 등록 API (POST /api/boards)
+ * 게시글 등록 API (POST /api/boards)
  */
 export async function createBoardPostApi(
-  request: BoardCreateRequest
-): Promise<BoardCommandResponse> {
+  data: BoardCreateRequest
+): Promise<{ boardId: number }> {
   try {
-    const response = await apiMiddleware.post<any>("/api/boards", {
-      title: request.title,
-      content: request.content,
-    });
-
-    const createdId = typeof response.data === "number" 
-      ? response.data 
-      : response.data?.id ?? response.data?.boardId ?? (SAMPLE_BOARD_POSTS.length + 200);
-
-    return { boardId: createdId };
-  } catch (e) {
-    const nextId = SAMPLE_BOARD_POSTS.length + 200;
-    SAMPLE_BOARD_POSTS.unshift({
-      boardId: nextId,
-      postType: "GENERAL",
-      noticeLevel: "NORMAL",
-      pinned: false,
-      title: request.title,
-      content: request.content,
-      authorName: "사용자",
-      createdAt: new Date().toISOString(),
+    const response = await apiMiddleware.post<{ boardId: number }>("/api/boards", data);
+    return response.data;
+  } catch (error) {
+    console.warn("백엔드 연결 실패, 게시글 등록 Mock 처리를 수행합니다.", error);
+    mockPostIdCounter += 1;
+    const today = new Date().toISOString().split("T")[0];
+    const newPost: BoardDetail & { noticeLevel?: "IMPORTANT" | "NORMAL" } = {
+      boardId: mockPostIdCounter,
+      title: data.title,
+      content: data.content,
+      authorName: "홍길동",
+      authorId: "hong123",
+      createdAt: today,
       viewCount: 0,
-    });
-    return { boardId: nextId };
+      postType: data.postType || "GENERAL",
+    };
+    MOCK_BOARD_POSTS.unshift(newPost);
+    return { boardId: mockPostIdCounter };
   }
 }
 
 /**
- * 본인 게시글 수정 API (PATCH /api/boards/{id})
+ * 게시글 수정 API (PUT /api/boards/:postId)
  */
 export async function updateBoardPostApi(
   boardId: number,
-  request: BoardUpdateRequest
-): Promise<BoardCommandResponse> {
+  data: BoardUpdateRequest
+): Promise<void> {
   try {
-    const response = await apiMiddleware.patch<any>(`/api/boards/${boardId}`, {
-      title: request.title,
-      content: request.content,
-    });
-
-    const updatedId = typeof response.data === "number"
-      ? response.data
-      : response.data?.id ?? response.data?.boardId ?? boardId;
-
-    return { boardId: updatedId };
-  } catch (e) {
-    const target = SAMPLE_BOARD_POSTS.find((p) => p.boardId === boardId);
-    if (target) {
-      target.title = request.title;
-      target.content = request.content;
+    await apiMiddleware.put(`/api/boards/${boardId}`, data);
+  } catch (error) {
+    console.warn("백엔드 연결 실패, 게시글 수정 Mock 처리를 수행합니다.", error);
+    const index = MOCK_BOARD_POSTS.findIndex((p) => p.boardId === boardId);
+    if (index !== -1) {
+      if (data.title) MOCK_BOARD_POSTS[index].title = data.title;
+      if (data.content) MOCK_BOARD_POSTS[index].content = data.content;
     }
-    return { boardId };
   }
 }
 
 /**
- * 본인 게시글 삭제 API (DELETE /api/boards/{id})
+ * 게시글 삭제 API (DELETE /api/boards/:postId)
  */
-export async function deleteBoardPostApi(
-  boardId: number
-): Promise<BoardDeleteResponse> {
+export async function deleteBoardPostApi(boardId: number): Promise<void> {
   try {
     await apiMiddleware.delete(`/api/boards/${boardId}`);
-  } catch (e) {
-    const index = SAMPLE_BOARD_POSTS.findIndex((p) => p.boardId === boardId);
+  } catch (error) {
+    console.warn("백엔드 연결 실패, 게시글 삭제 Mock 처리를 수행합니다.", error);
+    const index = MOCK_BOARD_POSTS.findIndex((p) => p.boardId === boardId);
     if (index !== -1) {
-      SAMPLE_BOARD_POSTS.splice(index, 1);
+      MOCK_BOARD_POSTS.splice(index, 1);
     }
   }
-  return { boardId, deleted: true };
+}
+
+/**
+ * 게시글 댓글 목록 조회 API (GET /api/boards/:postId/comments)
+ */
+export async function getBoardCommentsApi(boardId: number): Promise<BoardComment[]> {
+  try {
+    const response = await apiMiddleware.get<BoardComment[]>(`/api/boards/${boardId}/comments`);
+    return response.data;
+  } catch (error) {
+    console.warn("백엔드 연결 실패, 댓글 목록 Mock 데이터를 사용합니다.", error);
+    return MOCK_BOARD_COMMENTS.filter((c) => c.boardId === boardId);
+  }
+}
+
+/**
+ * 게시글 댓글 작성 API (POST /api/boards/:postId/comments)
+ */
+export async function createBoardCommentApi(
+  boardId: number,
+  data: CommentCreateRequest,
+  authorInfo: { name: string; userId: string }
+): Promise<BoardComment> {
+  try {
+    const response = await apiMiddleware.post<BoardComment>(`/api/boards/${boardId}/comments`, data);
+    return response.data;
+  } catch (error) {
+    console.warn("백엔드 연결 실패, 댓글 등록 Mock 처리를 수행합니다.", error);
+    mockCommentIdCounter += 1;
+    const now = new Date();
+    const formattedDate = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, "0")}.${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+    const newComment: BoardComment = {
+      commentId: mockCommentIdCounter,
+      boardId,
+      authorName: authorInfo.name || "사용자",
+      authorId: authorInfo.userId || "user",
+      content: data.content,
+      createdAt: formattedDate,
+    };
+    MOCK_BOARD_COMMENTS.push(newComment);
+    return newComment;
+  }
+}
+
+/**
+ * 게시글 댓글 수정 API (PUT /api/boards/comments/:commentId)
+ */
+export async function updateBoardCommentApi(
+  commentId: number,
+  data: CommentUpdateRequest
+): Promise<void> {
+  try {
+    await apiMiddleware.put(`/api/boards/comments/${commentId}`, data);
+  } catch (error) {
+    console.warn("백엔드 연결 실패, 댓글 수정 Mock 처리를 수행합니다.", error);
+    const comment = MOCK_BOARD_COMMENTS.find((c) => c.commentId === commentId);
+    if (comment) {
+      comment.content = data.content;
+    }
+  }
+}
+
+/**
+ * 게시글 댓글 삭제 API (DELETE /api/boards/comments/:commentId)
+ */
+export async function deleteBoardCommentApi(commentId: number): Promise<void> {
+  try {
+    await apiMiddleware.delete(`/api/boards/comments/${commentId}`);
+  } catch (error) {
+    console.warn("백엔드 연결 실패, 댓글 삭제 Mock 처리를 수행합니다.", error);
+    const index = MOCK_BOARD_COMMENTS.findIndex((c) => c.commentId === commentId);
+    if (index !== -1) {
+      MOCK_BOARD_COMMENTS.splice(index, 1);
+    }
+  }
 }

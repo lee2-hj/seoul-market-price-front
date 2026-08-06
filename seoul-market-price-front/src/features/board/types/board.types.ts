@@ -1,147 +1,130 @@
 /**
- * 게시글 종류 (공지사항 vs 일반 게시글)
- */
-export type BoardPostType = "NOTICE" | "GENERAL";
+  * 게시글 유형 (NOTICE: 공지사항, GENERAL: 일반게시글)
+  */
+export type PostType = "NOTICE" | "GENERAL";
 
 /**
- * 공지사항 중요도 (중요 공지 vs 일반 공지)
+ * 공지사항 우대 레벨 (IMPORTANT: 중요공지 상단고정, NORMAL: 일반공지)
  */
 export type NoticeLevel = "IMPORTANT" | "NORMAL";
 
 /**
- * 게시글 검색 옵션 (제목 vs 작성자)
+ * 게시판 검색 타입 (title: 제목, author: 작성자)
  */
 export type BoardSearchType = "title" | "author";
 
 /**
- * 백엔드 게시글 목록 API의 개별 응답 항목 타입
+ * 백엔드 단일 게시글 아이템 DTO
  */
 export interface BackendBoardListItem {
-  id: number;
-  postType: BoardPostType;
-  noticeLevel?: NoticeLevel;
+  boardId: number;
   title: string;
-  userId?: number | null;
-  memberId?: number | null;
-  authorName?: string;
-  viewCount: number;
-  pinned: boolean;
+  authorName: string;
   createdAt: string;
+  viewCount: number;
+  postType: PostType;
+  noticeLevel?: NoticeLevel;
+  pinned?: boolean;
 }
 
 /**
- * 백엔드 게시글 상세 API 응답 타입
- */
-export interface BackendBoardDetail {
-  id: number;
-  postType: BoardPostType;
-  noticeLevel?: NoticeLevel;
-  title: string;
-  content: string;
-  userId?: number | null;
-  memberId?: number | null;
-  authorName?: string;
-  viewCount: number;
-  visible?: boolean;
-  pinned: boolean;
-  createdAt: string;
-  updatedAt?: string | null;
-}
-
-/**
- * 백엔드 Spring Data Page 목록 응답 타입
+ * 백엔드 게시글 목록 페이징 응답 DTO
  */
 export interface BackendBoardPageResponse {
   content: BackendBoardListItem[];
-  page: number; // 0-indexed
-  size: number;
-  totalElements: number;
   totalPages: number;
-  first: boolean;
-  last: boolean;
+  totalElements: number;
+  size: number;
+  number: number;
 }
 
 /**
- * 프론트엔드 내부 목록 표시용 게시글 항목 타입
+ * 게시글 목록용 프론트엔드 모델
  */
 export interface BoardListItem {
   boardId: number;
-  postType: BoardPostType;
-  noticeLevel?: NoticeLevel;
-  pinned: boolean;
   title: string;
   authorName: string;
   createdAt: string;
   viewCount: number;
-  userId?: number | null;
+  postType: PostType;
+  noticeLevel?: NoticeLevel;
 }
 
 /**
- * 프론트엔드 내부 상세 조회용 게시글 타입
+ * 게시글 상세 정보 모델
  */
 export interface BoardDetail {
   boardId: number;
-  postType: BoardPostType;
-  noticeLevel?: NoticeLevel;
-  pinned: boolean;
   title: string;
   content: string;
-  userId?: number | null;
   authorName: string;
+  authorId?: string;
   createdAt: string;
-  updatedAt: string | null;
   viewCount: number;
+  postType: PostType;
 }
 
 /**
- * 게시글 목록 조회 요청 파라미터 타입 (프론트 기준 1-indexed page)
+ * 게시글 댓글 모델
  */
-export interface BoardListRequest {
-  searchType: BoardSearchType;
-  keyword: string;
-  page: number; // 1부터 시작하는 페이지 번호
-  size: number; // 페이지당 표시할 일반 게시글 수 (10개)
+export interface BoardComment {
+  commentId: number;
+  boardId: number;
+  authorName: string;
+  authorId: string;
+  content: string;
+  createdAt: string;
 }
 
 /**
- * 프론트엔드 화면 전달용 게시글 목록 페이징 응답 타입
+ * 댓글 등록 요청 DTO
+ */
+export interface CommentCreateRequest {
+  content: string;
+}
+
+/**
+ * 댓글 수정 요청 DTO
+ */
+export interface CommentUpdateRequest {
+  content: string;
+}
+
+/**
+ * 프론트엔드 페이징 응답 모델
  */
 export interface BoardPageResponse {
-  notices: BoardListItem[]; // 상단 고정 공지 2개
-  items: BoardListItem[]; // 페이지에 해당되는 일반 및 기타 게시글 목록
-  totalElements: number;
+  notices: BoardListItem[];
+  items: BoardListItem[];
   totalPages: number;
-  page: number; // 1부터 시작
-  size: number;
+  totalElements: number;
+  currentPage: number;
 }
 
 /**
- * 게시글 작성 요청 데이터 타입
+ * 게시글 목록 요청 쿼리 파라미터 DTO
+ */
+export interface BoardListRequest {
+  page?: number;
+  size?: number;
+  searchType?: BoardSearchType;
+  keyword?: string;
+}
+
+/**
+ * 게시글 생성 요청 DTO
  */
 export interface BoardCreateRequest {
   title: string;
   content: string;
+  postType?: PostType;
 }
 
 /**
- * 게시글 수정 요청 데이터 타입
+ * 게시글 수정 요청 DTO
  */
 export interface BoardUpdateRequest {
-  title: string;
-  content: string;
-}
-
-/**
- * CUD 처리 완료 응답 타입
- */
-export interface BoardCommandResponse {
-  boardId: number;
-}
-
-/**
- * 게시글 삭제 결과 응답 타입
- */
-export interface BoardDeleteResponse {
-  boardId: number;
-  deleted: boolean;
+  title?: string;
+  content?: string;
 }

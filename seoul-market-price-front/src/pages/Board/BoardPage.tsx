@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import { getBoardPostsApi } from "@/api/boardApi";
@@ -61,7 +61,7 @@ function BoardRow({ item, displayNo, isTopNotice = false }: BoardRowProps) {
         </span>
       </TableCell>
 
-      {/* 3. 제목 (43%, 자바스크립트 함수 없이 Tailwind 'truncate'로 오버플로우 처리) */}
+      {/* 3. 제목 (43%, Tailwind 'truncate'로 오버플로우 처리) */}
       <TableCell className="w-[43%] text-left max-w-0">
         <Link
           to={`/board/${item.boardId}`}
@@ -95,10 +95,9 @@ function BoardRow({ item, displayNo, isTopNotice = false }: BoardRowProps) {
 }
 
 /**
- * 게시판 메인 컴포넌트 (shadcn/ui Table 및 Pagination 적용)
+ * 게시판 메인 컴포넌트
  */
 export default function BoardPage() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // 1. URL Query Parameters 파싱
@@ -155,13 +154,9 @@ export default function BoardPage() {
     [searchType, keyword, setSearchParams]
   );
 
-  // 6. 탭 이동 핸들러
-  const handleTabClick = (tabKey: string) => {
-    if (tabKey === "qna") {
-      navigate("/Qna");
-    } else if (tabKey === "faq") {
-      alert("자주묻는질문 페이지는 준비 중입니다.");
-    }
+  // 6. 탭 이동 핸들러 (alert 팝업 완전 제거, 무반응 처리)
+  const handleTabClick = (_tabKey: string) => {
+    // 팝업이나 페이지 이동 없이 완전 무반응 유지
   };
 
   // 7. 페이지 번호 목록 생성
@@ -203,7 +198,7 @@ export default function BoardPage() {
           </p>
         </div>
 
-        {/* 오리지널 카테고리 탭 ([일반게시판] [Q&A게시판] [자주묻는질문]) */}
+        {/* 카테고리 탭 ([일반게시판] [Q&A게시판] [자주묻는질문] - 디자인 보존 및 팝업/이동 완전 무반응) */}
         <div className="flex justify-center mb-6">
           <div className="flex items-center gap-2 p-1 bg-white rounded-[10px] border border-[#dce4da] shadow-sm">
             <button
@@ -277,7 +272,7 @@ export default function BoardPage() {
           </Link>
         </div>
 
-        {/* shadcn/ui Table 적용 영역 */}
+        {/* Table 영역 */}
         <div className="w-full bg-white border border-[#dce4da] rounded-[12px] shadow-[0_7px_24px_rgba(45,70,45,0.05)] overflow-hidden">
           {isLoading ? (
             <div className="p-16 text-center text-[#8a9388] text-[14px]">
@@ -330,7 +325,7 @@ export default function BoardPage() {
           )}
         </div>
 
-        {/* shadcn/ui Pagination 적용 영역 */}
+        {/* Pagination 영역 */}
         {data && data.totalPages > 1 && (
           <Pagination className="pt-6">
             <PaginationContent>
