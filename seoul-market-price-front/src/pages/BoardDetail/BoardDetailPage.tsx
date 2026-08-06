@@ -1,21 +1,8 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Edit3, Trash2, Calendar, Eye, User, Megaphone, FileText } from "lucide-react";
 
 import { getBoardPostApi, deleteBoardPostApi } from "@/api/boardApi";
 import { Button } from "@/components/ui/button";
-
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return dateString;
-  return new Intl.DateTimeFormat("ko-KR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
 
 export default function BoardDetailPage() {
   const { postId } = useParams<{ postId: string }>();
@@ -50,9 +37,9 @@ export default function BoardDetailPage() {
 
   if (isNaN(boardId) || boardId <= 0) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 py-12 px-4 text-center">
-        <p className="text-rose-500 font-medium">유효하지 않은 게시글 번호입니다.</p>
-        <Link to="/board" className="mt-4 inline-block text-emerald-600 underline">
+      <div className="min-h-screen bg-[#fafcf9] py-12 px-4 text-center">
+        <p className="text-rose-500 font-medium text-sm">유효하지 않은 게시글 번호입니다.</p>
+        <Link to="/board" className="mt-4 inline-block text-[#4c9b55] text-xs underline">
           목록으로 돌아가기
         </Link>
       </div>
@@ -60,91 +47,91 @@ export default function BoardDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* 상단 네비게이션 버튼 */}
-        <div className="flex items-center justify-between">
-          <Button
-            variant="outline"
-            onClick={() => navigate("/board")}
-            className="gap-2 text-slate-600 dark:text-slate-300"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            목록으로 돌아가기
-          </Button>
-
-          {post && (
-            <div className="flex items-center gap-2">
-              <Link to={`/board/${boardId}/edit`}>
-                <Button variant="outline" className="gap-1.5 text-slate-700 dark:text-slate-200">
-                  <Edit3 className="w-4 h-4" />
-                  수정
-                </Button>
-              </Link>
-              <Button
-                variant="outline"
-                onClick={handleDelete}
-                disabled={deleteMutation.isPending}
-                className="gap-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 border-rose-200 dark:border-rose-800"
-              >
-                <Trash2 className="w-4 h-4" />
-                {deleteMutation.isPending ? "삭제 중..." : "삭제"}
-              </Button>
-            </div>
-          )}
+    <div className="min-h-screen bg-[#fafcf9] py-12 px-5 sm:px-8">
+      <div className="max-w-[900px] mx-auto space-y-6">
+        {/* 오리지널 헤더 */}
+        <div className="text-center space-y-2 mb-8">
+          <span className="inline-block px-3 py-1 bg-[#e8f3e9] text-[#3f8a47] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
+            BOARD DETAIL
+          </span>
+          <h1 className="text-[36px] font-black text-[#242b23] tracking-tight">
+            게시판
+          </h1>
+          <p className="text-[15px] text-[#667065]">
+            서울시 농수산물 가격 정보 서비스의 주요 공지사항과 시민 소통 공간입니다.
+          </p>
         </div>
 
-        {/* 게시글 본문 영역 */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 md:p-8 space-y-6">
+        {/* 상세 카드 박스 */}
+        <div className="bg-white border border-[#dce4da] rounded-[12px] p-6 md:p-8 space-y-6 shadow-[0_7px_24px_rgba(45,70,45,0.05)]">
           {isLoading ? (
-            <div className="py-20 text-center text-slate-500 dark:text-slate-400">
+            <div className="py-20 text-center text-[#8a9388] text-[14px]">
               게시글 정보를 불러오는 중입니다...
             </div>
           ) : isError ? (
-            <div className="py-20 text-center text-rose-500">
-              게시글을 불러올 수 없습니다: {(error as Error).message}
+            <div className="py-20 text-center text-rose-500 text-[14px]">
+              오류가 발생했습니다: {(error as Error).message}
             </div>
           ) : post ? (
             <>
-              <div className="space-y-3 pb-6 border-b border-slate-200 dark:border-slate-700">
-                <div>
-                  {post.postType === "NOTICE" ? (
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
-                      <Megaphone className="w-3.5 h-3.5" />
-                      공지
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
-                      <FileText className="w-3.5 h-3.5" />
-                      일반
-                    </span>
-                  )}
+              {/* 제목 & 메타 정보 */}
+              <div className="space-y-3 pb-6 border-b border-[#edf1ec]">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={
+                      post.postType === "NOTICE"
+                        ? "px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#fff0c7] text-[#bd7b00]"
+                        : "px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#e8f4e9] text-[#4c8c53]"
+                    }
+                  >
+                    {post.postType === "NOTICE" ? "공지" : "일반"}
+                  </span>
                 </div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white leading-snug">
+                <h2 className="text-[22px] font-bold text-[#242b23] leading-snug">
                   {post.title}
-                </h1>
-
-                <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 dark:text-slate-400 pt-2">
-                  <span className="inline-flex items-center gap-1.5">
-                    <User className="w-4 h-4 text-slate-400" />
-                    {post.authorName}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-slate-400" />
-                    {formatDate(post.createdAt)}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <Eye className="w-4 h-4 text-slate-400" />
-                    조회 {post.viewCount}
-                  </span>
+                </h2>
+                <div className="flex items-center gap-4 text-[13px] text-[#667065]">
+                  <span>작성자: <strong className="text-[#343c33] font-bold">{post.authorName}</strong></span>
+                  <span>작성일: {post.createdAt}</span>
+                  <span>조회수: {post.viewCount}</span>
                 </div>
               </div>
 
-              <div className="py-4 text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap min-h-[200px]">
+              {/* 본문 */}
+              <div className="py-4 text-[14px] text-[#384138] leading-relaxed whitespace-pre-wrap min-h-[220px]">
                 {post.content}
               </div>
             </>
           ) : null}
+
+          {/* 하단 버튼 */}
+          {post && (
+            <div className="flex items-center justify-between pt-6 border-t border-[#edf1ec]">
+              <div className="flex items-center gap-2">
+                <Link to={`/board/${boardId}/edit`}>
+                  <Button className="h-[42px] px-6 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[14px] font-bold rounded-[7px]">
+                    수정
+                  </Button>
+                </Link>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/board")}
+                  className="h-[42px] px-6 border-[#dce4da] text-[#5a6459] hover:bg-[#f0f6ef] text-[14px] font-bold rounded-[7px]"
+                >
+                  목록으로
+                </Button>
+              </div>
+
+              <Button
+                variant="outline"
+                onClick={handleDelete}
+                disabled={deleteMutation.isPending}
+                className="h-[42px] px-6 border-rose-200 text-rose-600 hover:bg-rose-50 text-[14px] font-bold rounded-[7px]"
+              >
+                {deleteMutation.isPending ? "삭제 중..." : "삭제"}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>

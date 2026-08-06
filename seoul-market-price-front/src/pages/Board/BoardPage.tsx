@@ -6,31 +6,25 @@ import { getBoardPostsApi } from "@/api/boardApi";
 import type { BoardListItem, BoardSearchType } from "@/features/board/types/board.types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+} from "@/components/ui/pagination";
 
 /**
- * 날짜 문자열을 YYYY-MM-DD 포맷으로 변환하는 함수
- */
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return dateString;
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-/**
- * 제목을 최대 20자로 제한하는 헬퍼 함수
- */
-function truncateTitle(title: string, maxLength = 20): string {
-  if (title.length > maxLength) {
-    return title.slice(0, maxLength) + "...";
-  }
-  return title;
-}
-
-/**
- * 오리지널 디자인 규격의 게시글 테이블 행 컴포넌트
+ * shadcn/ui Table 컴포넌트 규격의 게시글 테이블 행 컴포넌트
  */
 interface BoardRowProps {
   item: BoardListItem;
@@ -42,20 +36,20 @@ function BoardRow({ item, displayNo, isTopNotice = false }: BoardRowProps) {
   const isNotice = isTopNotice || item.postType === "NOTICE";
 
   return (
-    <tr
+    <TableRow
       className={
         isNotice
-          ? "bg-[#fff9e9] hover:bg-[#fff6dc] transition-colors border-b border-[#edf1ec]"
-          : "bg-white hover:bg-[#f8faf7] transition-colors border-b border-[#edf1ec]"
+          ? "bg-[#fff9e9] hover:bg-[#fff6dc]"
+          : "bg-white hover:bg-[#f8faf7]"
       }
     >
       {/* 1. 번호 (9%) */}
-      <td className="h-[62px] px-3.5 text-center text-[13px] text-[#5a6459] align-middle font-medium">
+      <TableCell className="w-[9%] text-center text-[#5a6459] font-medium">
         {isNotice ? "공지" : displayNo}
-      </td>
+      </TableCell>
 
       {/* 2. 구분 배지 (10%) */}
-      <td className="h-[62px] px-3.5 text-center align-middle">
+      <TableCell className="w-[10%] text-center">
         <span
           className={
             isNotice
@@ -65,43 +59,43 @@ function BoardRow({ item, displayNo, isTopNotice = false }: BoardRowProps) {
         >
           {isNotice ? "공지" : "일반"}
         </span>
-      </td>
+      </TableCell>
 
-      {/* 3. 제목 (43%) */}
-      <td className="h-[62px] px-3.5 text-left align-middle overflow-hidden whitespace-nowrap text-ellipsis">
+      {/* 3. 제목 (43%, 자바스크립트 함수 없이 Tailwind 'truncate'로 오버플로우 처리) */}
+      <TableCell className="w-[43%] text-left max-w-0">
         <Link
           to={`/board/${item.boardId}`}
           className={
             isNotice
-              ? "block w-full overflow-hidden text-ellipsis whitespace-nowrap text-[14px] font-bold text-[#7e5b16] hover:underline"
-              : "block w-full overflow-hidden text-ellipsis whitespace-nowrap text-[14px] font-semibold text-[#384138] hover:underline hover:text-[#4c9b55]"
+              ? "block truncate w-full text-[14px] font-bold text-[#7e5b16] hover:underline"
+              : "block truncate w-full text-[14px] font-semibold text-[#384138] hover:underline hover:text-[#4c9b55]"
           }
           title={item.title}
         >
-          {truncateTitle(item.title)}
+          {item.title}
         </Link>
-      </td>
+      </TableCell>
 
       {/* 4. 작성자 (14%) */}
-      <td className="h-[62px] px-3.5 text-center text-[13px] text-[#5a6459] align-middle">
+      <TableCell className="w-[14%] text-center text-[#5a6459]">
         {item.authorName}
-      </td>
+      </TableCell>
 
       {/* 5. 작성일 (15%) */}
-      <td className="h-[62px] px-3.5 text-center text-[13px] text-[#5a6459] align-middle">
-        {formatDate(item.createdAt)}
-      </td>
+      <TableCell className="w-[15%] text-center text-[#5a6459]">
+        {item.createdAt}
+      </TableCell>
 
       {/* 6. 조회수 (9%) */}
-      <td className="h-[62px] px-3.5 text-center text-[13px] text-[#5a6459] align-middle">
+      <TableCell className="w-[9%] text-center text-[#5a6459]">
         {item.viewCount}
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 
 /**
- * 오리지널 디자인 게시판 메인 컴포넌트
+ * 게시판 메인 컴포넌트 (shadcn/ui Table 및 Pagination 적용)
  */
 export default function BoardPage() {
   const navigate = useNavigate();
@@ -214,26 +208,26 @@ export default function BoardPage() {
           <div className="flex items-center gap-2 p-1 bg-white rounded-[10px] border border-[#dce4da] shadow-sm">
             <button
               onClick={() => handleTabClick("board")}
-              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#4c9b55] text-white transition-all"
+              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#4c9b55] text-white transition-all cursor-pointer"
             >
               일반게시판
             </button>
             <button
               onClick={() => handleTabClick("qna")}
-              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all"
+              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all cursor-pointer"
             >
               Q&A게시판
             </button>
             <button
               onClick={() => handleTabClick("faq")}
-              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all"
+              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all cursor-pointer"
             >
               자주묻는질문
             </button>
           </div>
         </div>
 
-        {/* 오리지널 검색 영역 (연한 녹색 틴트 박스 #f4f7f3) */}
+        {/* 검색 영역 */}
         <div className="bg-[#f4f7f3] border border-[#dce4da] rounded-[12px] p-5 mb-6">
           <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row items-center gap-3">
             <select
@@ -283,8 +277,8 @@ export default function BoardPage() {
           </Link>
         </div>
 
-        {/* 오리지널 테이블 영역 */}
-        <div className="w-full overflow-x-auto bg-white border border-[#dce4da] rounded-[12px] shadow-[0_7px_24px_rgba(45,70,45,0.05)]">
+        {/* shadcn/ui Table 적용 영역 */}
+        <div className="w-full bg-white border border-[#dce4da] rounded-[12px] shadow-[0_7px_24px_rgba(45,70,45,0.05)] overflow-hidden">
           {isLoading ? (
             <div className="p-16 text-center text-[#8a9388] text-[14px]">
               게시글 목록을 불러오는 중입니다...
@@ -298,30 +292,18 @@ export default function BoardPage() {
               등록된 게시글이 없습니다.
             </div>
           ) : (
-            <table className="w-full min-w-[820px] border-collapse table-fixed">
-              <thead className="bg-[#eef3ed]">
-                <tr>
-                  <th className="w-[9%] h-[55px] px-3.5 border-b border-[#dce4da] text-[#3e483d] text-[13px] font-extrabold text-center">
-                    번호
-                  </th>
-                  <th className="w-[10%] h-[55px] px-3.5 border-b border-[#dce4da] text-[#3e483d] text-[13px] font-extrabold text-center">
-                    구분
-                  </th>
-                  <th className="w-[43%] h-[55px] px-3.5 border-b border-[#dce4da] text-[#3e483d] text-[13px] font-extrabold text-center">
-                    제목
-                  </th>
-                  <th className="w-[14%] h-[55px] px-3.5 border-b border-[#dce4da] text-[#3e483d] text-[13px] font-extrabold text-center">
-                    작성자
-                  </th>
-                  <th className="w-[15%] h-[55px] px-3.5 border-b border-[#dce4da] text-[#3e483d] text-[13px] font-extrabold text-center">
-                    작성일
-                  </th>
-                  <th className="w-[9%] h-[55px] px-3.5 border-b border-[#dce4da] text-[#3e483d] text-[13px] font-extrabold text-center">
-                    조회수
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table className="min-w-[820px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[9%] text-center">번호</TableHead>
+                  <TableHead className="w-[10%] text-center">구분</TableHead>
+                  <TableHead className="w-[43%] text-center">제목</TableHead>
+                  <TableHead className="w-[14%] text-center">작성자</TableHead>
+                  <TableHead className="w-[15%] text-center">작성일</TableHead>
+                  <TableHead className="w-[9%] text-center">조회수</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {/* 상단 공지사항 */}
                 {notices.map((notice) => (
                   <BoardRow
@@ -343,47 +325,41 @@ export default function BoardPage() {
                     />
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
         </div>
 
-        {/* 오리지널 페이지네이션 */}
+        {/* shadcn/ui Pagination 적용 영역 */}
         {data && data.totalPages > 1 && (
-          <nav className="flex items-center justify-center gap-1.5 pt-6">
-            <button
-              type="button"
-              onClick={() => handlePageChange(page - 1)}
-              disabled={page <= 1}
-              className="w-[38px] h-[38px] inline-flex items-center justify-center border border-[#dce4da] rounded-[7px] bg-white text-[#6a7469] font-bold text-[13px] hover:border-[#8fbd94] hover:bg-[#f0f6ef] hover:text-[#4c9b55] disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-[#6a7469] disabled:hover:border-[#dce4da]"
-            >
-              &lt;
-            </button>
+          <Pagination className="pt-6">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => handlePageChange(page - 1)}
+                  disabled={page <= 1}
+                />
+              </PaginationItem>
 
-            {pageNumbers.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => handlePageChange(p)}
-                className={
-                  p === page
-                    ? "w-[38px] h-[38px] inline-flex items-center justify-center border border-[#4c9b55] rounded-[7px] bg-[#4c9b55] text-white font-bold text-[13px]"
-                    : "w-[38px] h-[38px] inline-flex items-center justify-center border border-[#dce4da] rounded-[7px] bg-white text-[#6a7469] font-bold text-[13px] hover:border-[#8fbd94] hover:bg-[#f0f6ef] hover:text-[#4c9b55]"
-                }
-              >
-                {p}
-              </button>
-            ))}
+              {pageNumbers.map((p) => (
+                <PaginationItem key={p}>
+                  <PaginationLink
+                    isActive={p === page}
+                    onClick={() => handlePageChange(p)}
+                  >
+                    {p}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
 
-            <button
-              type="button"
-              onClick={() => handlePageChange(page + 1)}
-              disabled={page >= data.totalPages}
-              className="w-[38px] h-[38px] inline-flex items-center justify-center border border-[#dce4da] rounded-[7px] bg-white text-[#6a7469] font-bold text-[13px] hover:border-[#8fbd94] hover:bg-[#f0f6ef] hover:text-[#4c9b55] disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-[#6a7469] disabled:hover:border-[#dce4da]"
-            >
-              &gt;
-            </button>
-          </nav>
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => handlePageChange(page + 1)}
+                  disabled={page >= data.totalPages}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         )}
       </div>
     </div>
