@@ -21,6 +21,11 @@ import PassCallbackPage from "../pages/PassCallback/PassCallbackPage";
 
 import PublicRoute from "./PublicRoute";
 import SignupFlowLayout from "./SignupFlowLayout";
+import QnaPage from "@/pages/Qna/QnaPage";
+import QnaWritePage from "@/pages/Qna/QnaWritePage";
+import QnaDetailPage from "@/pages/Qna/QnaDetailPage";
+import QnaEditPage from "@/pages/Qna/QnaEditPage";
+import PricePage from "@/pages/Price/PricePage";
 
 function Router() {
   /* =========================
@@ -53,14 +58,11 @@ function Router() {
             메인 페이지
             로그인 여부와 상관없이 누구나 접근 가능
         ========================= */}
-
         <Route path="/" element={<MainPage />} />
-
         {/* =========================
             로그인
             비로그인 사용자만 접근
         ========================= */}
-
         <Route
           path="/login"
           element={
@@ -69,12 +71,10 @@ function Router() {
             </PublicRoute>
           }
         />
-
         {/* =========================
             회원가입 방법 선택
             비로그인 사용자만 접근
         ========================= */}
-
         <Route
           path="/signup/select"
           element={
@@ -83,7 +83,6 @@ function Router() {
             </PublicRoute>
           }
         />
-
         {/* =========================
             회원가입 약관 동의 → 본인인증 → 회원가입
 
@@ -91,7 +90,6 @@ function Router() {
             (SignupFlowLayout 에서 sessionStorage 플래그로 검증)
             비로그인 사용자만 접근
         ========================= */}
-
         <Route element={<SignupFlowLayout />}>
           <Route
             path="/signup/terms"
@@ -120,11 +118,9 @@ function Router() {
             }
           />
         </Route>
-
         {/* =========================
             아이디 찾기
         ========================= */}
-
         <Route
           path="/find-id"
           element={
@@ -133,12 +129,10 @@ function Router() {
             </PublicRoute>
           }
         />
-
         {/* =========================
             비밀번호 찾기
             PASS 인증 사용
         ========================= */}
-
         <Route
           path="/find-password"
           element={
@@ -147,7 +141,6 @@ function Router() {
             </PublicRoute>
           }
         />
-
         {/* =========================
             NICE PASS Callback
 
@@ -159,9 +152,17 @@ function Router() {
 
             PublicRoute 적용 X
         ========================= */}
-
+        {/* 품목별 시세 조회 */}
+        <Route path="/price" element={<PricePage />} />
         <Route path="/pass/callback" element={<PassCallbackPage />} />
-
+        /* Q&A 목록 */
+        <Route path="/qna" element={<QnaPage />} />
+        /* Q&A 글쓰기 */
+        <Route path="/qna/write" element={<QnaWritePage />} />
+        /* Q&A 상세 */
+        <Route path="/qna/:id" element={<QnaDetailPage />} />
+        {/* Q&A 수정 */}
+        <Route path="/qna/:id/edit" element={<QnaEditPage />} />
         {/* 정의되지 않은 경로(예: /main)로 직접 접근한 경우 "/" 로 리다이렉트한다. */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
