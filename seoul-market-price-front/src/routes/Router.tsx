@@ -41,6 +41,7 @@ import BoardEditPage from "../pages/BoardEdit/BoardEditPage";
 import MyPage from "@/pages/MyPage/MyPage";
 
 import PublicRoute from "./PublicRoute";
+import PrivateRoute from "./PrivateRoute";
 import SignupFlowLayout from "./SignupFlowLayout";
 import QnaPage from "@/pages/Qna/QnaPage";
 import QnaWritePage from "@/pages/Qna/QnaWritePage";
@@ -160,8 +161,18 @@ function Router() {
           <Route path="/qna/:id/edit" element={<QnaEditPage />} />
           {/* =========================
               마이페이지
+              로그인 사용자만 접근
+              (비로그인 상태로 주소창 직접 접근 시
+               알럿 후 로그인 페이지로 이동)
           ========================= */}
-          <Route path="/mypage" element={<MyPage />} />
+          <Route
+            path="/mypage"
+            element={
+              <PrivateRoute>
+                <MyPage />
+              </PrivateRoute>
+            }
+          />
         </Route>
 
         {/* =========================
