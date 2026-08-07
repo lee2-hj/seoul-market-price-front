@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { getBoardPostApi, updateBoardPostApi, deleteBoardPostApi } from "@/api/boardApi";
+import { getBoardPostApi, updateBoardPostApi, deleteBoardPostApi } from "@/api/api";
 import type { BoardUpdateRequest } from "@/features/board/types/board.types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

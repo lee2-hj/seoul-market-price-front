@@ -19,6 +19,27 @@ import FindIdPage from "../pages/FindId/FindIdPage";
 
 import PassCallbackPage from "../pages/PassCallback/PassCallbackPage";
 
+/*
+ * 일반게시판 목록 화면
+ */
+import BoardPage from "../pages/Board/BoardPage";
+
+/*
+ * 일반게시판 상세 조회 화면
+ */
+import BoardDetailPage from "../pages/BoardDetail/BoardDetailPage";
+
+/*
+ * 일반게시판 글쓰기 화면
+ */
+import BoardWritePage from "../pages/BoardWrite/BoardWritePage";
+
+/*
+ * 일반게시판 수정 화면
+ */
+import BoardEditPage from "../pages/BoardEdit/BoardEditPage";
+import MyPage from "@/pages/MyPage/MyPage";
+
 import PublicRoute from "./PublicRoute";
 import SignupFlowLayout from "./SignupFlowLayout";
 import QnaPage from "@/pages/Qna/QnaPage";
@@ -26,7 +47,6 @@ import QnaWritePage from "@/pages/Qna/QnaWritePage";
 import QnaDetailPage from "@/pages/Qna/QnaDetailPage";
 import QnaEditPage from "@/pages/Qna/QnaEditPage";
 import PricePage from "@/pages/Price/PricePage";
-import MyPage from "@/pages/MyPage/MyPage";
 
 function Router() {
   /* =========================
@@ -153,6 +173,76 @@ function Router() {
 
             PublicRoute 적용 X
         ========================= */}
+        {/* =========================
+            일반게시판 목록
+
+            주소:
+            /board
+        ========================= */}
+        <Route path="/board" element={<BoardPage />} />
+        {/* =========================
+            일반게시판 글쓰기
+
+            주소:
+            /board/write
+
+            현재는 화면 확인 단계이므로
+            로그인 권한 검사를 적용하지 않는다.
+        ========================= */}
+        <Route path="/board/write" element={<BoardWritePage />} />
+        {/* =========================
+            일반게시판 수정
+
+            주소:
+            /board/13/edit
+
+            일반 게시글의 기존 제목과 본문을
+            Mock Data에서 가져와 입력창에 표시한다.
+
+            현재는 화면 확인 단계이므로
+            작성자 권한 검사를 적용하지 않는다.
+        ========================= */}
+        <Route path="/board/:postId/edit" element={<BoardEditPage />} />
+        {/* =========================
+            일반게시판 상세 조회
+
+            주소:
+            /board/13
+
+            수정 주소인 /board/:postId/edit보다
+            아래에 배치한다.
+        ========================= */}
+        <Route path="/board/:postId" element={<BoardDetailPage />} />
+        {/* =========================
+            시세 조회
+            모든 사용자 접근 가능
+        ========================= */}
+        <Route path="/price" element={<PricePage />} />
+        {/* =========================
+            PASS 인증 콜백
+            본인인증 완료 후 접근
+        ========================= */}
+        <Route path="/pass/callback" element={<PassCallbackPage />} />
+        {/* =========================
+            Q&A 목록
+            모든 사용자 접근 가능
+        ========================= */}
+        <Route path="/qna" element={<QnaPage />} />
+        {/* =========================
+            Q&A 작성
+            로그인 사용자만 접근
+        ========================= */}
+        <Route path="/qna/write" element={<QnaWritePage />} />
+        {/* =========================
+            Q&A 상세
+            모든 사용자 접근 가능
+        ========================= */}
+        <Route path="/qna/:id" element={<QnaDetailPage />} />
+        {/* =========================
+            Q&A 수정
+            작성자 또는 관리자만 접근
+        ========================= */}
+        <Route path="/qna/:id/edit" element={<QnaEditPage />} />
         {/* 품목별 시세 조회 */}
         <Route path="/price" element={<PricePage />} />
         <Route path="/pass/callback" element={<PassCallbackPage />} />
