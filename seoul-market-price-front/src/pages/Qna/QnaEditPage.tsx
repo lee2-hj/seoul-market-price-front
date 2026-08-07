@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import styles from "./QnaEditPage.module.css";
+/* import styles from "./QnaEditPage.module.css"; */
 
 interface QnaForm {
   title: string;
