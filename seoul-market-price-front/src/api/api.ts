@@ -246,6 +246,11 @@ interface RawBoardListItem {
   authorName?: string;
   writerName?: string;
   writer?: string;
+  userName?: string;
+  memberName?: string;
+  writerLoginId?: string;
+  author?: string;
+  userId?: string;
   createdAt?: string;
   createDate?: string;
   regDate?: string;
@@ -305,19 +310,30 @@ export async function getBoardPostsApi(
       params: {
         page: page - 1,
         size,
-        searchType,
-        keyword,
+        searchType: searchType ? searchType.toUpperCase() : undefined,
+        keyword: keyword || undefined,
       },
     },
   );
 
   const backendData = response.data || {};
-  const contentArray = backendData.content || backendData.items || [];
+  const contentArray = Array.isArray(backendData)
+    ? backendData
+    : backendData.content || backendData.items || [];
 
   const allItems: BoardListItem[] = contentArray.map((item) => ({
     boardId: item.boardId || item.id || 0,
     title: item.title || item.boardTitle || item.subject || "게시글 제목",
-    authorName: item.authorName || item.writerName || item.writer || "작성자",
+    authorName:
+      item.authorName ||
+      item.writerName ||
+      item.writer ||
+      item.userName ||
+      item.memberName ||
+      item.writerLoginId ||
+      item.author ||
+      item.userId ||
+      "작성자",
     createdAt: item.createdAt || item.createDate || item.regDate || "",
     viewCount: item.viewCount ?? item.hit ?? item.readCount ?? 0,
     postType: item.postType || (item.type as PostType) || "GENERAL",

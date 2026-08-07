@@ -195,7 +195,7 @@ export default function MyPage() {
     localStorage.setItem(MY_PAGE_STORAGE_KEY, JSON.stringify(settingsToSave));
   }, [profile, favoriteItems, preferredDistrict, notificationSettings, priceAlerts]);
 
-  const { register, handleSubmit } = useForm<Profile>({
+  const { register, handleSubmit, setValue } = useForm<Profile>({
     defaultValues: profile,
   });
 
@@ -400,8 +400,14 @@ export default function MyPage() {
                     <div className="space-y-1.5 w-full">
                       <label className="text-[14px] font-bold text-[#344037] block">이름</label>
                       <input
-                        {...register("name")}
+                        {...register("name", {
+                          onChange: (e) => {
+                            const val = e.target.value.replace(/[^a-zA-Z가-힣ㄱ-ㅎㅏ-ㅣ]/g, "");
+                            setValue("name", val);
+                          },
+                        })}
                         disabled={!isLoggedIn}
+                        placeholder="이름을 입력해주세요 (숫자, 공백 불가)"
                         className="w-full h-[48px] rounded-[8px] border border-[#d5dfd6] bg-white px-3.5 text-[15px] text-[#2b362d] outline-none focus:border-[#57a764] box-border m-0 disabled:bg-[#f5f7f5]"
                       />
                     </div>
@@ -418,8 +424,21 @@ export default function MyPage() {
                       </div>
                       <div className="flex flex-col sm:flex-row gap-2">
                         <input
-                          {...register("phone")}
+                          {...register("phone", {
+                            onChange: (e) => {
+                              const raw = e.target.value.replace(/[^0-9]/g, "");
+                              let formatted = raw;
+                              if (raw.length > 3 && raw.length <= 7) {
+                                formatted = `${raw.slice(0, 3)}-${raw.slice(3)}`;
+                              } else if (raw.length > 7) {
+                                formatted = `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
+                              }
+                              setValue("phone", formatted);
+                            },
+                          })}
                           disabled={!isLoggedIn}
+                          placeholder="010-0000-0000 (숫자만 입력)"
+                          maxLength={13}
                           className="flex-1 h-[48px] rounded-[8px] border border-[#d5dfd6] bg-white px-3.5 text-[15px] text-[#2b362d] outline-none focus:border-[#57a764] disabled:bg-[#f5f7f5]"
                         />
                         <button
