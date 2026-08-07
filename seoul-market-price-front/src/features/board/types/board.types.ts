@@ -11,7 +11,7 @@ export type NoticeLevel = "IMPORTANT" | "NORMAL";
 /**
  * 게시판 검색 타입 (title: 제목, author: 작성자)
  */
-export type BoardSearchType = "title" | "author";
+export type BoardSearchType = "TITLE_CONTENT" | "WRITER";
 
 /**
  * 백엔드 단일 게시글 아이템 DTO

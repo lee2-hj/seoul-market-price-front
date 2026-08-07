@@ -125,7 +125,7 @@ function deleteCookie(name: string) {
 /* JWT 토큰 조회 */
 
 export function getToken(): string | null {
-  return getCookie("accessToken");
+  return getCookie("accessToken") || localStorage.getItem("accessToken");
 }
 
 /* accessToken에서 name 클레임 파싱 */
