@@ -230,48 +230,112 @@ import type {
   BoardDetail,
   BoardCreateRequest,
   BoardUpdateRequest,
-  BackendBoardPageResponse,
   BoardComment,
   CommentCreateRequest,
   CommentUpdateRequest,
+  PostType,
+  NoticeLevel,
 } from "@/features/board/types/board.types";
+
+interface RawBoardListItem {
+  boardId?: number;
+  id?: number;
+  title?: string;
+  boardTitle?: string;
+  subject?: string;
+  authorName?: string;
+  writerName?: string;
+  writer?: string;
+  createdAt?: string;
+  createDate?: string;
+  regDate?: string;
+  viewCount?: number;
+  hit?: number;
+  readCount?: number;
+  postType?: PostType;
+  type?: string;
+  noticeLevel?: NoticeLevel;
+}
+
+interface RawBoardPageResponse {
+  content?: RawBoardListItem[];
+  items?: RawBoardListItem[];
+  totalPages?: number;
+  totalElements?: number;
+  number?: number;
+}
+
+interface RawBoardDetail {
+  boardId?: number;
+  id?: number;
+  title?: string;
+  boardTitle?: string;
+  subject?: string;
+  content?: string;
+  boardContent?: string;
+  body?: string;
+  authorName?: string;
+  writerName?: string;
+  writer?: string;
+  userName?: string;
+  authorId?: string;
+  writerId?: string;
+  userId?: string;
+  createdAt?: string;
+  createDate?: string;
+  regDate?: string;
+  viewCount?: number;
+  hit?: number;
+  readCount?: number;
+  postType?: PostType;
+  type?: string;
+}
 
 /**
  * 게시글 목록 조회 API (GET /api/boards)
  */
 export async function getBoardPostsApi(
-  params: BoardListRequest = {}
+  params: BoardListRequest = {},
 ): Promise<BoardPageResponse> {
   const { page = 1, size = 10, searchType, keyword } = params;
 
-  const response = await apiMiddleware.get<BackendBoardPageResponse>("/api/boards", {
-    params: {
-      page: page - 1,
-      size,
-      searchType,
-      keyword,
+  const response = await apiMiddleware.get<RawBoardPageResponse>(
+    "/api/boards",
+    {
+      params: {
+        page: page - 1,
+        size,
+        searchType,
+        keyword,
+      },
     },
-  });
+  );
 
-  const backendData: any = response.data || {};
+  const backendData = response.data || {};
   const contentArray = backendData.content || backendData.items || [];
 
-  const allItems: BoardListItem[] = contentArray.map((item: any) => ({
-    boardId: item.boardId || item.id,
+  const allItems: BoardListItem[] = contentArray.map((item) => ({
+    boardId: item.boardId || item.id || 0,
     title: item.title || item.boardTitle || item.subject || "게시글 제목",
     authorName: item.authorName || item.writerName || item.writer || "작성자",
     createdAt: item.createdAt || item.createDate || item.regDate || "",
     viewCount: item.viewCount ?? item.hit ?? item.readCount ?? 0,
-    postType: item.postType || item.type || "GENERAL",
+    postType: item.postType || (item.type as PostType) || "GENERAL",
     noticeLevel: item.noticeLevel,
   }));
 
   const notices = allItems
     .filter((i) => i.postType === "NOTICE")
-    .sort((a, b) => (b.noticeLevel === "IMPORTANT" ? 1 : 0) - (a.noticeLevel === "IMPORTANT" ? 1 : 0));
+    .sort(
+      (a, b) =>
+        (b.noticeLevel === "IMPORTANT" ? 1 : 0) -
+        (a.noticeLevel === "IMPORTANT" ? 1 : 0),
+    );
 
   const pinnedNotices = notices.slice(0, 2);
-  const items = allItems.filter((i) => !pinnedNotices.some((p) => p.boardId === i.boardId));
+  const items = allItems.filter(
+    (i) => !pinnedNotices.some((p) => p.boardId === i.boardId),
+  );
 
   return {
     notices: pinnedNotices,
@@ -286,18 +350,21 @@ export async function getBoardPostsApi(
  * 게시글 단건 상세 조회 API (GET /api/boards/:boardId)
  */
 export async function getBoardPostApi(boardId: number): Promise<BoardDetail> {
-  const response = await apiMiddleware.get<any>(`/api/boards/${boardId}`);
+  const response = await apiMiddleware.get<RawBoardDetail>(
+    `/api/boards/${boardId}`,
+  );
   const data = response.data || {};
 
   return {
     boardId: data.boardId || data.id || boardId,
     title: data.title || data.boardTitle || data.subject || "",
     content: data.content || data.boardContent || data.body || "",
-    authorName: data.authorName || data.writerName || data.writer || data.userName || "",
+    authorName:
+      data.authorName || data.writerName || data.writer || data.userName || "",
     authorId: data.authorId || data.writerId || data.userId || "user",
     createdAt: data.createdAt || data.createDate || data.regDate || "",
     viewCount: data.viewCount ?? data.hit ?? data.readCount ?? 0,
-    postType: data.postType || data.type || "GENERAL",
+    postType: data.postType || (data.type as PostType) || "GENERAL",
   };
 }
 
@@ -305,9 +372,12 @@ export async function getBoardPostApi(boardId: number): Promise<BoardDetail> {
  * 게시글 등록 API (POST /api/boards)
  */
 export async function createBoardPostApi(
-  data: BoardCreateRequest
+  data: BoardCreateRequest,
 ): Promise<{ boardId: number }> {
-  const response = await apiMiddleware.post<{ boardId: number }>("/api/boards", data);
+  const response = await apiMiddleware.post<{ boardId: number }>(
+    "/api/boards",
+    data,
+  );
   return response.data;
 }
 
@@ -316,7 +386,7 @@ export async function createBoardPostApi(
  */
 export async function updateBoardPostApi(
   boardId: number,
-  data: BoardUpdateRequest
+  data: BoardUpdateRequest,
 ): Promise<void> {
   await apiMiddleware.put(`/api/boards/${boardId}`, data);
 }
@@ -331,8 +401,12 @@ export async function deleteBoardPostApi(boardId: number): Promise<void> {
 /**
  * 게시글 댓글 목록 조회 API (GET /api/boards/:boardId/comments)
  */
-export async function getBoardCommentsApi(boardId: number): Promise<BoardComment[]> {
-  const response = await apiMiddleware.get<BoardComment[]>(`/api/boards/${boardId}/comments`);
+export async function getBoardCommentsApi(
+  boardId: number,
+): Promise<BoardComment[]> {
+  const response = await apiMiddleware.get<BoardComment[]>(
+    `/api/boards/${boardId}/comments`,
+  );
   return response.data;
 }
 
@@ -342,9 +416,11 @@ export async function getBoardCommentsApi(boardId: number): Promise<BoardComment
 export async function createBoardCommentApi(
   boardId: number,
   data: CommentCreateRequest,
-  _authorInfo: { name: string; userId: string }
 ): Promise<BoardComment> {
-  const response = await apiMiddleware.post<BoardComment>(`/api/boards/${boardId}/comments`, data);
+  const response = await apiMiddleware.post<BoardComment>(
+    `/api/boards/${boardId}/comments`,
+    data,
+  );
   return response.data;
 }
 
@@ -353,7 +429,7 @@ export async function createBoardCommentApi(
  */
 export async function updateBoardCommentApi(
   commentId: number,
-  data: CommentUpdateRequest
+  data: CommentUpdateRequest,
 ): Promise<void> {
   await apiMiddleware.put(`/api/boards/comments/${commentId}`, data);
 }
@@ -365,3 +441,47 @@ export async function deleteBoardCommentApi(commentId: number): Promise<void> {
   await apiMiddleware.delete(`/api/boards/comments/${commentId}`);
 }
 
+/* Q&A 목록 응답 */
+
+export interface QnaListResponse {
+  id: number;
+  title: string;
+  writerLoginId: string;
+  writerName: string;
+  answerStatus: string;
+  viewCount: number;
+  publicQuestion: boolean;
+  attachmentAvailable: boolean;
+  createdAt: string;
+  answeredAt: string | null;
+}
+
+/* Q&A 페이지 응답 */
+
+export interface QnaPageResponse {
+  content: QnaListResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
+/*  Q&A 목록 조회 */
+
+export async function getQnasApi(
+  page: number = 0,
+  size: number = 5,
+  keyword?: string,
+) {
+  const response = await apiMiddleware.get<QnaPageResponse>("/api/qnas", {
+    params: {
+      page,
+      size,
+      keyword: keyword?.trim() || undefined,
+    },
+  });
+
+  return response.data;
+}
