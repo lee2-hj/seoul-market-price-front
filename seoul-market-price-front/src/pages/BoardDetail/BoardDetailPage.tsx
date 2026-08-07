@@ -68,10 +68,7 @@ export default function BoardDetailPage() {
   // 댓글 등록 Mutation
   const createCommentMutation = useMutation({
     mutationFn: (content: string) =>
-      createBoardCommentApi(boardId, { content }, {
-        name: loginUser?.name || "사용자",
-        userId: loginUser?.userId || "user",
-      }),
+      createBoardCommentApi(boardId, { content }),
     onSuccess: () => {
       setCommentContent("");
       queryClient.invalidateQueries({ queryKey: ["boardComments", boardId] });
