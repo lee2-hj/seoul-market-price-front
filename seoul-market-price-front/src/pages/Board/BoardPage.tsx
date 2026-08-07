@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getBoardPostsApi } from "@/api/boardApi";
 import type { BoardListItem, BoardSearchType } from "@/features/board/types/board.types";
+import Header from "@/components/Header";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -183,179 +184,184 @@ export default function BoardPage() {
   const totalElements = data?.totalElements || 0;
 
   return (
-    <div className="min-h-screen bg-[#fafcf9] py-12 px-5 sm:px-8">
-      <div className="max-w-[1000px] mx-auto space-y-8">
-        {/* 오리지널 헤더 영역 */}
-        <div className="text-center space-y-2 mb-8">
-          <span className="inline-block px-3 py-1 bg-[#e8f3e9] text-[#3f8a47] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
-            CUSTOMER CENTER
-          </span>
-          <h1 className="text-[36px] font-black text-[#242b23] tracking-tight">
-            게시판
-          </h1>
-          <p className="text-[15px] text-[#667065]">
-            서울시 농수산물 가격 정보 서비스의 주요 공지사항과 시민 소통 공간입니다.
-          </p>
-        </div>
+    <div className="min-h-screen bg-[#fafcf9]">
+      {/* 상단바 배치 */}
+      <Header />
 
-        {/* 카테고리 탭 ([일반게시판] [Q&A게시판] [자주묻는질문] - 디자인 보존 및 팝업/이동 완전 무반응) */}
-        <div className="flex justify-center mb-6">
-          <div className="flex items-center gap-2 p-1 bg-white rounded-[10px] border border-[#dce4da] shadow-sm">
-            <button
-              onClick={() => handleTabClick("board")}
-              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#4c9b55] text-white transition-all cursor-pointer"
-            >
-              일반게시판
-            </button>
-            <button
-              onClick={() => handleTabClick("qna")}
-              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all cursor-pointer"
-            >
-              Q&A게시판
-            </button>
-            <button
-              onClick={() => handleTabClick("faq")}
-              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all cursor-pointer"
-            >
-              자주묻는질문
-            </button>
+      <div className="py-12 px-5 sm:px-8">
+        <div className="max-w-[1000px] mx-auto space-y-8">
+          {/* 헤더 영역 */}
+          <div className="text-center space-y-2 mb-8">
+            <span className="inline-block px-3 py-1 bg-[#e8f3e9] text-[#3f8a47] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
+              CUSTOMER CENTER
+            </span>
+            <h1 className="text-[36px] font-black text-[#242b23] tracking-tight">
+              게시판
+            </h1>
+            <p className="text-[15px] text-[#667065]">
+              서울시 농수산물 가격 정보 서비스의 주요 공지사항과 시민 소통 공간입니다.
+            </p>
           </div>
-        </div>
 
-        {/* 검색 영역 */}
-        <div className="bg-[#f4f7f3] border border-[#dce4da] rounded-[12px] p-5 mb-6">
-          <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row items-center gap-3">
-            <select
-              value={inputSearchType}
-              onChange={(e) => setInputSearchType(e.target.value as BoardSearchType)}
-              className="h-[44px] w-full md:w-[130px] rounded-[7px] border border-[#dce4da] bg-white px-3 text-[14px] text-[#3e483d] focus:outline-none focus:border-[#4c9b55]"
+          {/* 카테고리 탭 ([일반게시판] [Q&A게시판] [자주묻는질문]) */}
+          <div className="flex justify-center mb-6">
+            <div className="flex items-center gap-2 p-1 bg-white rounded-[10px] border border-[#dce4da] shadow-sm">
+              <button
+                onClick={() => handleTabClick("board")}
+                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#4c9b55] text-white transition-all cursor-pointer"
+              >
+                일반게시판
+              </button>
+              <button
+                onClick={() => handleTabClick("qna")}
+                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all cursor-pointer"
+              >
+                Q&A게시판
+              </button>
+              <button
+                onClick={() => handleTabClick("faq")}
+                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all cursor-pointer"
+              >
+                자주묻는질문
+              </button>
+            </div>
+          </div>
+
+          {/* 검색 영역 */}
+          <div className="bg-[#f4f7f3] border border-[#dce4da] rounded-[12px] p-5 mb-6">
+            <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row items-center gap-3">
+              <select
+                value={inputSearchType}
+                onChange={(e) => setInputSearchType(e.target.value as BoardSearchType)}
+                className="h-[44px] w-full md:w-[130px] rounded-[7px] border border-[#dce4da] bg-white px-3 text-[14px] text-[#3e483d] focus:outline-none focus:border-[#4c9b55]"
+              >
+                <option value="title">제목</option>
+                <option value="author">작성자</option>
+              </select>
+              <Input
+                type="text"
+                placeholder="검색어를 입력하세요."
+                value={inputKeyword}
+                onChange={(e) => setInputKeyword(e.target.value)}
+                className="h-[44px] flex-1 bg-white border-[#dce4da] text-[14px] placeholder:text-[#939c92] focus-visible:ring-[#4c9b55]"
+              />
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <Button
+                  type="submit"
+                  className="h-[44px] px-6 bg-[#343c33] hover:bg-[#252b24] text-white text-[14px] font-bold rounded-[7px] flex-1 md:flex-none"
+                >
+                  검색
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleResetSearch}
+                  className="h-[44px] px-5 bg-white border-[#dce4da] text-[#5a6459] hover:bg-[#eef3ed] text-[14px] font-bold rounded-[7px] flex-1 md:flex-none"
+                >
+                  초기화
+                </Button>
+              </div>
+            </form>
+          </div>
+
+          {/* 목록 건수 정보 & 글쓰기 버튼 영역 */}
+          <div className="flex items-center justify-between mb-3 min-h-[44px]">
+            <p className="text-[14px] text-[#667065]">
+              전체 <strong className="text-[#4c9b55] font-extrabold">{totalElements}</strong>개의 게시글이 있습니다.
+            </p>
+            <Link
+              to="/board/write"
+              className="inline-flex items-center justify-center min-w-[94px] h-[42px] px-5 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[14px] font-bold rounded-[7px] transition-colors border border-[#4c9b55]"
             >
-              <option value="title">제목</option>
-              <option value="author">작성자</option>
-            </select>
-            <Input
-              type="text"
-              placeholder="검색어를 입력하세요."
-              value={inputKeyword}
-              onChange={(e) => setInputKeyword(e.target.value)}
-              className="h-[44px] flex-1 bg-white border-[#dce4da] text-[14px] placeholder:text-[#939c92] focus-visible:ring-[#4c9b55]"
-            />
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              <Button
-                type="submit"
-                className="h-[44px] px-6 bg-[#343c33] hover:bg-[#252b24] text-white text-[14px] font-bold rounded-[7px] flex-1 md:flex-none"
-              >
-                검색
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleResetSearch}
-                className="h-[44px] px-5 bg-white border-[#dce4da] text-[#5a6459] hover:bg-[#eef3ed] text-[14px] font-bold rounded-[7px] flex-1 md:flex-none"
-              >
-                초기화
-              </Button>
-            </div>
-          </form>
-        </div>
+              글쓰기
+            </Link>
+          </div>
 
-        {/* 목록 건수 정보 & 글쓰기 버튼 영역 */}
-        <div className="flex items-center justify-between mb-3 min-h-[44px]">
-          <p className="text-[14px] text-[#667065]">
-            전체 <strong className="text-[#4c9b55] font-extrabold">{totalElements}</strong>개의 게시글이 있습니다.
-          </p>
-          <Link
-            to="/board/write"
-            className="inline-flex items-center justify-center min-w-[94px] h-[42px] px-5 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[14px] font-bold rounded-[7px] transition-colors border border-[#4c9b55]"
-          >
-            글쓰기
-          </Link>
-        </div>
+          {/* Table 영역 */}
+          <div className="w-full bg-white border border-[#dce4da] rounded-[12px] shadow-[0_7px_24px_rgba(45,70,45,0.05)] overflow-hidden">
+            {isLoading ? (
+              <div className="p-16 text-center text-[#8a9388] text-[14px]">
+                게시글 목록을 불러오는 중입니다...
+              </div>
+            ) : isError ? (
+              <div className="p-16 text-center text-rose-500 text-[14px]">
+                오류가 발생했습니다: {(error as Error).message}
+              </div>
+            ) : notices.length === 0 && items.length === 0 ? (
+              <div className="p-16 text-center text-[#8a9388] text-[14px]">
+                등록된 게시글이 없습니다.
+              </div>
+            ) : (
+              <Table className="min-w-[820px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[9%] text-center">번호</TableHead>
+                    <TableHead className="w-[10%] text-center">구분</TableHead>
+                    <TableHead className="w-[43%] text-center">제목</TableHead>
+                    <TableHead className="w-[14%] text-center">작성자</TableHead>
+                    <TableHead className="w-[15%] text-center">작성일</TableHead>
+                    <TableHead className="w-[9%] text-center">조회수</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {/* 상단 공지사항 */}
+                  {notices.map((notice) => (
+                    <BoardRow
+                      key={`notice-${notice.boardId}`}
+                      item={notice}
+                      displayNo="공지"
+                      isTopNotice
+                    />
+                  ))}
 
-        {/* Table 영역 */}
-        <div className="w-full bg-white border border-[#dce4da] rounded-[12px] shadow-[0_7px_24px_rgba(45,70,45,0.05)] overflow-hidden">
-          {isLoading ? (
-            <div className="p-16 text-center text-[#8a9388] text-[14px]">
-              게시글 목록을 불러오는 중입니다...
-            </div>
-          ) : isError ? (
-            <div className="p-16 text-center text-rose-500 text-[14px]">
-              오류가 발생했습니다: {(error as Error).message}
-            </div>
-          ) : notices.length === 0 && items.length === 0 ? (
-            <div className="p-16 text-center text-[#8a9388] text-[14px]">
-              등록된 게시글이 없습니다.
-            </div>
-          ) : (
-            <Table className="min-w-[820px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[9%] text-center">번호</TableHead>
-                  <TableHead className="w-[10%] text-center">구분</TableHead>
-                  <TableHead className="w-[43%] text-center">제목</TableHead>
-                  <TableHead className="w-[14%] text-center">작성자</TableHead>
-                  <TableHead className="w-[15%] text-center">작성일</TableHead>
-                  <TableHead className="w-[9%] text-center">조회수</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {/* 상단 공지사항 */}
-                {notices.map((notice) => (
-                  <BoardRow
-                    key={`notice-${notice.boardId}`}
-                    item={notice}
-                    displayNo="공지"
-                    isTopNotice
+                  {/* 일반 게시글 */}
+                  {items.map((item, index) => {
+                    const displayNo = totalElements - ((page - 1) * 10 + index);
+                    return (
+                      <BoardRow
+                        key={`item-${item.boardId}`}
+                        item={item}
+                        displayNo={displayNo > 0 ? displayNo : index + 1}
+                      />
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          {/* Pagination 영역 */}
+          {data && data.totalPages > 1 && (
+            <Pagination className="pt-6">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => handlePageChange(page - 1)}
+                    disabled={page <= 1}
                   />
+                </PaginationItem>
+
+                {pageNumbers.map((p) => (
+                  <PaginationItem key={p}>
+                    <PaginationLink
+                      isActive={p === page}
+                      onClick={() => handlePageChange(p)}
+                    >
+                      {p}
+                    </PaginationLink>
+                  </PaginationItem>
                 ))}
 
-                {/* 일반 게시글 */}
-                {items.map((item, index) => {
-                  const displayNo = totalElements - ((page - 1) * 10 + index);
-                  return (
-                    <BoardRow
-                      key={`item-${item.boardId}`}
-                      item={item}
-                      displayNo={displayNo > 0 ? displayNo : index + 1}
-                    />
-                  );
-                })}
-              </TableBody>
-            </Table>
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => handlePageChange(page + 1)}
+                    disabled={page >= data.totalPages}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           )}
         </div>
-
-        {/* Pagination 영역 */}
-        {data && data.totalPages > 1 && (
-          <Pagination className="pt-6">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page <= 1}
-                />
-              </PaginationItem>
-
-              {pageNumbers.map((p) => (
-                <PaginationItem key={p}>
-                  <PaginationLink
-                    isActive={p === page}
-                    onClick={() => handlePageChange(p)}
-                  >
-                    {p}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
-
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page >= data.totalPages}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        )}
       </div>
     </div>
   );
