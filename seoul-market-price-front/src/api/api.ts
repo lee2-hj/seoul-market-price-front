@@ -218,3 +218,150 @@ export async function checkMemberApi(name: string, phone: string) {
 export function isAuthError(error: unknown) {
   return axios.isAxiosError(error) && error.response?.status === 401;
 }
+
+// ===============================
+// 게시판 (Board) API
+// ===============================
+
+import type {
+  BoardListRequest,
+  BoardPageResponse,
+  BoardListItem,
+  BoardDetail,
+  BoardCreateRequest,
+  BoardUpdateRequest,
+  BackendBoardPageResponse,
+  BoardComment,
+  CommentCreateRequest,
+  CommentUpdateRequest,
+} from "@/features/board/types/board.types";
+
+/**
+ * 게시글 목록 조회 API (GET /api/boards)
+ */
+export async function getBoardPostsApi(
+  params: BoardListRequest = {}
+): Promise<BoardPageResponse> {
+  const { page = 1, size = 10, searchType, keyword } = params;
+
+  const response = await apiMiddleware.get<BackendBoardPageResponse>("/api/boards", {
+    params: {
+      page: page - 1,
+      size,
+      searchType,
+      keyword,
+    },
+  });
+
+  const backendData: any = response.data || {};
+  const contentArray = backendData.content || backendData.items || [];
+
+  const allItems: BoardListItem[] = contentArray.map((item: any) => ({
+    boardId: item.boardId || item.id,
+    title: item.title || item.boardTitle || item.subject || "게시글 제목",
+    authorName: item.authorName || item.writerName || item.writer || "작성자",
+    createdAt: item.createdAt || item.createDate || item.regDate || "",
+    viewCount: item.viewCount ?? item.hit ?? item.readCount ?? 0,
+    postType: item.postType || item.type || "GENERAL",
+    noticeLevel: item.noticeLevel,
+  }));
+
+  const notices = allItems
+    .filter((i) => i.postType === "NOTICE")
+    .sort((a, b) => (b.noticeLevel === "IMPORTANT" ? 1 : 0) - (a.noticeLevel === "IMPORTANT" ? 1 : 0));
+
+  const pinnedNotices = notices.slice(0, 2);
+  const items = allItems.filter((i) => !pinnedNotices.some((p) => p.boardId === i.boardId));
+
+  return {
+    notices: pinnedNotices,
+    items,
+    totalPages: backendData.totalPages || 1,
+    totalElements: backendData.totalElements || allItems.length,
+    currentPage: (backendData.number ?? 0) + 1,
+  };
+}
+
+/**
+ * 게시글 단건 상세 조회 API (GET /api/boards/:boardId)
+ */
+export async function getBoardPostApi(boardId: number): Promise<BoardDetail> {
+  const response = await apiMiddleware.get<any>(`/api/boards/${boardId}`);
+  const data = response.data || {};
+
+  return {
+    boardId: data.boardId || data.id || boardId,
+    title: data.title || data.boardTitle || data.subject || "",
+    content: data.content || data.boardContent || data.body || "",
+    authorName: data.authorName || data.writerName || data.writer || data.userName || "",
+    authorId: data.authorId || data.writerId || data.userId || "user",
+    createdAt: data.createdAt || data.createDate || data.regDate || "",
+    viewCount: data.viewCount ?? data.hit ?? data.readCount ?? 0,
+    postType: data.postType || data.type || "GENERAL",
+  };
+}
+
+/**
+ * 게시글 등록 API (POST /api/boards)
+ */
+export async function createBoardPostApi(
+  data: BoardCreateRequest
+): Promise<{ boardId: number }> {
+  const response = await apiMiddleware.post<{ boardId: number }>("/api/boards", data);
+  return response.data;
+}
+
+/**
+ * 게시글 수정 API (PUT /api/boards/:boardId)
+ */
+export async function updateBoardPostApi(
+  boardId: number,
+  data: BoardUpdateRequest
+): Promise<void> {
+  await apiMiddleware.put(`/api/boards/${boardId}`, data);
+}
+
+/**
+ * 게시글 삭제 API (DELETE /api/boards/:boardId)
+ */
+export async function deleteBoardPostApi(boardId: number): Promise<void> {
+  await apiMiddleware.delete(`/api/boards/${boardId}`);
+}
+
+/**
+ * 게시글 댓글 목록 조회 API (GET /api/boards/:boardId/comments)
+ */
+export async function getBoardCommentsApi(boardId: number): Promise<BoardComment[]> {
+  const response = await apiMiddleware.get<BoardComment[]>(`/api/boards/${boardId}/comments`);
+  return response.data;
+}
+
+/**
+ * 게시글 댓글 작성 API (POST /api/boards/:boardId/comments)
+ */
+export async function createBoardCommentApi(
+  boardId: number,
+  data: CommentCreateRequest,
+  _authorInfo: { name: string; userId: string }
+): Promise<BoardComment> {
+  const response = await apiMiddleware.post<BoardComment>(`/api/boards/${boardId}/comments`, data);
+  return response.data;
+}
+
+/**
+ * 게시글 댓글 수정 API (PUT /api/boards/comments/:commentId)
+ */
+export async function updateBoardCommentApi(
+  commentId: number,
+  data: CommentUpdateRequest
+): Promise<void> {
+  await apiMiddleware.put(`/api/boards/comments/${commentId}`, data);
+}
+
+/**
+ * 게시글 댓글 삭제 API (DELETE /api/boards/comments/:commentId)
+ */
+export async function deleteBoardCommentApi(commentId: number): Promise<void> {
+  await apiMiddleware.delete(`/api/boards/comments/${commentId}`);
+}
+

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
-import { getBoardPostsApi } from "@/api/boardApi";
+import { getBoardPostsApi } from "@/api/api";
 import type { BoardListItem, BoardSearchType } from "@/features/board/types/board.types";
 import Header from "@/components/Header";
 import { Input } from "@/components/ui/input";

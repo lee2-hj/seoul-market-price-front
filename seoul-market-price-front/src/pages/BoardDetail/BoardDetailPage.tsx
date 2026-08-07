@@ -10,7 +10,7 @@ import {
   createBoardCommentApi,
   updateBoardCommentApi,
   deleteBoardCommentApi,
-} from "@/api/boardApi";
+} from "@/api/api";
 import { getLoginUser, isLogin, type LoginUser } from "@/features/auth/utils/auth";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
