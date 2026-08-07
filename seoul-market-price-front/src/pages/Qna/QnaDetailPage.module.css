@@ -118,6 +118,10 @@
   cursor: pointer;
 }
 
+.logo:hover {
+  color: #3f7f47;
+}
+
 /* 상단 메뉴 */
 
 .mainNav {
@@ -247,8 +251,22 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
+  gap: 20px;
   margin-top: 42px;
   margin-bottom: 30px;
+}
+
+.headerText {
+  min-width: 0;
+}
+
+.pageLabel {
+  display: block;
+  margin-bottom: 8px;
+  color: #6d9a65;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
 }
 
 .pageHeader h1 {
@@ -279,7 +297,19 @@
   line-height: 1.5;
 }
 
-/* 게시글 */
+/* 게시글 카드 */
+/*
+ * QnaDetailPage.tsx에서는 detailCard라는 이름을 사용한다.
+ */
+
+.detailCard {
+  overflow: hidden;
+  border-top: 2px solid #5b665b;
+  border-bottom: 1px solid #dfe5dc;
+  background: #ffffff;
+}
+
+/* 기존 post 클래스와 호환 */
 
 .post {
   overflow: hidden;
@@ -289,6 +319,24 @@
 }
 
 /* 게시글 Header */
+
+.detailHeader {
+  padding: 26px 30px 22px;
+  border-bottom: 1px solid #e5e9e3;
+  background: #ffffff;
+}
+
+.detailHeader h2 {
+  margin: 0;
+  color: #303730;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: -0.5px;
+  word-break: keep-all;
+}
+
+/* 기존 postHeader와 호환 */
 
 .postHeader {
   padding: 26px 30px 22px;
@@ -307,6 +355,39 @@
 }
 
 /* 게시글 정보 */
+
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  margin-top: 16px;
+  color: #8a9289;
+  font-size: 12px;
+}
+
+.meta span {
+  position: relative;
+  white-space: nowrap;
+}
+
+.meta span + span::before {
+  content: "";
+  position: absolute;
+  left: -11px;
+  top: 50%;
+  width: 1px;
+  height: 11px;
+  background: #dfe4dd;
+  transform: translateY(-50%);
+}
+
+.meta strong {
+  color: #5e665e;
+  font-weight: 600;
+}
+
+/* 기존 postMeta와 호환 */
 
 .postMeta {
   display: flex;
@@ -340,11 +421,37 @@
 }
 
 /* 게시글 내용 */
+/*
+ * 중요:
+ * QnaDetailPage.tsx에서는 styles.content를 사용한다.
+ * 따라서 실제 본문 내용은 반드시 이 클래스에서 보여준다.
+ */
 
-.postContent {
+.content {
+  display: block;
+  width: 100%;
   min-height: 300px;
   padding: 35px 30px 50px;
   color: #505850;
+  background: #ffffff;
+  font-size: 14px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  visibility: visible;
+  opacity: 1;
+}
+
+/* 기존 postContent와 호환 */
+
+.postContent {
+  display: block;
+  width: 100%;
+  min-height: 300px;
+  padding: 35px 30px 50px;
+  color: #505850;
+  background: #ffffff;
   font-size: 14px;
   line-height: 1.9;
   white-space: pre-wrap;
@@ -352,10 +459,109 @@
   overflow-wrap: anywhere;
 }
 
+/* 첨부파일 */
+
+.attachmentSection {
+  margin: 0 30px 30px;
+  padding: 18px;
+  border: 1px solid #e1e7df;
+  border-radius: 8px;
+  background: #fafcf9;
+}
+
+.attachmentHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 12px;
+}
+
+.attachmentHeader strong {
+  color: #4b554b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.attachmentHeader span {
+  color: #8b9289;
+  font-size: 11px;
+}
+
+.attachmentList {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attachmentItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  min-height: 50px;
+  padding: 9px 11px;
+  border: 1px solid #e4e9e2;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.attachmentInformation {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.attachmentIcon {
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+.attachmentText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.attachmentName {
+  display: block;
+  max-width: 650px;
+  overflow: hidden;
+  color: #4b534a;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachmentSize {
+  color: #969c94;
+  font-size: 11px;
+}
+
+.attachmentStatus {
+  flex-shrink: 0;
+  color: #6d9a65;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.attachmentNotice {
+  margin: 10px 0 0;
+  color: #929890;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 /* 관리자 답변 */
 
 .answerSection {
-  margin-top: 28px;
+  margin: 28px 30px 0;
   border: 1px solid #dfe8dc;
   background: #ffffff;
 }
@@ -370,6 +576,10 @@
   background: #f8faf7;
 }
 
+.answerHeader > div {
+  min-width: 0;
+}
+
 .answerLabel {
   display: block;
   margin-bottom: 5px;
@@ -379,26 +589,31 @@
   letter-spacing: 1.5px;
 }
 
-.answerHeader h3 {
-  margin: 0;
+.answerHeader strong {
   color: #394239;
   font-size: 16px;
   font-weight: 700;
 }
 
-.answerStatus {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 5px 9px;
-  border-radius: 999px;
-  background: #eaf4e7;
-  color: #4e8a47;
+.answerHeader > span {
+  flex-shrink: 0;
+  color: #8a9289;
   font-size: 11px;
-  font-weight: 700;
 }
 
 /* 답변 내용 */
+
+.answerContent {
+  padding: 22px 24px 24px;
+  color: #505850;
+  font-size: 13px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* 기존 answerBox와 호환 */
 
 .answerBox {
   padding: 22px 24px 24px;
@@ -447,17 +662,6 @@
   font-weight: 700;
 }
 
-.answerContent {
-  padding: 18px 0 5px;
-  border-top: 1px solid #edf0eb;
-  color: #505850;
-  font-size: 13px;
-  line-height: 1.8;
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-}
-
 /* 답변 버튼 */
 
 .answerActions {
@@ -501,6 +705,44 @@
 
 /* 답변 없음 */
 
+.waitingSection {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 28px 30px 0;
+  padding: 20px 22px;
+  border: 1px solid #e1e7df;
+  border-radius: 8px;
+  background: #f8faf7;
+}
+
+.waitingIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  font-size: 22px;
+}
+
+.waitingSection > div {
+  min-width: 0;
+}
+
+.waitingSection strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #596356;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.waitingSection p {
+  margin: 0;
+  color: #7f887e;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* 기존 noAnswer와 호환 */
+
 .noAnswer {
   display: flex;
   flex-direction: column;
@@ -525,6 +767,7 @@
 /* 답변 작성 폼 */
 
 .answerForm {
+  margin: 28px 30px 0;
   padding: 22px 24px 24px;
   background: #fbfcfa;
 }
@@ -643,6 +886,13 @@
 
 /* 하단 버튼 */
 
+.buttonArea {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 20px 30px 30px;
+}
+
 .bottomActions {
   display: flex;
   justify-content: flex-end;
@@ -708,6 +958,44 @@
 }
 
 /* 게시글 없음 */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 450px;
+  padding: 50px 20px;
+  text-align: center;
+}
+
+.emptyState .emptyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 18px;
+  border-radius: 50%;
+  background: #eef4eb;
+  font-size: 25px;
+}
+
+.emptyState h1 {
+  margin: 0 0 10px;
+  color: #555d55;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.emptyState p {
+  margin: 0 0 25px;
+  color: #9aa198;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* 기존 empty와 호환 */
 
 .empty {
   display: flex;
@@ -798,12 +1086,27 @@
     margin-top: 36px;
   }
 
+  .detailHeader,
   .postHeader {
     padding: 24px;
   }
 
+  .content,
   .postContent {
     padding: 30px 24px 40px;
+  }
+
+  .attachmentSection,
+  .answerSection,
+  .waitingSection,
+  .answerForm {
+    margin-left: 24px;
+    margin-right: 24px;
+  }
+
+  .buttonArea {
+    margin-left: 24px;
+    margin-right: 24px;
   }
 }
 
@@ -921,26 +1224,31 @@
 
   /* 게시글 */
 
+  .detailHeader,
   .postHeader {
     padding: 20px 18px;
   }
 
+  .detailHeader h2,
   .postHeader h2 {
     font-size: 17px;
     line-height: 1.5;
     word-break: keep-all;
   }
 
+  .meta,
   .postMeta {
     gap: 8px 16px;
     margin-top: 13px;
     font-size: 11px;
   }
 
+  .meta span + span::before,
   .postMeta span + span::before {
     display: none;
   }
 
+  .content,
   .postContent {
     min-height: 280px;
     padding: 25px 18px 40px;
@@ -948,10 +1256,46 @@
     line-height: 1.8;
   }
 
+  /* 첨부파일 */
+
+  .attachmentSection {
+    margin: 0 18px 24px;
+    padding: 14px;
+  }
+
+  .attachmentItem {
+    align-items: flex-start;
+  }
+
+  .attachmentName {
+    max-width: 210px;
+  }
+
+  .attachmentStatus {
+    display: none;
+  }
+
   /* 답변 */
+
+  .answerSection {
+    margin: 24px 18px 0;
+  }
+
+  .waitingSection {
+    margin: 24px 18px 0;
+    padding: 18px;
+  }
 
   .answerHeader {
     align-items: flex-start;
+    padding: 18px;
+  }
+
+  .answerHeader > span {
+    font-size: 10px;
+  }
+
+  .answerContent {
     padding: 18px;
   }
 
@@ -966,6 +1310,7 @@
   }
 
   .answerForm {
+    margin: 24px 18px 0;
     padding: 18px;
   }
 
@@ -999,9 +1344,10 @@
 
   /* 하단 버튼 */
 
+  .buttonArea,
   .bottomActions {
     flex-direction: column;
-    margin-top: 15px;
+    margin: 15px 18px 20px;
   }
 
   .listButton,
@@ -1013,15 +1359,18 @@
 
   /* 게시글 없음 */
 
+  .emptyState,
   .empty {
     min-height: 400px;
     padding: 40px 15px;
   }
 
+  .emptyState h1,
   .empty h2 {
     font-size: 17px;
   }
 
+  .emptyState p,
   .empty p {
     font-size: 12px;
   }
