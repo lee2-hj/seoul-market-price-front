@@ -48,6 +48,9 @@ import QnaDetailPage from "@/pages/Qna/QnaDetailPage";
 import QnaEditPage from "@/pages/Qna/QnaEditPage";
 import PricePage from "@/pages/Price/PricePage";
 
+import Layout from "@/components/Layout";
+import AboutPage from "@/pages/About/AboutPage";
+
 function Router() {
   /* =========================
      앱(문서)이 새로고침이 아닌 방식으로 새로 열릴 때마다
@@ -76,13 +79,95 @@ function Router() {
     <BrowserRouter>
       <Routes>
         {/* =========================
-            메인 페이지
-            로그인 여부와 상관없이 누구나 접근 가능
+            공통 레이아웃 (Header + Outlet + Footer)
+            로그인/회원가입 등 독립 전체화면을 제외한
+            모든 화면이 이 레이아웃을 공유한다.
         ========================= */}
-        <Route path="/" element={<MainPage />} />
+        <Route element={<Layout />}>
+          {/* =========================
+              메인 페이지
+              로그인 여부와 상관없이 누구나 접근 가능
+          ========================= */}
+          <Route path="/" element={<MainPage />} />
+          {/* =========================
+              소개 페이지 (샘플)
+          ========================= */}
+          <Route path="/about" element={<AboutPage />} />
+          {/* =========================
+              일반게시판 목록
+
+              주소:
+              /board
+          ========================= */}
+          <Route path="/board" element={<BoardPage />} />
+          {/* =========================
+              일반게시판 글쓰기
+
+              주소:
+              /board/write
+
+              현재는 화면 확인 단계이므로
+              로그인 권한 검사를 적용하지 않는다.
+          ========================= */}
+          <Route path="/board/write" element={<BoardWritePage />} />
+          {/* =========================
+              일반게시판 수정
+
+              주소:
+              /board/13/edit
+
+              일반 게시글의 기존 제목과 본문을
+              Mock Data에서 가져와 입력창에 표시한다.
+
+              현재는 화면 확인 단계이므로
+              작성자 권한 검사를 적용하지 않는다.
+          ========================= */}
+          <Route path="/board/:postId/edit" element={<BoardEditPage />} />
+          {/* =========================
+              일반게시판 상세 조회
+
+              주소:
+              /board/13
+
+              수정 주소인 /board/:postId/edit보다
+              아래에 배치한다.
+          ========================= */}
+          <Route path="/board/:postId" element={<BoardDetailPage />} />
+          {/* =========================
+              시세 조회
+              모든 사용자 접근 가능
+          ========================= */}
+          <Route path="/price" element={<PricePage />} />
+          {/* =========================
+              Q&A 목록
+              모든 사용자 접근 가능
+          ========================= */}
+          <Route path="/qna" element={<QnaPage />} />
+          {/* =========================
+              Q&A 작성
+              로그인 사용자만 접근
+          ========================= */}
+          <Route path="/qna/write" element={<QnaWritePage />} />
+          {/* =========================
+              Q&A 상세
+              모든 사용자 접근 가능
+          ========================= */}
+          <Route path="/qna/:id" element={<QnaDetailPage />} />
+          {/* =========================
+              Q&A 수정
+              작성자 또는 관리자만 접근
+          ========================= */}
+          <Route path="/qna/:id/edit" element={<QnaEditPage />} />
+          {/* =========================
+              마이페이지
+          ========================= */}
+          <Route path="/mypage" element={<MyPage />} />
+        </Route>
+
         {/* =========================
             로그인
             비로그인 사용자만 접근
+            (독립 전체화면 - Layout 미적용)
         ========================= */}
         <Route
           path="/login"
@@ -173,91 +258,9 @@ function Router() {
 
             PublicRoute 적용 X
         ========================= */}
-        {/* =========================
-            일반게시판 목록
-
-            주소:
-            /board
-        ========================= */}
-        <Route path="/board" element={<BoardPage />} />
-        {/* =========================
-            일반게시판 글쓰기
-
-            주소:
-            /board/write
-
-            현재는 화면 확인 단계이므로
-            로그인 권한 검사를 적용하지 않는다.
-        ========================= */}
-        <Route path="/board/write" element={<BoardWritePage />} />
-        {/* =========================
-            일반게시판 수정
-
-            주소:
-            /board/13/edit
-
-            일반 게시글의 기존 제목과 본문을
-            Mock Data에서 가져와 입력창에 표시한다.
-
-            현재는 화면 확인 단계이므로
-            작성자 권한 검사를 적용하지 않는다.
-        ========================= */}
-        <Route path="/board/:postId/edit" element={<BoardEditPage />} />
-        {/* =========================
-            일반게시판 상세 조회
-
-            주소:
-            /board/13
-
-            수정 주소인 /board/:postId/edit보다
-            아래에 배치한다.
-        ========================= */}
-        <Route path="/board/:postId" element={<BoardDetailPage />} />
-        {/* =========================
-            시세 조회
-            모든 사용자 접근 가능
-        ========================= */}
-        <Route path="/price" element={<PricePage />} />
-        {/* =========================
-            PASS 인증 콜백
-            본인인증 완료 후 접근
-        ========================= */}
         <Route path="/pass/callback" element={<PassCallbackPage />} />
-        {/* =========================
-            Q&A 목록
-            모든 사용자 접근 가능
-        ========================= */}
-        <Route path="/qna" element={<QnaPage />} />
-        {/* =========================
-            Q&A 작성
-            로그인 사용자만 접근
-        ========================= */}
-        <Route path="/qna/write" element={<QnaWritePage />} />
-        {/* =========================
-            Q&A 상세
-            모든 사용자 접근 가능
-        ========================= */}
-        <Route path="/qna/:id" element={<QnaDetailPage />} />
-        {/* =========================
-            Q&A 수정
-            작성자 또는 관리자만 접근
-        ========================= */}
-        <Route path="/qna/:id/edit" element={<QnaEditPage />} />
-        {/* 품목별 시세 조회 */}
-        <Route path="/price" element={<PricePage />} />
-        <Route path="/pass/callback" element={<PassCallbackPage />} />
-        {/* Q&A */}
-        /* Q&A 목록 */
-        <Route path="/qna" element={<QnaPage />} />
-        /* Q&A 글쓰기 */
-        <Route path="/qna/write" element={<QnaWritePage />} />
-        /* Q&A 상세 */
-        <Route path="/qna/:id" element={<QnaDetailPage />} />
-        {/* Q&A 수정 */}
-        <Route path="/qna/:id/edit" element={<QnaEditPage />} />
         {/* 정의되지 않은 경로(예: /main)로 직접 접근한 경우 "/" 로 리다이렉트한다. */}
         <Route path="*" element={<Navigate to="/" replace />} />
-        <Route path="/mypage" element={<MyPage />} />
       </Routes>
     </BrowserRouter>
   );
