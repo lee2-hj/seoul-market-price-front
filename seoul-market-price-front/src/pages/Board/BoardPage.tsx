@@ -104,7 +104,7 @@ export default function BoardPage() {
   const pageParam = parseInt(searchParams.get("page") || "1", 10);
   const page = isNaN(pageParam) || pageParam < 1 ? 1 : pageParam;
   const searchTypeParam = searchParams.get("searchType");
-  const searchType: BoardSearchType = searchTypeParam === "author" ? "author" : "title";
+  const searchType: BoardSearchType = searchTypeParam === "WRITER" || searchTypeParam === "author" ? "WRITER" : "TITLE_CONTENT";
   const keyword = searchParams.get("keyword") || "";
 
   // 2. 로컬 검색 State
@@ -137,9 +137,9 @@ export default function BoardPage() {
 
   // 검색 초기화
   const handleResetSearch = useCallback(() => {
-    setInputSearchType("title");
+    setInputSearchType("TITLE_CONTENT");
     setInputKeyword("");
-    setSearchParams({ page: "1", searchType: "title", keyword: "" });
+    setSearchParams({ page: "1", searchType: "TITLE_CONTENT", keyword: "" });
   }, [setSearchParams]);
 
   // 5. 페이지 이동 핸들러
@@ -231,8 +231,8 @@ export default function BoardPage() {
                 onChange={(e) => setInputSearchType(e.target.value as BoardSearchType)}
                 className="h-[44px] w-full md:w-[130px] rounded-[7px] border border-[#dce4da] bg-white px-3 text-[14px] text-[#3e483d] focus:outline-none focus:border-[#4c9b55]"
               >
-                <option value="title">제목</option>
-                <option value="author">작성자</option>
+                <option value="TITLE_CONTENT">제목</option>
+                <option value="WRITER">작성자</option>
               </select>
               <Input
                 type="text"
