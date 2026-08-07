@@ -15,7 +15,6 @@ interface PriceItem {
   market: string;
   date: string;
 }
-/* 검색 조건 */
 
 /* 검색 조건 */
 
