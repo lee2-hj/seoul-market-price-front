@@ -1,3 +1,5 @@
+import { logoutApi } from "@/api/api";
+
 export interface LoginUser {
   userId: string;
   name: string;
@@ -28,29 +30,52 @@ export function saveLogin(user: LoginUser) {
   }
 }
 
-/* 로그인 사용자 조회 */
+/* 로그인 사용자 조회
+
+   회원의 실제 이름은 로그인 응답(LoginResponse.name)에만 담겨 있고
+   accessToken에는 보통 아이디(sub/userId)만 들어있어, 토큰의 아이디를
+   이름 대신 보여주면 안 된다. 그래서 실제 이름이 저장된 localStorage의
+   loginUser를 우선 사용하고, 그게 없을 때만 보조로 토큰을 확인하되
+   토큰에 아이디가 아닌 진짜 이름 클레임이 있을 때만 사용한다. */
 
 export function getLoginUser(): LoginUser | null {
   const savedUser = localStorage.getItem("loginUser");
 
-  if (!savedUser) {
-    return null;
+  if (savedUser) {
+    try {
+      return JSON.parse(savedUser) as LoginUser;
+    } catch (error) {
+      console.error(
+        "로그인 정보 파싱 오류",
+        error
+      );
+
+      logout();
+
+      return null;
+    }
   }
 
-  try {
-    const parsedUser = JSON.parse(savedUser) as LoginUser;
+  const token = getToken();
 
-    return parsedUser;
-  } catch (error) {
-    console.error(
-      "로그인 정보 파싱 오류",
-      error
-    );
+  if (token && !isTokenExpired(token)) {
+    const decoded = decodeTokenPayload(token);
 
-    logout();
+    // userId/sub는 아이디이지 이름이 아니므로 이름 클레임에서 제외한다.
+    const name = decoded?.name ?? decoded?.userName ?? decoded?.nickname;
 
-    return null;
+    if (name) {
+      const userId = decoded?.userId ?? decoded?.sub ?? decoded?.username;
+
+      return {
+        userId: userId ?? "",
+        name,
+        role: decoded?.role ?? "",
+      };
+    }
   }
+
+  return null;
 }
 
 /* 쿠키 조회 */
@@ -103,11 +128,36 @@ export function getToken(): string | null {
   return getCookie("accessToken");
 }
 
+/* accessToken에서 name 클레임 파싱 */
+
+export function getUserNameFromToken(): string | null {
+  const token = getToken();
+
+  if (!token) {
+    return null;
+  }
+
+  const decoded = decodeTokenPayload(token);
+
+  return decoded?.name ?? null;
+}
+
 /* JWT payload 디코딩 */
+
+interface TokenPayload {
+  exp?: number;
+  userId?: string;
+  sub?: string;
+  username?: string;
+  name?: string;
+  userName?: string;
+  nickname?: string;
+  role?: string;
+}
 
 function decodeTokenPayload(
   token: string
-): { exp?: number } | null {
+): TokenPayload | null {
   try {
     const payload = token.split(".")[1];
 
@@ -174,7 +224,15 @@ export function isLogin(): boolean {
 
 /* 로그아웃 */
 
-export function logout() {
+export async function logout() {
+  try {
+    // refreshToken은 HttpOnly 쿠키라 프론트에서 못 지우므로
+    // 서버가 로그아웃 처리 시 쿠키를 만료시켜주도록 요청한다.
+    await logoutApi();
+  } catch (e) {
+    console.warn("Logout API error", e);
+  }
+
   try {
     localStorage.removeItem("loginUser");
     localStorage.removeItem("accessToken");
