@@ -293,18 +293,19 @@ function SignupPage() {
                 <Label htmlFor="userId">
                   아이디<span className="text-red-500">*</span>
                 </Label>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div className="flex items-center gap-2">
                   <Input
                     id="userId"
                     type="text"
                     name="userId"
                     placeholder="아이디"
+                    className="h-11"
                     value={watch("userId")}
                     onChange={(e) => setValue("userId", e.target.value)}
                   />
                   <Button
                     type="button"
-                    size="sm"
+                    className="h-11 shrink-0 px-3 sm:px-4"
                     onClick={handleCheckId}
                     disabled={checkingId || signupMutation.isPending}
                   >
@@ -333,6 +334,7 @@ function SignupPage() {
                   type="password"
                   name="password"
                   placeholder="비밀번호"
+                  className="h-11"
                   value={watch("password")}
                   onChange={(e) => setValue("password", e.target.value)}
                 />
@@ -348,6 +350,7 @@ function SignupPage() {
                   type="password"
                   name="passwordCheck"
                   placeholder="비밀번호 확인"
+                  className="h-11"
                   value={watch("passwordCheck")}
                   onChange={(e) => setValue("passwordCheck", e.target.value)}
                 />
@@ -363,6 +366,7 @@ function SignupPage() {
                   type="text"
                   name="name"
                   placeholder="이름"
+                  className="h-11"
                   value={watch("name")}
                   disabled={phoneVerified}
                   readOnly
@@ -380,6 +384,7 @@ function SignupPage() {
                   type="tel"
                   name="phone"
                   placeholder="휴대폰 번호"
+                  className="h-11"
                   value={watch("phone")}
                   disabled={phoneVerified}
                   readOnly
@@ -400,8 +405,7 @@ function SignupPage() {
                   <Button
                     type="button"
                     variant="secondary"
-                    size="sm"
-                    className="border-0 hover:cursor-pointer"
+                    className="h-11 border-0 px-3 hover:cursor-pointer sm:px-4"
                     onClick={handleAddressSearch}
                   >
                     주소검색
@@ -414,7 +418,7 @@ function SignupPage() {
                   name="zipCode"
                   placeholder="우편번호"
                   maxLength={6}
-                  className="w-[130px]"
+                  className="h-11 w-full sm:w-[130px]"
                   value={watch("zipCode")}
                   onChange={(e) => setValue("zipCode", e.target.value)}
                 />
@@ -424,6 +428,7 @@ function SignupPage() {
                   type="text"
                   name="address"
                   placeholder="주소"
+                  className="h-11"
                   value={watch("address")}
                   onChange={(e) => setValue("address", e.target.value)}
                 />
@@ -433,6 +438,7 @@ function SignupPage() {
                 type="text"
                 name="detailAddress"
                 placeholder="상세주소"
+                className="h-11"
                 value={watch("detailAddress")}
                 onChange={(e) => setValue("detailAddress", e.target.value)}
               />
@@ -444,7 +450,7 @@ function SignupPage() {
                   <Input
                     type="text"
                     placeholder="예) abc@naver.com"
-                    className="w-full"
+                    className="h-11 w-full"
                     value={watch("email")}
                     onChange={e => setValue("email", e.target.value)}
                   />

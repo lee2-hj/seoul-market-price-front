@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getBoardPostsApi } from "@/api/api";
 import type { BoardListItem, BoardSearchType } from "@/features/board/types/board.types";
-import Header from "@/components/Header";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -185,9 +184,6 @@ export default function BoardPage() {
 
   return (
     <div className="min-h-screen bg-[#fafcf9]">
-      {/* 상단바 배치 */}
-      <Header />
-
       <div className="py-12 px-5 sm:px-8">
         <div className="max-w-[1000px] mx-auto space-y-8">
           {/* 헤더 영역 */}

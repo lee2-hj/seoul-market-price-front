@@ -12,7 +12,6 @@ import {
   deleteBoardCommentApi,
 } from "@/api/api";
 import { getLoginUser, isLogin, type LoginUser } from "@/features/auth/utils/auth";
-import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 
 export default function BoardDetailPage() {
@@ -154,7 +153,6 @@ export default function BoardDetailPage() {
   if (isNaN(boardId) || boardId <= 0) {
     return (
       <div className="min-h-screen bg-[#fafcf9]">
-        <Header />
         <div className="py-12 px-4 text-center">
           <p className="text-rose-500 font-medium text-sm">유효하지 않은 게시글 번호입니다.</p>
           <Link to="/board" className="mt-4 inline-block text-[#4c9b55] text-xs underline">
@@ -169,9 +167,6 @@ export default function BoardDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#fafcf9]">
-      {/* 상단바 배치 */}
-      <Header />
-
       <div className="py-12 px-5 sm:px-8">
         <div className="max-w-[900px] mx-auto space-y-6">
           {/* 헤더 */}

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import Header from "@/components/Header";
 import { isLogin, getLoginUser } from "@/features/auth/utils/auth";
 import { CheckCircle2 } from "lucide-react";
 
@@ -284,9 +283,6 @@ export default function MyPage() {
 
   return (
     <div className="min-h-screen bg-[#fafcf9]">
-      {/* 메인 상단바 배치 */}
-      <Header />
-
       <div className="py-12 px-5 sm:px-8">
         <div className="max-w-[1000px] mx-auto space-y-8">
           {/* 헤더 */}
