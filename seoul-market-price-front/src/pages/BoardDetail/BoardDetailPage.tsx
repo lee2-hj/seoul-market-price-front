@@ -11,7 +11,8 @@ import {
   updateBoardCommentApi,
   deleteBoardCommentApi,
 } from "@/api/api";
-import { getLoginUser, isLogin, type LoginUser } from "@/features/auth/utils/auth";
+import { isLogin } from "@/features/auth/utils/auth";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 
 export default function BoardDetailPage() {
@@ -21,16 +22,9 @@ export default function BoardDetailPage() {
 
   const boardId = Number(postId);
 
-  // 로그인 상태 및 유저 정보 안전 파싱
-  let loginUser: LoginUser | null = null;
-  let isLoggedIn = false;
-  try {
-    loginUser = getLoginUser();
-    isLoggedIn = isLogin();
-  } catch {
-    loginUser = null;
-    isLoggedIn = false;
-  }
+  // 로그인 상태 및 유저 정보 반응형 구독
+  const loginUser = useAuthStore((state) => state.user);
+  const isLoggedIn = isLogin();
 
   // 댓글 입력 및 수정 State
   const [commentContent, setCommentContent] = useState("");
@@ -145,16 +139,30 @@ export default function BoardDetailPage() {
   const canModifyComment = (commentAuthorId?: string, commentAuthorName?: string) => {
     if (!loginUser) return false;
     if (loginUser.role === "ADMIN") return true;
-    if (loginUser.userId && commentAuthorId && loginUser.userId === commentAuthorId) return true;
-    if (loginUser.name && commentAuthorName && loginUser.name === commentAuthorName) return true;
+
+    const curId = String(loginUser.userId || "").trim().toLowerCase();
+    const targetId = String(commentAuthorId || "").trim().toLowerCase();
+    if (curId && targetId && (curId === targetId || curId.includes(targetId) || targetId.includes(curId))) return true;
+
+    const curName = String(loginUser.name || "").trim();
+    const targetName = String(commentAuthorName || "").trim();
+    if (curName && targetName && curName === targetName) return true;
+
     return false;
   };
 
   const canModifyPost = (postAuthorId?: string, postAuthorName?: string) => {
     if (!loginUser) return false;
     if (loginUser.role === "ADMIN") return true;
-    if (loginUser.userId && postAuthorId && (loginUser.userId === postAuthorId || String(loginUser.userId) === String(postAuthorId))) return true;
-    if (loginUser.name && postAuthorName && loginUser.name === postAuthorName) return true;
+
+    const curId = String(loginUser.userId || "").trim().toLowerCase();
+    const targetId = String(postAuthorId || "").trim().toLowerCase();
+    if (curId && targetId && (curId === targetId || curId.includes(targetId) || targetId.includes(curId))) return true;
+
+    const curName = String(loginUser.name || "").trim();
+    const targetName = String(postAuthorName || "").trim();
+    if (curName && targetName && curName === targetName) return true;
+
     return false;
   };
 

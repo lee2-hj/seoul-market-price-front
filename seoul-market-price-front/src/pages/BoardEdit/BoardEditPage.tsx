@@ -4,7 +4,8 @@ import { useForm } from "react-hook-form";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { getBoardPostApi, updateBoardPostApi, deleteBoardPostApi } from "@/api/api";
-import { isLogin, getLoginUser } from "@/features/auth/utils/auth";
+import { isLogin } from "@/features/auth/utils/auth";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import type { BoardUpdateRequest } from "@/features/board/types/board.types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,14 +21,17 @@ export default function BoardEditPage() {
   const queryClient = useQueryClient();
 
   const boardId = Number(postId);
+  const loginUser = useAuthStore((state) => state.user);
+  const isAuthInitialized = useAuthStore((state) => state.isInitialized);
 
-  // 비로그인 접근 방어
+  // 비로그인 접근 방어 (인증 초기화 완료 후 체크)
   useEffect(() => {
+    if (!isAuthInitialized) return;
     if (!isLogin()) {
       alert("로그인이 필요한 서비스입니다.");
       navigate("/login", { replace: true });
     }
-  }, [navigate]);
+  }, [isAuthInitialized, navigate]);
 
   const {
     register,
@@ -47,22 +51,21 @@ export default function BoardEditPage() {
   const { data: post, isLoading, isError, error } = useQuery({
     queryKey: ["board", boardId],
     queryFn: () => getBoardPostApi(boardId),
-    enabled: !isNaN(boardId) && boardId > 0 && isLogin(),
+    enabled: !isNaN(boardId) && boardId > 0,
   });
 
   useEffect(() => {
-    if (post) {
-      const loginUser = getLoginUser();
+    if (post && isAuthInitialized) {
+      const curId = String(loginUser?.userId || "").trim().toLowerCase();
+      const authorId = String(post.authorId || "").trim().toLowerCase();
+      const curName = String(loginUser?.name || "").trim();
+      const authorName = String(post.authorName || "").trim();
+
       const isAuthor =
         loginUser &&
         (loginUser.role === "ADMIN" ||
-          (loginUser.userId &&
-            post.authorId &&
-            (loginUser.userId === post.authorId ||
-              String(loginUser.userId) === String(post.authorId))) ||
-          (loginUser.name &&
-            post.authorName &&
-            loginUser.name === post.authorName));
+          (curId && authorId && (curId === authorId || curId.includes(authorId) || authorId.includes(curId))) ||
+          (curName && authorName && curName === authorName));
 
       if (!isAuthor) {
         alert("수정 권한이 없습니다.");
@@ -75,7 +78,7 @@ export default function BoardEditPage() {
         content: post.content,
       });
     }
-  }, [post, boardId, navigate, reset]);
+  }, [post, loginUser, isAuthInitialized, boardId, navigate, reset]);
 
   const updateMutation = useMutation({
     mutationFn: (data: BoardUpdateRequest) => updateBoardPostApi(boardId, data),

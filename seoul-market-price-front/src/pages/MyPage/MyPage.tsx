@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { isLogin, getLoginUser } from "@/features/auth/utils/auth";
+import { isLogin } from "@/features/auth/utils/auth";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { CheckCircle2 } from "lucide-react";
 
 /**
@@ -124,7 +125,7 @@ export default function MyPage() {
   const activeTab: MyPageTab = isMyPageTab(tabValue) ? tabValue : "PROFILE";
 
   const isLoggedIn = isLogin();
-  const loginUser = getLoginUser();
+  const authUser = useAuthStore((state) => state.user);
 
   const handleTabChange = (nextTab: MyPageTab) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -140,15 +141,22 @@ export default function MyPage() {
 
   const [profile, setProfile] = useState<Profile>(() => {
     const saved = getStoredMyPageSettings();
-    if (saved?.profile) {
-      return { ...DEFAULT_PROFILE, ...saved.profile };
-    }
-    if (loginUser) {
+    if (authUser) {
+      const isSocial =
+        authUser.userId?.toLowerCase().startsWith("kakao_") ||
+        authUser.userId?.toLowerCase().includes("kakao") ||
+        authUser.userId?.toLowerCase().startsWith("google_") ||
+        authUser.userId?.toLowerCase().includes("google");
       return {
         ...DEFAULT_PROFILE,
-        name: loginUser.name || DEFAULT_PROFILE.name,
-        userId: loginUser.userId || DEFAULT_PROFILE.userId,
+        ...(saved?.profile || {}),
+        loginType: isSocial ? "SOCIAL" : "LOCAL",
+        name: authUser.name || saved?.profile?.name || DEFAULT_PROFILE.name,
+        userId: authUser.userId || saved?.profile?.userId || DEFAULT_PROFILE.userId,
       };
+    }
+    if (saved?.profile) {
+      return { ...DEFAULT_PROFILE, ...saved.profile };
     }
     return DEFAULT_PROFILE;
   });
@@ -184,9 +192,31 @@ export default function MyPage() {
   const [emailCertSent, setEmailCertSent] = useState(false);
   const [emailCertCode, setEmailCertCode] = useState("");
 
-  const { register, handleSubmit, setValue } = useForm<Profile>({
+  const { register, handleSubmit, setValue, reset } = useForm<Profile>({
     defaultValues: profile,
   });
+
+  // authUser 로드 시 profile 및 form 실시간 동기화
+  useEffect(() => {
+    if (authUser) {
+      const isSocial =
+        authUser.userId?.toLowerCase().startsWith("kakao_") ||
+        authUser.userId?.toLowerCase().includes("kakao") ||
+        authUser.userId?.toLowerCase().startsWith("google_") ||
+        authUser.userId?.toLowerCase().includes("google");
+
+      setProfile((prev) => {
+        const next: Profile = {
+          ...prev,
+          name: authUser.name || prev.name,
+          userId: authUser.userId || prev.userId,
+          loginType: isSocial ? "SOCIAL" : prev.loginType,
+        };
+        reset(next);
+        return next;
+      });
+    }
+  }, [authUser, reset]);
 
   // 회원 정보 및 설정 일괄 저장 핸들러 (수동 저장)
   const handleSaveAll = (formData: Profile) => {
@@ -292,7 +322,26 @@ export default function MyPage() {
     setPriceAlerts((prev) => prev.filter((a) => a.id !== id));
   };
 
-  const isSocialUser = profile.loginType === "SOCIAL";
+  const currentUserId = authUser?.userId || profile.userId || "";
+  const getSocialProviderName = (id: string, type: string) => {
+    const lower = id.toLowerCase();
+    if (lower.startsWith("google_") || lower.includes("google")) return "구글";
+    if (lower.startsWith("kakao_") || lower.includes("kakao")) return "카카오";
+    if (lower.startsWith("naver_") || lower.includes("naver")) return "네이버";
+    if (type === "SOCIAL") return "소셜";
+    return "";
+  };
+
+  const socialProvider = getSocialProviderName(currentUserId, profile.loginType);
+  const isSocialUser =
+    Boolean(socialProvider) ||
+    profile.loginType === "SOCIAL" ||
+    currentUserId.toLowerCase().startsWith("kakao_") ||
+    currentUserId.toLowerCase().startsWith("google_") ||
+    currentUserId.toLowerCase().startsWith("naver_") ||
+    currentUserId.toLowerCase().includes("kakao") ||
+    currentUserId.toLowerCase().includes("google") ||
+    currentUserId.toLowerCase().includes("naver");
 
   return (
     <div className="min-h-screen bg-[#fafcf9]">
@@ -369,7 +418,7 @@ export default function MyPage() {
                 {/* 소셜 회원 뱃지 */}
                 {isSocialUser && (
                   <div className="p-4 bg-[#eef6ee] border border-[#d3e6d5] rounded-[8px] text-[14px] text-[#3b7746] font-semibold">
-                    카카오 소셜 로그인 회원입니다. 이메일과 전화번호는 소셜 계정 정보와 연동됩니다.
+                    {socialProvider || "소셜"} 계정으로 로그인된 회원입니다. 이메일과 전화번호는 소셜 계정 정보와 연동됩니다.
                   </div>
                 )}
 
@@ -394,17 +443,25 @@ export default function MyPage() {
                         />
                       </div>
 
-                      {!isSocialUser && (
+                      {!isSocialUser ? (
                         <div className="space-y-1.5 flex-1 w-full md:w-1/2">
                           <label className="text-[14px] font-bold text-[#344037] block">비밀번호 변경</label>
                           <button
                             type="button"
                             disabled={!isLoggedIn}
-                            onClick={() => alert("비밀번호 변경 페이지로 이동합니다.")}
+                            onClick={() => alert("비밀번호 변경 기능은 준비 중입니다.")}
                             className="w-full h-[48px] rounded-[8px] border border-[#cfd9d0] bg-white text-[#526055] hover:bg-[#f5f8f5] font-bold text-[14px] cursor-pointer transition-colors box-border m-0 disabled:opacity-50"
                           >
                             비밀번호 변경하기
                           </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 flex-1 w-full md:w-1/2">
+                          <label className="text-[14px] font-bold text-[#344037] block">로그인 방식</label>
+                          <div className="w-full h-[48px] rounded-[8px] border border-[#fae29c] bg-[#fff9e6] px-3.5 flex items-center justify-between text-[13px] font-bold text-[#996a00] box-border">
+                            <span>{socialProvider || "소셜"} 연동 계정</span>
+                            <span className="text-[11px] font-medium text-[#7a5a14]">비밀번호 없음</span>
+                          </div>
                         </div>
                       )}
                     </div>

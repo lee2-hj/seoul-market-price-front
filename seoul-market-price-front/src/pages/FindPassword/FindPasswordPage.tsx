@@ -18,16 +18,18 @@ import {
 export default function FindPasswordPage() {
   const navigate = useNavigate();
 
-  // 단계 관리 (1: 아이디 & PASS 본인인증, 2: 새 비밀번호 설정, 3: 변경 완료)
+  // 단계 관리 (1: 아이디 확인 & PASS 본인인증, 2: 새 비밀번호 설정, 3: 변경 완료)
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // 1단계 State
   const [userId, setUserId] = useState("");
+  const [isIdVerified, setIsIdVerified] = useState(false);
+  const [checkingId, setCheckingId] = useState(false);
+  const [idNotFoundError, setIdNotFoundError] = useState(false);
+
   const [phone, setPhone] = useState("");
   const [userName, setUserName] = useState("");
   const [isPassVerified, setIsPassVerified] = useState(false);
-  const [idNotFoundError, setIdNotFoundError] = useState(false);
-  const [checkingId, setCheckingId] = useState(false);
 
   // 2단계 State (새 비밀번호)
   const [newPassword, setNewPassword] = useState("");
@@ -41,49 +43,39 @@ export default function FindPasswordPage() {
   const [step2Error, setStep2Error] = useState("");
 
   // 소셜 로그인 계정 감지
-  const isSocialAccount =
-    userId.trim().toLowerCase().startsWith("kakao_") ||
-    userId.trim().toLowerCase().includes("kakao");
-
-  // 1. PASS 인증 성공 핸들러
-  const handlePassSuccess = async (result: {
-    name: string;
-    phoneNumber: string;
-  }) => {
-    if (!userId.trim()) {
-      alert("아이디를 먼저 입력해 주세요.");
-      return;
-    }
-
-    setPhone(result.phoneNumber);
-    setUserName(result.name);
-    setIsPassVerified(true);
-    setStep1Error("");
+  const getSocialProvider = (id: string) => {
+    const lower = id.trim().toLowerCase();
+    if (lower.startsWith("google_") || lower.includes("google")) return "구글";
+    if (lower.startsWith("kakao_") || lower.includes("kakao")) return "카카오";
+    if (lower.startsWith("naver_") || lower.includes("naver")) return "네이버";
+    return "";
   };
 
-  // 2. 아이디 사전 검증 후 다음 단계로 이동
-  const handleProceedToStep2 = async () => {
+  const socialProviderName = getSocialProvider(userId);
+  const isSocialAccount = Boolean(socialProviderName);
+
+  // 1. [아이디 확인] 버튼 클릭 핸들러
+  const handleCheckId = async () => {
     const trimmedId = userId.trim();
+    setStep1Error("");
+    setIdNotFoundError(false);
+
     if (!trimmedId) {
       setStep1Error("아이디를 입력해 주세요.");
       return;
     }
+
     if (isSocialAccount) {
       setStep1Error(
-        "카카오 소셜 계정은 비밀번호가 없습니다. 카카오 로그인을 이용해 주세요."
+        `${socialProviderName} 소셜 계정은 비밀번호가 없습니다. ${socialProviderName} 로그인을 이용해 주세요.`
       );
-      return;
-    }
-    if (!isPassVerified) {
-      setStep1Error("PASS 본인인증을 먼저 완료해 주세요.");
       return;
     }
 
     try {
       setCheckingId(true);
-      setStep1Error("");
 
-      // 실제 DB에 등록된 아이디인지 검증
+      // DB에 가입된 아이디인지 조회
       try {
         const idCheckResult = await checkUserIdApi(trimmedId);
         // available이 true이면 미가입 아이디(신규가입 가능)이므로 비밀번호 찾기 불가
@@ -96,19 +88,31 @@ export default function FindPasswordPage() {
 
         if (isAvailable) {
           setIdNotFoundError(true);
-          setCheckingId(false);
+          setIsIdVerified(false);
           return;
         }
       } catch {
-        // 아이디 확인 API 예외 시에도 계속 진행
+        // 아이디 확인 API 예외 시에도 계속 진행 허용
       }
 
-      setStep(2);
+      setIsIdVerified(true);
+      setIdNotFoundError(false);
     } catch {
-      setStep(2);
+      setIsIdVerified(true);
     } finally {
       setCheckingId(false);
     }
+  };
+
+  // 2. PASS 본인인증 성공 핸들러
+  const handlePassSuccess = async (result: {
+    name: string;
+    phoneNumber: string;
+  }) => {
+    setPhone(result.phoneNumber);
+    setUserName(result.name);
+    setIsPassVerified(true);
+    setStep1Error("");
   };
 
   // 3. 새 비밀번호 유효성 검사 (8~16자 & 일치 여부)
@@ -159,14 +163,14 @@ export default function FindPasswordPage() {
           비밀번호 찾기
         </h2>
         <p className="mt-1 text-[14px] text-[#667065]">
-          PASS 본인인증을 통해 안전하게 비밀번호를 재설정하실 수 있습니다.
+          아이디 확인 후 본인인증을 통해 안전하게 비밀번호를 재설정합니다.
         </p>
       </div>
 
       {/* 메인 카드 */}
       <div className="w-full max-w-[480px] bg-white border border-[#dce4da] rounded-[20px] p-7 sm:p-9 shadow-[0_12px_40px_rgba(45,70,45,0.08)]">
         {/* ========================================================
-            STEP 1: 아이디 입력 및 PASS 본인인증
+            STEP 1: 아이디 먼저 확인 ➔ PASS 본인인증 진행
         ======================================================== */}
         {step === 1 && (
           <div className="space-y-5">
@@ -175,11 +179,11 @@ export default function FindPasswordPage() {
               <div className="p-4 bg-[#fff9e6] border border-[#fae29c] rounded-[12px] space-y-1">
                 <div className="flex items-center gap-2 text-[#996a00] font-bold text-[13px]">
                   <AlertCircle className="w-4 h-4 shrink-0" />
-                  소셜(카카오) 연동 계정입니다
+                  소셜({socialProviderName}) 연동 계정입니다
                 </div>
                 <p className="text-[12px] text-[#7a5a14] leading-relaxed">
-                  카카오 소셜 로그인은 비밀번호가 없습니다. 로그인 페이지에서
-                  카카오 로그인을 이용해 주세요.
+                  {socialProviderName} 소셜 로그인은 비밀번호가 없습니다. 로그인 페이지에서
+                  {socialProviderName} 로그인을 이용해 주세요.
                 </p>
                 <Link
                   to="/login"
@@ -209,54 +213,63 @@ export default function FindPasswordPage() {
               </div>
             )}
 
-            {/* 아이디 입력 */}
+            {/* 1단계: 아이디 입력 및 확인 버튼 */}
             <div className="space-y-1.5">
-              <label className="block text-[13px] font-bold text-[#344037]">
-                아이디
-              </label>
-              <input
-                type="text"
-                placeholder="가입 시 등록한 아이디"
-                value={userId}
-                disabled={isPassVerified}
-                onChange={(e) => {
-                  setUserId(e.target.value);
-                  setStep1Error("");
-                  setIdNotFoundError(false);
-                }}
-                className="w-full h-[50px] rounded-[10px] border border-[#d5dfd6] bg-white px-4 text-[15px] text-[#2b362d] outline-none focus:border-[#4c9b55] disabled:bg-[#f5f7f5] box-border block"
-              />
-            </div>
-
-            {/* PASS 본인인증 영역 */}
-            {!isPassVerified ? (
-              <div className="space-y-2 pt-1">
-                <label className="block text-[13px] font-bold text-[#344037]">
-                  본인인증
+              <div className="flex items-center justify-between">
+                <label className="text-[13px] font-bold text-[#344037]">
+                  아이디
                 </label>
-                <PassAuth
-                  phone={phone}
-                  onSuccess={handlePassSuccess}
-                  className="w-full h-[50px] bg-[#4c9b55] hover:bg-[#438b4b] text-white font-bold text-[15px] rounded-[10px] cursor-pointer transition-colors flex items-center justify-center gap-2 shadow-sm"
+                {isIdVerified && (
+                  <span className="text-[12px] font-bold text-[#3a8b46] flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> 확인 완료
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="가입 시 등록한 아이디"
+                  value={userId}
+                  disabled={isIdVerified}
+                  onChange={(e) => {
+                    setUserId(e.target.value);
+                    setStep1Error("");
+                    setIdNotFoundError(false);
+                    setIsIdVerified(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleCheckId();
+                    }
+                  }}
+                  className="flex-1 h-[50px] rounded-[10px] border border-[#d5dfd6] bg-white px-4 text-[15px] text-[#2b362d] outline-none focus:border-[#4c9b55] disabled:bg-[#f5f7f5] box-border block"
                 />
-                <p className="text-[12px] text-[#718073] text-center">
-                  통신사 PASS 앱 또는 문자로 본인인증을 진행합니다.
-                </p>
+                {!isIdVerified ? (
+                  <button
+                    type="button"
+                    onClick={handleCheckId}
+                    disabled={checkingId || !userId.trim()}
+                    className="w-[96px] h-[50px] bg-[#4c9b55] hover:bg-[#438b4b] text-white font-bold text-[14px] rounded-[10px] cursor-pointer transition-colors shadow-sm disabled:opacity-40 shrink-0"
+                  >
+                    {checkingId ? "확인 중..." : "아이디 확인"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsIdVerified(false);
+                      setIsPassVerified(false);
+                      setUserName("");
+                      setPhone("");
+                    }}
+                    className="w-[88px] h-[50px] border border-[#cfd9d0] bg-white hover:bg-[#f5f8f5] text-[#526055] font-bold text-[14px] rounded-[10px] cursor-pointer transition-colors shrink-0"
+                  >
+                    다시 입력
+                  </button>
+                )}
               </div>
-            ) : (
-              /* PASS 인증 완료 뱃지 */
-              <div className="p-3.5 bg-[#edf7ee] border border-[#cbe8ce] rounded-[10px] flex items-center gap-2.5 text-[#3a8b46] text-[13px] font-bold">
-                <CheckCircle2 className="w-5 h-5 shrink-0" />
-                <div>
-                  <div>PASS 본인인증이 완료되었습니다.</div>
-                  {userName && (
-                    <div className="text-[12px] text-[#558b5c] font-normal mt-0.5">
-                      인증자: {userName} {phone && `(${phone})`}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            </div>
 
             {/* 에러 메시지 */}
             {step1Error && (
@@ -266,16 +279,50 @@ export default function FindPasswordPage() {
               </div>
             )}
 
-            {/* 다음 단계 버튼 */}
-            <button
-              type="button"
-              onClick={handleProceedToStep2}
-              disabled={!isPassVerified || !userId.trim() || checkingId}
-              className="w-full h-[52px] mt-4 bg-[#4c9b55] hover:bg-[#438b4b] text-white font-bold text-[16px] rounded-[10px] cursor-pointer transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {checkingId ? "아이디 확인 중..." : "다음 단계로"}
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            {/* 2단계: 아이디 확인 완료 시 PASS 본인인증 영역 노출 */}
+            {isIdVerified && (
+              <div className="space-y-4 pt-3 border-t border-[#edf2ec]">
+                {!isPassVerified ? (
+                  <div className="space-y-2">
+                    <label className="block text-[13px] font-bold text-[#344037]">
+                      본인인증
+                    </label>
+                    <PassAuth
+                      phone={phone}
+                      onSuccess={handlePassSuccess}
+                      className="w-full h-[50px] bg-[#4c9b55] hover:bg-[#438b4b] text-white font-bold text-[15px] rounded-[10px] cursor-pointer transition-colors flex items-center justify-center gap-2 shadow-sm"
+                    />
+                    <p className="text-[12px] text-[#718073] text-center">
+                      통신사 PASS 앱 또는 문자로 본인인증을 진행합니다.
+                    </p>
+                  </div>
+                ) : (
+                  /* PASS 인증 완료 뱃지 */
+                  <div className="p-3.5 bg-[#edf7ee] border border-[#cbe8ce] rounded-[10px] flex items-center gap-2.5 text-[#3a8b46] text-[13px] font-bold">
+                    <CheckCircle2 className="w-5 h-5 shrink-0" />
+                    <div>
+                      <div>PASS 본인인증이 완료되었습니다.</div>
+                      {userName && (
+                        <div className="text-[12px] text-[#558b5c] font-normal mt-0.5">
+                          인증자: {userName} {phone && `(${phone})`}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 다음 단계 버튼 */}
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  disabled={!isPassVerified}
+                  className="w-full h-[52px] bg-[#4c9b55] hover:bg-[#438b4b] text-white font-bold text-[16px] rounded-[10px] cursor-pointer transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  다음 단계로
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         )}
 
