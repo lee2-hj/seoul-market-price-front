@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { getLoginUser, logout } from "@/features/auth/utils/auth";
 import styles from "./PricePage.module.css";
 
 /* 품목별 시세 데이터 */
@@ -180,52 +181,24 @@ function PricePage() {
 
   const [searched, setSearched] = useState(false);
 
-  /* 로그인 사용자 */
+  /* 로그인 사용자 (zustand 기준) */
 
-  const getLoginUserName = (): string => {
-    const storedUser = localStorage.getItem("loginUser");
+  const loginUser = getLoginUser();
 
-    if (!storedUser) {
-      return "사용자";
-    }
-
-    try {
-      const parsedUser = JSON.parse(storedUser);
-
-      return (
-        parsedUser.name || parsedUser.userName || parsedUser.userId || "사용자"
-      );
-    } catch {
-      return "사용자";
-    }
-  };
-
-  const loginUserName = getLoginUserName();
+  const loginUserName = loginUser?.name || loginUser?.userId || "사용자";
 
   /* 관리자 여부 */
 
   const isAdminUser = (): boolean => {
-    const storedUser = localStorage.getItem("loginUser");
+    const role = loginUser?.role;
 
-    if (!storedUser) {
+    if (!role) {
       return false;
     }
 
-    try {
-      const parsedUser = JSON.parse(storedUser);
+    const normalizedRole = role.toUpperCase();
 
-      const role = parsedUser.role;
-
-      if (!role) {
-        return false;
-      }
-
-      const normalizedRole = String(role).toUpperCase();
-
-      return normalizedRole === "ADMIN" || normalizedRole === "ROLE_ADMIN";
-    } catch {
-      return false;
-    }
+    return normalizedRole === "ADMIN" || normalizedRole === "ROLE_ADMIN";
   };
 
   const isAdmin = isAdminUser();
@@ -291,10 +264,8 @@ function PricePage() {
 
   /* 로그아웃 */
 
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("loginUser");
-    localStorage.removeItem("user");
+  const handleLogout = async () => {
+    await logout();
 
     navigate("/");
   };

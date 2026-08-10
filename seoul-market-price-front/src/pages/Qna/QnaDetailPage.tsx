@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
+import { getLoginUser, logout } from "@/features/auth/utils/auth";
 import styles from "./QnaDetailPage.module.css";
 
 /* 첨부파일 정보 */
@@ -36,63 +37,26 @@ interface QnaPost {
   answerDate?: string;
 }
 
-/* 로그인 사용자 */
-
-interface LoginUser {
-  userId?: string;
-  name?: string;
-  userName?: string;
-  role?: string;
-}
-
-/* 로그인 사용자 조회 */
-
-const getLoginUser = (): LoginUser | null => {
-  const storedUser = localStorage.getItem("loginUser");
-
-  if (!storedUser) {
-    return null;
-  }
-
-  try {
-    const parsedUser: unknown = JSON.parse(storedUser);
-
-    if (
-      !parsedUser ||
-      typeof parsedUser !== "object" ||
-      Array.isArray(parsedUser)
-    ) {
-      return null;
-    }
-
-    return parsedUser as LoginUser;
-  } catch (error) {
-    console.error("로그인 사용자 정보 확인 실패:", error);
-
-    return null;
-  }
-};
-
 /* 로그인 사용자 이름 */
 
-const getLoginUserName = (user: LoginUser | null): string => {
+const getLoginUserName = (user: { name: string; userId: string } | null): string => {
   if (!user) {
     return "사용자";
   }
 
-  return user.name || user.userName || user.userId || "사용자";
+  return user.name || user.userId || "사용자";
 };
 
-/* 관리자 여부 */
+/* 관리자 여부 (zustand 기준) */
 
-const isAdminUser = (user: LoginUser | null): boolean => {
-  if (!user?.role) {
+const isAdminUser = (role: string | undefined): boolean => {
+  if (!role) {
     return false;
   }
 
-  const role = user.role.toUpperCase();
+  const normalizedRole = role.toUpperCase();
 
-  return role === "ADMIN" || role === "ROLE_ADMIN";
+  return normalizedRole === "ADMIN" || normalizedRole === "ROLE_ADMIN";
 };
 
 /* 파일 크기 표시 */
@@ -166,7 +130,7 @@ function QnaDetailPage() {
 
   const currentUserId = currentUser?.userId ?? "";
   const currentUserName = getLoginUserName(currentUser);
-  const isAdmin = isAdminUser(currentUser);
+  const isAdmin = isAdminUser(currentUser?.role);
 
   const isLoggedIn = Boolean(currentUser && currentUserId);
 
@@ -249,10 +213,8 @@ function QnaDetailPage() {
 
   /* 로그아웃 */
 
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("loginUser");
-    localStorage.removeItem("user");
+  const handleLogout = async () => {
+    await logout();
 
     navigate("/");
   };
