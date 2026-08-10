@@ -1,8 +1,10 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { createBoardPostApi } from "@/api/api";
+import { isLogin } from "@/features/auth/utils/auth";
 import type { BoardCreateRequest } from "@/features/board/types/board.types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,6 +17,14 @@ interface BoardWriteFormData {
 export default function BoardWritePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // 비로그인 접근 방어
+  useEffect(() => {
+    if (!isLogin()) {
+      alert("로그인이 필요한 서비스입니다.");
+      navigate("/login", { replace: true });
+    }
+  }, [navigate]);
 
   const {
     register,
@@ -47,6 +57,11 @@ export default function BoardWritePage() {
   });
 
   const onSubmit = (formData: BoardWriteFormData) => {
+    if (!isLogin()) {
+      alert("로그인이 필요합니다.");
+      navigate("/login");
+      return;
+    }
     createMutation.mutate({
       title: formData.title.trim(),
       content: formData.content.trim(),
