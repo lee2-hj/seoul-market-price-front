@@ -1,42 +1,18 @@
 import { useEffect, useState } from "react";
+import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 
 import styles from "./QnaDetailPage.module.css";
 
-/* 첨부파일 정보 */
+/*
+ * 백엔드 서버 주소
+ */
 
-interface QnaAttachment {
-  name: string;
-  size: number;
-}
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8081";
 
-/* 질의응답 게시글 */
-
-interface QnaPost {
-  id: number;
-
-  /* 질문 정보 */
-
-  author: string;
-  authorId: string;
-  title: string;
-  content: string;
-  date: string;
-  views: number;
-
-  /* 첨부파일 */
-
-  attachments?: QnaAttachment[];
-
-  /* 답변 정보 */
-
-  answer: string;
-  answerAuthor?: string;
-  answerAuthorId?: string;
-  answerDate?: string;
-}
-
-/* 로그인 사용자 */
+/*
+ * 로그인 사용자
+ */
 
 interface LoginUser {
   userId?: string;
@@ -45,7 +21,60 @@ interface LoginUser {
   role?: string;
 }
 
-/* 로그인 사용자 조회 */
+/*
+ * 첨부파일 정보
+ */
+
+interface QnaAttachment {
+  name: string;
+  size: number;
+}
+
+/*
+ * Q&A 상세 응답
+ *
+ * 백엔드에서 실제로 사용하는 필드명을 기준으로 작성한다.
+ */
+
+interface QnaDetailResponse {
+  id: number;
+
+  title: string;
+
+  questionContent?: string;
+
+  writerName?: string;
+
+  writerLoginId?: string;
+
+  userId?: string;
+
+  createdAt?: string;
+
+  updatedAt?: string;
+
+  viewCount?: number;
+
+  answeredAt?: string;
+
+  answerContent?: string;
+
+  answerMemberId?: number;
+
+  answerWriterName?: string;
+
+  attachName?: string;
+
+  attachPath?: string;
+
+  attachmentAvailable?: boolean;
+
+  attachments?: QnaAttachment[];
+}
+
+/*
+ * 로그인 사용자 조회
+ */
 
 const getLoginUser = (): LoginUser | null => {
   const storedUser = localStorage.getItem("loginUser");
@@ -73,7 +102,9 @@ const getLoginUser = (): LoginUser | null => {
   }
 };
 
-/* 로그인 사용자 이름 */
+/*
+ * 로그인 사용자 이름
+ */
 
 const getLoginUserName = (user: LoginUser | null): string => {
   if (!user) {
@@ -83,7 +114,9 @@ const getLoginUserName = (user: LoginUser | null): string => {
   return user.name || user.userName || user.userId || "사용자";
 };
 
-/* 관리자 여부 */
+/*
+ * 관리자 여부
+ */
 
 const isAdminUser = (user: LoginUser | null): boolean => {
   if (!user?.role) {
@@ -95,7 +128,33 @@ const isAdminUser = (user: LoginUser | null): boolean => {
   return role === "ADMIN" || role === "ROLE_ADMIN";
 };
 
-/* 파일 크기 표시 */
+/*
+ * 날짜 포맷
+ */
+
+const formatDate = (date?: string): string => {
+  if (!date) {
+    return "-";
+  }
+
+  const parsedDate = new Date(date);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return date;
+  }
+
+  const year = parsedDate.getFullYear();
+
+  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
+
+  const day = String(parsedDate.getDate()).padStart(2, "0");
+
+  return `${year}.${month}.${day}`;
+};
+
+/*
+ * 파일 크기 표시
+ */
 
 const formatFileSize = (size: number): string => {
   if (!size || size < 1024) {
@@ -109,161 +168,304 @@ const formatFileSize = (size: number): string => {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-/* 게시글 조회 */
-
-const getStoredPosts = (): QnaPost[] => {
-  const storedPosts = localStorage.getItem("qnaPosts");
-
-  if (!storedPosts) {
-    return [];
-  }
-
-  try {
-    const parsedPosts: unknown = JSON.parse(storedPosts);
-
-    if (!Array.isArray(parsedPosts)) {
-      return [];
-    }
-
-    return parsedPosts.map((post) => {
-      const item = post as Partial<QnaPost>;
-
-      return {
-        id: item.id ?? 0,
-        author: item.author ?? "사용자",
-        authorId: item.authorId ?? "",
-        title: item.title ?? "",
-        content: item.content ?? "",
-        date: item.date ?? "",
-        views: item.views ?? 0,
-
-        /* 기존 글에 첨부파일이 없는 경우 빈 배열 */
-
-        attachments: Array.isArray(item.attachments) ? item.attachments : [],
-
-        answer: item.answer ?? "",
-        answerAuthor: item.answerAuthor,
-        answerAuthorId: item.answerAuthorId,
-        answerDate: item.answerDate,
-      };
-    });
-  } catch (error) {
-    console.error("질의응답 게시글 조회 실패:", error);
-
-    return [];
-  }
-};
-
-/* Q&A 상세 페이지 */
+/*
+ * Q&A 상세 페이지
+ */
 
 function QnaDetailPage() {
   const navigate = useNavigate();
+
   const { id } = useParams<{ id: string }>();
 
-  /* 로그인 사용자 */
+  /*
+   * 로그인 사용자
+   */
 
   const currentUser = getLoginUser();
 
   const currentUserId = currentUser?.userId ?? "";
+
   const currentUserName = getLoginUserName(currentUser);
+
   const isAdmin = isAdminUser(currentUser);
 
   const isLoggedIn = Boolean(currentUser && currentUserId);
 
-  /* 게시글 */
+  /*
+   * 게시글
+   */
 
-  const [post, setPost] = useState<QnaPost | null>(null);
+  const [post, setPost] = useState<QnaDetailResponse | null>(null);
+
+  /*
+   * 로딩
+   */
 
   const [loading, setLoading] = useState(true);
 
-  /* 게시글 조회 */
+  /*
+   * 오류
+   */
+
+  const [errorMessage, setErrorMessage] = useState("");
+
+  /*
+   * Q&A 상세 조회
+   *
+   * GET /api/qnas/{id}
+   */
 
   useEffect(() => {
-    const loadPost = () => {
-      setLoading(true);
+    /*
+     * 로그인하지 않은 경우
+     */
 
-      const posts = getStoredPosts();
+    if (!isLoggedIn || !currentUserId) {
+      alert("로그인 후 질의응답을 확인할 수 있습니다.");
 
-      const postId = Number(id);
+      navigate("/login");
 
-      const foundPost = posts.find((item) => item.id === postId);
+      return;
+    }
 
-      if (!foundPost) {
-        setPost(null);
+    /*
+     * 상세 API 호출
+     */
+
+    const fetchQnaDetail = async () => {
+      /* 비동기 마이크로태스크로 실행을 미루어 동기적 상태 업데이트 경고를 방지 */
+      await Promise.resolve();
+
+      /*
+       * URL의 게시글 ID 확인
+       */
+
+      const qnaId = Number(id);
+
+      if (!id || Number.isNaN(qnaId)) {
+        setErrorMessage("잘못된 질의응답 게시글입니다.");
+
         setLoading(false);
 
         return;
       }
 
-      /* 로그인 여부 확인 */
+      try {
+        setLoading(true);
 
-      if (!isLoggedIn) {
-        alert("로그인 후 질의응답을 확인할 수 있습니다.");
+        setErrorMessage("");
 
-        navigate("/login");
+        console.log("=================================");
 
-        return;
-      }
+        console.log("Q&A 상세 조회 시작");
 
-      /* 본인 글 또는 관리자만 확인 가능 */
+        console.log("게시글 ID:", qnaId);
 
-      const canView = isAdmin || foundPost.authorId === currentUserId;
+        console.log("요청 URL:", `${BACKEND_URL}/api/qnas/${qnaId}`);
 
-      if (!canView) {
-        alert("작성자 본인 또는 관리자만 확인할 수 있습니다.");
+        console.log("현재 로그인 사용자 ID:", currentUserId);
 
-        navigate("/qna");
+        console.log("관리자 여부:", isAdmin);
 
-        return;
-      }
+        console.log("=================================");
 
-      /*
-       * 조회수 증가
-       *
-       * 현재 페이지 진입 시 한 번 증가시킨다.
-       */
+        const response = await axios.get<QnaDetailResponse>(
+          `${BACKEND_URL}/api/qnas/${qnaId}`,
+          {
+            /*
+             * 쿠키 기반 인증
+             */
 
-      const updatedPosts = posts.map((item) => {
-        if (item.id !== foundPost.id) {
-          return item;
+            withCredentials: true,
+
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        const data = response.data;
+
+        console.log("=================================");
+
+        console.log("Q&A 상세 조회 성공");
+
+        console.log("응답 상태:", response.status);
+
+        console.log("상세 게시글:", data);
+
+        console.log("게시글 작성자 ID:", data.writerLoginId);
+
+        console.log("현재 로그인 사용자 ID:", currentUserId);
+
+        console.log("내 게시글 여부:", data.writerLoginId === currentUserId);
+
+        console.log("관리자 여부:", isAdmin);
+
+        console.log("=================================");
+
+        /*
+         * 백엔드 응답 확인
+         */
+
+        if (!data || !data.id) {
+          setPost(null);
+
+          setErrorMessage("게시글 정보를 확인할 수 없습니다.");
+
+          return;
         }
 
-        return {
-          ...item,
-          views: (item.views ?? 0) + 1,
-        };
-      });
+        /*
+         * 작성자 본인 또는 관리자만 확인 가능
+         *
+         * 목록에서도 동일한 기준을 사용한다.
+         */
 
-      localStorage.setItem("qnaPosts", JSON.stringify(updatedPosts));
+        const writerLoginId = data.writerLoginId ?? data.userId ?? "";
 
-      setPost({
-        ...foundPost,
-        views: (foundPost.views ?? 0) + 1,
-      });
+        const isMyPost = writerLoginId === currentUserId;
 
-      setLoading(false);
+        console.log("=================================");
+
+        console.log("Q&A 상세 접근 권한 확인");
+
+        console.log("게시글 ID:", data.id);
+
+        console.log("게시글 제목:", data.title);
+
+        console.log("게시글 작성자:", data.writerName);
+
+        console.log("게시글 작성자 ID:", writerLoginId);
+
+        console.log("현재 로그인 사용자 ID:", currentUserId);
+
+        console.log("내 게시글 여부:", isMyPost);
+
+        console.log("관리자 여부:", isAdmin);
+
+        console.log("=================================");
+
+        /*
+         * 본인 글이 아니고 관리자도 아닌 경우
+         */
+
+        if (!isAdmin && !isMyPost) {
+          alert("작성자 본인 또는 관리자만 확인할 수 있습니다.");
+
+          navigate("/qna");
+
+          return;
+        }
+
+        /*
+         * 상세 게시글 저장
+         */
+
+        setPost(data);
+      } catch (error) {
+        console.error("=================================");
+
+        console.error("Q&A 상세 조회 실패");
+
+        if (axios.isAxiosError(error)) {
+          console.error("HTTP 상태:", error.response?.status);
+
+          console.error("백엔드 응답:", error.response?.data);
+
+          console.error("요청 URL:", error.config?.url);
+        } else {
+          console.error(error);
+        }
+
+        console.error("=================================");
+
+        /*
+         * 401
+         */
+
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          alert("로그인 정보가 만료되었습니다. 다시 로그인해주세요.");
+
+          localStorage.removeItem("loginUser");
+
+          localStorage.removeItem("accessToken");
+
+          navigate("/login");
+
+          return;
+        }
+
+        /*
+         * 403
+         */
+
+        if (axios.isAxiosError(error) && error.response?.status === 403) {
+          alert("이 게시글을 확인할 권한이 없습니다.");
+
+          navigate("/qna");
+
+          return;
+        }
+
+        /*
+         * 404
+         */
+
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          setErrorMessage("존재하지 않는 질의응답 게시글입니다.");
+
+          return;
+        }
+
+        /*
+         * 500
+         */
+
+        if (axios.isAxiosError(error) && error.response?.status === 500) {
+          setErrorMessage(
+            "서버에서 질의응답 상세 정보를 불러오는 중 오류가 발생했습니다.",
+          );
+
+          return;
+        }
+
+        setErrorMessage(
+          "질의응답 상세 정보를 불러오는 중 오류가 발생했습니다.",
+        );
+      } finally {
+        setLoading(false);
+      }
     };
 
-    loadPost();
+    void fetchQnaDetail();
   }, [id, navigate, currentUserId, isAdmin, isLoggedIn]);
 
-  /* 로그아웃 */
+  /*
+   * 로그아웃
+   */
 
   const handleLogout = () => {
     localStorage.removeItem("accessToken");
+
     localStorage.removeItem("loginUser");
+
     localStorage.removeItem("user");
 
     navigate("/");
   };
 
-  /* 목록으로 */
+  /*
+   * 목록으로
+   */
 
   const handleGoList = () => {
     navigate("/qna");
   };
 
-  /* 수정 페이지 이동 */
+  /*
+   * 수정 페이지 이동
+   */
 
   const handleEdit = () => {
     if (!post) {
@@ -272,9 +474,14 @@ function QnaDetailPage() {
 
     navigate(`/qna/${post.id}/edit`);
   };
-  /* 삭제 */
 
-  const handleDelete = () => {
+  /*
+   * 삭제
+   *
+   * DELETE /api/qnas/{id}
+   */
+
+  const handleDelete = async () => {
     if (!post) {
       return;
     }
@@ -285,18 +492,68 @@ function QnaDetailPage() {
       return;
     }
 
-    const posts = getStoredPosts();
+    try {
+      console.log("Q&A 삭제 요청:", post.id);
 
-    const updatedPosts = posts.filter((item) => item.id !== post.id);
+      await axios.delete(`${BACKEND_URL}/api/qnas/${post.id}`, {
+        withCredentials: true,
+      });
 
-    localStorage.setItem("qnaPosts", JSON.stringify(updatedPosts));
+      alert("질의응답이 삭제되었습니다.");
 
-    alert("질의응답이 삭제되었습니다.");
+      navigate("/qna");
+    } catch (error) {
+      console.error("Q&A 삭제 실패:", error);
 
-    navigate("/qna");
+      if (axios.isAxiosError(error)) {
+        console.error("HTTP 상태:", error.response?.status);
+
+        console.error("백엔드 응답:", error.response?.data);
+
+        /*
+         * 인증 만료
+         */
+
+        if (error.response?.status === 401) {
+          alert("로그인 정보가 만료되었습니다. 다시 로그인해주세요.");
+
+          localStorage.removeItem("loginUser");
+
+          localStorage.removeItem("accessToken");
+
+          navigate("/login");
+
+          return;
+        }
+
+        /*
+         * 권한 없음
+         */
+
+        if (error.response?.status === 403) {
+          alert("게시글을 삭제할 권한이 없습니다.");
+
+          return;
+        }
+
+        /*
+         * API 없음
+         */
+
+        if (error.response?.status === 404) {
+          alert("게시글 삭제 API를 찾을 수 없습니다.");
+
+          return;
+        }
+      }
+
+      alert("질의응답 삭제에 실패했습니다.");
+    }
   };
 
-  /* 로딩 */
+  /*
+   * 로딩
+   */
 
   if (loading) {
     return (
@@ -310,7 +567,37 @@ function QnaDetailPage() {
     );
   }
 
-  /* 게시글 없음 */
+  /*
+   * 오류
+   */
+
+  if (errorMessage) {
+    return (
+      <div className={styles.page}>
+        <main className={styles.container}>
+          <section className={styles.emptyState}>
+            <div className={styles.emptyIcon}>⚠️</div>
+
+            <h1>게시글을 불러올 수 없습니다.</h1>
+
+            <p>{errorMessage}</p>
+
+            <button
+              type="button"
+              className={styles.listButton}
+              onClick={handleGoList}
+            >
+              목록으로
+            </button>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  /*
+   * 게시글 없음
+   */
 
   if (!post) {
     return (
@@ -336,7 +623,38 @@ function QnaDetailPage() {
     );
   }
 
-  /* 로그인 상태 */
+  /*
+   * 게시글 작성자 ID
+   *
+   * 목록 API와 상세 API의 응답 차이를 고려한다.
+   */
+
+  const writerLoginId = post.writerLoginId ?? post.userId ?? "";
+
+  /*
+   * 본인 게시글 여부
+   */
+
+  const isMyPost = writerLoginId === currentUserId;
+
+  /*
+   * 답변 여부
+   */
+
+  const hasAnswer = Boolean(
+    post.answerContent && post.answerContent.trim() !== "",
+  );
+
+  /*
+   * 첨부파일
+   */
+
+  const attachments =
+    post.attachments && Array.isArray(post.attachments) ? post.attachments : [];
+
+  /*
+   * 로그인 상태
+   */
 
   return (
     <div className={styles.page}>
@@ -540,31 +858,33 @@ function QnaDetailPage() {
 
             <div className={styles.meta}>
               <span>
-                작성자 <strong>{post.author}</strong>
+                작성자 <strong>{post.writerName || "사용자"}</strong>
               </span>
 
-              <span>{post.date}</span>
+              <span>{formatDate(post.createdAt)}</span>
 
-              <span>조회 {post.views}</span>
+              <span>조회 {post.viewCount ?? 0}</span>
             </div>
           </header>
 
           {/* 내용 */}
 
-          <div className={styles.content}>{post.content}</div>
+          <div className={styles.content}>
+            {post.questionContent || "등록된 문의 내용이 없습니다."}
+          </div>
 
           {/* 첨부파일 */}
 
-          {post.attachments && post.attachments.length > 0 && (
+          {attachments.length > 0 && (
             <section className={styles.attachmentSection}>
               <div className={styles.attachmentHeader}>
                 <strong>첨부파일</strong>
 
-                <span>{post.attachments.length}개</span>
+                <span>{attachments.length}개</span>
               </div>
 
               <ul className={styles.attachmentList}>
-                {post.attachments.map((file, index) => (
+                {attachments.map((file, index) => (
                   <li
                     key={`${file.name}-${index}`}
                     className={styles.attachmentItem}
@@ -590,34 +910,30 @@ function QnaDetailPage() {
                   </li>
                 ))}
               </ul>
-
-              <p className={styles.attachmentNotice}>
-                현재 테스트 단계에서는 첨부파일의 이름과 크기만 표시됩니다.
-              </p>
             </section>
           )}
 
           {/* 답변 */}
 
-          {post.answer && post.answer.trim() !== "" && (
+          {hasAnswer && (
             <section className={styles.answerSection}>
               <div className={styles.answerHeader}>
                 <div>
                   <span className={styles.answerLabel}>답변</span>
 
-                  <strong>{post.answerAuthor || "관리자"}</strong>
+                  <strong>{post.answerWriterName || "관리자"}</strong>
                 </div>
 
-                {post.answerDate && <span>{post.answerDate}</span>}
+                {post.answeredAt && <span>{formatDate(post.answeredAt)}</span>}
               </div>
 
-              <div className={styles.answerContent}>{post.answer}</div>
+              <div className={styles.answerContent}>{post.answerContent}</div>
             </section>
           )}
 
           {/* 미답변 */}
 
-          {!post.answer && (
+          {!hasAnswer && (
             <section className={styles.waitingSection}>
               <span className={styles.waitingIcon}>💬</span>
 
@@ -640,7 +956,7 @@ function QnaDetailPage() {
               목록으로
             </button>
 
-            {post.authorId === currentUserId && (
+            {isMyPost && (
               <>
                 <button
                   type="button"
@@ -653,7 +969,7 @@ function QnaDetailPage() {
                 <button
                   type="button"
                   className={styles.deleteButton}
-                  onClick={handleDelete}
+                  onClick={() => void handleDelete()}
                 >
                   삭제
                 </button>

@@ -1,47 +1,10 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+
+import apiMiddleware from "@/api/middleware";
 
 import styles from "./QnaWritePage.module.css";
-
-/* 질의응답 작성 폼 */
-
-interface QnaForm {
-  title: string;
-  content: string;
-}
-
-/* 첨부파일 정보 */
-
-interface QnaAttachment {
-  name: string;
-  size: number;
-}
-
-/* 질의응답 게시글 */
-
-interface QnaPost {
-  id: number;
-
-  /* 질문 정보 */
-
-  author: string;
-  authorId: string;
-  title: string;
-  content: string;
-  date: string;
-  views: number;
-
-  /* 첨부파일 */
-
-  attachments?: QnaAttachment[];
-
-  /* 답변 정보 */
-
-  answer: string;
-  answerAuthor?: string;
-  answerAuthorId?: string;
-  answerDate?: string;
-}
 
 /* 로그인 사용자 */
 
@@ -111,18 +74,6 @@ const isAdminUser = (user: LoginUser | null): boolean => {
   return role === "ADMIN" || role === "ROLE_ADMIN";
 };
 
-/* 현재 날짜 */
-
-const getCurrentDate = (): string => {
-  const now = new Date();
-
-  return [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0"),
-  ].join(".");
-};
-
 /* 파일 크기 표시 */
 
 const formatFileSize = (size: number): string => {
@@ -149,62 +100,7 @@ const getFileExtension = (fileName: string): string => {
   return fileName.slice(lastDotIndex + 1).toLowerCase();
 };
 
-/* 기존 질의응답 게시글 조회 */
-
-const getStoredPosts = (): QnaPost[] => {
-  const storedPosts = localStorage.getItem("qnaPosts");
-
-  if (!storedPosts) {
-    return [];
-  }
-
-  try {
-    const parsedPosts: unknown = JSON.parse(storedPosts);
-
-    if (!Array.isArray(parsedPosts)) {
-      return [];
-    }
-
-    return parsedPosts.map((post) => {
-      const item = post as Partial<QnaPost>;
-
-      return {
-        id: item.id ?? 0,
-
-        /* 기존 게시글의 정보를 그대로 유지 */
-
-        author: item.author ?? "사용자",
-        authorId: item.authorId ?? "",
-        title: item.title ?? "",
-        content: item.content ?? "",
-        date: item.date ?? "",
-        views: item.views ?? 0,
-
-        /* 기존 첨부파일 정보 유지 */
-
-        attachments: Array.isArray(item.attachments)
-          ? item.attachments.map((file) => ({
-              name: file.name ?? "",
-              size: file.size ?? 0,
-            }))
-          : [],
-
-        /* 기존 답변 정보 유지 */
-
-        answer: item.answer ?? "",
-        answerAuthor: item.answerAuthor,
-        answerAuthorId: item.answerAuthorId,
-        answerDate: item.answerDate,
-      };
-    });
-  } catch (error) {
-    console.error("질의응답 게시글 조회 실패:", error);
-
-    return [];
-  }
-};
-
-/* 질의응답 Write Page */
+/* Q&A Write Page */
 
 function QnaWritePage() {
   const navigate = useNavigate();
@@ -217,15 +113,15 @@ function QnaWritePage() {
 
   const currentUser = getLoginUser();
 
-  const currentUserId = currentUser?.userId ?? "";
   const currentUserName = getLoginUserName(currentUser);
 
-  const isLoggedIn = Boolean(currentUser && currentUserId);
+  const isLoggedIn = Boolean(currentUser?.userId);
+
   const isAdmin = isAdminUser(currentUser);
 
   /* 작성 폼 */
 
-  const [form, setForm] = useState<QnaForm>({
+  const [form, setForm] = useState({
     title: "",
     content: "",
   });
@@ -241,7 +137,7 @@ function QnaWritePage() {
   /* 입력값 변경 */
 
   const handleChange = (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = event.target;
 
@@ -263,7 +159,7 @@ function QnaWritePage() {
 
   /* 파일 선택 */
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files ?? []);
 
     if (selectedFiles.length === 0) {
@@ -358,23 +254,31 @@ function QnaWritePage() {
     const title = form.title.trim();
     const content = form.content.trim();
 
+    /* 제목 검사 */
+
     if (!title) {
       alert("제목을 입력해주세요.");
 
       return false;
     }
 
-    if (title.length > 100) {
-      alert("제목은 100자 이내로 입력해주세요.");
+    /* 제목 길이 검사 */
+
+    if (title.length > 200) {
+      alert("제목은 200자 이내로 입력해주세요.");
 
       return false;
     }
+
+    /* 내용 검사 */
 
     if (!content) {
       alert("내용을 입력해주세요.");
 
       return false;
     }
+
+    /* 내용 길이 검사 */
 
     if (content.length > 5000) {
       alert("내용은 5,000자 이내로 입력해주세요.");
@@ -387,7 +291,7 @@ function QnaWritePage() {
 
   /* 질의응답 등록 */
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
     /* 등록 시점의 로그인 사용자 다시 확인 */
@@ -411,94 +315,152 @@ function QnaWritePage() {
     try {
       setLoading(true);
 
-      /* 기존 게시글 조회 */
-
-      const existingPosts = getStoredPosts();
-
       /*
-       * 현재 프론트 테스트 단계에서는
-       * 실제 File 객체를 localStorage에 저장하지 않는다.
-       *
-       * 대신 파일명과 파일 크기를 저장한다.
-       */
-
-      const attachments: QnaAttachment[] = attachedFiles.map((file) => ({
-        name: file.name,
-        size: file.size,
-      }));
-
-      /*
-       * 중요
-       *
-       * 아래 title / content는 현재 입력된 값을 그대로 저장한다.
-       * 다른 게시글의 내용으로 변경하지 않는다.
-       */
-
-      const newPost: QnaPost = {
-        id: Date.now(),
-
-        /* 질문 정보 */
-
-        author: getLoginUserName(loginUser),
-        authorId: loginUser.userId,
-
-        /* 입력한 제목 그대로 저장 */
-
-        title: form.title.trim(),
-
-        /* 입력한 내용 그대로 저장 */
-
-        content: form.content.trim(),
-
-        /* 작성 날짜 */
-
-        date: getCurrentDate(),
-
-        /* 새 글이므로 조회수 0 */
-
-        views: 0,
-
-        /* 첨부파일 이름 + 크기 */
-
-        attachments,
-
-        /* 새 글은 미답변 상태 */
-
-        answer: "",
-        answerAuthor: undefined,
-        answerAuthorId: undefined,
-        answerDate: undefined,
-      };
-
-      /*
-       * 기존 게시글을 유지하면서
-       * 새 게시글만 맨 앞에 추가한다.
-       */
-
-      const updatedPosts: QnaPost[] = [newPost, ...existingPosts];
-
-      /*
-       * localStorage 저장
+       * 백엔드 QnaCreateRequest와
+       * 필드명을 정확하게 맞춘다.
        *
        * title
-       * content
-       * attachments
-       * author
-       * date
-       * views
-       * answer
-       * 모두 함께 저장된다.
+       * questionContent
+       * publicQuestion
+       *
+       * 작성자 정보는 프론트에서 보내지 않는다.
+       *
+       * 백엔드에서
+       * @AuthenticationPrincipal
+       * CustomUserPrincipal을 통해
+       * 로그인 회원 정보를 가져온다.
        */
 
-      localStorage.setItem("qnaPosts", JSON.stringify(updatedPosts));
+      const requestData = {
+        title: form.title.trim(),
+        questionContent: form.content.trim(),
+        publicQuestion: true,
+      };
+
+      console.log("=================================");
+      console.log("Q&A 등록 요청 시작");
+      console.log("요청 URL:", "/api/qnas");
+      console.log("요청 데이터:", requestData);
+      console.log("현재 로그인 사용자:", loginUser);
+      console.log("=================================");
+
+      /*
+       * api.ts를 수정하지 않고
+       * apiMiddleware를 직접 사용한다.
+       *
+       * POST /api/qnas
+       */
+
+      const response = await apiMiddleware.post("/api/qnas", requestData);
+
+      console.log("=================================");
+      console.log("Q&A 등록 성공");
+      console.log("응답 상태:", response.status);
+      console.log("응답 데이터:", response.data);
+      console.log("=================================");
 
       alert("질의응답이 등록되었습니다.");
 
-      /* Q&A 목록으로 이동 */
+      /*
+       * 등록 성공 후 Q&A 목록으로 이동한다.
+       *
+       * QnaPage에서 다시
+       * GET /api/qnas를 호출한다.
+       */
 
       navigate("/qna");
     } catch (error) {
-      console.error("질의응답 등록 실패:", error);
+      console.error("=================================");
+      console.error("Q&A 등록 실패");
+
+      if (axios.isAxiosError(error)) {
+        console.error("HTTP 상태:", error.response?.status);
+
+        console.error("백엔드 응답:", error.response?.data);
+
+        console.error("요청 URL:", error.config?.url);
+
+        console.error("요청 데이터:", error.config?.data);
+      } else {
+        console.error(error);
+      }
+
+      console.error("=================================");
+
+      /* Axios 오류 처리 */
+
+      if (axios.isAxiosError(error)) {
+        /* 400 Bad Request */
+
+        if (error.response?.status === 400) {
+          const responseData = error.response?.data;
+
+          console.error("400 상세 오류:", responseData);
+
+          /*
+           * Spring Validation 오류 메시지가
+           * 내려오는 경우 해당 메시지를 표시한다.
+           */
+
+          if (typeof responseData === "object" && responseData !== null) {
+            const errorMessage = (
+              responseData as {
+                message?: string;
+                error?: string;
+              }
+            ).message;
+
+            if (errorMessage) {
+              alert(`질의응답 등록 실패\n\n${errorMessage}`);
+
+              return;
+            }
+          }
+
+          alert("입력한 질의응답 내용을 확인해주세요.");
+
+          return;
+        }
+
+        /* 401 Unauthorized */
+
+        if (error.response?.status === 401) {
+          alert("로그인 정보가 만료되었습니다. 다시 로그인해주세요.");
+
+          localStorage.removeItem("loginUser");
+          localStorage.removeItem("accessToken");
+
+          navigate("/login");
+
+          return;
+        }
+
+        /* 403 Forbidden */
+
+        if (error.response?.status === 403) {
+          alert("질의응답을 등록할 권한이 없습니다.");
+
+          return;
+        }
+
+        /* 404 Not Found */
+
+        if (error.response?.status === 404) {
+          alert(
+            "Q&A 등록 API를 찾을 수 없습니다. 백엔드의 /api/qnas 경로를 확인해주세요.",
+          );
+
+          return;
+        }
+
+        /* 500 Internal Server Error */
+
+        if (error.response?.status === 500) {
+          alert("서버에서 질의응답 등록 중 오류가 발생했습니다.");
+
+          return;
+        }
+      }
 
       alert("질의응답 등록에 실패했습니다. 다시 시도해주세요.");
     } finally {
@@ -521,35 +483,70 @@ function QnaWritePage() {
   if (!isLoggedIn) {
     return (
       <div className={styles.page}>
-        <div className={styles.container}>
-          <section className={styles.loginRequired}>
-            <div className={styles.loginIcon}>🔒</div>
+        {/* 최상단 사용자 영역 */}
 
-            <span className={styles.pageLabel}>질의응답</span>
-
-            <h1>로그인이 필요합니다.</h1>
-
-            <p>질의응답 글쓰기는 로그인한 회원만 이용할 수 있습니다.</p>
-
-            <div className={styles.loginButtonArea}>
+        <div className={styles.topUserBar}>
+          <div className={styles.topUserInner}>
+            <div className={styles.userArea}>
               <button
                 type="button"
-                className={styles.backButton}
-                onClick={() => navigate("/qna")}
-              >
-                목록으로 돌아가기
-              </button>
-
-              <button
-                type="button"
-                className={styles.loginButton}
+                className={styles.loginLink}
                 onClick={() => navigate("/login")}
               >
-                로그인하기
+                로그인
               </button>
             </div>
-          </section>
+          </div>
         </div>
+
+        {/* Header */}
+
+        <header className={styles.mainHeader}>
+          <div className={styles.headerInner}>
+            {/* 로고 */}
+
+            <button
+              type="button"
+              className={styles.logo}
+              onClick={() => navigate("/")}
+              aria-label="싸농 홈으로 이동"
+            >
+              싸농
+            </button>
+          </div>
+        </header>
+
+        {/* 본문 */}
+
+        <main className={styles.container}>
+          <section className={styles.pageHeader}>
+            <div className={styles.headerText}>
+              <span className={styles.pageLabel}>질의응답</span>
+
+              <h1>로그인이 필요합니다.</h1>
+
+              <p>질의응답 글쓰기는 로그인한 회원만 이용할 수 있습니다.</p>
+
+              <div className={styles.loginButtonArea}>
+                <button
+                  type="button"
+                  className={styles.backButton}
+                  onClick={() => navigate("/qna")}
+                >
+                  목록으로 돌아가기
+                </button>
+
+                <button
+                  type="button"
+                  className={styles.loginButton}
+                  onClick={() => navigate("/login")}
+                >
+                  로그인하기
+                </button>
+              </div>
+            </div>
+          </section>
+        </main>
       </div>
     );
   }
@@ -776,15 +773,15 @@ function QnaWritePage() {
               value={form.title}
               onChange={handleChange}
               placeholder="문의 제목을 입력해주세요."
-              maxLength={100}
+              maxLength={200}
               disabled={loading}
               autoFocus
             />
 
             <div className={styles.fieldBottom}>
-              <small>최대 100자까지 입력할 수 있습니다.</small>
+              <small>최대 200자까지 입력할 수 있습니다.</small>
 
-              <span>{form.title.length} / 100</span>
+              <span>{form.title.length} / 200</span>
             </div>
           </div>
 
@@ -910,8 +907,6 @@ function QnaWritePage() {
                 관리자는 모든 질의응답 게시글을 확인하고 답변할 수 있습니다.
                 <br />
                 답변이 등록되면 게시글 상세 화면에서 확인할 수 있습니다.
-                <br />
-                첨부파일은 최대 3개까지 등록할 수 있으며 파일당 최대 10MB입니다.
               </p>
             </div>
           </div>

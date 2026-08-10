@@ -1,191 +1,69 @@
-import { useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from "react";
 import { useNavigate } from "react-router-dom";
+
+import { getQnasApi, type QnaListResponse } from "@/api/api";
+import { getLoginUser, isLogin, logout } from "@/features/auth/utils/auth";
 
 import styles from "./QnaPage.module.css";
 
-interface QnaAttachment {
-  id: string;
-  name: string;
-  size: number;
-  type: string;
-}
-
-interface QnaPost {
-  id: number;
-  authorId: string;
-  author: string;
-  title: string;
-  content: string;
-  date: string;
-  views: number;
-  answer?: string;
-  attachments?: QnaAttachment[];
-}
+/* 검색 조건 */
 
 type SearchType = "title" | "author" | "content";
 
-const INITIAL_QNA_POSTS: QnaPost[] = [
-  {
-    id: 3,
-    authorId: "park123",
-    author: "박채소",
-    title: "모바일 화면에서도 확인 가능한가요?",
-    content: "웹사이트와 동일하게 모바일 화면에서도 확인 가능한가요?",
-    date: "2026.08.04",
-    views: 24,
-    answer: "네, 싸농은 PC와 모바일 환경 모두에서 이용하실 수 있습니다.",
-  },
-  {
-    id: 2,
-    authorId: "kim123",
-    author: "김채소",
-    title: "농수산물이 어떤 방법으로 조사 되는지 알 수 있을까요?",
-    content: "어떤 데이터를 토대로 조사가 되는 건가요?",
-    date: "2026.08.03",
-    views: 18,
-  },
-  {
-    id: 1,
-    authorId: "lee123",
-    author: "이채소",
-    title: "관심품목 설정은 어디서 하나요?",
-    content: "내가 사는 지역의 관심품목을 설정하고 싶어요.",
-    date: "2026.08.01",
-    views: 12,
-  },
-];
+/* 페이지 설정 */
 
-interface LoginUser {
-  userId?: string;
-  name?: string;
-  userName?: string;
-  role?: string;
-}
+const POSTS_PER_PAGE = 5;
+const MAX_PAGE = 5;
 
-/* localStorage 게시글 불러오기 */
-
-const getInitialPosts = (): QnaPost[] => {
-  const storedPosts = localStorage.getItem("qnaPosts");
-
-  if (!storedPosts) {
-    localStorage.setItem("qnaPosts", JSON.stringify(INITIAL_QNA_POSTS));
-
-    return INITIAL_QNA_POSTS;
-  }
-
-  try {
-    const parsedPosts = JSON.parse(storedPosts);
-
-    if (!Array.isArray(parsedPosts)) {
-      localStorage.setItem("qnaPosts", JSON.stringify(INITIAL_QNA_POSTS));
-
-      return INITIAL_QNA_POSTS;
-    }
-
-    return parsedPosts;
-  } catch (error) {
-    console.error("질의응답 게시글 불러오기 실패:", error);
-
-    localStorage.setItem("qnaPosts", JSON.stringify(INITIAL_QNA_POSTS));
-
-    return INITIAL_QNA_POSTS;
-  }
-};
-
-/* 로그인 사용자 가져오기 */
-
-const getLoginUser = (): LoginUser | null => {
-  const storedUser = localStorage.getItem("loginUser");
-
-  if (!storedUser) {
-    return null;
-  }
-
-  try {
-    const parsedUser = JSON.parse(storedUser);
-
-    if (!parsedUser || typeof parsedUser !== "object") {
-      return null;
-    }
-
-    return parsedUser;
-  } catch (error) {
-    console.error("로그인 사용자 정보 확인 실패:", error);
-
-    return null;
-  }
-};
-
-/* 로그인 사용자 ID */
-
-const getLoginUserId = (): string => {
-  const user = getLoginUser();
-
-  return user?.userId || "";
-};
-
-/* 로그인 사용자 이름 */
-
-const getLoginUserName = (): string => {
-  const user = getLoginUser();
-
-  if (!user) {
-    return "사용자";
-  }
-
-  return user.name || user.userName || user.userId || "사용자";
-};
-
-/* 관리자 여부 */
-
-const isAdminUser = (): boolean => {
-  const user = getLoginUser();
-
-  if (!user?.role) {
-    return false;
-  }
-
-  const role = user.role.toUpperCase();
-
-  return role === "ADMIN" || role === "ROLE_ADMIN";
-};
-
-/* 답변 완료 여부 */
-
-const hasAnswer = (post: QnaPost): boolean => {
-  return typeof post.answer === "string" && post.answer.trim().length > 0;
-};
+/* Q&A 페이지 */
 
 function QnaPage() {
   const navigate = useNavigate();
 
+  /* 로그인 사용자 정보 */
+
+  const loginUser = getLoginUser();
+
   /* 로그인 상태 */
 
-  const isLoggedIn = !!localStorage.getItem("loginUser");
+  const isLoggedIn = isLogin();
 
   /* 로그인 사용자 ID */
 
-  const loginUserId = useMemo(() => {
-    if (!isLoggedIn) {
-      return "";
+  const loginUserId = String(loginUser?.userId ?? "").trim();
+
+  /* 로그인 사용자 이름 */
+
+  const loginUserName = useMemo(() => {
+    if (!loginUser) {
+      return "사용자";
     }
 
-    return getLoginUserId();
-  }, [isLoggedIn]);
+    return loginUser.name || loginUser.userId || "사용자";
+  }, [loginUser]);
 
   /* 관리자 여부 */
 
   const isAdmin = useMemo(() => {
-    if (!isLoggedIn) {
+    if (!loginUser?.role) {
       return false;
     }
 
-    return isAdminUser();
-  }, [isLoggedIn]);
+    const role = loginUser.role.toUpperCase();
 
-  /* 게시글 */
+    return role === "ADMIN" || role === "ROLE_ADMIN";
+  }, [loginUser]);
 
-  const [posts, setPosts] = useState<QnaPost[]>(getInitialPosts);
+  /* Q&A 게시글 */
+
+  const [posts, setPosts] = useState<QnaListResponse[]>([]);
 
   /* 전체 메뉴 */
 
@@ -201,51 +79,199 @@ function QnaPage() {
 
   /* 페이지네이션 */
 
-  const POSTS_PER_PAGE = 5;
-  const MAX_PAGE = 5;
-
   const [currentPage, setCurrentPage] = useState(1);
 
-  /* 검색 결과 */
+  const [totalElements, setTotalElements] = useState(0);
 
-  const filteredPosts = useMemo(() => {
-    const keyword = appliedKeyword.trim().toLowerCase();
+  const [totalPagesFromApi, setTotalPagesFromApi] = useState(0);
 
-    if (!keyword) {
-      return posts;
+  /* API 로딩 상태 */
+
+  const [isLoading, setIsLoading] = useState(false);
+
+  /* API 오류 */
+
+  const [errorMessage, setErrorMessage] = useState("");
+
+  /*
+   * 게시글 작성자 ID 조회
+   *
+   * 백엔드 DTO 구조가 변경되었을 경우를 대비한다.
+   *
+   * 우선순위
+   *
+   * 1. writerLoginId
+   * 2. userId
+   * 3. memberId
+   *
+   * 실제 API 응답에 존재하는 값을 사용한다.
+   */
+
+  const getPostWriterId = useCallback((post: QnaListResponse): string => {
+    const postData = post as QnaListResponse & {
+      writerLoginId?: string | number | null;
+      userId?: string | number | null;
+      memberId?: string | number | null;
+    };
+
+    const writerLoginId = String(postData.writerLoginId ?? "").trim();
+
+    if (writerLoginId) {
+      return writerLoginId;
     }
 
-    return posts.filter((post) => {
-      switch (searchType) {
-        case "title":
-          return post.title.toLowerCase().includes(keyword);
+    const userId = String(postData.userId ?? "").trim();
 
-        case "author":
-          return post.author.toLowerCase().includes(keyword);
+    if (userId) {
+      return userId;
+    }
 
-        case "content":
-          return post.content.toLowerCase().includes(keyword);
+    const memberId = String(postData.memberId ?? "").trim();
 
-        default:
-          return true;
+    if (memberId) {
+      return memberId;
+    }
+
+    return "";
+  }, []);
+
+  /*
+   * 내가 작성한 게시글인지 확인
+   */
+
+  const isMyPost = useCallback(
+    (post: QnaListResponse): boolean => {
+      const postWriterId = getPostWriterId(post);
+
+      if (!loginUserId || !postWriterId) {
+        return false;
       }
-    });
-  }, [posts, appliedKeyword, searchType]);
+
+      return postWriterId === loginUserId;
+    },
+    [getPostWriterId, loginUserId],
+  );
+
+  /*
+   * Q&A 목록 API 조회
+   *
+   * localStorage의 qnaPosts는 사용하지 않는다.
+   *
+   * 오직 GET /api/qnas API 응답만 사용한다.
+   */
+
+  const fetchQnaPosts = useCallback(async (page: number, keyword: string) => {
+    setIsLoading(true);
+    setErrorMessage("");
+
+    try {
+      /*
+       * 화면 페이지는 1부터 시작한다.
+       *
+       * Spring Boot Pageable은 0부터 시작한다.
+       *
+       * 화면 1페이지
+       * -> API page=0
+       *
+       * 화면 2페이지
+       * -> API page=1
+       */
+
+      const response = await getQnasApi(page - 1, POSTS_PER_PAGE, keyword);
+
+      console.log("=================================");
+      console.log("Q&A API 호출 성공");
+      console.log("Q&A API 응답:", response);
+      console.log("Q&A 게시글:", response?.content);
+      console.log("전체 게시글 수:", response?.totalElements);
+      console.log("전체 페이지 수:", response?.totalPages);
+      console.log("=================================");
+
+      /*
+       * 백엔드 응답 구조 확인
+       */
+
+      if (!response || !Array.isArray(response.content)) {
+        console.error("Q&A API 응답 구조가 올바르지 않습니다.", response);
+
+        setPosts([]);
+        setTotalElements(0);
+        setTotalPagesFromApi(0);
+        setErrorMessage("Q&A API 응답 형식이 올바르지 않습니다.");
+
+        return;
+      }
+
+      /*
+       * 개발 중 작성자 ID 필드 확인용 로그
+       *
+       * 실제 API 응답을 확인하기 위한 로그다.
+       */
+
+      response.content.forEach((post, index) => {
+        console.log(`Q&A 게시글 ${index + 1} 작성자 정보`, {
+          id: post.id,
+          title: post.title,
+          writerName: post.writerName,
+          writerLoginId: (
+            post as QnaListResponse & {
+              writerLoginId?: string | number | null;
+            }
+          ).writerLoginId,
+          userId: (
+            post as QnaListResponse & {
+              userId?: string | number | null;
+            }
+          ).userId,
+          memberId: (
+            post as QnaListResponse & {
+              memberId?: string | number | null;
+            }
+          ).memberId,
+        });
+      });
+
+      /*
+       * 백엔드에서 받은 content만 화면에 표시한다.
+       */
+
+      setPosts(response.content);
+
+      setTotalElements(response.totalElements ?? 0);
+
+      setTotalPagesFromApi(response.totalPages ?? 0);
+    } catch (error) {
+      console.error("Q&A 목록 조회 실패:", error);
+
+      setPosts([]);
+      setTotalElements(0);
+      setTotalPagesFromApi(0);
+
+      setErrorMessage("Q&A 목록을 불러오는 중 오류가 발생했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /*
+   * 페이지 최초 진입
+   *
+   * GET /api/qnas?page=0&size=5
+   */
+
+  useEffect(() => {
+    const timerId = window.setTimeout(() => {
+      void fetchQnaPosts(1, "");
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [fetchQnaPosts]);
 
   /* 전체 페이지 수 */
 
-  const totalPages = Math.min(
-    Math.max(1, Math.ceil(filteredPosts.length / POSTS_PER_PAGE)),
-    MAX_PAGE,
-  );
-
-  /* 현재 페이지 게시글 */
-
-  const paginatedPosts = useMemo(() => {
-    const startIndex = (currentPage - 1) * POSTS_PER_PAGE;
-
-    return filteredPosts.slice(startIndex, startIndex + POSTS_PER_PAGE);
-  }, [filteredPosts, currentPage]);
+  const totalPages = Math.min(Math.max(1, totalPagesFromApi), MAX_PAGE);
 
   /* 검색 Placeholder */
 
@@ -268,15 +294,18 @@ function QnaPage() {
   /* 검색 */
 
   const handleSearch = () => {
-    setAppliedKeyword(searchKeyword.trim());
+    const keyword = searchKeyword.trim();
+
+    setAppliedKeyword(keyword);
+
     setCurrentPage(1);
+
+    void fetchQnaPosts(1, keyword);
   };
 
   /* Enter 검색 */
 
-  const handleSearchKeyDown = (
-    event: React.KeyboardEvent<HTMLInputElement>,
-  ) => {
+  const handleSearchKeyDown = (event: KeyboardEvent) => {
     if (event.key === "Enter") {
       handleSearch();
     }
@@ -284,29 +313,50 @@ function QnaPage() {
 
   /* 검색 조건 변경 */
 
-  const handleSearchTypeChange = (
-    event: React.ChangeEvent<HTMLSelectElement>,
-  ) => {
+  const handleSearchTypeChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const newSearchType = event.target.value as SearchType;
 
     setSearchType(newSearchType);
+
     setSearchKeyword("");
+
     setAppliedKeyword("");
+
     setCurrentPage(1);
+
+    /*
+     * 현재 백엔드 API는 keyword만 전달받는다.
+     *
+     * searchType은 화면에서만 관리한다.
+     *
+     * 추후 백엔드에서 searchType을 지원하면
+     * getQnasApi에 searchType을 추가하면 된다.
+     */
+
+    void fetchQnaPosts(1, "");
   };
 
   /* 검색 초기화 */
 
   const handleResetSearch = () => {
     setSearchKeyword("");
+
     setAppliedKeyword("");
+
     setSearchType("title");
+
     setCurrentPage(1);
+
+    void fetchQnaPosts(1, "");
   };
 
   /* 글쓰기 */
 
   const handleWrite = () => {
+    /*
+     * auth.ts의 isLogin()을 기준으로 로그인 상태를 확인한다.
+     */
+
     if (!isLoggedIn || !loginUserId) {
       alert("로그인 후 글쓰기가 가능합니다.");
 
@@ -318,20 +368,13 @@ function QnaPage() {
     navigate("/qna/write");
   };
 
-  /*
-    게시글 클릭 권한
+  /* 게시글 클릭 */
 
-    비로그인 사용자
-      → 게시글 내용 확인 불가
+  const handlePostClick = (post: QnaListResponse) => {
+    /*
+     * 로그인하지 않은 사용자는 게시글 상세 내용을 볼 수 없다.
+     */
 
-    일반 로그인 사용자
-      → 본인이 작성한 게시글만 확인 가능
-
-    관리자
-      → 모든 게시글 확인 가능
-  */
-
-  const handlePostClick = (post: QnaPost) => {
     if (!isLoggedIn || !loginUserId) {
       alert("로그인 후 게시글 내용을 확인할 수 있습니다.");
 
@@ -340,28 +383,50 @@ function QnaPage() {
       return;
     }
 
-    const isMyPost = post.authorId === loginUserId;
+    /*
+     * 백엔드 응답에서 작성자 ID를 가져온다.
+     */
 
-    if (!isAdmin && !isMyPost) {
+    const postWriterId = getPostWriterId(post);
+
+    /*
+     * 내가 작성한 글인지 확인한다.
+     */
+
+    const myPost = isMyPost(post);
+
+    /*
+     * 개발 중 권한 확인 로그
+     */
+
+    console.log("=================================");
+    console.log("Q&A 게시글 접근 권한 확인");
+    console.log("게시글 ID:", post.id);
+    console.log("게시글 제목:", post.title);
+    console.log("게시글 작성자 이름:", post.writerName);
+    console.log("게시글 작성자 ID:", postWriterId);
+    console.log("현재 로그인 사용자 ID:", loginUserId);
+    console.log("내 게시글 여부:", myPost);
+    console.log("관리자 여부:", isAdmin);
+    console.log("=================================");
+
+    /*
+     * 관리자 또는 본인 게시글만 상세 페이지로 이동한다.
+     */
+
+    if (!isAdmin && !myPost) {
       alert("본인이 작성한 게시글만 내용을 확인할 수 있습니다.");
 
       return;
     }
 
-    const updatedPosts = posts.map((item) => {
-      if (item.id === post.id) {
-        return {
-          ...item,
-          views: item.views + 1,
-        };
-      }
-
-      return item;
-    });
-
-    setPosts(updatedPosts);
-
-    localStorage.setItem("qnaPosts", JSON.stringify(updatedPosts));
+    /*
+     * 상세 페이지에서
+     *
+     * GET /api/qnas/{id}
+     *
+     * 를 호출하도록 한다.
+     */
 
     navigate(`/qna/${post.id}`);
   };
@@ -374,6 +439,8 @@ function QnaPage() {
     }
 
     setCurrentPage(page);
+
+    void fetchQnaPosts(page, appliedKeyword);
 
     window.scrollTo({
       top: 0,
@@ -399,12 +466,27 @@ function QnaPage() {
 
   /* 로그아웃 */
 
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("user");
-    localStorage.removeItem("loginUser");
+  const handleLogout = async () => {
+    try {
+      /*
+       * 서버 로그아웃 API 호출
+       */
 
-    navigate("/");
+      const { logoutApi } = await import("@/api/api");
+
+      await logoutApi();
+    } catch (error) {
+      console.error("로그아웃 API 오류:", error);
+    } finally {
+      /*
+       * auth.ts의 logout()으로
+       * localStorage 로그인 정보도 제거한다.
+       */
+
+      logout();
+
+      navigate("/");
+    }
   };
 
   /* 전체 메뉴 이동 */
@@ -415,14 +497,50 @@ function QnaPage() {
     navigate(path);
   };
 
-  /* 날짜 */
+  /* 날짜 포맷 */
 
   const formatDate = (date: string) => {
-    return date || "-";
+    if (!date) {
+      return "-";
+    }
+
+    /*
+     * 백엔드 LocalDateTime
+     *
+     * 2026-08-07T11:27:42
+     *
+     * 화면
+     *
+     * 2026.08.07
+     */
+
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return date;
+    }
+
+    const year = parsedDate.getFullYear();
+
+    const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
+
+    const day = String(parsedDate.getDate()).padStart(2, "0");
+
+    return `${year}.${month}.${day}`;
+  };
+
+  /* 답변 완료 여부 */
+
+  const hasAnswer = (post: QnaListResponse) => {
+    /*
+     * answeredAt이 존재하면 답변 완료로 판단한다.
+     */
+
+    return !!post.answeredAt;
   };
 
   return (
-    <div className={styles.page}>
+    <div>
       {/* 최상단 사용자 영역 */}
 
       <div className={styles.topUserBar}>
@@ -430,7 +548,7 @@ function QnaPage() {
           <div className={styles.userArea}>
             {isLoggedIn ? (
               <>
-                <span className={styles.userName}>{getLoginUserName()}</span>
+                <span className={styles.userName}>{loginUserName}</span>
 
                 {isAdmin && <span className={styles.adminBadge}>관리자</span>}
 
@@ -931,95 +1049,145 @@ function QnaPage() {
 
         {appliedKeyword && (
           <div className={styles.searchResult} aria-live="polite">
-            <span>"{appliedKeyword}"</span>
-            검색 결과 <strong>{filteredPosts.length}</strong>건
+            <span>"{appliedKeyword}"</span> 검색 결과{" "}
+            <strong>{totalElements}</strong>건
             <button type="button" onClick={handleResetSearch}>
               검색 초기화
             </button>
           </div>
         )}
 
+        {/* API 오류 */}
+
+        {errorMessage && (
+          <div className={styles.empty} role="alert">
+            <div className={styles.emptyIcon}>⚠️</div>
+
+            <h3>{errorMessage}</h3>
+
+            <p>잠시 후 다시 시도해주세요.</p>
+
+            <button
+              type="button"
+              onClick={() => void fetchQnaPosts(currentPage, appliedKeyword)}
+            >
+              다시 불러오기
+            </button>
+          </div>
+        )}
+
+        {/* 로딩 */}
+
+        {isLoading && !errorMessage && (
+          <div className={styles.empty} aria-live="polite">
+            <div className={styles.emptyIcon}>⏳</div>
+
+            <h3>Q&A 목록을 불러오는 중입니다.</h3>
+
+            <p>잠시만 기다려주세요.</p>
+          </div>
+        )}
+
         {/* 질의응답 게시글 목록 */}
 
-        <section className={styles.board} aria-label="질의응답 게시글 목록">
-          <div className={styles.tableHeader}>
-            <div className={styles.numberColumn}>번호</div>
+        {!isLoading && !errorMessage && (
+          <section className={styles.board} aria-label="질의응답 게시글 목록">
+            <div className={styles.tableHeader}>
+              <div className={styles.numberColumn}>번호</div>
 
-            <div className={styles.titleColumn}>제목</div>
+              <div className={styles.titleColumn}>제목</div>
 
-            <div className={styles.authorColumn}>작성자</div>
+              <div className={styles.authorColumn}>작성자</div>
 
-            <div className={styles.dateColumn}>날짜</div>
+              <div className={styles.dateColumn}>날짜</div>
 
-            <div className={styles.viewsColumn}>조회수</div>
-          </div>
-
-          {paginatedPosts.length > 0 ? (
-            <div className={styles.tableBody}>
-              {paginatedPosts.map((post, index) => {
-                const postNumber =
-                  filteredPosts.length -
-                  ((currentPage - 1) * POSTS_PER_PAGE + index);
-
-                const answered = hasAnswer(post);
-
-                return (
-                  <button
-                    type="button"
-                    key={post.id}
-                    className={styles.tableRow}
-                    onClick={() => handlePostClick(post)}
-                    title={
-                      isAdmin
-                        ? "관리자 권한으로 게시글 보기"
-                        : loginUserId && post.authorId === loginUserId
-                          ? "내 게시글 보기"
-                          : isLoggedIn
-                            ? "본인이 작성한 게시글만 확인할 수 있습니다."
-                            : "로그인 후 게시글을 확인할 수 있습니다."
-                    }
-                  >
-                    <div className={styles.numberColumn}>{postNumber}</div>
-
-                    <div className={styles.titleColumn}>
-                      <span className={styles.postTitle}>{post.title}</span>
-
-                      {answered && (
-                        <span
-                          className={styles.answerStatus}
-                          aria-label="답변 완료"
-                        >
-                          <span className={styles.answerArrow}>↳</span>
-                          답변이 완료되었습니다
-                        </span>
-                      )}
-                    </div>
-
-                    <div className={styles.authorColumn}>{post.author}</div>
-
-                    <div className={styles.dateColumn}>
-                      {formatDate(post.date)}
-                    </div>
-
-                    <div className={styles.viewsColumn}>{post.views}</div>
-                  </button>
-                );
-              })}
+              <div className={styles.viewsColumn}>조회수</div>
             </div>
-          ) : (
-            <div className={styles.empty}>
-              <div className={styles.emptyIcon}>🔍</div>
 
-              <h3>등록된 질의응답이 없습니다.</h3>
+            {posts.length > 0 ? (
+              <div className={styles.tableBody}>
+                {posts.map((post, index) => {
+                  /*
+                   * 게시글 번호
+                   */
 
-              <p>궁금한 내용을 질의응답 글쓰기로 등록해주세요.</p>
-            </div>
-          )}
-        </section>
+                  const postNumber =
+                    totalElements -
+                    ((currentPage - 1) * POSTS_PER_PAGE + index);
+
+                  const answered = hasAnswer(post);
+
+                  const myPost = isMyPost(post);
+
+                  return (
+                    <button
+                      type="button"
+                      key={post.id}
+                      className={styles.tableRow}
+                      onClick={() => handlePostClick(post)}
+                      title={
+                        isAdmin
+                          ? "관리자 권한으로 게시글 보기"
+                          : myPost
+                            ? "내 게시글 보기"
+                            : isLoggedIn
+                              ? "본인이 작성한 게시글만 확인할 수 있습니다."
+                              : "로그인 후 게시글을 확인할 수 있습니다."
+                      }
+                    >
+                      <div className={styles.numberColumn}>{postNumber}</div>
+
+                      <div className={styles.titleColumn}>
+                        <span className={styles.postTitle}>{post.title}</span>
+
+                        {answered && (
+                          <span
+                            className={styles.answerStatus}
+                            aria-label="답변 완료"
+                          >
+                            <span className={styles.answerArrow}>↳</span>
+                            답변이 완료되었습니다
+                          </span>
+                        )}
+
+                        {post.attachmentAvailable && (
+                          <span
+                            aria-label="첨부파일 있음"
+                            title="첨부파일 있음"
+                          >
+                            📎
+                          </span>
+                        )}
+                      </div>
+
+                      <div className={styles.authorColumn}>
+                        {post.writerName}
+                      </div>
+
+                      <div className={styles.dateColumn}>
+                        {formatDate(post.createdAt)}
+                      </div>
+
+                      <div className={styles.viewsColumn}>{post.viewCount}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className={styles.empty}>
+                <div className={styles.emptyIcon}>🔍</div>
+
+                <h3>등록된 질의응답이 없습니다.</h3>
+
+                <p>궁금한 내용을 질의응답 글쓰기로 등록해주세요.</p>
+              </div>
+            )}
+          </section>
+        )}
 
         {/* 페이지네이션 */}
 
-        {filteredPosts.length > 0 && (
+        {!isLoading && !errorMessage && totalElements > 0 && (
           <nav className={styles.pagination} aria-label="질의응답 페이지 이동">
             <button
               type="button"
@@ -1067,7 +1235,7 @@ function QnaPage() {
 
         <div className={styles.boardInfo}>
           <span>
-            전체 <strong>{filteredPosts.length}</strong>건
+            전체 <strong>{totalElements}</strong>건
           </span>
 
           <span className={styles.loginInfo}>
