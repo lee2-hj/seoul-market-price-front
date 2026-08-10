@@ -124,6 +124,7 @@ export default function BoardPage() {
   const [inputKeyword, setInputKeyword] = useState<string>(keyword);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setInputSearchType(searchType);
     setInputKeyword(keyword);
   }, [searchType, keyword]);
@@ -173,7 +174,7 @@ export default function BoardPage() {
     const pages: number[] = [];
 
     let startPage = Math.max(1, page - 2);
-    let endPage = Math.min(totalPages, startPage + 4);
+    const endPage = Math.min(totalPages, startPage + 4);
 
     if (endPage - startPage < 4) {
       startPage = Math.max(1, endPage - 4);
