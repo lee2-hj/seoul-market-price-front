@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { getBoardPostApi, updateBoardPostApi, deleteBoardPostApi } from "@/api/api";
+import { isLogin, getLoginUser } from "@/features/auth/utils/auth";
 import type { BoardUpdateRequest } from "@/features/board/types/board.types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,14 @@ export default function BoardEditPage() {
   const queryClient = useQueryClient();
 
   const boardId = Number(postId);
+
+  // 비로그인 접근 방어
+  useEffect(() => {
+    if (!isLogin()) {
+      alert("로그인이 필요한 서비스입니다.");
+      navigate("/login", { replace: true });
+    }
+  }, [navigate]);
 
   const {
     register,
@@ -38,17 +47,35 @@ export default function BoardEditPage() {
   const { data: post, isLoading, isError, error } = useQuery({
     queryKey: ["board", boardId],
     queryFn: () => getBoardPostApi(boardId),
-    enabled: !isNaN(boardId) && boardId > 0,
+    enabled: !isNaN(boardId) && boardId > 0 && isLogin(),
   });
 
   useEffect(() => {
     if (post) {
+      const loginUser = getLoginUser();
+      const isAuthor =
+        loginUser &&
+        (loginUser.role === "ADMIN" ||
+          (loginUser.userId &&
+            post.authorId &&
+            (loginUser.userId === post.authorId ||
+              String(loginUser.userId) === String(post.authorId))) ||
+          (loginUser.name &&
+            post.authorName &&
+            loginUser.name === post.authorName));
+
+      if (!isAuthor) {
+        alert("수정 권한이 없습니다.");
+        navigate(`/board/${boardId}`, { replace: true });
+        return;
+      }
+
       reset({
         title: post.title,
         content: post.content,
       });
     }
-  }, [post, reset]);
+  }, [post, boardId, navigate, reset]);
 
   const updateMutation = useMutation({
     mutationFn: (data: BoardUpdateRequest) => updateBoardPostApi(boardId, data),

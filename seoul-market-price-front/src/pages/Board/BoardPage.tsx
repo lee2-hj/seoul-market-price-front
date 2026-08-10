@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import { getBoardPostsApi } from "@/api/api";
+import { isLogin } from "@/features/auth/utils/auth";
 import type { BoardListItem, BoardSearchType } from "@/features/board/types/board.types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -98,7 +99,18 @@ function BoardRow({ item, displayNo, isTopNotice = false }: BoardRowProps) {
  * 게시판 메인 컴포넌트
  */
 export default function BoardPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // 글쓰기 클릭 핸들러 (비로그인 체크)
+  const handleWriteClick = () => {
+    if (!isLogin()) {
+      alert("로그인 후 글을 작성할 수 있습니다.");
+      navigate("/login");
+      return;
+    }
+    navigate("/board/write");
+  };
 
   // 1. URL Query Parameters 파싱
   const pageParam = parseInt(searchParams.get("page") || "1", 10);
@@ -154,12 +166,7 @@ export default function BoardPage() {
     [searchType, keyword, setSearchParams]
   );
 
-  // 6. 탭 이동 핸들러 (alert 팝업 완전 제거, 무반응 처리)
-  const handleTabClick = (_tabKey: string) => {
-    // 팝업이나 페이지 이동 없이 완전 무반응 유지
-  };
-
-  // 7. 페이지 번호 목록 생성
+  // 6. 페이지 번호 목록 생성
   const pageNumbers = useMemo(() => {
     if (!data || data.totalPages <= 1) return [];
     const totalPages = data.totalPages;
@@ -203,19 +210,19 @@ export default function BoardPage() {
           <div className="flex justify-center mb-6">
             <div className="flex items-center gap-2 p-1 bg-white rounded-[10px] border border-[#dce4da] shadow-sm">
               <button
-                onClick={() => handleTabClick("board")}
+                type="button"
                 className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#4c9b55] text-white transition-all cursor-pointer"
               >
                 일반게시판
               </button>
               <button
-                onClick={() => handleTabClick("qna")}
+                type="button"
                 className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all cursor-pointer"
               >
                 Q&A게시판
               </button>
               <button
-                onClick={() => handleTabClick("faq")}
+                type="button"
                 className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all cursor-pointer"
               >
                 자주묻는질문
@@ -265,12 +272,13 @@ export default function BoardPage() {
             <p className="text-[14px] text-[#667065]">
               전체 <strong className="text-[#4c9b55] font-extrabold">{totalElements}</strong>개의 게시글이 있습니다.
             </p>
-            <Link
-              to="/board/write"
-              className="inline-flex items-center justify-center min-w-[94px] h-[42px] px-5 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[14px] font-bold rounded-[7px] transition-colors border border-[#4c9b55]"
+            <button
+              type="button"
+              onClick={handleWriteClick}
+              className="inline-flex items-center justify-center min-w-[94px] h-[42px] px-5 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[14px] font-bold rounded-[7px] transition-colors border border-[#4c9b55] cursor-pointer"
             >
               글쓰기
-            </Link>
+            </button>
           </div>
 
           {/* Table 영역 */}

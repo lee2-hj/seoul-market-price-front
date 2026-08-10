@@ -150,6 +150,14 @@ export default function BoardDetailPage() {
     return false;
   };
 
+  const canModifyPost = (postAuthorId?: string, postAuthorName?: string) => {
+    if (!loginUser) return false;
+    if (loginUser.role === "ADMIN") return true;
+    if (loginUser.userId && postAuthorId && (loginUser.userId === postAuthorId || String(loginUser.userId) === String(postAuthorId))) return true;
+    if (loginUser.name && postAuthorName && loginUser.name === postAuthorName) return true;
+    return false;
+  };
+
   if (isNaN(boardId) || boardId <= 0) {
     return (
       <div className="min-h-screen bg-[#fafcf9]">
@@ -234,11 +242,13 @@ export default function BoardDetailPage() {
                 {/* 하단 버튼 */}
                 <div className="flex items-center justify-between pt-6 border-t border-[#edf1ec]">
                   <div className="flex items-center gap-2">
-                    <Link to={`/board/${boardId}/edit`}>
-                      <Button className="h-[42px] px-6 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[14px] font-bold rounded-[7px]">
-                        수정
-                      </Button>
-                    </Link>
+                    {canModifyPost(post.authorId, post.authorName) && (
+                      <Link to={`/board/${boardId}/edit`}>
+                        <Button className="h-[42px] px-6 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[14px] font-bold rounded-[7px]">
+                          수정
+                        </Button>
+                      </Link>
+                    )}
                     <Button
                       variant="outline"
                       onClick={() => navigate("/board")}
@@ -248,14 +258,16 @@ export default function BoardDetailPage() {
                     </Button>
                   </div>
 
-                  <Button
-                    variant="outline"
-                    onClick={handleDeletePost}
-                    disabled={deletePostMutation.isPending}
-                    className="h-[42px] px-6 border-rose-200 text-rose-600 hover:bg-rose-50 text-[14px] font-bold rounded-[7px]"
-                  >
-                    {deletePostMutation.isPending ? "삭제 중..." : "삭제"}
-                  </Button>
+                  {canModifyPost(post.authorId, post.authorName) && (
+                    <Button
+                      variant="outline"
+                      onClick={handleDeletePost}
+                      disabled={deletePostMutation.isPending}
+                      className="h-[42px] px-6 border-rose-200 text-rose-600 hover:bg-rose-50 text-[14px] font-bold rounded-[7px]"
+                    >
+                      {deletePostMutation.isPending ? "삭제 중..." : "삭제"}
+                    </Button>
+                  )}
                 </div>
               </>
             ) : (

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { isLogin, getLoginUser } from "@/features/auth/utils/auth";
@@ -184,22 +184,11 @@ export default function MyPage() {
   const [emailCertSent, setEmailCertSent] = useState(false);
   const [emailCertCode, setEmailCertCode] = useState("");
 
-  useEffect(() => {
-    const settingsToSave: MyPageSettings = {
-      profile,
-      favoriteItems,
-      preferredDistrict,
-      notificationSettings,
-      priceAlerts,
-    };
-    localStorage.setItem(MY_PAGE_STORAGE_KEY, JSON.stringify(settingsToSave));
-  }, [profile, favoriteItems, preferredDistrict, notificationSettings, priceAlerts]);
-
   const { register, handleSubmit, setValue } = useForm<Profile>({
     defaultValues: profile,
   });
 
-  // 일괄 저장 핸들러 (회원정보 + 관심품목 + 알림 설정)
+  // 회원 정보 및 설정 일괄 저장 핸들러 (수동 저장)
   const handleSaveAll = (formData: Profile) => {
     if (!isLoggedIn) {
       alert("로그인 후 회원 정보 및 설정을 저장하실 수 있습니다.");
@@ -219,6 +208,30 @@ export default function MyPage() {
     localStorage.setItem(MY_PAGE_STORAGE_KEY, JSON.stringify(settingsToSave));
 
     alert("회원 정보, 관심 품목 및 알림 설정이 성공적으로 저장되었습니다!");
+  };
+
+  // 알림 설정 탭 전용 저장 핸들러 (수동 저장)
+  const handleSaveNotificationSettings = () => {
+    if (!isLoggedIn) {
+      alert("로그인 후 설정을 저장하실 수 있습니다.");
+      return;
+    }
+
+    const currentSaved = getStoredMyPageSettings() || {
+      profile,
+      favoriteItems,
+      preferredDistrict,
+      notificationSettings,
+      priceAlerts,
+    };
+
+    const settingsToSave: MyPageSettings = {
+      ...currentSaved,
+      notificationSettings,
+    };
+    localStorage.setItem(MY_PAGE_STORAGE_KEY, JSON.stringify(settingsToSave));
+
+    alert("알림 수신 설정이 성공적으로 저장되었습니다!");
   };
 
   // 휴대폰 인증 발송 및 검증
@@ -752,7 +765,7 @@ export default function MyPage() {
                 <div className="text-center pt-4">
                   <button
                     type="button"
-                    onClick={() => alert("알림 설정이 저장되었습니다.")}
+                    onClick={handleSaveNotificationSettings}
                     className="h-[48px] px-8 bg-[#57a764] hover:bg-[#438e4d] text-white text-[15px] font-bold rounded-[8px] border-none outline-none cursor-pointer transition-colors"
                   >
                     알림 설정 저장
