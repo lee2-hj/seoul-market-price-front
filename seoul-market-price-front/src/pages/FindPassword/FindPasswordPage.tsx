@@ -1,4 +1,5 @@
 import { useState } from "react";
+import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Eye,
@@ -11,9 +12,21 @@ import {
 
 import PassAuth from "@/features/auth/components/PassAuth";
 import {
-  findPasswordApi,
+  completePasswordResetApi,
+  verifyPasswordResetApi,
   checkUserIdApi,
 } from "@/api/api";
+
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as
+      | { message?: string; error?: string }
+      | undefined;
+    return data?.message || data?.error || fallback;
+  }
+
+  return error instanceof Error && error.message ? error.message : fallback;
+}
 
 export default function FindPasswordPage() {
   const navigate = useNavigate();
@@ -30,6 +43,7 @@ export default function FindPasswordPage() {
   const [phone, setPhone] = useState("");
   const [userName, setUserName] = useState("");
   const [isPassVerified, setIsPassVerified] = useState(false);
+  const [resetToken, setResetToken] = useState("");
 
   // 2단계 State (새 비밀번호)
   const [newPassword, setNewPassword] = useState("");
@@ -67,7 +81,7 @@ export default function FindPasswordPage() {
 
     if (isSocialAccount) {
       setStep1Error(
-        `${socialProviderName} 소셜 계정은 비밀번호가 없습니다. ${socialProviderName} 로그인을 이용해 주세요.`
+        `${socialProviderName} 소셜 계정은 비밀번호가 없습니다. ${socialProviderName} 로그인을 이용해 주세요.`,
       );
       return;
     }
@@ -106,13 +120,35 @@ export default function FindPasswordPage() {
 
   // 2. PASS 본인인증 성공 핸들러
   const handlePassSuccess = async (result: {
+    identityVerificationId: string;
     name: string;
     phoneNumber: string;
   }) => {
-    setPhone(result.phoneNumber);
-    setUserName(result.name);
-    setIsPassVerified(true);
-    setStep1Error("");
+    try {
+      const response = await verifyPasswordResetApi(
+        result.identityVerificationId,
+        userId.trim(),
+      );
+
+      if (!response.verified || !response.resetToken) {
+        throw new Error("본인인증 결과를 확인할 수 없습니다.");
+      }
+
+      setPhone(result.phoneNumber);
+      setUserName(result.name);
+      setResetToken(response.resetToken);
+      setIsPassVerified(true);
+      setStep1Error("");
+    } catch (error) {
+      setIsPassVerified(false);
+      setResetToken("");
+      setStep1Error(
+        getApiErrorMessage(
+          error,
+          "입력한 아이디와 본인인증 정보가 일치하지 않습니다.",
+        ),
+      );
+    }
   };
 
   // 3. 새 비밀번호 유효성 검사 (8~16자 & 일치 여부)
@@ -137,12 +173,22 @@ export default function FindPasswordPage() {
       setSubmitting(true);
       setStep2Error("");
 
-      const rawPhone = phone.replace(/-/g, "").trim();
-      await findPasswordApi(userId.trim(), rawPhone);
+      if (!resetToken) {
+        setStep2Error("본인인증이 만료되었습니다. 다시 인증해 주세요.");
+        setStep(1);
+        return;
+      }
+
+      await completePasswordResetApi(resetToken, newPassword, confirmPassword);
 
       setStep(3);
-    } catch {
-      setStep(3);
+    } catch (error) {
+      setStep2Error(
+        getApiErrorMessage(
+          error,
+          "비밀번호 변경에 실패했습니다. 다시 시도해 주세요.",
+        ),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -152,7 +198,11 @@ export default function FindPasswordPage() {
     <div className="min-h-screen w-full bg-[#fafcf9] flex flex-col justify-center items-center px-4 pt-6 pb-20 sm:px-6 lg:px-8">
       {/* 로고 & 타이틀 */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center mb-6">
-        <Link to="/" className="inline-block no-underline" style={{ textDecoration: "none" }}>
+        <Link
+          to="/"
+          className="inline-block no-underline"
+          style={{ textDecoration: "none" }}
+        >
           <img
             src="/ssanong.svg"
             alt="싸농 로고"
@@ -182,7 +232,8 @@ export default function FindPasswordPage() {
                   소셜({socialProviderName}) 연동 계정입니다
                 </div>
                 <p className="text-[12px] text-[#7a5a14] leading-relaxed">
-                  {socialProviderName} 소셜 로그인은 비밀번호가 없습니다. 로그인 페이지에서
+                  {socialProviderName} 소셜 로그인은 비밀번호가 없습니다. 로그인
+                  페이지에서
                   {socialProviderName} 로그인을 이용해 주세요.
                 </p>
                 <Link
@@ -202,7 +253,8 @@ export default function FindPasswordPage() {
                   가입되지 않은 아이디입니다
                 </div>
                 <p className="text-[12px] text-rose-600 leading-relaxed">
-                  입력하신 아이디로 등록된 회원 정보가 없습니다. 회원가입을 먼저 진행해 주세요.
+                  입력하신 아이디로 등록된 회원 정보가 없습니다. 회원가입을 먼저
+                  진행해 주세요.
                 </p>
                 <Link
                   to="/signup/select"
@@ -262,6 +314,7 @@ export default function FindPasswordPage() {
                       setIsPassVerified(false);
                       setUserName("");
                       setPhone("");
+                      setResetToken("");
                     }}
                     className="w-[88px] h-[50px] border border-[#cfd9d0] bg-white hover:bg-[#f5f8f5] text-[#526055] font-bold text-[14px] rounded-[10px] cursor-pointer transition-colors shrink-0"
                   >
@@ -347,8 +400,8 @@ export default function FindPasswordPage() {
                     newPassword.length === 0
                       ? "text-[#8a9388]"
                       : isPasswordLengthValid
-                      ? "text-[#3a8b46]"
-                      : "text-rose-500"
+                        ? "text-[#3a8b46]"
+                        : "text-rose-500"
                   }`}
                 >
                   8~16자 입력 ({newPassword.length}/16)
@@ -393,9 +446,7 @@ export default function FindPasswordPage() {
                       isPasswordMatch ? "text-[#3a8b46]" : "text-rose-500"
                     }`}
                   >
-                    {isPasswordMatch
-                      ? "✔ 비밀번호 일치"
-                      : "✕ 비밀번호 불일치"}
+                    {isPasswordMatch ? "✔ 비밀번호 일치" : "✕ 비밀번호 불일치"}
                   </span>
                 )}
               </div>
@@ -443,7 +494,9 @@ export default function FindPasswordPage() {
             {/* 변경 완료 버튼 */}
             <button
               type="submit"
-              disabled={submitting || !isPasswordLengthValid || !isPasswordMatch}
+              disabled={
+                submitting || !isPasswordLengthValid || !isPasswordMatch
+              }
               className="w-full h-[52px] mt-4 bg-[#4c9b55] hover:bg-[#438b4b] text-white font-bold text-[16px] rounded-[10px] cursor-pointer transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {submitting ? "비밀번호 변경 중..." : "비밀번호 변경하기"}
