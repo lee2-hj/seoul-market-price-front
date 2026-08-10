@@ -1,6 +1,9 @@
 import axios from "axios";
 
-import apiMiddleware, { BACKEND_URL, type RetryableRequestConfig } from "./middleware";
+import apiMiddleware, {
+  BACKEND_URL,
+  type RetryableRequestConfig,
+} from "./middleware";
 
 // ===============================
 // 로그인 응답
@@ -58,10 +61,13 @@ export async function getMemberMeApi(): Promise<MemberMeResponse> {
   // 항상 서버에 다시 물어보도록 강제한다. 그렇지 않으면 로그아웃 후
   // 새로고침해도 캐시된 "로그인됨" 응답이 그대로 재사용되어
   // 헤더가 로그인 상태로 남는 문제가 생긴다.
-  const response = await apiMiddleware.get<MemberMeResponse>("/api/members/me", {
-    silentAuthCheck: true,
-    params: { _t: Date.now() },
-  } as RetryableRequestConfig);
+  const response = await apiMiddleware.get<MemberMeResponse>(
+    "/api/members/me",
+    {
+      silentAuthCheck: true,
+      params: { _t: Date.now() },
+    } as RetryableRequestConfig,
+  );
 
   return response.data;
 }
@@ -154,14 +160,40 @@ export async function findIdApi(phone: string) {
 }
 
 // ===============================
-// 비밀번호 찾기
+// 비밀번호 재설정
 // ===============================
 
-export async function findPasswordApi(userId: string, phone: string) {
-  const response = await apiMiddleware.post("/api/users/find-password", {
-    userId,
-    phone,
-  });
+export interface PasswordResetVerifyResponse {
+  verified: boolean;
+  resetToken: string;
+  expiresInSeconds: number;
+}
+
+export async function verifyPasswordResetApi(
+  identityVerificationId: string,
+  userId: string,
+): Promise<PasswordResetVerifyResponse> {
+  const response = await apiMiddleware.post<PasswordResetVerifyResponse>(
+    "/api/members/password-reset/verify",
+    { identityVerificationId, userId },
+  );
+
+  return response.data;
+}
+
+export interface PasswordResetCompleteResponse {
+  message: string;
+}
+
+export async function completePasswordResetApi(
+  resetToken: string,
+  newPassword: string,
+  newPasswordConfirm: string,
+): Promise<PasswordResetCompleteResponse> {
+  const response = await apiMiddleware.post<PasswordResetCompleteResponse>(
+    "/api/members/password-reset/complete",
+    { resetToken, newPassword, newPasswordConfirm },
+  );
 
   return response.data;
 }
