@@ -2,11 +2,8 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 
-import {
-  getUserNameFromToken,
-  isLogin,
-  logout,
-} from "@/features/auth/utils/auth";
+import { logout } from "@/features/auth/utils/auth";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 import {
   NavigationMenu,
@@ -138,10 +135,12 @@ function MobileNavPanel({
 }
 
 export default function Header() {
-  // 로그인 여부는 accessToken 쿠키가 기준(source of truth)이다.
-  const isAuthenticated = isLogin();
-  // 표시용 회원명은 accessToken의 name 클레임을 그대로 파싱해서 사용한다.
-  const userName = getUserNameFromToken();
+  // 로그인 여부와 표시용 회원명은 zustand(useAuthStore)가 기준(source of truth)이다.
+  // accessToken이 HttpOnly 쿠키라 더 이상 직접 파싱할 수 없어,
+  // 로그인 시 응답받은 값을 zustand에 저장해두고 그대로 구독한다.
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = user !== null;
+  const userName = user?.name ?? null;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // 마이페이지 메뉴는 로그인 상태일 때만 노출한다.

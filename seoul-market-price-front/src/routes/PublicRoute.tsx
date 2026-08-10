@@ -1,15 +1,13 @@
 import { Navigate } from "react-router-dom";
 import type { ReactNode } from "react";
 
-import { getToken } from "@/features/auth/utils/auth";
+import { isLogin } from "@/features/auth/utils/auth";
 
 interface PublicRouteProps {
   children: ReactNode;
 }
 
 function PublicRoute({ children }: PublicRouteProps) {
-  const token = getToken();
-
   /*
     이미 로그인한 사용자
 
@@ -20,7 +18,7 @@ function PublicRoute({ children }: PublicRouteProps) {
 
   */
 
-  if (token) {
+  if (isLogin()) {
     return <Navigate to="/" replace />;
   }
 
