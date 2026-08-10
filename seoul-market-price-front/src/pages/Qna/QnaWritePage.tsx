@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { getLoginUser, logout } from "@/features/auth/utils/auth";
 import styles from "./QnaWritePage.module.css";
 
 /* 질의응답 작성 폼 */
@@ -43,15 +44,6 @@ interface QnaPost {
   answerDate?: string;
 }
 
-/* 로그인 사용자 */
-
-interface LoginUser {
-  userId?: string;
-  name?: string;
-  userName?: string;
-  role?: string;
-}
-
 /* 첨부파일 제한 */
 
 const MAX_FILE_COUNT = 3;
@@ -61,47 +53,19 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const ALLOWED_FILE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "pdf"];
 
-/* 로그인 사용자 조회 */
-
-const getLoginUser = (): LoginUser | null => {
-  const storedUser = localStorage.getItem("loginUser");
-
-  if (!storedUser) {
-    return null;
-  }
-
-  try {
-    const parsedUser: unknown = JSON.parse(storedUser);
-
-    if (
-      !parsedUser ||
-      typeof parsedUser !== "object" ||
-      Array.isArray(parsedUser)
-    ) {
-      return null;
-    }
-
-    return parsedUser as LoginUser;
-  } catch (error) {
-    console.error("로그인 사용자 정보 확인 실패:", error);
-
-    return null;
-  }
-};
-
 /* 로그인 사용자 이름 */
 
-const getLoginUserName = (user: LoginUser | null): string => {
+const getLoginUserName = (user: { name: string; userId: string } | null): string => {
   if (!user) {
     return "사용자";
   }
 
-  return user.name || user.userName || user.userId || "사용자";
+  return user.name || user.userId || "사용자";
 };
 
-/* 관리자 여부 */
+/* 관리자 여부 (zustand 기준) */
 
-const isAdminUser = (user: LoginUser | null): boolean => {
+const isAdminUser = (user: { role: string } | null): boolean => {
   if (!user?.role) {
     return false;
   }
@@ -508,10 +472,8 @@ function QnaWritePage() {
 
   /* 로그아웃 */
 
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("loginUser");
-    localStorage.removeItem("user");
+  const handleLogout = async () => {
+    await logout();
 
     navigate("/");
   };

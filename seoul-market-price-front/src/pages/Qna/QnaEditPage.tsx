@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
+import { getLoginUser, isLogin, logout } from "@/features/auth/utils/auth";
 import styles from "./QnaEditPage.module.css";
 
 /* Q&A 첨부파일 */
@@ -35,15 +36,6 @@ interface QnaPost {
   attachment?: QnaAttachment | null;
 }
 
-/* 로그인 사용자 */
-
-interface LoginUser {
-  userId?: string;
-  name?: string;
-  userName?: string;
-  role?: string;
-}
-
 /* 첨부파일 최대 용량 */
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -66,70 +58,16 @@ const ALLOWED_FILE_EXTENSIONS = [
   "txt",
 ];
 
-/* 로그인 사용자 정보 */
+/* 관리자 여부 (zustand 기준) */
 
-const getLoginUser = (): LoginUser | null => {
-  const storedUser = localStorage.getItem("loginUser");
-
-  if (!storedUser) {
-    return null;
-  }
-
-  try {
-    const parsedUser: unknown = JSON.parse(storedUser);
-
-    if (
-      !parsedUser ||
-      typeof parsedUser !== "object" ||
-      Array.isArray(parsedUser)
-    ) {
-      return null;
-    }
-
-    return parsedUser as LoginUser;
-  } catch (error) {
-    console.error("로그인 사용자 정보 확인 실패:", error);
-
-    return null;
-  }
-};
-
-/* 로그인 사용자 ID */
-
-const getCurrentUserId = (): string => {
-  const user = getLoginUser();
-
-  if (!user) {
-    return "";
-  }
-
-  return user.userId || "";
-};
-
-/* 로그인 사용자 이름 */
-
-const getCurrentUserName = (): string => {
-  const user = getLoginUser();
-
-  if (!user) {
-    return "사용자";
-  }
-
-  return user.name || user.userName || user.userId || "사용자";
-};
-
-/* 관리자 여부 */
-
-const isAdminUser = (): boolean => {
-  const user = getLoginUser();
-
-  if (!user?.role) {
+const isAdminUser = (role: string | undefined): boolean => {
+  if (!role) {
     return false;
   }
 
-  const role = user.role.toUpperCase();
+  const normalizedRole = role.toUpperCase();
 
-  return role === "ADMIN" || role === "ROLE_ADMIN";
+  return normalizedRole === "ADMIN" || normalizedRole === "ROLE_ADMIN";
 };
 
 /* Q&A 게시글 조회 */
@@ -214,9 +152,9 @@ function QnaEditPage() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  /* 로그인 상태 */
+  /* 로그인 상태 (zustand 기준) */
 
-  const isLoggedIn = Boolean(localStorage.getItem("loginUser"));
+  const isLoggedIn = isLogin();
 
   /* 현재 로그인 사용자 */
 
@@ -226,15 +164,17 @@ function QnaEditPage() {
 
   /* 현재 로그인 사용자 ID */
 
-  const currentUserId = useMemo(() => {
-    return getCurrentUserId();
-  }, []);
+  const currentUserId = currentUser?.userId ?? "";
+
+  /* 현재 로그인 사용자 이름 */
+
+  const currentUserName = currentUser?.name || currentUser?.userId || "사용자";
 
   /* 관리자 여부 */
 
   const isAdmin = useMemo(() => {
-    return isAdminUser();
-  }, []);
+    return isAdminUser(currentUser?.role);
+  }, [currentUser]);
 
   /* 게시글 조회 */
 
@@ -574,10 +514,8 @@ function QnaEditPage() {
 
   /* 로그아웃 */
 
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("loginUser");
-    localStorage.removeItem("user");
+  const handleLogout = async () => {
+    await logout();
 
     navigate("/");
   };
@@ -710,7 +648,7 @@ function QnaEditPage() {
         <div className={styles.topUserInner}>
           <div className={styles.userArea}>
             <span className={styles.userName}>
-              {getCurrentUserName()}
+              {currentUserName}
 
               {isAdmin && " (관리자)"}
             </span>
