@@ -90,7 +90,6 @@ export default function FindPasswordForm() {
       // DB에 가입된 아이디인지 조회
       try {
         const idCheckResult = await checkUserIdApi(trimmedId);
-        // available이 true이면 미가입 아이디(신규가입 가능)이므로 비밀번호 찾기 불가
         const isAvailable =
           typeof idCheckResult === "object" &&
           idCheckResult !== null &&
