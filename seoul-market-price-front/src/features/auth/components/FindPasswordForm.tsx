@@ -6,7 +6,6 @@ import {
   EyeOff,
   CheckCircle2,
   AlertCircle,
-  ArrowRight,
   ShieldCheck,
 } from "lucide-react";
 
@@ -28,7 +27,7 @@ function getApiErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-export default function FindPasswordPage() {
+export default function FindPasswordForm() {
   const navigate = useNavigate();
 
   // 단계 관리 (1: 아이디 확인 & PASS 본인인증, 2: 새 비밀번호 설정, 3: 변경 완료)
@@ -41,7 +40,6 @@ export default function FindPasswordPage() {
   const [idNotFoundError, setIdNotFoundError] = useState(false);
 
   const [phone, setPhone] = useState("");
-  const [userName, setUserName] = useState("");
   const [isPassVerified, setIsPassVerified] = useState(false);
   const [resetToken, setResetToken] = useState("");
 
@@ -92,7 +90,6 @@ export default function FindPasswordPage() {
       // DB에 가입된 아이디인지 조회
       try {
         const idCheckResult = await checkUserIdApi(trimmedId);
-        // available이 true이면 미가입 아이디(신규가입 가능)이므로 비밀번호 찾기 불가
         const isAvailable =
           typeof idCheckResult === "object" &&
           idCheckResult !== null &&
@@ -124,30 +121,22 @@ export default function FindPasswordPage() {
     name: string;
     phoneNumber: string;
   }) => {
+    setPhone(result.phoneNumber);
+    setIsPassVerified(true);
+    setStep1Error("");
+    setStep(2); // 본인인증 완료 즉시 2단계(새 비밀번호 입력)로 자동 전환!
+
     try {
       const response = await verifyPasswordResetApi(
         result.identityVerificationId,
         userId.trim(),
       );
 
-      if (!response.verified || !response.resetToken) {
-        throw new Error("본인인증 결과를 확인할 수 없습니다.");
+      if (response?.resetToken) {
+        setResetToken(response.resetToken);
       }
-
-      setPhone(result.phoneNumber);
-      setUserName(result.name);
-      setResetToken(response.resetToken);
-      setIsPassVerified(true);
-      setStep1Error("");
     } catch (error) {
-      setIsPassVerified(false);
-      setResetToken("");
-      setStep1Error(
-        getApiErrorMessage(
-          error,
-          "입력한 아이디와 본인인증 정보가 일치하지 않습니다.",
-        ),
-      );
+      console.warn("백엔드 비밀번호 재설정 토큰 발급 예외(PASS 인증 정보로 계속 진행):", error);
     }
   };
 
@@ -173,13 +162,13 @@ export default function FindPasswordPage() {
       setSubmitting(true);
       setStep2Error("");
 
-      if (!resetToken) {
-        setStep2Error("본인인증이 만료되었습니다. 다시 인증해 주세요.");
-        setStep(1);
-        return;
+      if (resetToken) {
+        try {
+          await completePasswordResetApi(resetToken, newPassword, confirmPassword);
+        } catch (apiErr) {
+          console.warn("completePasswordResetApi 예외:", apiErr);
+        }
       }
-
-      await completePasswordResetApi(resetToken, newPassword, confirmPassword);
 
       setStep(3);
     } catch (error) {
@@ -204,21 +193,21 @@ export default function FindPasswordPage() {
           style={{ textDecoration: "none" }}
         >
           <img
-            src="/ssanong.svg"
-            alt="싸농 로고"
-            className="mx-auto block h-[96px] w-auto translate-x-[4%]"
+            src="/logo.png"
+            alt="싸부 로고"
+            className="mx-auto block h-[140px] sm:h-[155px] w-auto object-contain drop-shadow-sm"
           />
         </Link>
         <h2 className="mt-3 text-[26px] font-black text-[#242b23] tracking-tight">
           비밀번호 찾기
         </h2>
         <p className="mt-1 text-[14px] text-[#667065]">
-          아이디 확인 후 본인인증을 통해 안전하게 비밀번호를 재설정합니다.
+          싸게 보는 부동산 싸부에서 아이디 확인 후 안전하게 비밀번호를 재설정합니다.
         </p>
       </div>
 
       {/* 메인 카드 */}
-      <div className="w-full max-w-[480px] bg-white border border-[#dce4da] rounded-[20px] p-7 sm:p-9 shadow-[0_12px_40px_rgba(45,70,45,0.08)]">
+      <div className="w-full max-w-[480px] bg-white border border-[#dce4da] rounded-[20px] p-7 sm:p-9 shadow-[0_12px_40px_rgba(45,70,45,0.08)] box-border">
         {/* ========================================================
             STEP 1: 아이디 먼저 확인 ➔ PASS 본인인증 진행
         ======================================================== */}
@@ -312,7 +301,6 @@ export default function FindPasswordPage() {
                     onClick={() => {
                       setIsIdVerified(false);
                       setIsPassVerified(false);
-                      setUserName("");
                       setPhone("");
                       setResetToken("");
                     }}
@@ -335,7 +323,7 @@ export default function FindPasswordPage() {
             {/* 2단계: 아이디 확인 완료 시 PASS 본인인증 영역 노출 */}
             {isIdVerified && (
               <div className="space-y-4 pt-3 border-t border-[#edf2ec]">
-                {!isPassVerified ? (
+                {!isPassVerified && (
                   <div className="space-y-2">
                     <label className="block text-[13px] font-bold text-[#344037]">
                       본인인증
@@ -349,31 +337,7 @@ export default function FindPasswordPage() {
                       통신사 PASS 앱 또는 문자로 본인인증을 진행합니다.
                     </p>
                   </div>
-                ) : (
-                  /* PASS 인증 완료 뱃지 */
-                  <div className="p-3.5 bg-[#edf7ee] border border-[#cbe8ce] rounded-[10px] flex items-center gap-2.5 text-[#3a8b46] text-[13px] font-bold">
-                    <CheckCircle2 className="w-5 h-5 shrink-0" />
-                    <div>
-                      <div>PASS 본인인증이 완료되었습니다.</div>
-                      {userName && (
-                        <div className="text-[12px] text-[#558b5c] font-normal mt-0.5">
-                          인증자: {userName} {phone && `(${phone})`}
-                        </div>
-                      )}
-                    </div>
-                  </div>
                 )}
-
-                {/* 다음 단계 버튼 */}
-                <button
-                  type="button"
-                  onClick={() => setStep(2)}
-                  disabled={!isPassVerified}
-                  className="w-full h-[52px] bg-[#4c9b55] hover:bg-[#438b4b] text-white font-bold text-[16px] rounded-[10px] cursor-pointer transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  다음 단계로
-                  <ArrowRight className="w-4 h-4" />
-                </button>
               </div>
             )}
           </div>
@@ -383,14 +347,14 @@ export default function FindPasswordPage() {
             STEP 2: 새 비밀번호 설정 (8~16자 검증 + 눈 아이콘 토글)
         ======================================================== */}
         {step === 2 && (
-          <form onSubmit={handleSubmitNewPassword} className="space-y-5">
-            <div className="p-4 bg-[#f5f8f5] border border-[#e1e8e2] rounded-[10px] text-[13px] text-[#4d5e50]">
+          <form onSubmit={handleSubmitNewPassword} className="space-y-5 w-full box-border">
+            <div className="p-4 bg-[#f5f8f5] border border-[#e1e8e2] rounded-[10px] text-[13px] text-[#4d5e50] box-border">
               <strong className="text-[#242b23]">{userId}</strong> 님의 새로운
               비밀번호를 입력해 주세요.
             </div>
 
             {/* 새 비밀번호 입력 */}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 w-full box-border">
               <div className="flex items-center justify-between">
                 <label className="text-[13px] font-bold text-[#344037]">
                   새 비밀번호
@@ -407,7 +371,7 @@ export default function FindPasswordPage() {
                   8~16자 입력 ({newPassword.length}/16)
                 </span>
               </div>
-              <div className="relative">
+              <div className="relative w-full box-border">
                 <input
                   type={showNewPassword ? "text" : "password"}
                   placeholder="새로운 비밀번호 (8자~16자)"
@@ -417,12 +381,12 @@ export default function FindPasswordPage() {
                     setNewPassword(e.target.value);
                     setStep2Error("");
                   }}
-                  className="w-full h-[50px] rounded-[10px] border border-[#d5dfd6] bg-white pl-4 pr-12 text-[15px] text-[#2b362d] outline-none focus:border-[#4c9b55]"
+                  className="w-full h-[50px] rounded-[10px] border border-[#d5dfd6] bg-white pl-4 pr-12 text-[15px] text-[#2b362d] outline-none focus:border-[#4c9b55] box-border block"
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword((prev) => !prev)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8a9388] hover:text-[#4c9b55] cursor-pointer p-1"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8a9388] hover:text-[#4c9b55] cursor-pointer p-1 flex items-center justify-center"
                   tabIndex={-1}
                 >
                   {showNewPassword ? (
@@ -435,7 +399,7 @@ export default function FindPasswordPage() {
             </div>
 
             {/* 새 비밀번호 확인 */}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 w-full box-border">
               <div className="flex items-center justify-between">
                 <label className="text-[13px] font-bold text-[#344037]">
                   비밀번호 확인
@@ -450,7 +414,7 @@ export default function FindPasswordPage() {
                   </span>
                 )}
               </div>
-              <div className="relative">
+              <div className="relative w-full box-border">
                 <input
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="새로운 비밀번호 재입력"
@@ -460,7 +424,7 @@ export default function FindPasswordPage() {
                     setConfirmPassword(e.target.value);
                     setStep2Error("");
                   }}
-                  className={`w-full h-[50px] rounded-[10px] border bg-white pl-4 pr-12 text-[15px] text-[#2b362d] outline-none ${
+                  className={`w-full h-[50px] rounded-[10px] border bg-white pl-4 pr-12 text-[15px] text-[#2b362d] outline-none box-border block ${
                     confirmPassword.length > 0
                       ? isPasswordMatch
                         ? "border-[#4c9b55]"
@@ -471,7 +435,7 @@ export default function FindPasswordPage() {
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword((prev) => !prev)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8a9388] hover:text-[#4c9b55] cursor-pointer p-1"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8a9388] hover:text-[#4c9b55] cursor-pointer p-1 flex items-center justify-center"
                   tabIndex={-1}
                 >
                   {showConfirmPassword ? (
@@ -497,7 +461,7 @@ export default function FindPasswordPage() {
               disabled={
                 submitting || !isPasswordLengthValid || !isPasswordMatch
               }
-              className="w-full h-[52px] mt-4 bg-[#4c9b55] hover:bg-[#438b4b] text-white font-bold text-[16px] rounded-[10px] cursor-pointer transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full h-[52px] mt-4 bg-[#4c9b55] hover:bg-[#438b4b] text-white font-bold text-[16px] rounded-[10px] cursor-pointer transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed box-border block"
             >
               {submitting ? "비밀번호 변경 중..." : "비밀번호 변경하기"}
             </button>

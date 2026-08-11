@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { CheckCircle2 } from "lucide-react";
+import PassAuth from "@/features/auth/components/PassAuth";
 
 /**
  * 마이페이지 상단 선택 탭
@@ -69,7 +70,7 @@ const DEFAULT_PROFILE: Profile = {
   phone: "010-1234-5678",
   email: "hong@example.com",
   address: "서울특별시 마포구",
-  detailAddress: "싸농아파트 101동 1001호",
+  detailAddress: "싸부아파트 101동 1001호",
 };
 
 const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
@@ -185,14 +186,12 @@ export default function MyPage() {
 
   // 인증 관련 State
   const [phoneVerified, setPhoneVerified] = useState(false);
-  const [phoneCertSent, setPhoneCertSent] = useState(false);
-  const [phoneCertCode, setPhoneCertCode] = useState("");
 
   const [emailVerified, setEmailVerified] = useState(false);
   const [emailCertSent, setEmailCertSent] = useState(false);
   const [emailCertCode, setEmailCertCode] = useState("");
 
-  const { register, handleSubmit, setValue, reset } = useForm<Profile>({
+  const { register, handleSubmit, setValue, reset, watch } = useForm<Profile>({
     defaultValues: profile,
   });
 
@@ -264,21 +263,25 @@ export default function MyPage() {
     alert("알림 수신 설정이 성공적으로 저장되었습니다!");
   };
 
-  // 휴대폰 인증 발송 및 검증
-  const handleSendPhoneCert = () => {
-    if (!isLoggedIn) return alert("로그인 후 인증이 가능합니다.");
-    setPhoneCertSent(true);
-    alert("인증번호가 휴대폰으로 전송되었습니다. (테스트 인증번호: 123456)");
-  };
-
-  const handleVerifyPhoneCode = () => {
-    if (phoneCertCode.trim() === "123456" || phoneCertCode.trim().length === 6) {
-      setPhoneVerified(true);
-      setPhoneCertSent(false);
-      alert("휴대폰 인증이 성공적으로 완료되었습니다!");
-    } else {
-      alert("인증번호 6자리를 올바르게 입력해주세요. (테스트 번호: 123456)");
+  // PASS 본인인증 성공 핸들러
+  const handlePassSuccess = (result: {
+    identityVerificationId: string;
+    name: string;
+    phoneNumber: string;
+  }) => {
+    const raw = result.phoneNumber.replace(/[^0-9]/g, "");
+    let formatted = raw;
+    if (raw.length > 3 && raw.length <= 7) {
+      formatted = `${raw.slice(0, 3)}-${raw.slice(3)}`;
+    } else if (raw.length > 7) {
+      formatted = `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
     }
+
+    setValue("phone", formatted);
+    if (result.name) {
+      setValue("name", result.name);
+    }
+    setPhoneVerified(true);
   };
 
   // 이메일 인증 발송 및 검증
@@ -482,13 +485,13 @@ export default function MyPage() {
                       />
                     </div>
 
-                    {/* ROW 3: 휴대폰 번호 + 휴대폰 인증 버튼 */}
+                    {/* ROW 3: 휴대폰 번호 + PASS 본인인증 버튼 */}
                     <div className="space-y-1.5 w-full">
                       <div className="flex items-center justify-between">
                         <label className="text-[14px] font-bold text-[#344037] block">휴대폰 번호</label>
                         {phoneVerified && (
                           <span className="inline-flex items-center gap-1 text-[12px] font-extrabold text-[#3a8b46]">
-                            <CheckCircle2 className="w-4 h-4" /> 인증 완료
+                            <CheckCircle2 className="w-4 h-4" /> PASS 인증 완료
                           </span>
                         )}
                       </div>
@@ -507,40 +510,19 @@ export default function MyPage() {
                             },
                           })}
                           disabled={!isLoggedIn}
-                          placeholder="010-0000-0000 (숫자만 입력)"
+                          placeholder="010-0000-0000 (PASS 인증 시 자동 입력)"
                           maxLength={13}
                           className="flex-1 h-[48px] rounded-[8px] border border-[#d5dfd6] bg-white px-3.5 text-[15px] text-[#2b362d] outline-none focus:border-[#57a764] disabled:bg-[#f5f7f5]"
                         />
-                        <button
-                          type="button"
-                          disabled={!isLoggedIn || phoneVerified}
-                          onClick={handleSendPhoneCert}
-                          className="h-[48px] px-5 bg-[#343c33] hover:bg-[#252b24] text-white font-bold text-[13px] rounded-[8px] cursor-pointer whitespace-nowrap transition-colors disabled:opacity-50"
-                        >
-                          {phoneVerified ? "인증됨" : "휴대폰 인증"}
-                        </button>
+                        <PassAuth
+                          phone={watch("phone")}
+                          onSuccess={handlePassSuccess}
+                          className="h-[48px] px-5 bg-[#4c9b55] hover:bg-[#438b4b] text-white font-bold text-[14px] rounded-[8px] cursor-pointer whitespace-nowrap transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm shrink-0"
+                        />
                       </div>
-
-                      {/* 휴대폰 인증번호 입력 폼 */}
-                      {phoneCertSent && !phoneVerified && (
-                        <div className="flex gap-2 pt-1">
-                          <input
-                            type="text"
-                            maxLength={6}
-                            placeholder="인증번호 6자리 (테스트: 123456)"
-                            value={phoneCertCode}
-                            onChange={(e) => setPhoneCertCode(e.target.value)}
-                            className="flex-1 h-[42px] rounded-[6px] border border-[#57a764] bg-white px-3 text-[14px] outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleVerifyPhoneCode}
-                            className="h-[42px] px-4 bg-[#57a764] hover:bg-[#438e4d] text-white font-bold text-[13px] rounded-[6px]"
-                          >
-                            인증 확인
-                          </button>
-                        </div>
-                      )}
+                      <p className="text-[12px] text-[#718073]">
+                        통신사 PASS 앱 또는 문자로 본인인증을 진행하여 휴대폰 번호를 갱신합니다.
+                      </p>
                     </div>
 
                     {/* ROW 4: 이메일 주소 + 이메일 인증 버튼 */}

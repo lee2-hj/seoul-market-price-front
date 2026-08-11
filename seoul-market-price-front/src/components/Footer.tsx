@@ -12,11 +12,15 @@ export default function Footer() {
   return (
     <footer className="tw-scope w-full bg-[#263329] text-white [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
       <div className="mx-auto flex w-[min(1280px,calc(100%-32px))] min-h-[180px] flex-col items-center justify-center gap-5 py-9 sm:w-[min(1280px,calc(100%-48px))] md:flex-row md:justify-between md:gap-[30px] md:py-0">
-        <div className="flex items-center gap-2">
-          <span className="text-[21px]">🥕</span>
-          <strong className="text-[18px]">싸.농</strong>
-          <small className="border-l border-[#4d594e] pl-2 text-[9px] text-[#9da99e]">
-            싸게 보는 농수산물
+        <div className="flex items-center gap-3">
+          <img
+            src="/logo.png"
+            alt="싸부 로고"
+            className="h-[46px] sm:h-[50px] w-auto object-contain rounded-[6px] bg-white/95 p-1 shadow-sm"
+          />
+          <strong className="text-[18px] font-bold">싸부</strong>
+          <small className="border-l border-[#4d594e] pl-2.5 text-[11px] text-[#9da99e]">
+            싸게 보는 부동산
           </small>
         </div>
 
@@ -32,7 +36,7 @@ export default function Footer() {
           ))}
         </div>
 
-        <p className="text-[9px] text-[#818c82]">© 2026 싸농. All rights reserved.</p>
+        <p className="text-[9px] text-[#818c82]">© 2026 싸부. All rights reserved.</p>
       </div>
     </footer>
   );

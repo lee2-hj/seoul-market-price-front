@@ -169,14 +169,15 @@ export default function Header() {
         <Link
           to="/"
           onClick={closeMenu}
-          className="flex min-w-0 shrink-0 items-center gap-[7px] text-[#263329] no-underline sm:gap-[9px] lg:min-w-[245px]"
+          className="flex min-w-0 shrink-0 items-center gap-[10px] text-[#263329] no-underline lg:min-w-[220px]"
         >
-          <span className="text-[22px] leading-none sm:text-[27px]">🥕</span>
-          <span className="text-[19px] font-black tracking-[-1px] text-[#263329] sm:text-[25px] sm:tracking-[-1.5px]">
-            싸.농
-          </span>
-          <span className="hidden whitespace-nowrap border-l border-[#dfe4dd] pl-2 text-[12px] text-[#899287] md:inline">
-            싸게 보는 농수산물
+          <img
+            src="/logo.png"
+            alt="싸부 로고"
+            className="h-[54px] sm:h-[58px] w-auto object-contain rounded-[6px] transition-transform hover:scale-105"
+          />
+          <span className="hidden whitespace-nowrap border-l border-[#dfe4dd] pl-2.5 text-[12px] font-semibold text-[#899287] md:inline">
+            싸게 보는 부동산
           </span>
         </Link>
 

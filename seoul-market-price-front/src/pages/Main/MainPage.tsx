@@ -3,98 +3,107 @@ import { Link, useNavigate } from "react-router-dom";
 
 import styles from "./MainPage.module.css";
 
-/* 자주 찾는 품목 */
+/* 자주 찾는 인기 아파트 단지 */
 
 const POPULAR_ITEMS = [
   {
-    name: "쌀",
-    emoji: "🌾",
-    category: "식량작물",
-    price: "62,700",
-    unit: "20kg",
-    change: "+0.4%",
+    name: "래미안 원베일리",
+    emoji: "🏢",
+    category: "서초구",
+    price: "42억 5,000",
+    unit: "전용 84㎡",
+    change: "+1.7%",
     type: "up",
   },
   {
-    name: "사과",
-    emoji: "🍎",
-    category: "과일류",
-    price: "8,900",
-    unit: "1kg",
-    change: "-2.1%",
-    type: "down",
-  },
-  {
-    name: "배추",
-    emoji: "🥬",
-    category: "채소류",
-    price: "3,980",
-    unit: "1포기",
-    change: "+4.2%",
+    name: "마포래미안푸르지오",
+    emoji: "🏢",
+    category: "마포구",
+    price: "18억 7,000",
+    unit: "전용 84㎡",
+    change: "+2.7%",
     type: "up",
   },
   {
-    name: "감귤",
-    emoji: "🍊",
-    category: "과일류",
-    price: "5,400",
-    unit: "1kg",
-    change: "-1.8%",
+    name: "잠실엘스",
+    emoji: "🏢",
+    category: "송파구",
+    price: "24억 5,000",
+    unit: "전용 84㎡",
+    change: "-1.6%",
     type: "down",
   },
   {
-    name: "고등어",
-    emoji: "🐟",
-    category: "수산물",
-    price: "7,800",
-    unit: "1마리",
-    change: "-2.7%",
-    type: "down",
+    name: "헬리오시티",
+    emoji: "🏢",
+    category: "송파구",
+    price: "21억 3,000",
+    unit: "전용 84㎡",
+    change: "+2.4%",
+    type: "up",
+  },
+  {
+    name: "고덕그라시움",
+    emoji: "🏢",
+    category: "강동구",
+    price: "16억 8,000",
+    unit: "전용 84㎡",
+    change: "+1.8%",
+    type: "up",
+  },
+  {
+    name: "DMC파크뷰자이",
+    emoji: "🏢",
+    category: "서대문구",
+    price: "13억 5,000",
+    unit: "전용 84㎡",
+    change: "+1.5%",
+    type: "up",
   },
 ];
 
-/* 가격 카테고리 */
+/* 지역 카테고리 */
 
-const CATEGORIES = ["전체", "채소류", "과일류", "수산물"];
+const CATEGORIES = ["전체", "서초구", "마포구", "송파구", "강동구", "서대문구"];
 
-/* 가격 비교 데이터 */
+/* 가격 비교 데이터 (마포래미안푸르지오 84㎡) */
 
 const PRICE_DATA = {
-  current: "8,900",
-  yesterday: "9,100",
-  lastMonth: "10,120",
-  lastYear: "9,450",
-  average: "9,780",
+  current: "18억 7,000만",
+  yesterday: "18억 2,000만",
+  lastMonth: "17억 8,000만",
+  lastYear: "16억 5,000만",
+  average: "15억 8,000만",
 };
 
-/* 서울 자치구 가격 */
+/* 서울 자치구별 아파트 평균 실거래가 (84㎡ 기준) */
 
 const DISTRICTS = [
-  { name: "강남구", price: "9,120", change: "+2.1%" },
-  { name: "강동구", price: "8,780", change: "-1.2%" },
-  { name: "강북구", price: "8,450", change: "-0.8%" },
-  { name: "강서구", price: "8,920", change: "+1.4%" },
-  { name: "관악구", price: "8,650", change: "-0.4%" },
-  { name: "광진구", price: "9,080", change: "+2.8%" },
-  { name: "구로구", price: "8,520", change: "-1.7%" },
-  { name: "금천구", price: "8,390", change: "-2.1%" },
-  { name: "노원구", price: "8,470", change: "+0.6%" },
-  { name: "도봉구", price: "8,310", change: "-1.1%" },
-  { name: "동대문구", price: "8,960", change: "+1.8%" },
-  { name: "동작구", price: "8,820", change: "+0.9%" },
-  { name: "마포구", price: "9,240", change: "+3.2%" },
-  { name: "서대문구", price: "8,930", change: "-0.6%" },
-  { name: "서초구", price: "9,380", change: "+3.8%" },
-  { name: "성동구", price: "9,050", change: "+2.4%" },
-  { name: "성북구", price: "8,690", change: "-0.9%" },
-  { name: "송파구", price: "9,270", change: "+2.9%" },
-  { name: "양천구", price: "8,840", change: "+0.7%" },
-  { name: "영등포구", price: "9,010", change: "+1.9%" },
-  { name: "용산구", price: "9,420", change: "+3.6%" },
-  { name: "은평구", price: "8,570", change: "-1.3%" },
-  { name: "종로구", price: "9,180", change: "+2.2%" },
-  { name: "중구", price: "9,210", change: "+2.5%" },
-  { name: "중랑구", price: "8,500", change: "-0.7%" },
+  { name: "강남구", price: "27억 8,000만", change: "+2.1%" },
+  { name: "서초구", price: "26억 5,000만", change: "+1.8%" },
+  { name: "송파구", price: "19억 8,000만", change: "+1.5%" },
+  { name: "용산구", price: "18억 9,000만", change: "+1.6%" },
+  { name: "성동구", price: "15억 8,000만", change: "+1.4%" },
+  { name: "마포구", price: "14억 5,000만", change: "+1.2%" },
+  { name: "광진구", price: "13억 9,000만", change: "+0.8%" },
+  { name: "양천구", price: "13억 5,000만", change: "+0.7%" },
+  { name: "영등포구", price: "12억 8,000만", change: "+0.9%" },
+  { name: "강동구", price: "12억 2,000만", change: "+0.6%" },
+  { name: "동작구", price: "11억 9,000만", change: "+0.5%" },
+  { name: "중구", price: "11억 5,000만", change: "+0.3%" },
+  { name: "종로구", price: "11억 2,000만", change: "+0.2%" },
+  { name: "서대문구", price: "10억 5,000만", change: "+0.4%" },
+  { name: "동대문구", price: "9억 8,000만", change: "+0.3%" },
+  { name: "성북구", price: "9억 2,000만", change: "-0.2%" },
+  { name: "은평구", price: "8억 9,000만", change: "-0.4%" },
+  { name: "강서구", price: "8억 8,000만", change: "+0.3%" },
+  { name: "관악구", price: "8억 5,000만", change: "-0.1%" },
+  { name: "구로구", price: "8억 2,000만", change: "-0.3%" },
+  { name: "노원구", price: "7억 9,000만", change: "-0.5%" },
+  { name: "중랑구", price: "7억 5,000만", change: "-0.2%" },
+  { name: "강북구", price: "7억 2,000만", change: "-0.4%" },
+  { name: "금천구", price: "6억 9,000만", change: "-0.6%" },
+  { name: "도봉구", price: "6억 8,000만", change: "-0.8%" },
 ];
 
 /* 공지사항 */
@@ -102,25 +111,25 @@ const DISTRICTS = [
 const NOTICES = [
   {
     id: 1,
-    title: "싸농 서비스 이용 안내입니다.",
+    title: "싸부 서비스 이용 안내입니다.",
     date: "2026.08.04",
     important: true,
   },
   {
     id: 2,
-    title: "KAMIS 가격정보 업데이트 안내",
+    title: "부동산 실거래가 가격정보 업데이트 안내",
     date: "2026.08.03",
     important: true,
   },
   {
     id: 3,
-    title: "농수산물 가격정보 서비스 오픈 안내",
+    title: "부동산 가격정보 서비스 오픈 안내",
     date: "2026.08.01",
     important: false,
   },
   {
     id: 4,
-    title: "싸농 홈페이지 이용약관 변경 안내",
+    title: "싸부 홈페이지 이용약관 변경 안내",
     date: "2026.07.30",
     important: false,
   },
@@ -149,45 +158,45 @@ const QNA_LIST = [
   },
   {
     id: 3,
-    title: "가격 데이터 기준이 궁금합니다.",
+    title: "회원가입 후 이용 가능한 기능은 무엇인가요?",
     date: "2026.08.02",
-    status: "답변완료",
-  },
-  {
-    id: 4,
-    title: "관심 품목 가격 알림을 받을 수 있나요?",
-    date: "2026.08.01",
     status: "답변대기",
   },
   {
+    id: 4,
+    title: "데이터 출처는 어디인가요?",
+    date: "2026.07.31",
+    status: "답변완료",
+  },
+  {
     id: 5,
-    title: "회원정보 수정은 어디에서 하나요?",
-    date: "2026.07.30",
+    title: "서비스 오류 제보는 어디로 하나요?",
+    date: "2026.07.29",
     status: "답변완료",
   },
 ];
 
-function MainPage() {
+export default function MainPage() {
   const navigate = useNavigate();
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("전체");
   const [region, setRegion] = useState("서울");
 
-  /* 가격 검색 */
+  /* 검색 실행 */
 
   const handleSearch = () => {
     const keyword = search.trim();
 
     if (!keyword) {
-      alert("검색할 품목을 입력해주세요.");
+      alert("검색할 아파트 단지명 또는 평형을 입력해주세요.");
       return;
     }
 
     navigate(`/price?keyword=${encodeURIComponent(keyword)}`);
   };
 
-  /* 선택된 카테고리의 품목 */
+  /* 선택된 카테고리의 단지 목록 */
 
   const filteredItems =
     category === "전체"
@@ -204,13 +213,13 @@ function MainPage() {
             <h1>
               내 주변의
               <br />
-              <strong>농수산물 어디가 싸농?</strong>
+              <strong>싸게 보는 부동산</strong>
             </h1>
 
             <p>
-              싸농에서 농수산물의 현재 가격과
+              싸부에서 아파트의 현재 실거래가와
               <br />
-              지역별 가격 차이를 한눈에 비교해보세요.
+              지역별 시세 차이를 한눈에 비교해보세요.
             </p>
 
             {/* 검색 */}
@@ -221,7 +230,7 @@ function MainPage() {
               <input
                 type="text"
                 value={search}
-                placeholder="사과, 배추, 쌀, 고등어 등을 검색해보세요"
+                placeholder="원하시는 아파트 단지 또는 평형을 검색해보세요"
                 onChange={(event) => setSearch(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
@@ -238,51 +247,56 @@ function MainPage() {
             {/* 빠른 검색 */}
 
             <div className={styles.quickSearch}>
-              <span>자주 찾는 품목</span>
+              <span>자주 찾는 평형</span>
 
-              <button type="button" onClick={() => setSearch("쌀")}>
-                쌀
+              <button
+                type="button"
+                onClick={() => setSearch("전용 84㎡(구 34평형)")}
+              >
+                전용 84㎡(구 34평형)
               </button>
 
-              <button type="button" onClick={() => setSearch("사과")}>
-                사과
+              <button
+                type="button"
+                onClick={() => setSearch("전용 59㎡(구 24평형)")}
+              >
+                전용 59㎡(구 24평형)
               </button>
 
-              <button type="button" onClick={() => setSearch("배추")}>
-                배추
-              </button>
-
-              <button type="button" onClick={() => setSearch("고등어")}>
-                고등어
+              <button
+                type="button"
+                onClick={() => setSearch("전용 49㎡(구 21평형)")}
+              >
+                전용 49㎡(구 21평형)
               </button>
             </div>
           </div>
 
-          {/* 오늘의 대표 가격 */}
+          {/* 오늘의 대표 실거래가 */}
 
           <div className={styles.heroPrice}>
             <div className={styles.heroPriceHeader}>
-              <span>오늘의 대표 가격</span>
-              <small>서울 / 소매가격</small>
+              <span>오늘의 대표 실거래가</span>
+              <small>서울 / 실거래 기준</small>
             </div>
 
             <div className={styles.heroProduct}>
-              <span className={styles.heroEmoji}>🍎</span>
+              <span className={styles.heroEmoji}>🏢</span>
 
               <div>
-                <span>과일류</span>
-                <strong>사과</strong>
+                <span>마포구</span>
+                <strong>마포래미안푸르지오</strong>
               </div>
             </div>
 
             <div className={styles.heroPriceValue}>
-              8,900
-              <small>원 / 1kg</small>
+              18억 7,000
+              <small>만원 / 전용 84㎡</small>
             </div>
 
             <div className={styles.heroPriceChange}>
-              <span>전일 대비</span>
-              <strong>▼ 2.1%</strong>
+              <span>전월 대비</span>
+              <strong>▲ 2.7%</strong>
             </div>
 
             <button
@@ -290,7 +304,7 @@ function MainPage() {
               className={styles.heroDetail}
               onClick={() => navigate("/price")}
             >
-              상세 가격 확인 →
+              단지 실거래가 확인 →
             </button>
           </div>
         </div>
@@ -301,10 +315,10 @@ function MainPage() {
       <section className={styles.quickSection}>
         <div className={styles.quickMenu}>
           <Link to="/price" className={styles.quickCard}>
-            <span>💰</span>
+            <span>🏢</span>
 
             <div>
-              <strong>간편상세정보</strong>
+              <strong>단지별 실거래가</strong>
               <small>현재가격과 등락률을 한눈에</small>
             </div>
 
@@ -315,8 +329,8 @@ function MainPage() {
             <span>📍</span>
 
             <div>
-              <strong>자치구별 가격정보</strong>
-              <small>서울 지역별 가격 비교</small>
+              <strong>자치구별 아파트 시세</strong>
+              <small>서울 25개 자치구 시세 비교</small>
             </div>
 
             <b>→</b>
@@ -326,8 +340,8 @@ function MainPage() {
             <span>📊</span>
 
             <div>
-              <strong>스마트 추천</strong>
-              <small>가격 하락 품목 추천받기</small>
+              <strong>스마트 알뜰 추천</strong>
+              <small>저평가 & 급매 아파트 추천</small>
             </div>
 
             <b>→</b>
@@ -346,17 +360,17 @@ function MainPage() {
         </div>
       </section>
 
-      {/* 오늘의 가격 현황 */}
+      {/* 오늘의 단지별 시세 현황 */}
 
       <section className={styles.section}>
         <div className={styles.sectionTitle}>
           <div>
             <span>PRICE DASHBOARD</span>
-            <h2>오늘의 가격 현황</h2>
-            <p>주요 농수산물의 현재가격과 가격 변동을 확인하세요.</p>
+            <h2>오늘의 단지별 시세 현황</h2>
+            <p>서울 주요 인기 아파트 단지의 실거래가와 가격 변동을 확인하세요.</p>
           </div>
 
-          <Link to="/price">전체 가격정보 →</Link>
+          <Link to="/price">전체 단지 시세 →</Link>
         </div>
 
         <div className={styles.filterTabs}>
@@ -392,11 +406,11 @@ function MainPage() {
 
               <div className={styles.productPrice}>
                 {item.price}
-                <small>원 / {item.unit}</small>
+                <small>만원 / {item.unit}</small>
               </div>
 
               <div className={styles.productChange}>
-                <span>전일 대비</span>
+                <span>전월 대비</span>
 
                 <strong
                   className={item.type === "up" ? styles.up : styles.down}
@@ -416,65 +430,65 @@ function MainPage() {
         <div className={styles.sectionTitle}>
           <div>
             <span>PRICE COMPARISON</span>
-            <h2>사과 가격 비교</h2>
-            <p>기준시점별 가격을 비교하여 현재 가격 수준을 확인하세요.</p>
+            <h2>마포래미안푸르지오 시세 비교</h2>
+            <p>기준시점별 실거래가를 비교하여 현재 가격 수준을 확인하세요.</p>
           </div>
 
           <button type="button" onClick={() => navigate("/price")}>
-            가격 상세보기 →
+            단지 상세 시세 →
           </button>
         </div>
 
         <div className={styles.comparisonGrid}>
           <div className={styles.currentPriceCard}>
-            <span>현재가격</span>
+            <span>최근 실거래가</span>
 
             <strong>
               {PRICE_DATA.current}
               <small>원</small>
             </strong>
 
-            <em>▼ 2.1%</em>
+            <em>▲ 2.7%</em>
 
-            <p>서울 / 소매가격 / 상품 기준</p>
+            <p>서울 마포구 아현동 / 전용 84㎡ 기준</p>
           </div>
 
           <div className={styles.referenceCard}>
             <div>
-              <span>전일</span>
+              <span>전월 실거래</span>
               <strong>{PRICE_DATA.yesterday}원</strong>
-              <em>+200원</em>
+              <em>+5,000만원</em>
             </div>
 
             <div>
-              <span>전월</span>
+              <span>3개월 전</span>
               <strong>{PRICE_DATA.lastMonth}원</strong>
-              <em>-1,220원</em>
+              <em>+9,000만원</em>
             </div>
 
             <div>
-              <span>전년</span>
+              <span>전년 동기</span>
               <strong>{PRICE_DATA.lastYear}원</strong>
-              <em>-550원</em>
+              <em>+2억 2,000만원</em>
             </div>
 
             <div>
-              <span>평년</span>
+              <span>2년 전</span>
               <strong>{PRICE_DATA.average}원</strong>
-              <em>-880원</em>
+              <em>+2억 9,000만원</em>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 자치구별 가격 */}
+      {/* 자치구별 아파트 시세 */}
 
       <section className={styles.section}>
         <div className={styles.sectionTitle}>
           <div>
             <span>SEOUL DISTRICT PRICE</span>
-            <h2>우리 동네 가격은 얼마일까요?</h2>
-            <p>자치구별 가격을 비교하여 저렴한 지역을 찾아보세요.</p>
+            <h2>우리 동네 아파트 평균 시세는 얼마일까요?</h2>
+            <p>자치구별 84㎡ 기준 평균 실거래가를 비교하여 합리적인 지역을 찾아보세요.</p>
           </div>
 
           <select
@@ -522,16 +536,16 @@ function MainPage() {
           <div className={styles.districtSummary}>
             <span>현재 선택 기준</span>
 
-            <h3>서울 자치구 가격</h3>
+            <h3>서울 자치구 평균가</h3>
 
             <strong>
-              8,390
-              <small>원</small>
+              13억 2,000
+              <small>만원</small>
             </strong>
 
             <p>
-              현재 가장 저렴한 지역은
-              <b> 금천구</b>입니다.
+              현재 가장 합리적인 지역은
+              <b> 도봉구</b>입니다.
             </p>
 
             <button type="button" onClick={() => navigate("/region-price")}>
@@ -547,7 +561,7 @@ function MainPage() {
         <div className={styles.boardHeader}>
           <div>
             <span>COMMUNITY</span>
-            <h2>싸농 소식과 궁금한 이야기</h2>
+            <h2>싸부 소식과 궁금한 이야기</h2>
             <p>서비스 공지사항과 이용자들의 질문을 확인해보세요.</p>
           </div>
         </div>
@@ -662,10 +676,10 @@ function MainPage() {
           <span>📊</span>
 
           <div>
-            <strong>KAMIS 농수산물 가격정보 연동</strong>
+            <strong>국토교통부 실거래가 공개시스템 연동</strong>
 
             <p>
-              농수산물유통정보(KAMIS)의 가격정보를 기반으로 서비스를 제공합니다.
+              국토교통부 및 서울시 부동산 실거래가 정보를 기반으로 투명한 시세 서비스를 제공합니다.
             </p>
           </div>
         </div>
@@ -675,5 +689,3 @@ function MainPage() {
     </div>
   );
 }
-
-export default MainPage;

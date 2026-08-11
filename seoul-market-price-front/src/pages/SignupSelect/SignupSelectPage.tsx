@@ -133,9 +133,9 @@ function SignupSelectPage() {
 
         <Link to="/" className="block">
           <img
-            src="/ssanong.svg"
-            alt="싸농 로고"
-            className="mx-auto h-[120px] w-auto max-[900px]:h-24 max-[600px]:h-[76px] max-[380px]:h-[68px]"
+            src="/logo.png"
+            alt="싸부 로고"
+            className="mx-auto block h-[145px] sm:h-[160px] w-auto max-[900px]:h-32 max-[600px]:h-28 max-[380px]:h-24 object-contain drop-shadow-sm"
           />
         </Link>
 
@@ -150,7 +150,7 @@ function SignupSelectPage() {
             </CardTitle>
 
             <CardDescription className="text-xs sm:text-sm">
-              원하시는 방법으로 회원가입을 진행해주세요
+              싸게 보는 부동산 싸부에 오신 것을 환영합니다
             </CardDescription>
           </CardHeader>
 
