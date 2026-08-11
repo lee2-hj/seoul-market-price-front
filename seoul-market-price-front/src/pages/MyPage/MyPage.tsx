@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
 import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, HelpCircle } from "lucide-react";
 import PassAuth from "@/features/auth/components/PassAuth";
+import { getBoardPostsApi } from "@/api/api";
 
 /**
  * 마이페이지 상단 선택 탭
@@ -25,7 +27,7 @@ function isMyPageTab(value: string | null): value is MyPageTab {
   return value === "PROFILE" || value === "NOTIFICATION" || value === "ACTIVITY";
 }
 
-const INITIAL_FAVORITE_ITEMS = ["사과", "배추", "쌀"];
+const INITIAL_FAVORITE_ITEMS = ["래미안 원베일리", "마포래미안푸르지오", "잠실엘스"];
 const MY_PAGE_STORAGE_KEY = "myPageSettings";
 
 type Profile = {
@@ -88,8 +90,8 @@ const PRICE_ALERT_CONDITION_LABELS: Record<PriceAlertCondition, string> = {
 };
 
 const DEFAULT_PRICE_ALERTS: PriceAlert[] = [
-  { id: 1, itemName: "쌀", condition: "PRICE_BELOW", threshold: 4700, enabled: true },
-  { id: 2, itemName: "배추", condition: "RATE_DOWN", threshold: 10, enabled: true },
+  { id: 1, itemName: "마포래미안푸르지오", condition: "PRICE_BELOW", threshold: 180000, enabled: true },
+  { id: 2, itemName: "잠실엘스", condition: "RATE_DOWN", threshold: 5, enabled: true },
 ];
 
 const SEOUL_DISTRICTS = [
@@ -107,18 +109,6 @@ function getStoredMyPageSettings(): MyPageSettings | null {
     return null;
   }
 }
-
-const MOCK_MY_POSTS = [
-  { id: 13, title: "가격 예측 기능 의견", createdAt: "2026.07.30", viewCount: 17 },
-  { id: 11, title: "가격 데이터 기준 문의", createdAt: "2026.07.29", viewCount: 23 },
-  { id: 9, title: "검색 결과 정렬 문의", createdAt: "2026.07.28", viewCount: 10 },
-];
-
-const MOCK_MY_COMMENTS = [
-  { id: 3, postId: 15, content: "좋은 정보 감사합니다. 다음 업데이트도 기대할게요.", postTitle: "농수산물 가격정보 서비스 오픈 안내", createdAt: "2026.08.04" },
-  { id: 2, postId: 14, content: "우리 동네 가격 비교 기능을 자주 사용하고 있습니다.", postTitle: "자치구별 가격 비교 이용 안내", createdAt: "2026.08.03" },
-  { id: 1, postId: 13, content: "가격 기준일이 궁금했는데 도움이 되었습니다.", postTitle: "가격정보 조회 기준 안내", createdAt: "2026.08.01" },
-];
 
 export default function MyPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -140,6 +130,7 @@ export default function MyPage() {
 
   const [activityType, setActivityType] = useState<ActivityType>("POST");
 
+  // 초기 프로필 로드
   const [profile, setProfile] = useState<Profile>(() => {
     const saved = getStoredMyPageSettings();
     if (authUser) {
@@ -147,7 +138,9 @@ export default function MyPage() {
         authUser.userId?.toLowerCase().startsWith("kakao_") ||
         authUser.userId?.toLowerCase().includes("kakao") ||
         authUser.userId?.toLowerCase().startsWith("google_") ||
-        authUser.userId?.toLowerCase().includes("google");
+        authUser.userId?.toLowerCase().includes("google") ||
+        authUser.userId?.toLowerCase().startsWith("naver_") ||
+        authUser.userId?.toLowerCase().includes("naver");
       return {
         ...DEFAULT_PROFILE,
         ...(saved?.profile || {}),
@@ -184,6 +177,12 @@ export default function MyPage() {
     return saved?.priceAlerts ?? DEFAULT_PRICE_ALERTS;
   });
 
+  // 원본 스냅샷 (변경 취소 시 복구할 기준 데이터)
+  const [originalProfile, setOriginalProfile] = useState<Profile>(profile);
+  const [originalDistrict, setOriginalDistrict] = useState<string>(preferredDistrict);
+  const [originalFavorites, setOriginalFavorites] = useState<string[]>(favoriteItems);
+  const [originalAlerts, setOriginalAlerts] = useState<PriceAlert[]>(priceAlerts);
+
   // 인증 관련 State
   const [phoneVerified, setPhoneVerified] = useState(false);
 
@@ -195,6 +194,30 @@ export default function MyPage() {
     defaultValues: profile,
   });
 
+  const formValues = watch();
+
+  // 소셜 로그인 감지 및 공급자명 판별
+  const currentUserId = authUser?.userId || profile.userId || "";
+  const getSocialProviderName = (id: string, type: string) => {
+    const lower = id.toLowerCase();
+    if (lower.startsWith("google_") || lower.includes("google")) return "구글";
+    if (lower.startsWith("kakao_") || lower.includes("kakao")) return "카카오";
+    if (lower.startsWith("naver_") || lower.includes("naver")) return "네이버";
+    if (type === "SOCIAL") return "소셜";
+    return "";
+  };
+
+  const socialProvider = getSocialProviderName(currentUserId, profile.loginType);
+  const isSocialUser =
+    Boolean(socialProvider) ||
+    profile.loginType === "SOCIAL" ||
+    currentUserId.toLowerCase().startsWith("kakao_") ||
+    currentUserId.toLowerCase().startsWith("google_") ||
+    currentUserId.toLowerCase().startsWith("naver_") ||
+    currentUserId.toLowerCase().includes("kakao") ||
+    currentUserId.toLowerCase().includes("google") ||
+    currentUserId.toLowerCase().includes("naver");
+
   // authUser 로드 시 profile 및 form 실시간 동기화
   useEffect(() => {
     if (authUser) {
@@ -202,20 +225,82 @@ export default function MyPage() {
         authUser.userId?.toLowerCase().startsWith("kakao_") ||
         authUser.userId?.toLowerCase().includes("kakao") ||
         authUser.userId?.toLowerCase().startsWith("google_") ||
-        authUser.userId?.toLowerCase().includes("google");
+        authUser.userId?.toLowerCase().includes("google") ||
+        authUser.userId?.toLowerCase().startsWith("naver_") ||
+        authUser.userId?.toLowerCase().includes("naver");
 
-      setProfile((prev) => {
-        const next: Profile = {
-          ...prev,
-          name: authUser.name || prev.name,
-          userId: authUser.userId || prev.userId,
-          loginType: isSocial ? "SOCIAL" : prev.loginType,
-        };
-        reset(next);
-        return next;
-      });
+      const next: Profile = {
+        ...profile,
+        name: authUser.name || profile.name,
+        userId: authUser.userId || profile.userId,
+        loginType: isSocial ? "SOCIAL" : profile.loginType,
+      };
+
+      setProfile(next);
+      setOriginalProfile(next);
+      reset(next);
     }
   }, [authUser, reset]);
+
+  // 실제 게시판 데이터 조회 (API 연동)
+  const { data: boardData, isLoading: isBoardLoading } = useQuery({
+    queryKey: ["myBoardPosts"],
+    queryFn: () => getBoardPostsApi({ page: 1, size: 100 }),
+    enabled: isLoggedIn,
+  });
+
+  // 내가 작성한 게시글 필터링
+  const myPosts = useMemo(() => {
+    if (!boardData?.items || !authUser) return [];
+    const currentName = (authUser.name || "").trim().toLowerCase();
+    const currentId = (authUser.userId || "").trim().toLowerCase();
+
+    return boardData.items.filter((item) => {
+      const author = (item.authorName || "").trim().toLowerCase();
+      return (currentName && author === currentName) || (currentId && author === currentId);
+    });
+  }, [boardData, authUser]);
+
+  // 폼이 수정되었는지 여부 계산 (Dirty check)
+  const isFormDirty = useMemo(() => {
+    const isProfileChanged =
+      (formValues.name ?? "") !== (originalProfile.name ?? "") ||
+      (formValues.phone ?? "") !== (originalProfile.phone ?? "") ||
+      (formValues.email ?? "") !== (originalProfile.email ?? "") ||
+      (formValues.address ?? "") !== (originalProfile.address ?? "") ||
+      (formValues.detailAddress ?? "") !== (originalProfile.detailAddress ?? "");
+
+    const isDistrictChanged = preferredDistrict !== originalDistrict;
+    const isFavoritesChanged = JSON.stringify(favoriteItems) !== JSON.stringify(originalFavorites);
+    const isAlertsChanged = JSON.stringify(priceAlerts) !== JSON.stringify(originalAlerts);
+
+    return isProfileChanged || isDistrictChanged || isFavoritesChanged || isAlertsChanged;
+  }, [
+    formValues.name,
+    formValues.phone,
+    formValues.email,
+    formValues.address,
+    formValues.detailAddress,
+    originalProfile,
+    preferredDistrict,
+    originalDistrict,
+    favoriteItems,
+    originalFavorites,
+    priceAlerts,
+    originalAlerts,
+  ]);
+
+  // [변경 취소] 버튼 클릭 핸들러
+  const handleCancelChanges = () => {
+    reset(originalProfile);
+    setProfile(originalProfile);
+    setPreferredDistrict(originalDistrict);
+    setFavoriteItems(originalFavorites);
+    setPriceAlerts(originalAlerts);
+    setPhoneVerified(false);
+    setEmailCertSent(false);
+    setEmailVerified(false);
+  };
 
   // 회원 정보 및 설정 일괄 저장 핸들러 (수동 저장)
   const handleSaveAll = (formData: Profile) => {
@@ -226,6 +311,10 @@ export default function MyPage() {
 
     const updatedProfile = { ...profile, ...formData };
     setProfile(updatedProfile);
+    setOriginalProfile(updatedProfile);
+    setOriginalDistrict(preferredDistrict);
+    setOriginalFavorites(favoriteItems);
+    setOriginalAlerts(priceAlerts);
 
     const settingsToSave: MyPageSettings = {
       profile: updatedProfile,
@@ -236,7 +325,7 @@ export default function MyPage() {
     };
     localStorage.setItem(MY_PAGE_STORAGE_KEY, JSON.stringify(settingsToSave));
 
-    alert("회원 정보, 관심 품목 및 알림 설정이 성공적으로 저장되었습니다!");
+    alert("회원 정보 및 설정이 성공적으로 저장되었습니다!");
   };
 
   // 알림 설정 탭 전용 저장 핸들러 (수동 저장)
@@ -304,8 +393,8 @@ export default function MyPage() {
   const handleFavoriteAdd = () => {
     if (!isLoggedIn) return alert("로그인 후 관심 품목을 등록할 수 있습니다.");
     const item = newFavoriteItem.trim();
-    if (!item) return alert("관심 품목을 입력해 주세요.");
-    if (favoriteItems.includes(item)) return alert("이미 등록된 관심 품목입니다.");
+    if (!item) return alert("관심 아파트 단지 또는 품목을 입력해 주세요.");
+    if (favoriteItems.includes(item)) return alert("이미 등록된 관심 단지입니다.");
     setFavoriteItems((prev) => [...prev, item]);
     setNewFavoriteItem("");
   };
@@ -325,27 +414,6 @@ export default function MyPage() {
     setPriceAlerts((prev) => prev.filter((a) => a.id !== id));
   };
 
-  const currentUserId = authUser?.userId || profile.userId || "";
-  const getSocialProviderName = (id: string, type: string) => {
-    const lower = id.toLowerCase();
-    if (lower.startsWith("google_") || lower.includes("google")) return "구글";
-    if (lower.startsWith("kakao_") || lower.includes("kakao")) return "카카오";
-    if (lower.startsWith("naver_") || lower.includes("naver")) return "네이버";
-    if (type === "SOCIAL") return "소셜";
-    return "";
-  };
-
-  const socialProvider = getSocialProviderName(currentUserId, profile.loginType);
-  const isSocialUser =
-    Boolean(socialProvider) ||
-    profile.loginType === "SOCIAL" ||
-    currentUserId.toLowerCase().startsWith("kakao_") ||
-    currentUserId.toLowerCase().startsWith("google_") ||
-    currentUserId.toLowerCase().startsWith("naver_") ||
-    currentUserId.toLowerCase().includes("kakao") ||
-    currentUserId.toLowerCase().includes("google") ||
-    currentUserId.toLowerCase().includes("naver");
-
   return (
     <div className="min-h-screen bg-[#fafcf9]">
       <div className="py-12 px-5 sm:px-8">
@@ -359,7 +427,7 @@ export default function MyPage() {
               마이페이지
             </h1>
             <p className="text-[15px] text-[#667065]">
-              회원 정보 및 관심 품목, 가격 변동 알림 설정을 한곳에서 관리합니다.
+              회원 정보 및 관심 아파트 단지, 가격 변동 알림 설정을 한곳에서 관리합니다.
             </p>
           </div>
 
@@ -367,6 +435,7 @@ export default function MyPage() {
           <div className="flex justify-center mb-6">
             <div className="flex items-center gap-2 p-1.5 bg-white rounded-[10px] border border-[#dce4da] shadow-sm">
               <button
+                type="button"
                 onClick={() => handleTabChange("PROFILE")}
                 className={`py-2.5 px-6 text-[14px] font-bold rounded-[8px] transition-all cursor-pointer ${
                   activeTab === "PROFILE"
@@ -377,6 +446,7 @@ export default function MyPage() {
                 내 정보 관리
               </button>
               <button
+                type="button"
                 onClick={() => handleTabChange("NOTIFICATION")}
                 className={`py-2.5 px-6 text-[14px] font-bold rounded-[8px] transition-all cursor-pointer ${
                   activeTab === "NOTIFICATION"
@@ -387,6 +457,7 @@ export default function MyPage() {
                 알림 설정
               </button>
               <button
+                type="button"
                 onClick={() => handleTabChange("ACTIVITY")}
                 className={`py-2.5 px-6 text-[14px] font-bold rounded-[8px] transition-all cursor-pointer ${
                   activeTab === "ACTIVITY"
@@ -418,14 +489,7 @@ export default function MyPage() {
                   </div>
                 )}
 
-                {/* 소셜 회원 뱃지 */}
-                {isSocialUser && (
-                  <div className="p-4 bg-[#eef6ee] border border-[#d3e6d5] rounded-[8px] text-[14px] text-[#3b7746] font-semibold">
-                    {socialProvider || "소셜"} 계정으로 로그인된 회원입니다. 이메일과 전화번호는 소셜 계정 정보와 연동됩니다.
-                  </div>
-                )}
-
-                {/* 1. 회원 정보 관리 (맨 위) */}
+                {/* 1. 회원 정보 관리 */}
                 <div className="space-y-6">
                   <div className="text-center space-y-1">
                     <h2 className="text-[22px] font-black text-[#242b23]">회원 정보 관리</h2>
@@ -435,18 +499,62 @@ export default function MyPage() {
                   </div>
 
                   <div className="space-y-5 max-w-[820px] mx-auto">
-                    {/* ROW 1: 아이디 & 비밀번호 변경 */}
-                    <div className="flex flex-col md:flex-row gap-4 w-full">
-                      <div className="space-y-1.5 flex-1 w-full md:w-1/2">
-                        <label className="text-[14px] font-bold text-[#344037] block">아이디</label>
-                        <input
-                          {...register("userId")}
-                          readOnly
-                          className="w-full h-[48px] rounded-[8px] border border-[#d5dfd6] bg-[#f5f7f5] px-3.5 text-[15px] text-[#7a877c] cursor-not-allowed outline-none box-border m-0"
-                        />
-                      </div>
+                    {/* ROW 1: 로그인 방식에 따른 분기 */}
+                    {isSocialUser ? (
+                      <div className="w-full bg-[#f4fbf5] border border-[#cbe4cf] rounded-[12px] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 box-border shadow-xs">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <strong className="text-[15px] font-black text-[#1e2a20]">
+                              {socialProvider || "소셜"} 연동 계정으로 로그인 중입니다
+                            </strong>
 
-                      {!isSocialUser ? (
+                            {/* ? 모양 툴팁 버튼 (마우스 오버 시 안내 표시) */}
+                            <div className="relative group inline-flex items-center">
+                              <button
+                                type="button"
+                                aria-label="소셜 계정 안내 툴팁"
+                                className="w-5 h-5 rounded-full bg-[#d6ebd9] hover:bg-[#4c9b55] text-[#2e7438] hover:text-white font-black text-[11px] flex items-center justify-center cursor-pointer transition-all shadow-xs"
+                              >
+                                ?
+                              </button>
+
+                              {/* 툴팁 팝오버 */}
+                              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2.5 hidden group-hover:flex flex-col w-[290px] p-3.5 bg-[#1b251d] text-white text-[12px] rounded-[10px] shadow-2xl z-50 leading-relaxed text-center pointer-events-none transition-all">
+                                <div className="font-bold text-[#86efac] mb-1 flex items-center justify-center gap-1">
+                                  <HelpCircle className="w-3.5 h-3.5" /> 소셜 계정 정보 변경 안내
+                                </div>
+                                <span>
+                                  소셜({socialProvider || "해당"}) 계정은 별도의 비밀번호가 없습니다.
+                                </span>
+                                <span className="text-[#d0ded2] mt-1">
+                                  회원정보 및 비밀번호 변경은 <b>{socialProvider || "소셜"} 계정 관리 사이트</b>로 이동하여 변경해 주세요.
+                                </span>
+                                {/* 말풍선 꼬리 */}
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-[#1b251d]"></div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <p className="text-[12px] text-[#627565]">
+                            소셜 연동 계정은 아이디 및 비밀번호 수정이 제공되지 않습니다.
+                          </p>
+                        </div>
+
+                        <span className="text-[12px] font-bold px-3.5 py-1.5 bg-white border border-[#b8ddbc] text-[#2e7438] rounded-full shrink-0 text-center shadow-2xs self-start sm:self-auto">
+                          {socialProvider || "소셜"} 간편로그인
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col md:flex-row gap-4 w-full">
+                        <div className="space-y-1.5 flex-1 w-full md:w-1/2">
+                          <label className="text-[14px] font-bold text-[#344037] block">아이디</label>
+                          <input
+                            {...register("userId")}
+                            readOnly
+                            className="w-full h-[48px] rounded-[8px] border border-[#d5dfd6] bg-[#f5f7f5] px-3.5 text-[15px] text-[#7a877c] cursor-not-allowed outline-none box-border m-0"
+                          />
+                        </div>
+
                         <div className="space-y-1.5 flex-1 w-full md:w-1/2">
                           <label className="text-[14px] font-bold text-[#344037] block">비밀번호 변경</label>
                           <button
@@ -458,16 +566,8 @@ export default function MyPage() {
                             비밀번호 변경하기
                           </button>
                         </div>
-                      ) : (
-                        <div className="space-y-1.5 flex-1 w-full md:w-1/2">
-                          <label className="text-[14px] font-bold text-[#344037] block">로그인 방식</label>
-                          <div className="w-full h-[48px] rounded-[8px] border border-[#fae29c] bg-[#fff9e6] px-3.5 flex items-center justify-between text-[13px] font-bold text-[#996a00] box-border">
-                            <span>{socialProvider || "소셜"} 연동 계정</span>
-                            <span className="text-[11px] font-medium text-[#7a5a14]">비밀번호 없음</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
 
                     {/* ROW 2: 이름 */}
                     <div className="space-y-1.5 w-full">
@@ -594,7 +694,7 @@ export default function MyPage() {
                       </div>
                     </div>
 
-                    {/* ROW 6: 선호 지역 설정 (구 이름만 표기) */}
+                    {/* ROW 6: 선호 지역 설정 */}
                     <div className="space-y-1.5 w-full">
                       <label className="text-[14px] font-bold text-[#344037] block">선호 지역 설정</label>
                       <select
@@ -616,9 +716,9 @@ export default function MyPage() {
                 {/* 2. 관심 품목 설정 */}
                 <div className="pt-8 border-t border-[#e7ece7] space-y-4">
                   <div className="text-center space-y-1">
-                    <h2 className="text-[20px] font-bold text-[#242b23]">관심 품목</h2>
+                    <h2 className="text-[20px] font-bold text-[#242b23]">관심 아파트 단지</h2>
                     <p className="text-[14px] text-[#667065]">
-                      관심 품목을 등록해 두면 가격 정보를 더 빠르게 찾아볼 수 있습니다.
+                      관심 아파트 단지를 등록해 두면 실거래가 시세를 더 빠르게 찾아볼 수 있습니다.
                     </p>
                   </div>
 
@@ -626,7 +726,7 @@ export default function MyPage() {
                   <div className="flex flex-col sm:flex-row justify-center items-center gap-3 max-w-[560px] mx-auto w-full">
                     <input
                       type="text"
-                      placeholder="관심 품목 이름을 입력해 주세요. (예: 배추, 사과, 오징어)"
+                      placeholder="관심 아파트 단지명을 입력해 주세요. (예: 마포래미안푸르지오)"
                       value={newFavoriteItem}
                       disabled={!isLoggedIn}
                       onChange={(e) => setNewFavoriteItem(e.target.value)}
@@ -650,7 +750,7 @@ export default function MyPage() {
                         key={item}
                         className="inline-flex items-center gap-1.5 min-h-[36px] px-4 rounded-full bg-[#edf7ee] text-[#397644] text-[14px] font-bold"
                       >
-                        <span>{item}</span>
+                        <span>🏢 {item}</span>
                         <span
                           onClick={() => handleFavoriteRemove(item)}
                           className="cursor-pointer font-extrabold text-[15px] text-[#397644] hover:text-[#1c4524] transition-colors leading-none select-none pl-0.5"
@@ -668,9 +768,9 @@ export default function MyPage() {
                 {/* 3. 가격 변동 알림 설정 */}
                 <div className="pt-8 border-t border-[#e7ece7] space-y-4">
                   <div className="text-center space-y-1">
-                    <h3 className="text-[18px] font-bold text-[#344037]">가격 변동 알림</h3>
+                    <h3 className="text-[18px] font-bold text-[#344037]">실거래가 변동 알림</h3>
                     <p className="text-[14px] text-[#7a877c]">
-                      설정된 농수산물 가격 변동 알림을 켜거나 끌 수 있습니다.
+                      설정된 아파트 단지의 실거래가 변동 알림을 켜거나 끌 수 있습니다.
                     </p>
                   </div>
 
@@ -678,7 +778,7 @@ export default function MyPage() {
                   <div className="space-y-2.5 max-w-[820px] mx-auto pt-2">
                     {priceAlerts.length === 0 ? (
                       <p className="p-6 border border-dashed border-[#d5dfd6] rounded-[10px] text-center text-[14px] text-[#7a877c]">
-                        등록된 가격 변동 알림이 없습니다.
+                        등록된 실거래가 변동 알림이 없습니다.
                       </p>
                     ) : (
                       priceAlerts.map((alertItem) => (
@@ -688,10 +788,10 @@ export default function MyPage() {
                         >
                           <div>
                             <strong className="text-[15px] font-bold text-[#344037] block">
-                              {alertItem.itemName}
+                              🏢 {alertItem.itemName}
                             </strong>
                             <span className="text-[13px] text-[#718073] block mt-1">
-                              {alertItem.threshold.toLocaleString()}{PRICE_ALERT_CONDITION_LABELS[alertItem.condition]}
+                              {alertItem.threshold.toLocaleString()}만원 {PRICE_ALERT_CONDITION_LABELS[alertItem.condition]}
                             </span>
                           </div>
 
@@ -719,21 +819,34 @@ export default function MyPage() {
                   </div>
                 </div>
 
-                {/* [회원 정보 및 설정 저장] 버튼 (회원 탈퇴 바로 위) */}
+                {/* ========================================================
+                    [회원 정보 및 설정 저장] & [변경 취소] 버튼 영역
+                ======================================================== */}
                 <div className="pt-8 border-t border-[#e7ece7] text-center">
-                  <button
-                    type="submit"
-                    disabled={!isLoggedIn}
-                    className="h-[52px] px-10 bg-[#57a764] hover:bg-[#438e4d] text-white text-[16px] font-bold rounded-[8px] border-none outline-none cursor-pointer transition-colors shadow-md disabled:opacity-50"
-                  >
-                    회원 정보 및 설정 저장
-                  </button>
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    {isFormDirty && (
+                      <button
+                        type="button"
+                        onClick={handleCancelChanges}
+                        className="h-[52px] px-8 bg-white hover:bg-[#f5f8f5] text-[#556357] border border-[#cfd9d0] text-[15px] font-bold rounded-[8px] cursor-pointer transition-all shadow-xs"
+                      >
+                        변경 취소
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={!isLoggedIn}
+                      className="h-[52px] px-10 bg-[#57a764] hover:bg-[#438e4d] text-white text-[16px] font-bold rounded-[8px] border-none outline-none cursor-pointer transition-colors shadow-md disabled:opacity-50"
+                    >
+                      회원 정보 및 설정 저장
+                    </button>
+                  </div>
                   <p className="text-[13px] text-[#7a877c] mt-2">
-                    회원 인적사항, 관심 품목 및 알림 설정 변경사항이 일괄 저장됩니다.
+                    회원 인적사항, 관심 단지 및 알림 설정 변경사항이 일괄 저장됩니다.
                   </p>
                 </div>
 
-                {/* 4. 회원 탈퇴 (맨 아래) */}
+                {/* 4. 회원 탈퇴 */}
                 <div className="mt-8 p-6 bg-[#fff8f8] border border-[#f1cccc] rounded-[10px] flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div>
                     <h3 className="text-[17px] font-bold text-[#a44141]">회원 탈퇴</h3>
@@ -763,16 +876,16 @@ export default function MyPage() {
                 <div className="text-center space-y-1 mb-6">
                   <h2 className="text-[20px] font-bold text-[#242b23]">알림 수신 설정</h2>
                   <p className="text-[14px] text-[#667065]">
-                    가격 변동 알림 및 관심 품목 관련 푸시 알림의 수신 여부를 선택할 수 있습니다.
+                    아파트 실거래가 변동 알림 및 관심 단지 관련 푸시 알림의 수신 여부를 선택할 수 있습니다.
                   </p>
                 </div>
 
                 <div className="border border-[#e1e8e2] rounded-[10px] divide-y divide-[#e7ece7] bg-white">
                   {[
-                    { key: "priceChange", label: "전체 가격 변동 알림 받기", desc: "모든 주요 농수산물 가격 변동 소식을 실시간으로 제공받습니다." },
-                    { key: "priceIncrease", label: "가격 상승 알림 받기", desc: "시세가 급등하는 품목의 동향을 빠르게 알림으로 받습니다." },
-                    { key: "priceDecrease", label: "가격 하락 알림 받기", desc: "시세가 하락하여 구매하기 좋은 시점의 알림을 받습니다." },
-                    { key: "favoriteOnly", label: "관심 품목만 알림 받기", desc: "등록한 관심 품목에 대해서만 알림을 받습니다." },
+                    { key: "priceChange", label: "전체 실거래가 변동 알림 받기", desc: "주요 서울 아파트 실거래가 변동 소식을 실시간으로 제공받습니다." },
+                    { key: "priceIncrease", label: "시세 상승 알림 받기", desc: "시세가 상승하는 단지의 동향을 빠르게 알림으로 받습니다." },
+                    { key: "priceDecrease", label: "급매/하락 알림 받기", desc: "시세가 하락하여 매수하기 좋은 시점의 알림을 받습니다." },
+                    { key: "favoriteOnly", label: "관심 단지만 알림 받기", desc: "등록한 관심 아파트 단지에 대해서만 알림을 받습니다." },
                   ].map((item) => (
                     <label
                       key={item.key}
@@ -819,13 +932,14 @@ export default function MyPage() {
                 <div className="text-center space-y-1 mb-6">
                   <h2 className="text-[20px] font-bold text-[#242b23]">내 활동</h2>
                   <p className="text-[14px] text-[#667065]">
-                    내가 작성한 게시글과 댓글을 확인하고 해당 글로 이동할 수 있습니다.
+                    내가 실제로 작성한 게시글과 댓글을 확인하고 해당 글로 바로 이동할 수 있습니다.
                   </p>
                 </div>
 
                 {/* 내 활동 서브 탭 */}
                 <div className="flex items-center gap-2 pb-3 border-b border-[#e1e8e2]">
                   <button
+                    type="button"
                     onClick={() => setActivityType("POST")}
                     className={
                       activityType === "POST"
@@ -833,9 +947,10 @@ export default function MyPage() {
                         : "h-[38px] px-4 rounded-[8px] bg-white border border-[#d8e2d9] text-[#718073] font-bold text-[14px] hover:bg-[#f5f8f5] cursor-pointer"
                     }
                   >
-                    작성한 게시글
+                    작성한 게시글 {isLoggedIn && !isBoardLoading && `(${myPosts.length})`}
                   </button>
                   <button
+                    type="button"
                     onClick={() => setActivityType("COMMENT")}
                     className={
                       activityType === "COMMENT"
@@ -847,49 +962,85 @@ export default function MyPage() {
                   </button>
                 </div>
 
-                {/* 리스트 */}
+                {/* 실제 게시글/댓글 목록 리스트 */}
                 <div className="border border-[#e1e8e2] rounded-[10px] divide-y divide-[#e7ece7] bg-white overflow-hidden">
-                  {activityType === "POST" &&
-                    MOCK_MY_POSTS.map((post) => (
-                      <Link
-                        key={post.id}
-                        to={`/board/${post.id}`}
-                        className="flex items-center justify-between p-5 hover:bg-[#f5faf5] transition-colors"
-                      >
-                        <div className="min-w-0 pr-4">
-                          <strong className="text-[15px] font-bold text-[#344037] block truncate">
-                            {post.title}
-                          </strong>
-                          <span className="text-[13px] text-[#7a877c] block mt-1">
-                            작성일 {post.createdAt} · 조회수 {post.viewCount}
-                          </span>
+                  {activityType === "POST" && (
+                    <>
+                      {isBoardLoading ? (
+                        <div className="p-12 text-center text-[#7a877c] text-[14px]">
+                          내가 작성한 게시글을 불러오는 중입니다...
                         </div>
-                        <b aria-hidden="true" className="text-[#57a764] text-[28px] font-normal leading-none">
-                          ›
-                        </b>
-                      </Link>
-                    ))}
+                      ) : myPosts.length > 0 ? (
+                        myPosts.map((post) => {
+                          const formattedDate = post.createdAt?.includes("T")
+                            ? `${post.createdAt.split("T")[0].replace(/-/g, ".")} ${post.createdAt.split("T")[1].slice(0, 5)}`
+                            : post.createdAt;
 
-                  {activityType === "COMMENT" &&
-                    MOCK_MY_COMMENTS.map((comment) => (
-                      <Link
-                        key={comment.id}
-                        to={`/board/${comment.postId}`}
-                        className="flex items-center justify-between p-5 hover:bg-[#f5faf5] transition-colors"
-                      >
-                        <div className="min-w-0 pr-4">
-                          <strong className="text-[15px] font-bold text-[#344037] block truncate">
-                            {comment.postTitle}
-                          </strong>
-                          <span className="text-[13px] text-[#7a877c] block mt-1">
-                            {comment.content} · 작성일 {comment.createdAt}
-                          </span>
+                          return (
+                            <Link
+                              key={post.boardId}
+                              to={`/board/${post.boardId}`}
+                              className="flex items-center justify-between p-5 hover:bg-[#f5faf5] transition-colors group no-underline text-inherit"
+                              style={{ textDecoration: "none", color: "inherit" }}
+                            >
+                              <div className="min-w-0 pr-4">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] font-extrabold px-2 py-0.5 bg-[#e8f4e9] text-[#4c8c53] rounded-full shrink-0 no-underline">
+                                    {post.postType === "NOTICE" ? "공지" : "일반"}
+                                  </span>
+                                  <strong className="text-[15px] font-bold text-[#344037] group-hover:text-[#4c9b55] transition-colors block truncate no-underline">
+                                    {post.title}
+                                  </strong>
+                                </div>
+                                <span className="text-[13px] text-[#7a877c] block mt-1.5 no-underline">
+                                  작성일 {formattedDate} · 조회수 {post.viewCount}
+                                </span>
+                              </div>
+                              <b aria-hidden="true" className="text-[#57a764] text-[24px] font-normal leading-none shrink-0 group-hover:translate-x-1 transition-transform no-underline">
+                                ›
+                              </b>
+                            </Link>
+                          );
+                        })
+                      ) : (
+                        <div className="p-12 text-center space-y-3">
+                          <div className="text-[32px]">📝</div>
+                          <p className="text-[15px] font-bold text-[#344037]">
+                            작성하신 게시글이 없습니다.
+                          </p>
+                          <p className="text-[13px] text-[#7a877c]">
+                            게시판에서 새로운 게시글을 작성해보세요!
+                          </p>
+                          <Link
+                            to="/board/write"
+                            className="inline-block px-5 py-2.5 bg-[#57a764] hover:bg-[#438e4d] text-white text-[13px] font-bold rounded-[8px] transition-colors shadow-xs no-underline"
+                            style={{ textDecoration: "none" }}
+                          >
+                            새 게시글 작성하러 가기 →
+                          </Link>
                         </div>
-                        <b aria-hidden="true" className="text-[#57a764] text-[28px] font-normal leading-none">
-                          ›
-                        </b>
+                      )}
+                    </>
+                  )}
+
+                  {activityType === "COMMENT" && (
+                    <div className="p-12 text-center space-y-3">
+                      <div className="text-[32px]">💬</div>
+                      <p className="text-[15px] font-bold text-[#344037]">
+                        작성하신 댓글이 없습니다.
+                      </p>
+                      <p className="text-[13px] text-[#7a877c]">
+                        게시글을 읽고 자유롭게 댓글을 남겨보세요!
+                      </p>
+                      <Link
+                        to="/board"
+                        className="inline-block px-5 py-2.5 bg-[#57a764] hover:bg-[#438e4d] text-white text-[13px] font-bold rounded-[8px] transition-colors shadow-xs no-underline"
+                        style={{ textDecoration: "none" }}
+                      >
+                        게시판 둘러보기 →
                       </Link>
-                    ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

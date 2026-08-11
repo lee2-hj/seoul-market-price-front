@@ -65,7 +65,7 @@ function SignupVerifyPage() {
             로고
         ========================== */}
 
-        <Link to="/" className="block">
+        <Link to="/" style={{ textDecoration: "none" }} className="block no-underline">
           <img
             src="/logo.png"
             alt="싸부 로고"
