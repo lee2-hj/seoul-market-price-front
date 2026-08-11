@@ -24,18 +24,6 @@ function LoginPage() {
 
       <div className="flex w-full flex-col items-center gap-5 max-[900px]:gap-4 max-[600px]:gap-[14px] max-[380px]:gap-3">
         {/* =========================
-            로고
-        ========================== */}
-
-        <Link to="/" style={{ textDecoration: "none" }} className="no-underline">
-          <img
-            src="/logo.png"
-            alt="싸부 로고"
-            className="mx-auto block h-[145px] sm:h-[160px] w-auto max-[900px]:h-32 max-[600px]:h-28 max-[380px]:h-24 object-contain drop-shadow-sm"
-          />
-        </Link>
-
-        {/* =========================
             로그인 카드
         ========================== */}
 
@@ -51,9 +39,17 @@ function LoginPage() {
         >
           <CardContent className="p-0">
             <div className="mb-8 text-center">
-              <span className="mb-2 inline-flex rounded-full bg-[#f1faeb] px-3 py-1 text-[10px] font-extrabold tracking-[0.08em] text-[#177827]">
-                WELCOME BACK
-              </span>
+              <Link
+                to="/"
+                aria-label="싸부 홈으로 이동"
+                className="mx-auto mb-3 block w-fit no-underline"
+              >
+                <img
+                  src="/logo.png"
+                  alt="싸부 로고"
+                  className="block h-[120px] w-auto object-contain drop-shadow-sm max-[600px]:h-[105px]"
+                />
+              </Link>
               <h1 className="m-0 text-[28px] font-black tracking-[-0.045em] text-[#141714]">
                 로그인
               </h1>

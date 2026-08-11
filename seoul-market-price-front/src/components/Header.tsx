@@ -67,9 +67,8 @@ export default function Header() {
   return (
     <header className="tw-scope sticky top-0 z-[1000] w-full bg-[#fbfbf7] px-1.5 pt-1.5 backdrop-blur-xl [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
       <div className="mx-auto flex h-[68px] w-full items-center gap-7 rounded-[12px] border border-[#e3e7e1] bg-white/97 px-5 shadow-[0_3px_13px_rgba(33,49,30,0.07)] sm:px-7">
-        <Link to="/" onClick={() => setOpen(false)} className="flex min-w-0 shrink-0 items-center gap-2.5 no-underline lg:min-w-[205px]">
-          <img src="/logo.png" alt="싸부 로고" className="h-[57px] w-auto rounded-[6px] object-contain" />
-          <span className="hidden border-l border-[#e1e5df] pl-2.5 text-[10px] font-bold text-[#7e857e] xl:inline">싸게 보는 부동산</span>
+        <Link to="/" onClick={() => setOpen(false)} className="flex h-[64px] w-[132px] shrink-0 items-center justify-center overflow-hidden rounded-[8px] no-underline lg:w-[150px]">
+          <img src="/logo.png" alt="싸부 로고" className="h-[88px] w-[88px] max-w-none object-contain" />
         </Link>
 
         <nav className="ml-auto hidden h-[68px] items-center gap-8 lg:flex" aria-label="주요 메뉴">
@@ -78,7 +77,7 @@ export default function Header() {
           ) : (
             <NavLink key={item.label} to={item.to!} className={linkClass}><item.icon className="size-[18px] stroke-[1.8]" />{item.label}</NavLink>
           ))}
-          <DesktopDropdown label="마이페이지" links={MYPAGE_LINKS} icon={UserRound} />
+          {isAuthenticated && <DesktopDropdown label="마이페이지" links={MYPAGE_LINKS} icon={UserRound} />}
         </nav>
 
         <div className="hidden shrink-0 items-center gap-2.5 lg:flex">
@@ -106,7 +105,7 @@ export default function Header() {
             {NAV_ITEMS.flatMap((item) => item.links ?? [{ to: item.to!, label: item.label }]).map((item) => (
               <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>
             ))}
-            {MYPAGE_LINKS.map((item) => <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>)}
+            {isAuthenticated && MYPAGE_LINKS.map((item) => <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>)}
             <div className="mt-3 border-t border-[#e5e8e4] pt-3">
               {isAuthenticated ? <Button type="button" variant="outline" onClick={handleLogout} className="h-11 w-full rounded-[8px]">{user?.name ?? "회원"}님 · 로그아웃</Button> : <Button asChild className="h-11 w-full rounded-[8px] bg-[#177827] text-white"><Link to="/login" onClick={() => setOpen(false)} className="no-underline">로그인</Link></Button>}
             </div>

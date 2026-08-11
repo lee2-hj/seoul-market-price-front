@@ -181,10 +181,17 @@ function SignupPage() {
 
   const signupMutation = useMutation({
     mutationKey: ["signupStart"],
-    mutationFn: (values: SignupFormValues) =>
-      signupApi({
+    mutationFn: (values: SignupFormValues) => {
+      const verified = getPassVerifiedInfo();
+
+      if (!verified) {
+        throw new Error("PASS 본인인증 정보가 없습니다.");
+      }
+
+      return signupApi({
         name: values.name.trim(),
         userId: values.userId.trim(),
+        identityVerificationId: verified.identityVerificationId,
         password: values.password,
         phone: values.phone.trim(),
         address: values.address,
@@ -194,7 +201,8 @@ function SignupPage() {
         is_terms_agreed: values.is_terms_agreed === "1" ? 1 : 0,
         is_location_agreed: values.is_location_agreed === "1" ? 1 : 0,
         is_privacy_agreed: values.is_privacy_agreed === "1" ? 1 : 0,
-      }),
+      });
+    },
     onSuccess: async (data) => {
       clearAllSignupStorage();
       await alert(data.msg);

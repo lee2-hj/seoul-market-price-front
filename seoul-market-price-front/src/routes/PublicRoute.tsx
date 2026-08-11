@@ -2,8 +2,6 @@ import { Navigate } from "react-router-dom";
 import type { ReactNode } from "react";
 
 import { isLogin } from "@/features/auth/utils/auth";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 
 interface PublicRouteProps {
   children: ReactNode;
@@ -29,13 +27,7 @@ function PublicRoute({ children }: PublicRouteProps) {
 
   */
 
-  return (
-    <div className="public-page-shell tw-scope flex min-h-screen w-full flex-col bg-[#fbfbf7]">
-      <Header />
-      <main className="flex flex-1 flex-col">{children}</main>
-      <Footer />
-    </div>
-  );
+  return <>{children}</>;
 }
 
 export default PublicRoute;

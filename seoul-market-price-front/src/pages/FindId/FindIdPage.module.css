@@ -532,3 +532,23 @@
 
 
 }
+.logoLink {
+  display: block;
+  margin-bottom: 20px;
+  text-decoration: none;
+}
+
+.logo {
+  display: block;
+  width: auto;
+  height: 150px;
+  margin: 0 auto;
+  object-fit: contain;
+  filter: drop-shadow(0 5px 12px rgba(27, 57, 35, 0.08));
+}
+
+@media (max-width: 600px) {
+  .logo {
+    height: 112px;
+  }
+}

@@ -113,6 +113,8 @@ export interface SignupRequest {
 
   userId: string;
 
+  identityVerificationId: string;
+
   password: string;
 
   phone: string;
