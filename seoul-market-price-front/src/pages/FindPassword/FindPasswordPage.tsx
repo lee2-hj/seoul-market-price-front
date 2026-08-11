@@ -28,6 +28,17 @@ function getApiErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
+const formatPhoneNumber = (value: string): string => {
+  if (!value) return "";
+  const raw = value.replace(/[^0-9]/g, "");
+  if (raw.length <= 3) return raw;
+  if (raw.length <= 7) return `${raw.slice(0, 3)}-${raw.slice(3)}`;
+  if (raw.length <= 10) {
+    return `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}`;
+  }
+  return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
+};
+
 export default function FindPasswordPage() {
   const navigate = useNavigate();
 
@@ -134,7 +145,7 @@ export default function FindPasswordPage() {
         throw new Error("본인인증 결과를 확인할 수 없습니다.");
       }
 
-      setPhone(result.phoneNumber);
+      setPhone(formatPhoneNumber(result.phoneNumber));
       setUserName(result.name);
       setResetToken(response.resetToken);
       setIsPassVerified(true);

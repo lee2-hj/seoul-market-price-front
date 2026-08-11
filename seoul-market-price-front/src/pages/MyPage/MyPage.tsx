@@ -30,6 +30,20 @@ function isMyPageTab(value: string | null): value is MyPageTab {
 const INITIAL_FAVORITE_ITEMS = ["래미안 원베일리", "마포래미안푸르지오", "잠실엘스"];
 
 /**
+ * 휴대폰 번호 정규식 자동 포맷터 (01012345678 -> 010-1234-5678)
+ */
+export const formatPhoneNumber = (value: string): string => {
+  if (!value) return "";
+  const raw = value.replace(/[^0-9]/g, "");
+  if (raw.length <= 3) return raw;
+  if (raw.length <= 7) return `${raw.slice(0, 3)}-${raw.slice(3)}`;
+  if (raw.length <= 10) {
+    return `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}`;
+  }
+  return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
+};
+
+/**
  * 서울시 주요 아파트 단지 데이터베이스 (검색 및 자동완성용)
  */
 const AVAILABLE_APARTMENTS = [
@@ -190,16 +204,22 @@ export default function MyPage() {
         authUser.userId?.toLowerCase().includes("google") ||
         authUser.userId?.toLowerCase().startsWith("naver_") ||
         authUser.userId?.toLowerCase().includes("naver");
+      const savedProfile: Partial<Profile> = saved?.profile || {};
       return {
         ...DEFAULT_PROFILE,
-        ...(saved?.profile || {}),
+        ...savedProfile,
+        phone: formatPhoneNumber(savedProfile.phone || DEFAULT_PROFILE.phone),
         loginType: isSocial ? "SOCIAL" : "LOCAL",
-        name: authUser.name || saved?.profile?.name || DEFAULT_PROFILE.name,
-        userId: authUser.userId || saved?.profile?.userId || DEFAULT_PROFILE.userId,
+        name: authUser.name || savedProfile.name || DEFAULT_PROFILE.name,
+        userId: authUser.userId || savedProfile.userId || DEFAULT_PROFILE.userId,
       };
     }
     if (saved?.profile) {
-      return { ...DEFAULT_PROFILE, ...saved.profile };
+      return {
+        ...DEFAULT_PROFILE,
+        ...saved.profile,
+        phone: formatPhoneNumber(saved.profile.phone || DEFAULT_PROFILE.phone),
+      };
     }
     return DEFAULT_PROFILE;
   });
@@ -241,6 +261,11 @@ export default function MyPage() {
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
+  // 회원 탈퇴 모달 State (일반 회원 비밀번호 확인용)
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [withdrawPassword, setWithdrawPassword] = useState("");
+  const [withdrawError, setWithdrawError] = useState("");
+
   const [emailVerified, setEmailVerified] = useState(false);
   const [emailCertSent, setEmailCertSent] = useState(false);
   const [emailCertCode, setEmailCertCode] = useState("");
@@ -274,6 +299,50 @@ export default function MyPage() {
     setNewPassword("");
     setNewPasswordConfirm("");
     setPasswordError("");
+  };
+
+  // 실제 탈퇴 처리 로직
+  const executeWithdrawal = () => {
+    const userKey = getStorageKey(authUser?.userId || profile.userId);
+    localStorage.removeItem(userKey);
+    useAuthStore.getState().clearSession();
+    alert("회원 탈퇴가 완료되었습니다. 그동안 서비스를 이용해 주셔서 감사합니다.");
+    window.location.href = "/";
+  };
+
+  // 회원 탈퇴 버튼 클릭 분기 (일반 vs 소셜)
+  const handleClickWithdraw = () => {
+    if (!isLoggedIn) {
+      alert("로그인 후 이용 가능합니다.");
+      return;
+    }
+
+    if (isSocialUser) {
+      // 소셜 로그인은 2차 컨펌 팝업
+      if (window.confirm("정말로 회원 탈퇴를 진행하시겠습니까?\n탈퇴 시 작성하신 모든 게시글과 댓글은 화면에서 즉시 숨김 처리됩니다.")) {
+        executeWithdrawal();
+      }
+    } else {
+      // 일반 회원은 비밀번호 검증 모달 오픈
+      setWithdrawPassword("");
+      setWithdrawError("");
+      setIsWithdrawModalOpen(true);
+    }
+  };
+
+  // 일반 회원 비밀번호 입력 후 최종 탈퇴 확인
+  const handleConfirmWithdrawWithPassword = () => {
+    const pwd = withdrawPassword.trim();
+    if (!pwd) {
+      setWithdrawError("비밀번호를 입력해 주세요.");
+      return;
+    }
+    if (pwd.length < 4) {
+      setWithdrawError("비밀번호를 올바르게 입력해 주세요.");
+      return;
+    }
+    setIsWithdrawModalOpen(false);
+    executeWithdrawal();
   };
 
   const { register, handleSubmit, setValue, reset, watch } = useForm<Profile>({
@@ -464,13 +533,7 @@ export default function MyPage() {
     name: string;
     phoneNumber: string;
   }) => {
-    const raw = result.phoneNumber.replace(/[^0-9]/g, "");
-    let formatted = raw;
-    if (raw.length > 3 && raw.length <= 7) {
-      formatted = `${raw.slice(0, 3)}-${raw.slice(3)}`;
-    } else if (raw.length > 7) {
-      formatted = `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
-    }
+    const formatted = formatPhoneNumber(result.phoneNumber);
 
     setValue("phone", formatted);
     if (result.name) {
@@ -1089,15 +1152,7 @@ export default function MyPage() {
                   <button
                     type="button"
                     disabled={!isLoggedIn}
-                    onClick={() => {
-                      if (window.confirm("정말로 회원 탈퇴를 진행하시겠습니까?\n탈퇴 시 작성하신 모든 게시글과 댓글은 화면에서 즉시 숨김 처리됩니다.")) {
-                        const userKey = getStorageKey(authUser?.userId || profile.userId);
-                        localStorage.removeItem(userKey);
-                        useAuthStore.getState().clearSession();
-                        alert("회원 탈퇴가 완료되었습니다. 그동안 서비스를 이용해 주셔서 감사합니다.");
-                        window.location.href = "/";
-                      }
-                    }}
+                    onClick={handleClickWithdraw}
                     className="h-[44px] px-5 border border-[#d96666] bg-white text-[#c54e4e] hover:bg-[#fff0f0] font-bold text-[14px] rounded-[8px] cursor-pointer whitespace-nowrap transition-colors disabled:opacity-50"
                   >
                     회원 탈퇴
@@ -1351,6 +1406,69 @@ export default function MyPage() {
           </div>
         </div>
       )}
-    </div>
+
+      {/* 일반 회원 탈퇴 비밀번호 확인 모달 */}
+      {isWithdrawModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+            <div className="w-full max-w-[420px] rounded-[16px] bg-white p-6 shadow-2xl space-y-5">
+              <div className="text-center space-y-1">
+                <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-2 text-xl font-bold">
+                  ⚠️
+                </div>
+                <h3 className="text-[20px] font-bold text-[#242b23]">회원 탈퇴 확인</h3>
+                <p className="text-[13px] text-[#667065]">
+                  안전한 탈퇴를 위해 현재 계정의 비밀번호를 입력해 주세요.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-[13px] font-bold text-[#344037]">
+                  비밀번호 입력
+                </label>
+                <input
+                  type="password"
+                  placeholder="현재 비밀번호를 입력하세요"
+                  value={withdrawPassword}
+                  onChange={(e) => {
+                    setWithdrawPassword(e.target.value);
+                    setWithdrawError("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleConfirmWithdrawWithPassword();
+                    }
+                  }}
+                  className="h-[46px] w-full rounded-[8px] border border-[#d5dfd6] bg-white px-4 text-[14px] text-[#2b362d] outline-none focus:border-rose-400"
+                />
+                {withdrawError && (
+                  <p className="text-[12px] font-bold text-rose-500">{withdrawError}</p>
+                )}
+              </div>
+
+              <div className="p-3 bg-[#fff8f8] border border-[#f1cccc] rounded-[8px] text-[12px] text-[#a44141] leading-relaxed">
+                탈퇴 시 계정 정보 및 작성하신 모든 게시글/댓글은 화면에서 즉시 숨김 처리됩니다.
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsWithdrawModalOpen(false)}
+                  className="h-[42px] px-5 rounded-[8px] border border-[#d5dfd6] bg-white text-[14px] font-bold text-[#556357] hover:bg-[#f5f8f5] cursor-pointer transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmWithdrawWithPassword}
+                  className="h-[42px] px-6 rounded-[8px] bg-rose-600 hover:bg-rose-700 text-[14px] font-bold text-white border-none cursor-pointer transition-colors shadow-sm"
+                >
+                  탈퇴 확인
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
   );
 }

@@ -6,6 +6,15 @@ import PassAuth from "@/features/auth/components/PassAuth";
 
 import styles from "./FindIdPage.module.css";
 
+const formatPhoneNumber = (value: string): string => {
+  if (!value) return "";
+  const raw = value.replace(/[^0-9]/g, "");
+  if (raw.length <= 3) return raw;
+  if (raw.length <= 7) return `${raw.slice(0, 3)}-${raw.slice(3)}`;
+  if (raw.length <= 10) return `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}`;
+  return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
+};
+
 function FindIdPage() {
   /*
     STEP
@@ -43,7 +52,10 @@ function FindIdPage() {
 
   */
 
-  const handlePassSuccess = () => {
+  const handlePassSuccess = (result?: { phoneNumber?: string }) => {
+    if (result?.phoneNumber) {
+      setPhone(formatPhoneNumber(result.phoneNumber));
+    }
     setPassVerified(true);
   };
 
@@ -64,7 +76,7 @@ function FindIdPage() {
         `${import.meta.env.VITE_BACKEND_URL}/api/users/find-id`,
 
         {
-          phone,
+          phone: formatPhoneNumber(phone),
         },
       );
 
@@ -104,7 +116,7 @@ function FindIdPage() {
                 placeholder="휴대폰 번호 입력"
                 value={phone}
                 disabled={passVerified}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
               />
 
               <PassAuth phone={phone} onSuccess={handlePassSuccess} />
