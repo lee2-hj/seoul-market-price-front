@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
-import { CheckCircle2, HelpCircle } from "lucide-react";
+import { CheckCircle2, HelpCircle, Search } from "lucide-react";
 import PassAuth from "@/features/auth/components/PassAuth";
 import { getBoardPostsApi } from "@/api/api";
 
@@ -28,7 +28,50 @@ function isMyPageTab(value: string | null): value is MyPageTab {
 }
 
 const INITIAL_FAVORITE_ITEMS = ["래미안 원베일리", "마포래미안푸르지오", "잠실엘스"];
-const MY_PAGE_STORAGE_KEY = "myPageSettings";
+
+/**
+ * 서울시 주요 아파트 단지 데이터베이스 (검색 및 자동완성용)
+ */
+const AVAILABLE_APARTMENTS = [
+  { name: "래미안 원베일리", district: "서초구" },
+  { name: "아크로리버파크", district: "서초구" },
+  { name: "반포자이", district: "서초구" },
+  { name: "래미안퍼스티지", district: "서초구" },
+  { name: "마포래미안푸르지오", district: "마포구" },
+  { name: "신촌그랑자이", district: "마포구" },
+  { name: "마포프레스티지자이", district: "마포구" },
+  { name: "잠실엘스", district: "송파구" },
+  { name: "리센츠", district: "송파구" },
+  { name: "헬리오시티", district: "송파구" },
+  { name: "올림픽선수기자촌", district: "송파구" },
+  { name: "고덕그라시움", district: "강동구" },
+  { name: "고덕아르테온", district: "강동구" },
+  { name: "올림픽파크포레온", district: "강동구" },
+  { name: "DMC파크뷰자이", district: "서대문구" },
+  { name: "e편한세상신촌", district: "서대문구" },
+  { name: "래미안대치팰리스", district: "강남구" },
+  { name: "은마아파트", district: "강남구" },
+  { name: "도곡렉슬", district: "강남구" },
+  { name: "디에이치아너힐즈", district: "강남구" },
+  { name: "압구정현대", district: "강남구" },
+  { name: "개포자이프레지던스", district: "강남구" },
+  { name: "옥수리버젠", district: "성동구" },
+  { name: "트리마제", district: "성동구" },
+  { name: "아크로서울포레스트", district: "성동구" },
+  { name: "목동신시가지7단지", district: "양천구" },
+  { name: "목동하이페리온", district: "양천구" },
+  { name: "경희궁자이", district: "종로구" },
+  { name: "래미안위브", district: "동대문구" },
+  { name: "청량리역롯데캐슬SKY-L65", district: "동대문구" },
+  { name: "보라매SK뷰", district: "영등포구" },
+  { name: "여의도시범", district: "영등포구" },
+  { name: "아크로리버하임", district: "동작구" },
+  { name: "흑석한강센트레빌", district: "동작구" },
+  { name: "상계주공7단지", district: "노원구" },
+  { name: "중계그린", district: "노원구" },
+  { name: "센트라스", district: "성동구" },
+  { name: "텐즈힐", district: "성동구" },
+];
 
 type Profile = {
   loginType: LoginType;
@@ -100,8 +143,14 @@ const SEOUL_DISTRICTS = [
   "성북구", "송파구", "양천구", "영등포구", "용산구", "은평구", "종로구", "중구", "중랑구",
 ];
 
-function getStoredMyPageSettings(): MyPageSettings | null {
-  const saved = localStorage.getItem(MY_PAGE_STORAGE_KEY);
+function getStorageKey(userId?: string): string {
+  const cleanId = (userId || "").trim().toLowerCase();
+  return cleanId ? `myPageSettings_${cleanId}` : "myPageSettings_guest";
+}
+
+function getStoredMyPageSettings(userId?: string): MyPageSettings | null {
+  const key = getStorageKey(userId);
+  const saved = localStorage.getItem(key);
   if (!saved) return null;
   try {
     return JSON.parse(saved) as MyPageSettings;
@@ -255,9 +304,9 @@ export default function MyPage() {
     currentUserId.toLowerCase().includes("google") ||
     currentUserId.toLowerCase().includes("naver");
 
-  // authUser 로드 시 profile 및 form 실시간 동기화
+  // authUser 변경 시 해당 사용자 고유의 프로필 및 설정 동기화
   useEffect(() => {
-    if (authUser) {
+    if (authUser?.userId) {
       const isSocial =
         authUser.userId?.toLowerCase().startsWith("kakao_") ||
         authUser.userId?.toLowerCase().includes("kakao") ||
@@ -266,16 +315,34 @@ export default function MyPage() {
         authUser.userId?.toLowerCase().startsWith("naver_") ||
         authUser.userId?.toLowerCase().includes("naver");
 
-      const next: Profile = {
-        ...profile,
-        name: authUser.name || profile.name,
-        userId: authUser.userId || profile.userId,
-        loginType: isSocial ? "SOCIAL" : profile.loginType,
+      const saved = getStoredMyPageSettings(authUser.userId);
+
+      const nextProfile: Profile = {
+        ...DEFAULT_PROFILE,
+        ...(saved?.profile || {}),
+        name: authUser.name || saved?.profile?.name || DEFAULT_PROFILE.name,
+        userId: authUser.userId,
+        loginType: isSocial ? "SOCIAL" : "LOCAL",
       };
 
-      setProfile(next);
-      setOriginalProfile(next);
-      reset(next);
+      const nextFavorites = saved?.favoriteItems ?? INITIAL_FAVORITE_ITEMS;
+      const nextDistrict = saved?.preferredDistrict ?? "마포구";
+      const nextNotifications = saved?.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
+      const nextAlerts = saved?.priceAlerts ?? DEFAULT_PRICE_ALERTS;
+
+      setProfile(nextProfile);
+      setOriginalProfile(nextProfile);
+      reset(nextProfile);
+
+      setFavoriteItems(nextFavorites);
+      setOriginalFavorites(nextFavorites);
+
+      setPreferredDistrict(nextDistrict);
+      setOriginalDistrict(nextDistrict);
+
+      setNotificationSettings(nextNotifications);
+      setPriceAlerts(nextAlerts);
+      setOriginalAlerts(nextAlerts);
     }
   }, [authUser, reset]);
 
@@ -360,7 +427,8 @@ export default function MyPage() {
       notificationSettings,
       priceAlerts,
     };
-    localStorage.setItem(MY_PAGE_STORAGE_KEY, JSON.stringify(settingsToSave));
+    const userKey = getStorageKey(authUser?.userId || profile.userId);
+    localStorage.setItem(userKey, JSON.stringify(settingsToSave));
 
     alert("회원 정보 및 설정이 성공적으로 저장되었습니다!");
   };
@@ -372,7 +440,8 @@ export default function MyPage() {
       return;
     }
 
-    const currentSaved = getStoredMyPageSettings() || {
+    const userKey = getStorageKey(authUser?.userId || profile.userId);
+    const currentSaved = getStoredMyPageSettings(authUser?.userId || profile.userId) || {
       profile,
       favoriteItems,
       preferredDistrict,
@@ -384,7 +453,7 @@ export default function MyPage() {
       ...currentSaved,
       notificationSettings,
     };
-    localStorage.setItem(MY_PAGE_STORAGE_KEY, JSON.stringify(settingsToSave));
+    localStorage.setItem(userKey, JSON.stringify(settingsToSave));
 
     alert("알림 수신 설정이 성공적으로 저장되었습니다!");
   };
@@ -427,13 +496,55 @@ export default function MyPage() {
     }
   };
 
-  const handleFavoriteAdd = () => {
-    if (!isLoggedIn) return alert("로그인 후 관심 품목을 등록할 수 있습니다.");
-    const item = newFavoriteItem.trim();
-    if (!item) return alert("관심 아파트 단지 또는 품목을 입력해 주세요.");
-    if (favoriteItems.includes(item)) return alert("이미 등록된 관심 단지입니다.");
-    setFavoriteItems((prev) => [...prev, item]);
+  const [isAptDropdownOpen, setIsAptDropdownOpen] = useState(false);
+
+  // 실시간 아파트 자동완성 필터링
+  const aptSuggestions = useMemo(() => {
+    const query = newFavoriteItem.trim().toLowerCase();
+    if (!query) return [];
+    return AVAILABLE_APARTMENTS.filter(
+      (apt) =>
+        apt.name.toLowerCase().includes(query) ||
+        apt.district.toLowerCase().includes(query)
+    ).slice(0, 8);
+  }, [newFavoriteItem]);
+
+  const handleSelectApartment = (aptName: string) => {
+    if (!isLoggedIn) return alert("로그인 후 관심 단지를 등록할 수 있습니다.");
+    if (favoriteItems.includes(aptName)) {
+      alert("이미 등록된 관심 단지입니다.");
+      setIsAptDropdownOpen(false);
+      return;
+    }
+    setFavoriteItems((prev) => [...prev, aptName]);
     setNewFavoriteItem("");
+    setIsAptDropdownOpen(false);
+  };
+
+  const handleFavoriteAdd = () => {
+    if (!isLoggedIn) return alert("로그인 후 관심 단지를 등록할 수 있습니다.");
+    const query = newFavoriteItem.trim();
+    if (!query) return alert("관심 아파트 단지명을 입력해 주세요.");
+
+    // 입력된 텍스트와 정확히 일치하거나 추천 목록이 1개일 때만 허용
+    const match =
+      AVAILABLE_APARTMENTS.find(
+        (apt) => apt.name.toLowerCase() === query.toLowerCase()
+      ) || (aptSuggestions.length === 1 ? aptSuggestions[0] : undefined);
+
+    if (!match) {
+      alert("목록에 존재하는 서울시 아파트 단지만 등록할 수 있습니다.\n검색창에 아파트명을 입력한 뒤 추천 드롭다운 목록에서 단지를 선택해 주세요.");
+      return;
+    }
+
+    if (favoriteItems.includes(match.name)) {
+      alert("이미 등록된 관심 단지입니다.");
+      return;
+    }
+
+    setFavoriteItems((prev) => [...prev, match.name]);
+    setNewFavoriteItem("");
+    setIsAptDropdownOpen(false);
   };
 
   const handleFavoriteRemove = (target: string) => {
@@ -788,25 +899,80 @@ export default function MyPage() {
                     </p>
                   </div>
 
-                  {/* 관심 품목 입력 영역 */}
-                  <div className="flex flex-col sm:flex-row justify-center items-center gap-3 max-w-[560px] mx-auto w-full">
-                    <input
-                      type="text"
-                      placeholder="관심 아파트 단지명을 입력해 주세요. (예: 마포래미안푸르지오)"
-                      value={newFavoriteItem}
-                      disabled={!isLoggedIn}
-                      onChange={(e) => setNewFavoriteItem(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleFavoriteAdd())}
-                      className="h-[48px] flex-1 w-full rounded-[8px] border border-[#d5dfd6] bg-white px-4 text-[15px] text-[#2b362d] outline-none focus:border-[#57a764] box-border m-0 shrink-0 disabled:bg-[#f5f7f5]"
-                    />
-                    <button
-                      type="button"
-                      disabled={!isLoggedIn}
-                      onClick={handleFavoriteAdd}
-                      className="h-[48px] px-6 w-full sm:w-auto bg-[#57a764] hover:bg-[#438e4d] text-white text-[14px] font-bold rounded-[8px] border-none outline-none cursor-pointer transition-colors box-border m-0 shrink-0 disabled:opacity-50"
-                    >
-                      추가
-                    </button>
+                  {/* 관심 품목 검색 및 입력 영역 */}
+                  <div className="relative max-w-[560px] mx-auto w-full">
+                    <div className="flex flex-col sm:flex-row justify-center items-center gap-3 w-full">
+                      <div className="relative flex-1 w-full">
+                        <input
+                          type="text"
+                          placeholder="관심 아파트 단지명을 검색하세요 (예: 래미안, 자이, 마포)"
+                          value={newFavoriteItem}
+                          disabled={!isLoggedIn}
+                          onFocus={() => setIsAptDropdownOpen(true)}
+                          onChange={(e) => {
+                            setNewFavoriteItem(e.target.value);
+                            setIsAptDropdownOpen(true);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleFavoriteAdd();
+                            }
+                          }}
+                          className="h-[48px] w-full rounded-[8px] border border-[#d5dfd6] bg-white pl-10 pr-4 text-[15px] text-[#2b362d] outline-none focus:border-[#57a764] box-border m-0 disabled:bg-[#f5f7f5]"
+                        />
+                        <Search className="w-4 h-4 text-[#8a968c] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!isLoggedIn}
+                        onClick={handleFavoriteAdd}
+                        className="h-[48px] px-6 w-full sm:w-auto bg-[#57a764] hover:bg-[#438e4d] text-white text-[14px] font-bold rounded-[8px] border-none outline-none cursor-pointer transition-colors box-border m-0 shrink-0 disabled:opacity-50"
+                      >
+                        추가
+                      </button>
+                    </div>
+
+                    {/* 실시간 아파트 검색 추천 드롭다운 */}
+                    {isAptDropdownOpen && newFavoriteItem.trim().length > 0 && (
+                      <div className="absolute top-full left-0 right-0 sm:right-[72px] mt-1.5 bg-white border border-[#d5dfd6] rounded-[10px] shadow-xl z-50 max-h-[240px] overflow-y-auto divide-y divide-[#f0f4f0]">
+                        {aptSuggestions.length > 0 ? (
+                          aptSuggestions.map((apt) => {
+                            const isAdded = favoriteItems.includes(apt.name);
+                            return (
+                              <button
+                                key={apt.name}
+                                type="button"
+                                onClick={() => handleSelectApartment(apt.name)}
+                                className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#f2f8f3] transition-colors cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] font-bold px-2 py-0.5 bg-[#e8f3e9] text-[#3f8a47] rounded-md">
+                                    {apt.district}
+                                  </span>
+                                  <span className="text-[14px] font-bold text-[#242b23]">
+                                    {apt.name}
+                                  </span>
+                                </div>
+                                {isAdded ? (
+                                  <span className="text-[12px] text-[#8a968c] font-medium">
+                                    등록됨
+                                  </span>
+                                ) : (
+                                  <span className="text-[12px] text-[#57a764] font-bold">
+                                    + 선택
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <div className="p-4 text-center text-[13px] text-[#8a968c]">
+                            일치하는 아파트 단지가 없습니다.
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* 관심 품목 뱃지 */}
@@ -925,7 +1091,8 @@ export default function MyPage() {
                     disabled={!isLoggedIn}
                     onClick={() => {
                       if (window.confirm("정말로 회원 탈퇴를 진행하시겠습니까?\n탈퇴 시 작성하신 모든 게시글과 댓글은 화면에서 즉시 숨김 처리됩니다.")) {
-                        localStorage.removeItem(MY_PAGE_STORAGE_KEY);
+                        const userKey = getStorageKey(authUser?.userId || profile.userId);
+                        localStorage.removeItem(userKey);
                         useAuthStore.getState().clearSession();
                         alert("회원 탈퇴가 완료되었습니다. 그동안 서비스를 이용해 주셔서 감사합니다.");
                         window.location.href = "/";
