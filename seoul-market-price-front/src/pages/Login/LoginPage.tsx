@@ -50,6 +50,18 @@ function LoginPage() {
           )}
         >
           <CardContent className="p-0">
+            <div className="mb-8 text-center">
+              <span className="mb-2 inline-flex rounded-full bg-[#f1faeb] px-3 py-1 text-[10px] font-extrabold tracking-[0.08em] text-[#177827]">
+                WELCOME BACK
+              </span>
+              <h1 className="m-0 text-[28px] font-black tracking-[-0.045em] text-[#141714]">
+                로그인
+              </h1>
+              <p className="mt-2 text-[12px] text-[#777d77]">
+                싸부에서 오늘의 부동산 가격을 확인해보세요.
+              </p>
+            </div>
+
             <LoginForm />
 
             <SocialLogin mode="login" />

@@ -1,336 +1,116 @@
-import { Link } from "react-router-dom";
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Link, NavLink } from "react-router-dom";
+import { BarChart3, ChevronDown, Headphones, LogIn, Map, Menu, Search, UserRound, X } from "lucide-react";
 
 import { logout } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { Button } from "@/components/ui/button";
-import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-} from "@/components/ui/navigation-menu";
 
-interface NavLinkItem {
-  to: string;
-  label: string;
-}
+type MenuLink = { to: string; label: string };
 
-interface NavGroup {
-  label: string;
-  links: NavLinkItem[];
-}
-/* 추후 추가
-const PRICE_LINKS: NavLinkItem[] = [
-  { to: "/price", label: "품목별 시세 조회" },
-  { to: "/price/detail", label: "가격 추이 그래프" },
-  { to: "/price/detail", label: "급상승 / 급락 품목" },
+const NAV_ITEMS: Array<{ label: string; to?: string; icon: typeof Search; links?: MenuLink[] }> = [
+  { label: "매물 검색", to: "/price", icon: Search },
+  { label: "지역별 비교", to: "/price", icon: Map },
+  { label: "가격 추이", to: "/price", icon: BarChart3 },
+  {
+    label: "고객센터",
+    icon: Headphones,
+    links: [
+      { to: "/board", label: "공지사항" },
+      { to: "/qna", label: "질의응답" },
+      { to: "/qna", label: "자주 묻는 질문" },
+    ],
+  },
 ];
 
-const REGION_LINKS: NavLinkItem[] = [
-  { to: "/region-price", label: "자치구 지도 비교" },
-  { to: "/region-price/my-area", label: "자치구간 1:1 비교" },
-];
-
-const RECOMMEND_LINKS: NavLinkItem[] = [
-  { to: "/recommendation", label: "오늘의 알뜰 품목" },
-  { to: "/recommendation", label: "오늘의 가격하락 품목 추천" },
-  { to: "/recommendation", label: "이달의 제철 농수산물" },
-];
-*/
-
-const SUPPORT_LINKS: NavLinkItem[] = [
-  { to: "/board", label: "공지사항" },
-  { to: "/qna", label: "질의응답" },
-  { to: "/faq", label: "자주 묻는 질문" },
-];
-
-/* 마이페이지(/mypage)는 하나의 라우트를 탭(?tab=)으로 구분해 쓴다.
-   (src/pages/MyPage/MyPage.tsx 참고: PROFILE(기본) · NOTIFICATION · ACTIVITY) */
-const MYPAGE_LINKS: NavLinkItem[] = [
+const MYPAGE_LINKS: MenuLink[] = [
   { to: "/mypage", label: "내 정보 수정" },
-  { to: "/mypage", label: "관심품목 & 우리동네 설정" },
-  { to: "/mypage?tab=NOTIFICATION", label: "가격 변동 타겟 알림" },
+  { to: "/mypage", label: "관심 단지" },
+  { to: "/mypage?tab=NOTIFICATION", label: "알림 설정" },
+  { to: "/mypage?tab=ACTIVITY", label: "활동 내역" },
 ];
 
-const NAV_GROUPS: NavGroup[] = [
-  { label: "가격 상세 정보", links: [] },
-  { label: "자치구별 가격정보", links: [] },
-  { label: "스마트 추천", links: [] },
-  { label: "고객센터", links: SUPPORT_LINKS },
-];
+const linkClass = ({ isActive }: { isActive: boolean }) =>
+  `group relative flex h-[68px] items-center gap-2 whitespace-nowrap px-1 text-[13px] font-extrabold tracking-[-0.025em] transition-colors no-underline after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:rounded-t-full after:transition-colors ${
+    isActive ? "text-[#177827] after:bg-[#177827]" : "text-[#343934] after:bg-transparent hover:text-[#177827]"
+  }`;
 
-const MYPAGE_GROUP: NavGroup = { label: "마이페이지", links: MYPAGE_LINKS };
-
-const navTriggerClass =
-  "group h-[76px] gap-[5px] rounded-none border-0 bg-transparent px-0 py-[27px] text-[14px] font-semibold whitespace-nowrap text-[#505850] hover:bg-transparent hover:text-[#4c9b55] focus:bg-transparent data-[state=open]:bg-transparent data-[state=open]:text-[#4c9b55] data-[state=open]:hover:bg-transparent data-[state=open]:focus:bg-transparent";
-
-const dropdownContentClass =
-  "!fixed inset-x-0 top-[76px] flex min-h-[85px] w-screen items-center justify-center gap-10 border-t border-[#edf1eb] border-b border-[#dfe7dd] bg-white/[.99] py-[18px] pb-[22px] shadow-[0_10px_25px_rgba(45,70,45,0.07),0_3px_8px_rgba(45,70,45,0.03)]";
-
-function DropdownLinks({ links }: { links: NavLinkItem[] }) {
+function DesktopDropdown({ label, links, icon: Icon }: { label: string; links: MenuLink[]; icon: typeof Search }) {
   return (
-    <>
-      {links.map((link) => (
-        <NavigationMenuLink asChild key={`${link.to}-${link.label}`}>
-          <Link
-            to={link.to}
-            className="group/link relative -mt-1 flex min-w-[155px] items-center gap-[9px] rounded-[7px] px-3.5 py-[7px] text-[13px] font-medium whitespace-nowrap text-[#626b63] no-underline transition-all duration-150 hover:translate-x-[3px] hover:bg-[#f3f8f2] hover:text-[#4c9956]"
-          >
-            <span className="size-1 shrink-0 rounded-full bg-[#b7c6b7] transition-colors duration-150 group-hover/link:bg-[#5da566]" />
-            {link.label}
+    <div className="group relative flex h-[68px] items-center">
+      <button type="button" className="flex h-full items-center gap-2 border-0 bg-transparent px-1 text-[13px] font-extrabold tracking-[-0.025em] text-[#343934] hover:text-[#177827]">
+        <Icon className="size-[18px] stroke-[1.8]" />{label}<ChevronDown className="size-3.5" />
+      </button>
+      <div className="invisible absolute left-1/2 top-[64px] z-50 w-[190px] -translate-x-1/2 translate-y-1 rounded-[10px] border border-[#e5e8e4] bg-white p-2 opacity-0 shadow-[0_12px_30px_rgba(26,48,25,0.12)] transition-all group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
+        {links.map((item) => (
+          <Link key={`${item.to}-${item.label}`} to={item.to} className="flex min-h-10 items-center rounded-[7px] px-3 text-[12px] font-semibold text-[#596059] no-underline hover:bg-[#f1faeb] hover:text-[#177827]">
+            {item.label}
           </Link>
-        </NavigationMenuLink>
-      ))}
-    </>
-  );
-}
-
-/* 모바일 · 태블릿(<1024px) 전용 메뉴 패널
-   NavigationMenu의 hover 기반 드롭다운은 터치 환경에 맞지 않아
-   그룹별로 항상 펼쳐진 세로 목록으로 대체한다. */
-function MobileNavPanel({
-  groups,
-  onNavigate,
-}: {
-  groups: NavGroup[];
-  onNavigate: () => void;
-}) {
-  return (
-    <nav className="flex flex-col divide-y divide-[#edf1eb]">
-      <Link
-        to="/"
-        onClick={onNavigate}
-        className="flex min-h-11 items-center px-1 text-[14px] font-semibold text-[#344037]"
-      >
-        홈
-      </Link>
-
-      {groups.map((group) => (
-        <div key={group.label} className="py-2">
-          <p className="px-1 py-2 text-[11px] font-bold tracking-[0.3px] text-[#899287]">
-            {group.label}
-          </p>
-
-          <div className="flex flex-col">
-            {group.links.map((link) => (
-              <Link
-                key={`${link.to}-${link.label}`}
-                to={link.to}
-                onClick={onNavigate}
-                className="flex min-h-11 items-center gap-[9px] rounded-[7px] px-2 text-[13px] font-medium text-[#505850] no-underline transition-colors hover:bg-[#f3f8f2] hover:text-[#4c9956]"
-              >
-                <span className="size-1 shrink-0 rounded-full bg-[#b7c6b7]" />
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      ))}
-    </nav>
+        ))}
+      </div>
+    </div>
   );
 }
 
 export default function Header() {
-  // 로그인 여부와 표시용 회원명은 zustand(useAuthStore)가 기준(source of truth)이다.
-  // accessToken이 HttpOnly 쿠키라 더 이상 직접 파싱할 수 없어,
-  // 로그인 시 응답받은 값을 zustand에 저장해두고 그대로 구독한다.
   const user = useAuthStore((state) => state.user);
+  const [open, setOpen] = useState(false);
   const isAuthenticated = user !== null;
-  const userName = user?.name ?? null;
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  // 마이페이지 메뉴는 로그인 상태일 때만 노출한다.
-  const mobileNavGroups = isAuthenticated
-    ? [...NAV_GROUPS, MYPAGE_GROUP]
-    : NAV_GROUPS;
-
-  const closeMenu = () => setIsMenuOpen(false);
 
   const handleLogout = async () => {
-    if (!window.confirm("로그아웃 하시겠습니까?")) {
-      return;
-    }
-
-    closeMenu();
-    // accessToken 쿠키 삭제 + /api/auth/logout 호출까지 끝난 뒤에
-    // 이동해야 로그아웃 처리가 확실히 반영된다.
+    if (!window.confirm("로그아웃 하시겠습니까?")) return;
+    setOpen(false);
     await logout();
     window.location.href = "/";
   };
 
   return (
-    <header className="tw-scope sticky top-0 z-[1000] w-full border-b border-[#e8ece6] bg-white/97 backdrop-blur-md [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
-      <div className="mx-auto flex h-[76px] w-[min(1280px,calc(100%-32px))] items-center gap-3 sm:w-[min(1280px,calc(100%-48px))] sm:gap-5 lg:gap-[30px]">
-        {/* Logo */}
-        <Link
-          to="/"
-          onClick={closeMenu}
-          className="flex min-w-0 shrink-0 items-center gap-[10px] text-[#263329] no-underline lg:min-w-[220px]"
-        >
-          <img
-            src="/logo.png"
-            alt="싸부 로고"
-            className="h-[54px] sm:h-[58px] w-auto object-contain rounded-[6px] transition-transform hover:scale-105"
-          />
-          <span className="hidden whitespace-nowrap border-l border-[#dfe4dd] pl-2.5 text-[12px] font-semibold text-[#899287] md:inline">
-            싸게 보는 부동산
-          </span>
+    <header className="tw-scope sticky top-0 z-[1000] w-full bg-[#fbfbf7] px-1.5 pt-1.5 backdrop-blur-xl [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
+      <div className="mx-auto flex h-[68px] w-full items-center gap-7 rounded-[12px] border border-[#e3e7e1] bg-white/97 px-5 shadow-[0_3px_13px_rgba(33,49,30,0.07)] sm:px-7">
+        <Link to="/" onClick={() => setOpen(false)} className="flex min-w-0 shrink-0 items-center gap-2.5 no-underline lg:min-w-[205px]">
+          <img src="/logo.png" alt="싸부 로고" className="h-[57px] w-auto rounded-[6px] object-contain" />
+          <span className="hidden border-l border-[#e1e5df] pl-2.5 text-[10px] font-bold text-[#7e857e] xl:inline">싸게 보는 부동산</span>
         </Link>
 
-        {/* Navigation (Desktop, 1024px 이상) */}
-        <NavigationMenu
-          viewport={false}
-          className="ml-auto hidden h-[76px] max-w-none flex-none items-center justify-start lg:flex"
-        >
-          <NavigationMenuList className="h-[76px] gap-4 xl:gap-[25px]">
-            {/* 홈 */}
-            <NavigationMenuItem className="flex h-[76px] shrink-0 items-center">
-              <NavigationMenuLink
-                asChild
-                className="group relative h-[76px] flex-row items-center gap-[5px] rounded-none bg-transparent p-0 py-[27px] text-[14px] font-semibold whitespace-nowrap text-[#505850] no-underline hover:bg-transparent hover:text-[#4c9b55] focus:bg-transparent"
-              >
-                <Link to="/">
-                  홈
-                  <span className="absolute inset-x-0 bottom-4 h-[2px] scale-x-0 bg-[#62a967] transition-transform group-hover:scale-x-100" />
-                </Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
+        <nav className="ml-auto hidden h-[68px] items-center gap-8 lg:flex" aria-label="주요 메뉴">
+          {NAV_ITEMS.map((item) => item.links ? (
+            <DesktopDropdown key={item.label} label={item.label} links={item.links} icon={item.icon} />
+          ) : (
+            <NavLink key={item.label} to={item.to!} className={linkClass}><item.icon className="size-[18px] stroke-[1.8]" />{item.label}</NavLink>
+          ))}
+          <DesktopDropdown label="마이페이지" links={MYPAGE_LINKS} icon={UserRound} />
+        </nav>
 
-            {/* 가격 상세 정보 */}
-            <NavigationMenuItem className="flex h-[76px] shrink-0 items-center">
-              <NavigationMenuTrigger className={navTriggerClass}>
-                가격 상세 정보
-              </NavigationMenuTrigger>
-              <NavigationMenuContent className={dropdownContentClass}>
-                <DropdownLinks links={[]} />
-              </NavigationMenuContent>
-            </NavigationMenuItem>
-
-            {/* 자치구별 가격정보 */}
-            <NavigationMenuItem className="flex h-[76px] shrink-0 items-center">
-              <NavigationMenuTrigger className={navTriggerClass}>
-                자치구별 가격정보
-              </NavigationMenuTrigger>
-              <NavigationMenuContent className={dropdownContentClass}>
-                <DropdownLinks links={[]} />
-              </NavigationMenuContent>
-            </NavigationMenuItem>
-
-            {/* 스마트 추천 */}
-            <NavigationMenuItem className="flex h-[76px] shrink-0 items-center">
-              <NavigationMenuTrigger className={navTriggerClass}>
-                스마트 추천
-              </NavigationMenuTrigger>
-              <NavigationMenuContent className={dropdownContentClass}>
-                <DropdownLinks links={[]} />
-              </NavigationMenuContent>
-            </NavigationMenuItem>
-
-            {/* 고객센터 */}
-            <NavigationMenuItem className="flex h-[76px] shrink-0 items-center">
-              <NavigationMenuTrigger className={navTriggerClass}>
-                고객센터
-              </NavigationMenuTrigger>
-              <NavigationMenuContent className={dropdownContentClass}>
-                <DropdownLinks links={SUPPORT_LINKS} />
-              </NavigationMenuContent>
-            </NavigationMenuItem>
-
-            {/* 마이페이지 (로그인 상태일 때만 노출) */}
-            {isAuthenticated && (
-              <NavigationMenuItem className="flex h-[76px] shrink-0 items-center">
-                <NavigationMenuTrigger className={navTriggerClass}>
-                  마이페이지
-                </NavigationMenuTrigger>
-                <NavigationMenuContent className={dropdownContentClass}>
-                  <DropdownLinks links={MYPAGE_LINKS} />
-                </NavigationMenuContent>
-              </NavigationMenuItem>
-            )}
-          </NavigationMenuList>
-        </NavigationMenu>
-
-        {/* 사용자 영역 (Desktop) */}
-        <div className="hidden shrink-0 items-center gap-[13px] lg:flex">
+        <div className="hidden shrink-0 items-center gap-2.5 lg:flex">
           {isAuthenticated ? (
             <>
-              <span className="text-[14px] font-bold text-[#344037]">
-                {userName ?? "회원"}님
-              </span>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleLogout}
-                className="h-auto rounded-[8px] border-[#dfe5dd] px-[13px] py-[9px] text-[12px] font-semibold text-[#626a62] shadow-none hover:border-[#d2ded0] hover:bg-[#f4f7f3] hover:text-[#384239]"
-              >
-                로그아웃
-              </Button>
+              <span className="flex items-center gap-1.5 text-[13px] font-extrabold text-[#263329]"><UserRound className="size-4" />{user?.name ?? "회원"}님</span>
+              <Button type="button" variant="outline" onClick={handleLogout} className="h-9 rounded-[8px] border-[#dfe5dd] px-3 text-[11px] font-bold text-[#596259] shadow-none hover:bg-[#f4f8f2]">로그아웃</Button>
             </>
           ) : (
-            <Button
-              asChild
-              className="h-auto rounded-[8px] bg-[#57a764] px-4 py-[9px] text-[13px] font-bold text-white hover:bg-[#438e4d]"
-            >
-              <Link to="/login" className="no-underline">
-                로그인
-              </Link>
+            <Button asChild className="group h-[42px] rounded-[10px] border border-[#116b22] bg-gradient-to-b from-[#1b8830] to-[#116f24] px-[18px] text-[12px] font-extrabold text-white shadow-[0_4px_10px_rgba(23,120,39,0.18)] transition-all hover:-translate-y-0.5 hover:from-[#177d2b] hover:to-[#0b641c] hover:shadow-[0_7px_15px_rgba(23,120,39,0.24)]">
+              <Link to="/login" className="flex items-center gap-2 no-underline"><LogIn className="size-4 transition-transform group-hover:translate-x-0.5" />로그인</Link>
             </Button>
           )}
         </div>
 
-        {/* 햄버거 버튼 (Mobile · Tablet, 1024px 미만) */}
-        <button
-          type="button"
-          onClick={() => setIsMenuOpen((prev) => !prev)}
-          aria-label={isMenuOpen ? "메뉴 닫기" : "메뉴 열기"}
-          aria-expanded={isMenuOpen}
-          className="ml-auto flex size-11 shrink-0 items-center justify-center rounded-md text-[#344037] transition-colors hover:bg-[#f4f7f3] lg:hidden"
-        >
-          {isMenuOpen ? (
-            <X className="size-6" aria-hidden="true" />
-          ) : (
-            <Menu className="size-6" aria-hidden="true" />
-          )}
+        <button type="button" onClick={() => setOpen((value) => !value)} aria-label={open ? "메뉴 닫기" : "메뉴 열기"} className="ml-auto flex size-11 items-center justify-center rounded-[8px] border-0 bg-transparent text-[#263329] hover:bg-[#f3f7f1] lg:hidden">
+          {open ? <X className="size-6" /> : <Menu className="size-6" />}
         </button>
       </div>
 
-      {/* 모바일 · 태블릿 메뉴 패널 */}
-      {isMenuOpen && (
-        <div className="absolute inset-x-0 top-[76px] max-h-[calc(100vh-76px)] overflow-y-auto border-t border-[#e8ece6] bg-white px-4 py-3 shadow-[0_15px_35px_rgba(45,70,45,0.09)] lg:hidden">
-          <MobileNavPanel groups={mobileNavGroups} onNavigate={closeMenu} />
-
-          <div className="mt-2 border-t border-[#edf1eb] pt-3">
-            {isAuthenticated ? (
-              <div className="flex min-h-11 items-center justify-between px-1">
-                <span className="text-[14px] font-bold text-[#344037]">
-                  {userName ?? "회원"}님
-                </span>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleLogout}
-                  className="h-11 rounded-[8px] border-[#dfe5dd] px-4 text-[13px] font-semibold text-[#626a62] shadow-none hover:border-[#d2ded0] hover:bg-[#f4f7f3] hover:text-[#384239]"
-                >
-                  로그아웃
-                </Button>
-              </div>
-            ) : (
-              <Button
-                asChild
-                className="flex h-11 w-full items-center justify-center rounded-[8px] bg-[#57a764] text-[14px] font-bold text-white hover:bg-[#438e4d]"
-              >
-                <Link to="/login" onClick={closeMenu} className="no-underline">
-                  로그인
-                </Link>
-              </Button>
-            )}
-          </div>
+      {open && (
+        <div className="absolute inset-x-1.5 top-[75px] max-h-[calc(100vh-78px)] overflow-y-auto rounded-b-[12px] border border-[#e5e8e4] bg-white px-5 py-4 shadow-[0_18px_35px_rgba(26,48,25,0.12)] lg:hidden">
+          <nav className="mx-auto flex max-w-[720px] flex-col" aria-label="모바일 메뉴">
+            <Link to="/" onClick={() => setOpen(false)} className="flex min-h-11 items-center text-[14px] font-extrabold no-underline">홈</Link>
+            {NAV_ITEMS.flatMap((item) => item.links ?? [{ to: item.to!, label: item.label }]).map((item) => (
+              <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>
+            ))}
+            {MYPAGE_LINKS.map((item) => <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>)}
+            <div className="mt-3 border-t border-[#e5e8e4] pt-3">
+              {isAuthenticated ? <Button type="button" variant="outline" onClick={handleLogout} className="h-11 w-full rounded-[8px]">{user?.name ?? "회원"}님 · 로그아웃</Button> : <Button asChild className="h-11 w-full rounded-[8px] bg-[#177827] text-white"><Link to="/login" onClick={() => setOpen(false)} className="no-underline">로그인</Link></Button>}
+            </div>
+          </nav>
         </div>
       )}
     </header>
