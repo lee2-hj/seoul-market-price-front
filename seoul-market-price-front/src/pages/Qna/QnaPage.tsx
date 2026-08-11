@@ -22,18 +22,36 @@ type SearchType = "title" | "author" | "content";
 const POSTS_PER_PAGE = 5;
 const MAX_PAGE = 5;
 
+/* 관리자 여부 */
+
+const isAdminUser = (role: string): boolean => {
+  if (!role) {
+    return false;
+  }
+
+  const normalizedRole = role.toUpperCase();
+
+  return normalizedRole === "ADMIN" || normalizedRole === "ROLE_ADMIN";
+};
+
 /* Q&A 페이지 */
 
 function QnaPage() {
   const navigate = useNavigate();
 
-  /* 로그인 사용자 정보 */
-
-  const loginUser = getLoginUser();
-
   /* 로그인 상태 */
 
   const isLoggedIn = isLogin();
+
+  /* 로그인 사용자 정보 */
+
+  const loginUser = useMemo(() => {
+    if (!isLoggedIn) {
+      return null;
+    }
+
+    return getLoginUser();
+  }, [isLoggedIn]);
 
   /* 로그인 사용자 ID */
 
@@ -41,24 +59,12 @@ function QnaPage() {
 
   /* 로그인 사용자 이름 */
 
-  const loginUserName = useMemo(() => {
-    if (!loginUser) {
-      return "사용자";
-    }
-
-    return loginUser.name || loginUser.userId || "사용자";
-  }, [loginUser]);
+  const loginUserName = loginUser?.name || loginUser?.userId || "사용자";
 
   /* 관리자 여부 */
 
   const isAdmin = useMemo(() => {
-    if (!loginUser?.role) {
-      return false;
-    }
-
-    const role = loginUser.role.toUpperCase();
-
-    return role === "ADMIN" || role === "ROLE_ADMIN";
+    return isAdminUser(loginUser?.role ?? "");
   }, [loginUser]);
 
   /* Q&A 게시글 */
@@ -103,8 +109,6 @@ function QnaPage() {
    * 1. writerLoginId
    * 2. userId
    * 3. memberId
-   *
-   * 실제 API 응답에 존재하는 값을 사용한다.
    */
 
   const getPostWriterId = useCallback((post: QnaListResponse): string => {
@@ -153,11 +157,24 @@ function QnaPage() {
   );
 
   /*
+   * 답변 완료 여부
+   *
+   * answeredAt이 존재하면 답변 완료로 판단한다.
+   */
+
+  const hasAnswer = useCallback((post: QnaListResponse): boolean => {
+    return Boolean(post.answeredAt);
+  }, []);
+
+  /*
    * Q&A 목록 API 조회
    *
-   * localStorage의 qnaPosts는 사용하지 않는다.
+   * localStorage는 사용하지 않는다.
    *
-   * 오직 GET /api/qnas API 응답만 사용한다.
+   * GET /api/qnas API 응답만 사용한다.
+   *
+   * 화면 페이지는 1부터 시작하고
+   * Spring Boot Pageable은 0부터 시작한다.
    */
 
   const fetchQnaPosts = useCallback(async (page: number, keyword: string) => {
@@ -166,10 +183,6 @@ function QnaPage() {
 
     try {
       /*
-       * 화면 페이지는 1부터 시작한다.
-       *
-       * Spring Boot Pageable은 0부터 시작한다.
-       *
        * 화면 1페이지
        * -> API page=0
        *
@@ -179,13 +192,11 @@ function QnaPage() {
 
       const response = await getQnasApi(page - 1, POSTS_PER_PAGE, keyword);
 
-      console.log("=================================");
       console.log("Q&A API 호출 성공");
       console.log("Q&A API 응답:", response);
       console.log("Q&A 게시글:", response?.content);
       console.log("전체 게시글 수:", response?.totalElements);
       console.log("전체 페이지 수:", response?.totalPages);
-      console.log("=================================");
 
       /*
        * 백엔드 응답 구조 확인
@@ -203,36 +214,28 @@ function QnaPage() {
       }
 
       /*
-       * 개발 중 작성자 ID 필드 확인용 로그
-       *
-       * 실제 API 응답을 확인하기 위한 로그다.
+       * 개발 중 작성자 ID 필드 확인
        */
 
       response.content.forEach((post, index) => {
+        const postData = post as QnaListResponse & {
+          writerLoginId?: string | number | null;
+          userId?: string | number | null;
+          memberId?: string | number | null;
+        };
+
         console.log(`Q&A 게시글 ${index + 1} 작성자 정보`, {
           id: post.id,
           title: post.title,
           writerName: post.writerName,
-          writerLoginId: (
-            post as QnaListResponse & {
-              writerLoginId?: string | number | null;
-            }
-          ).writerLoginId,
-          userId: (
-            post as QnaListResponse & {
-              userId?: string | number | null;
-            }
-          ).userId,
-          memberId: (
-            post as QnaListResponse & {
-              memberId?: string | number | null;
-            }
-          ).memberId,
+          writerLoginId: postData.writerLoginId,
+          userId: postData.userId,
+          memberId: postData.memberId,
         });
       });
 
       /*
-       * 백엔드에서 받은 content만 화면에 표시한다.
+       * 백엔드에서 받은 게시글만 화면에 표시한다.
        */
 
       setPosts(response.content);
@@ -260,13 +263,7 @@ function QnaPage() {
    */
 
   useEffect(() => {
-    const timerId = window.setTimeout(() => {
-      void fetchQnaPosts(1, "");
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timerId);
-    };
+    void fetchQnaPosts(1, "");
   }, [fetchQnaPosts]);
 
   /* 전체 페이지 수 */
@@ -297,7 +294,6 @@ function QnaPage() {
     const keyword = searchKeyword.trim();
 
     setAppliedKeyword(keyword);
-
     setCurrentPage(1);
 
     void fetchQnaPosts(1, keyword);
@@ -305,7 +301,7 @@ function QnaPage() {
 
   /* Enter 검색 */
 
-  const handleSearchKeyDown = (event: KeyboardEvent) => {
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") {
       handleSearch();
     }
@@ -317,20 +313,17 @@ function QnaPage() {
     const newSearchType = event.target.value as SearchType;
 
     setSearchType(newSearchType);
-
     setSearchKeyword("");
-
     setAppliedKeyword("");
-
     setCurrentPage(1);
 
     /*
-     * 현재 백엔드 API는 keyword만 전달받는다.
+     * 현재 백엔드 API는 keyword만 전달한다.
      *
-     * searchType은 화면에서만 관리한다.
+     * searchType은 현재 화면에서만 관리한다.
      *
      * 추후 백엔드에서 searchType을 지원하면
-     * getQnasApi에 searchType을 추가하면 된다.
+     * getQnasApi에 searchType을 추가한다.
      */
 
     void fetchQnaPosts(1, "");
@@ -340,11 +333,8 @@ function QnaPage() {
 
   const handleResetSearch = () => {
     setSearchKeyword("");
-
     setAppliedKeyword("");
-
     setSearchType("title");
-
     setCurrentPage(1);
 
     void fetchQnaPosts(1, "");
@@ -354,7 +344,8 @@ function QnaPage() {
 
   const handleWrite = () => {
     /*
-     * auth.ts의 isLogin()을 기준으로 로그인 상태를 확인한다.
+     * auth.ts의 isLogin()을 기준으로
+     * 로그인 상태를 확인한다.
      */
 
     if (!isLoggedIn || !loginUserId) {
@@ -372,7 +363,8 @@ function QnaPage() {
 
   const handlePostClick = (post: QnaListResponse) => {
     /*
-     * 로그인하지 않은 사용자는 게시글 상세 내용을 볼 수 없다.
+     * 로그인하지 않은 사용자는
+     * 게시글 상세 내용을 볼 수 없다.
      */
 
     if (!isLoggedIn || !loginUserId) {
@@ -384,13 +376,13 @@ function QnaPage() {
     }
 
     /*
-     * 백엔드 응답에서 작성자 ID를 가져온다.
+     * 게시글 작성자 ID 조회
      */
 
     const postWriterId = getPostWriterId(post);
 
     /*
-     * 내가 작성한 글인지 확인한다.
+     * 내가 작성한 글인지 확인
      */
 
     const myPost = isMyPost(post);
@@ -399,7 +391,6 @@ function QnaPage() {
      * 개발 중 권한 확인 로그
      */
 
-    console.log("=================================");
     console.log("Q&A 게시글 접근 권한 확인");
     console.log("게시글 ID:", post.id);
     console.log("게시글 제목:", post.title);
@@ -408,10 +399,10 @@ function QnaPage() {
     console.log("현재 로그인 사용자 ID:", loginUserId);
     console.log("내 게시글 여부:", myPost);
     console.log("관리자 여부:", isAdmin);
-    console.log("=================================");
 
     /*
-     * 관리자 또는 본인 게시글만 상세 페이지로 이동한다.
+     * 관리자 또는 본인 게시글만
+     * 상세 페이지로 이동한다.
      */
 
     if (!isAdmin && !myPost) {
@@ -425,7 +416,7 @@ function QnaPage() {
      *
      * GET /api/qnas/{id}
      *
-     * 를 호출하도록 한다.
+     * 를 호출한다.
      */
 
     navigate(`/qna/${post.id}`);
@@ -469,22 +460,16 @@ function QnaPage() {
   const handleLogout = async () => {
     try {
       /*
-       * 서버 로그아웃 API 호출
+       * auth.ts의 logout()을 호출한다.
+       *
+       * 현재 프로젝트의 인증 구조에 맞춰
+       * 로그인 정보를 정리한다.
        */
 
-      const { logoutApi } = await import("@/api/api");
-
-      await logoutApi();
+      await logout();
     } catch (error) {
-      console.error("로그아웃 API 오류:", error);
+      console.error("로그아웃 처리 중 오류:", error);
     } finally {
-      /*
-       * auth.ts의 logout()으로
-       * localStorage 로그인 정보도 제거한다.
-       */
-
-      logout();
-
       navigate("/");
     }
   };
@@ -527,16 +512,6 @@ function QnaPage() {
     const day = String(parsedDate.getDate()).padStart(2, "0");
 
     return `${year}.${month}.${day}`;
-  };
-
-  /* 답변 완료 여부 */
-
-  const hasAnswer = (post: QnaListResponse) => {
-    /*
-     * answeredAt이 존재하면 답변 완료로 판단한다.
-     */
-
-    return !!post.answeredAt;
   };
 
   return (
@@ -1007,7 +982,9 @@ function QnaPage() {
               aria-label="검색 조건"
             >
               <option value="title">제목</option>
+
               <option value="author">작성자</option>
+
               <option value="content">작성글</option>
             </select>
 

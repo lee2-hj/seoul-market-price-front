@@ -2,592 +2,511 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 
+import { getLoginUser, logout } from "@/features/auth/utils/auth";
+
 import styles from "./QnaDetailPage.module.css";
 
-/*
- * 백엔드 서버 주소
- */
+/* 백엔드 서버 주소 */
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8081";
 
-/*
- * 로그인 사용자
- */
-
-interface LoginUser {
-  userId?: string;
-  name?: string;
-  userName?: string;
-  role?: string;
-}
-
-/*
- * 첨부파일 정보
- */
-
-interface QnaAttachment {
-  name: string;
-  size: number;
-}
-
-/*
- * Q&A 상세 응답
- *
- * 백엔드에서 실제로 사용하는 필드명을 기준으로 작성한다.
- */
+/* Q&A 상세 응답 타입 */
 
 interface QnaDetailResponse {
   id: number;
 
+  writerLoginId?: string | null;
+  writerName?: string | null;
+
   title: string;
 
-  questionContent?: string;
+  /* 백엔드 QnaDetailResponse의 질문 본문 */
 
-  writerName?: string;
+  questionContent?: string | null;
 
-  writerLoginId?: string;
+  /* 기존 프론트와의 호환 */
 
-  userId?: string;
+  content?: string | null;
 
-  createdAt?: string;
+  /* 답변 */
 
-  updatedAt?: string;
+  answerContent?: string | null;
+  answerAdminName?: string | null;
 
-  viewCount?: number;
+  answer?: string | null;
 
-  answeredAt?: string;
+  /* 답변 상태 */
 
-  answerContent?: string;
+  answerStatus?: string | null;
 
-  answerMemberId?: number;
+  /* 첨부파일 */
 
-  answerWriterName?: string;
-
-  attachName?: string;
-
-  attachPath?: string;
+  attachPath?: string | null;
+  attachName?: string | null;
 
   attachmentAvailable?: boolean;
 
-  attachments?: QnaAttachment[];
+  attachmentUrl?: string | null;
+  fileUrl?: string | null;
+
+  originalFileName?: string | null;
+  fileName?: string | null;
+
+  /* 조회수 */
+
+  viewCount?: number;
+  views?: number;
+
+  /* 공개 여부 */
+
+  publicQuestion?: boolean;
+  isPublic?: boolean;
+
+  /* 날짜 */
+
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  answeredAt?: string | null;
 }
 
-/*
- * 로그인 사용자 조회
- */
+/* 로그인 사용자 타입 */
 
-const getLoginUser = (): LoginUser | null => {
-  const storedUser = localStorage.getItem("loginUser");
+interface LoginUser {
+  id?: number | string;
+  userId?: string;
+  loginId?: string;
+  memberId?: number | string;
+  name?: string;
+  username?: string;
+  role?: string;
+  authority?: string;
+  authorities?: string[];
+}
 
-  if (!storedUser) {
-    return null;
-  }
+/* 로그인 사용자 ID 추출 */
 
-  try {
-    const parsedUser: unknown = JSON.parse(storedUser);
-
-    if (
-      !parsedUser ||
-      typeof parsedUser !== "object" ||
-      Array.isArray(parsedUser)
-    ) {
-      return null;
-    }
-
-    return parsedUser as LoginUser;
-  } catch (error) {
-    console.error("로그인 사용자 정보 확인 실패:", error);
-
-    return null;
-  }
-};
-
-/*
- * 로그인 사용자 이름
- */
-
-const getLoginUserName = (user: LoginUser | null): string => {
+const getLoginUserId = (user: LoginUser | null): string => {
   if (!user) {
-    return "사용자";
+    return "";
   }
 
-  return user.name || user.userName || user.userId || "사용자";
-};
-
-/*
- * 관리자 여부
- */
-
-const isAdminUser = (user: LoginUser | null): boolean => {
-  if (!user?.role) {
-    return false;
+  if (user.loginId !== undefined && user.loginId !== null) {
+    return String(user.loginId);
   }
 
-  const role = user.role.toUpperCase();
+  if (user.userId !== undefined && user.userId !== null) {
+    return String(user.userId);
+  }
 
-  return role === "ADMIN" || role === "ROLE_ADMIN";
+  return "";
 };
 
-/*
- * 날짜 포맷
- */
+/* 게시글 작성자 로그인 ID 추출 */
 
-const formatDate = (date?: string): string => {
-  if (!date) {
+const getPostWriterId = (post: QnaDetailResponse | null): string => {
+  if (!post) {
+    return "";
+  }
+
+  if (post.writerLoginId !== undefined && post.writerLoginId !== null) {
+    return String(post.writerLoginId);
+  }
+
+  return "";
+};
+
+/* 날짜 표시 */
+
+const formatDate = (dateString?: string | null): string => {
+  if (!dateString) {
     return "-";
   }
 
-  const parsedDate = new Date(date);
+  const date = new Date(dateString);
 
-  if (Number.isNaN(parsedDate.getTime())) {
-    return date;
+  if (Number.isNaN(date.getTime())) {
+    return dateString;
   }
 
-  const year = parsedDate.getFullYear();
-
-  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
-
-  const day = String(parsedDate.getDate()).padStart(2, "0");
-
-  return `${year}.${month}.${day}`;
+  return date.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
-/*
- * 파일 크기 표시
- */
+/* 공개 여부 확인 */
 
-const formatFileSize = (size: number): string => {
-  if (!size || size < 1024) {
-    return `${size || 0} B`;
+const isPublicPost = (post: QnaDetailResponse): boolean => {
+  if (typeof post.publicQuestion === "boolean") {
+    return post.publicQuestion;
   }
 
-  if (size < 1024 * 1024) {
-    return `${(size / 1024).toFixed(1)} KB`;
+  if (typeof post.isPublic === "boolean") {
+    return post.isPublic;
   }
 
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  return false;
 };
 
-/*
- * Q&A 상세 페이지
- */
+/* 조회수 표시 */
+
+const getViewCount = (post: QnaDetailResponse): number => {
+  if (typeof post.viewCount === "number") {
+    return post.viewCount;
+  }
+
+  if (typeof post.views === "number") {
+    return post.views;
+  }
+
+  return 0;
+};
+
+/* 질문 본문 추출 */
+
+const getQuestionContent = (post: QnaDetailResponse): string => {
+  if (post.questionContent !== undefined && post.questionContent !== null) {
+    return post.questionContent;
+  }
+
+  if (post.content !== undefined && post.content !== null) {
+    return post.content;
+  }
+
+  return "";
+};
+
+/* 첨부파일 URL 추출 */
+
+const getAttachmentUrl = (post: QnaDetailResponse): string => {
+  return post.attachmentUrl || post.fileUrl || post.attachPath || "";
+};
+
+/* 첨부파일 이름 추출 */
+
+const getAttachmentName = (post: QnaDetailResponse): string => {
+  return (
+    post.originalFileName || post.fileName || post.attachName || "첨부파일"
+  );
+};
+
+/* QnaDetailPage */
 
 function QnaDetailPage() {
   const navigate = useNavigate();
 
   const { id } = useParams<{ id: string }>();
 
-  /*
-   * 로그인 사용자
-   */
-
-  const currentUser = getLoginUser();
-
-  const currentUserId = currentUser?.userId ?? "";
-
-  const currentUserName = getLoginUserName(currentUser);
-
-  const isAdmin = isAdminUser(currentUser);
-
-  const isLoggedIn = Boolean(currentUser && currentUserId);
-
-  /*
-   * 게시글
-   */
-
   const [post, setPost] = useState<QnaDetailResponse | null>(null);
 
-  /*
-   * 로딩
-   */
-
-  const [loading, setLoading] = useState(true);
-
-  /*
-   * 오류
-   */
+  const [isLoading, setIsLoading] = useState(true);
 
   const [errorMessage, setErrorMessage] = useState("");
 
-  /*
-   * Q&A 상세 조회
-   *
-   * GET /api/qnas/{id}
-   */
+  const [loginUser, setLoginUser] = useState<LoginUser | null>(null);
+
+  const [isMyPost, setIsMyPost] = useState(false);
+
+  /* 게시글 상세 조회 */
 
   useEffect(() => {
-    /*
-     * 로그인하지 않은 경우
-     */
-
-    if (!isLoggedIn || !currentUserId) {
-      alert("로그인 후 질의응답을 확인할 수 있습니다.");
-
-      navigate("/login");
-
-      return;
-    }
-
-    /*
-     * 상세 API 호출
-     */
-
     const fetchQnaDetail = async () => {
-      /* 비동기 마이크로태스크로 실행을 미루어 동기적 상태 업데이트 경고를 방지 */
-      await Promise.resolve();
+      if (!id) {
+        setErrorMessage("잘못된 게시글 번호입니다.");
 
-      /*
-       * URL의 게시글 ID 확인
-       */
-
-      const qnaId = Number(id);
-
-      if (!id || Number.isNaN(qnaId)) {
-        setErrorMessage("잘못된 질의응답 게시글입니다.");
-
-        setLoading(false);
+        setIsLoading(false);
 
         return;
       }
 
+      setIsLoading(true);
+      setErrorMessage("");
+
       try {
-        setLoading(true);
+        /* 현재 로그인 사용자 확인 */
 
-        setErrorMessage("");
+        const currentUser = getLoginUser() as LoginUser | null;
 
-        console.log("=================================");
+        setLoginUser(currentUser);
 
-        console.log("Q&A 상세 조회 시작");
+        /*
 
-        console.log("게시글 ID:", qnaId);
+          상세 조회 권한은 백엔드에서 판단한다.
 
-        console.log("요청 URL:", `${BACKEND_URL}/api/qnas/${qnaId}`);
+          GET /api/qnas/{id}
 
-        console.log("현재 로그인 사용자 ID:", currentUserId);
+          QnaController
+          -> qnaService.getQna(id, principal.memberId())
 
-        console.log("관리자 여부:", isAdmin);
+          QnaService
+          -> qnaQueryRepository.incrementViewCount(id, userId)
+          -> qnaQueryRepository.findAccessibleById(id, userId)
 
-        console.log("=================================");
+          따라서 프론트에서는
+          비공개 여부를 가지고 다시 접근을 차단하지 않는다.
+
+          백엔드가 200을 반환하면
+          해당 게시글을 정상적으로 표시한다.
+        */
 
         const response = await axios.get<QnaDetailResponse>(
-          `${BACKEND_URL}/api/qnas/${qnaId}`,
+          `${BACKEND_URL}/api/qnas/${id}`,
           {
-            /*
-             * 쿠키 기반 인증
-             */
-
             withCredentials: true,
-
-            headers: {
-              "Content-Type": "application/json",
-            },
           },
         );
 
-        const data = response.data;
+        const detail = response.data;
 
-        console.log("=================================");
-
-        console.log("Q&A 상세 조회 성공");
-
-        console.log("응답 상태:", response.status);
-
-        console.log("상세 게시글:", data);
-
-        console.log("게시글 작성자 ID:", data.writerLoginId);
-
-        console.log("현재 로그인 사용자 ID:", currentUserId);
-
-        console.log("내 게시글 여부:", data.writerLoginId === currentUserId);
-
-        console.log("관리자 여부:", isAdmin);
-
-        console.log("=================================");
+        console.log("[QnaDetailPage] 상세 게시글:", detail);
 
         /*
-         * 백엔드 응답 확인
-         */
 
-        if (!data || !data.id) {
-          setPost(null);
+          본인 여부는 접근 권한 판단이 아니라
+          수정 / 삭제 버튼 표시를 위해서만 사용한다.
+        */
 
-          setErrorMessage("게시글 정보를 확인할 수 없습니다.");
+        const currentUserId = getLoginUserId(currentUser);
 
-          return;
-        }
+        const writerId = getPostWriterId(detail);
 
-        /*
-         * 작성자 본인 또는 관리자만 확인 가능
-         *
-         * 목록에서도 동일한 기준을 사용한다.
-         */
+        const mine =
+          Boolean(currentUserId) &&
+          Boolean(writerId) &&
+          currentUserId === writerId;
 
-        const writerLoginId = data.writerLoginId ?? data.userId ?? "";
+        console.log("[QnaDetailPage] 현재 사용자 ID:", currentUserId);
 
-        const isMyPost = writerLoginId === currentUserId;
+        console.log("[QnaDetailPage] 게시글 작성자 ID:", writerId);
 
-        console.log("=================================");
+        console.log("[QnaDetailPage] 내 글 여부:", mine);
 
-        console.log("Q&A 상세 접근 권한 확인");
-
-        console.log("게시글 ID:", data.id);
-
-        console.log("게시글 제목:", data.title);
-
-        console.log("게시글 작성자:", data.writerName);
-
-        console.log("게시글 작성자 ID:", writerLoginId);
-
-        console.log("현재 로그인 사용자 ID:", currentUserId);
-
-        console.log("내 게시글 여부:", isMyPost);
-
-        console.log("관리자 여부:", isAdmin);
-
-        console.log("=================================");
+        setIsMyPost(mine);
 
         /*
-         * 본인 글이 아니고 관리자도 아닌 경우
-         */
 
-        if (!isAdmin && !isMyPost) {
-          alert("작성자 본인 또는 관리자만 확인할 수 있습니다.");
+          백엔드에서 접근 가능한 게시글을
+          정상적으로 반환했으므로 그대로 저장한다.
 
-          navigate("/qna");
+        */
 
-          return;
-        }
-
-        /*
-         * 상세 게시글 저장
-         */
-
-        setPost(data);
+        setPost(detail);
       } catch (error) {
-        console.error("=================================");
-
-        console.error("Q&A 상세 조회 실패");
+        console.error("[QnaDetailPage] 게시글 상세 조회 실패:", error);
 
         if (axios.isAxiosError(error)) {
-          console.error("HTTP 상태:", error.response?.status);
+          const status = error.response?.status;
 
-          console.error("백엔드 응답:", error.response?.data);
+          /* 로그인되지 않은 경우 */
 
-          console.error("요청 URL:", error.config?.url);
-        } else {
-          console.error(error);
-        }
+          if (status === 401) {
+            setErrorMessage("로그인이 필요합니다.");
 
-        console.error("=================================");
+            return;
+          }
 
-        /*
-         * 401
-         */
+          /* 권한 없음 */
 
-        if (axios.isAxiosError(error) && error.response?.status === 401) {
-          alert("로그인 정보가 만료되었습니다. 다시 로그인해주세요.");
+          if (status === 403) {
+            setErrorMessage("이 게시글을 확인할 권한이 없습니다.");
 
-          localStorage.removeItem("loginUser");
+            return;
+          }
 
-          localStorage.removeItem("accessToken");
+          /*
 
-          navigate("/login");
+            백엔드의 findAccessibleById()에서
+            접근할 수 없는 비공개 글도
+            결과가 없으면 QnaNotFoundException이 발생한다.
 
-          return;
-        }
+            따라서 404는
+            존재하지 않거나 접근할 수 없는 글로 처리한다.
+          */
 
-        /*
-         * 403
-         */
+          if (status === 404) {
+            setErrorMessage("존재하지 않거나 확인할 수 없는 게시글입니다.");
 
-        if (axios.isAxiosError(error) && error.response?.status === 403) {
-          alert("이 게시글을 확인할 권한이 없습니다.");
+            return;
+          }
 
-          navigate("/qna");
+          /* 기타 서버 오류 */
 
-          return;
-        }
-
-        /*
-         * 404
-         */
-
-        if (axios.isAxiosError(error) && error.response?.status === 404) {
-          setErrorMessage("존재하지 않는 질의응답 게시글입니다.");
-
-          return;
-        }
-
-        /*
-         * 500
-         */
-
-        if (axios.isAxiosError(error) && error.response?.status === 500) {
           setErrorMessage(
-            "서버에서 질의응답 상세 정보를 불러오는 중 오류가 발생했습니다.",
+            error.response?.data?.message ||
+              "게시글을 불러오는 중 오류가 발생했습니다.",
           );
 
           return;
         }
 
-        setErrorMessage(
-          "질의응답 상세 정보를 불러오는 중 오류가 발생했습니다.",
-        );
+        setErrorMessage("게시글을 불러오는 중 오류가 발생했습니다.");
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
-    void fetchQnaDetail();
-  }, [id, navigate, currentUserId, isAdmin, isLoggedIn]);
+    fetchQnaDetail();
+  }, [id]);
 
-  /*
-   * 로그아웃
-   */
+  /* 목록으로 이동 */
 
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-
-    localStorage.removeItem("loginUser");
-
-    localStorage.removeItem("user");
-
-    navigate("/");
-  };
-
-  /*
-   * 목록으로
-   */
-
-  const handleGoList = () => {
+  const handleBack = () => {
     navigate("/qna");
   };
 
-  /*
-   * 수정 페이지 이동
-   */
+  /* 수정 */
 
   const handleEdit = () => {
     if (!post) {
       return;
     }
 
+    if (!isMyPost) {
+      alert("수정 권한이 없습니다.");
+
+      return;
+    }
+
     navigate(`/qna/${post.id}/edit`);
   };
 
-  /*
-   * 삭제
-   *
-   * DELETE /api/qnas/{id}
-   */
+  /* 삭제 */
 
   const handleDelete = async () => {
     if (!post) {
       return;
     }
 
-    const confirmed = window.confirm("이 질의응답 게시글을 삭제하시겠습니까?");
+    if (!isMyPost) {
+      alert("삭제 권한이 없습니다.");
+
+      return;
+    }
+
+    const confirmed = window.confirm("정말 삭제하시겠습니까?");
 
     if (!confirmed) {
       return;
     }
 
     try {
-      console.log("Q&A 삭제 요청:", post.id);
-
       await axios.delete(`${BACKEND_URL}/api/qnas/${post.id}`, {
         withCredentials: true,
       });
 
-      alert("질의응답이 삭제되었습니다.");
+      alert("게시글이 삭제되었습니다.");
 
       navigate("/qna");
     } catch (error) {
-      console.error("Q&A 삭제 실패:", error);
+      console.error("[QnaDetailPage] 게시글 삭제 실패:", error);
 
       if (axios.isAxiosError(error)) {
-        console.error("HTTP 상태:", error.response?.status);
+        const status = error.response?.status;
 
-        console.error("백엔드 응답:", error.response?.data);
-
-        /*
-         * 인증 만료
-         */
-
-        if (error.response?.status === 401) {
-          alert("로그인 정보가 만료되었습니다. 다시 로그인해주세요.");
-
-          localStorage.removeItem("loginUser");
-
-          localStorage.removeItem("accessToken");
+        if (status === 401) {
+          alert("로그인이 필요합니다.");
 
           navigate("/login");
 
           return;
         }
 
-        /*
-         * 권한 없음
-         */
-
-        if (error.response?.status === 403) {
-          alert("게시글을 삭제할 권한이 없습니다.");
+        if (status === 403) {
+          alert("삭제 권한이 없습니다.");
 
           return;
         }
 
-        /*
-         * API 없음
-         */
+        alert(error.response?.data?.message || "게시글 삭제에 실패했습니다.");
 
-        if (error.response?.status === 404) {
-          alert("게시글 삭제 API를 찾을 수 없습니다.");
-
-          return;
-        }
+        return;
       }
 
-      alert("질의응답 삭제에 실패했습니다.");
+      alert("게시글 삭제에 실패했습니다.");
     }
   };
 
-  /*
-   * 로딩
-   */
+  /* 로그아웃 */
 
-  if (loading) {
+  const handleLogout = () => {
+    logout();
+
+    navigate("/login");
+  };
+
+  /* 로딩 */
+
+  if (isLoading) {
     return (
       <div className={styles.page}>
+        <header className={styles.header}>
+          <div className={styles.logo} onClick={() => navigate("/")}>
+            싸농
+          </div>
+        </header>
+
         <main className={styles.container}>
-          <section className={styles.emptyState}>
-            <p>게시글을 불러오는 중입니다.</p>
-          </section>
+          <div className={styles.loading}>게시글을 불러오는 중입니다...</div>
         </main>
       </div>
     );
   }
 
-  /*
-   * 오류
-   */
+  /* 오류 */
 
-  if (errorMessage) {
+  if (errorMessage || !post) {
     return (
       <div className={styles.page}>
+        <header className={styles.header}>
+          <div className={styles.logo} onClick={() => navigate("/")}>
+            싸농
+          </div>
+
+          <div className={styles.headerRight}>
+            {loginUser ? (
+              <>
+                <span className={styles.userName}>
+                  {loginUser.name ||
+                    loginUser.username ||
+                    getLoginUserId(loginUser)}
+                  님
+                </span>
+
+                <button
+                  type="button"
+                  className={styles.logoutButton}
+                  onClick={handleLogout}
+                >
+                  로그아웃
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className={styles.loginButton}
+                onClick={() => navigate("/login")}
+              >
+                로그인
+              </button>
+            )}
+          </div>
+        </header>
+
         <main className={styles.container}>
-          <section className={styles.emptyState}>
-            <div className={styles.emptyIcon}>⚠️</div>
+          <section className={styles.errorBox}>
+            <h2>게시글을 확인할 수 없습니다.</h2>
 
-            <h1>게시글을 불러올 수 없습니다.</h1>
-
-            <p>{errorMessage}</p>
+            <p>{errorMessage || "게시글 정보가 존재하지 않습니다."}</p>
 
             <button
               type="button"
-              className={styles.listButton}
-              onClick={handleGoList}
+              className={styles.backButton}
+              onClick={handleBack}
             >
-              목록으로
+              Q&A 목록으로
             </button>
           </section>
         </main>
@@ -595,388 +514,205 @@ function QnaDetailPage() {
     );
   }
 
-  /*
-   * 게시글 없음
-   */
+  /* 첨부파일 */
 
-  if (!post) {
-    return (
-      <div className={styles.page}>
-        <main className={styles.container}>
-          <section className={styles.emptyState}>
-            <div className={styles.emptyIcon}>📄</div>
+  const attachmentUrl = getAttachmentUrl(post);
 
-            <h1>게시글을 찾을 수 없습니다.</h1>
+  const attachmentName = getAttachmentName(post);
 
-            <p>요청하신 질의응답 게시글이 존재하지 않거나 삭제되었습니다.</p>
-
-            <button
-              type="button"
-              className={styles.listButton}
-              onClick={handleGoList}
-            >
-              목록으로
-            </button>
-          </section>
-        </main>
-      </div>
-    );
-  }
-
-  /*
-   * 게시글 작성자 ID
-   *
-   * 목록 API와 상세 API의 응답 차이를 고려한다.
-   */
-
-  const writerLoginId = post.writerLoginId ?? post.userId ?? "";
-
-  /*
-   * 본인 게시글 여부
-   */
-
-  const isMyPost = writerLoginId === currentUserId;
-
-  /*
-   * 답변 여부
-   */
-
-  const hasAnswer = Boolean(
-    post.answerContent && post.answerContent.trim() !== "",
+  const hasAttachment = Boolean(
+    post.attachmentAvailable ||
+    attachmentUrl ||
+    post.originalFileName ||
+    post.fileName ||
+    post.attachName,
   );
 
-  /*
-   * 첨부파일
-   */
-
-  const attachments =
-    post.attachments && Array.isArray(post.attachments) ? post.attachments : [];
-
-  /*
-   * 로그인 상태
-   */
+  /* 상세 화면 */
 
   return (
     <div className={styles.page}>
-      {/* 사용자 영역 */}
+      {/* 헤더 */}
 
-      <div className={styles.topUserBar}>
-        <div className={styles.topUserInner}>
-          <div className={styles.userArea}>
-            <span className={styles.userName}>
-              {currentUserName}
-
-              {isAdmin && <span className={styles.adminBadge}>관리자</span>}
-            </span>
-
-            <button
-              type="button"
-              className={styles.logoutButton}
-              onClick={handleLogout}
-            >
-              로그아웃
-            </button>
-          </div>
+      <header className={styles.header}>
+        <div className={styles.logo} onClick={() => navigate("/")}>
+          싸농
         </div>
-      </div>
 
-      {/* Header */}
-
-      <header className={styles.mainHeader}>
-        <div className={styles.headerInner}>
-          {/* 로고 */}
-
-          <button
-            type="button"
-            className={styles.logo}
-            onClick={() => navigate("/")}
-            aria-label="싸농 홈으로 이동"
-          >
-            싸농
+        <nav className={styles.navigation}>
+          <button type="button" onClick={() => navigate("/")}>
+            홈
           </button>
 
-          {/* 메인 메뉴 */}
+          <button type="button" onClick={() => navigate("/qna")}>
+            Q&A
+          </button>
+        </nav>
 
-          <nav className={styles.mainNav} aria-label="주요 메뉴">
-            {/* 홈 */}
+        <div className={styles.headerRight}>
+          {loginUser ? (
+            <>
+              <span className={styles.userName}>
+                {loginUser.name ||
+                  loginUser.username ||
+                  getLoginUserId(loginUser)}
+                님
+              </span>
 
+              <button
+                type="button"
+                className={styles.logoutButton}
+                onClick={handleLogout}
+              >
+                로그아웃
+              </button>
+            </>
+          ) : (
             <button
               type="button"
-              className={styles.navItem}
-              onClick={() => navigate("/")}
+              className={styles.loginButton}
+              onClick={() => navigate("/login")}
             >
-              홈
+              로그인
             </button>
-
-            {/* 가격 상세 정보 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                가격 상세 정보
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>가격정보</strong>
-
-                  <button type="button" onClick={() => navigate("/price")}>
-                    품목별 시세 조회
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/price/detail")}
-                  >
-                    가격 추이 그래프
-                  </button>
-
-                  <button type="button" onClick={() => navigate("/price")}>
-                    급상승 / 급락 품목
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 자치구별 가격정보 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                자치구별 가격정보
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>자치구별 지도 비교</strong>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/region-price")}
-                  >
-                    자치구간 1:1 비교
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/region-price")}
-                  >
-                    시장 / 마트 유형별 비교
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 스마트 추천 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                스마트 추천
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>스마트 추천</strong>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/recommendation")}
-                  >
-                    오늘의 알뜰 장바구니
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/recommendation")}
-                  >
-                    가격 하락 품목 추천
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/recommendation")}
-                  >
-                    이달의 제철 농수산물
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 고객센터 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                고객센터
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>고객센터</strong>
-
-                  <button type="button" onClick={() => navigate("/qna")}>
-                    질의응답
-                  </button>
-
-                  <button type="button" onClick={() => navigate("/faq")}>
-                    자주 묻는 질문
-                  </button>
-                </div>
-              </div>
-            </div>
-          </nav>
+          )}
         </div>
       </header>
 
       {/* 본문 */}
 
       <main className={styles.container}>
-        {/* 페이지 제목 */}
+        <section className={styles.detailSection}>
+          {/* 상단 */}
 
-        <section className={styles.pageHeader}>
-          <div className={styles.headerText}>
-            <span className={styles.pageLabel}>질의응답</span>
+          <div className={styles.detailTop}>
+            <div>
+              <span className={styles.boardName}>Q&A</span>
 
-            <h1>문의 내용</h1>
+              {!isPublicPost(post) && (
+                <span className={styles.privateBadge}>비공개</span>
+              )}
 
-            <p>싸농 서비스에 등록된 질의응답입니다.</p>
+              {post.answerStatus && (
+                <span className={styles.answerBadge}>{post.answerStatus}</span>
+              )}
+            </div>
+
+            <div className={styles.detailActions}>
+              {/* 본인 글일 때만 수정 / 삭제 */}
+
+              {isMyPost && (
+                <>
+                  <button type="button" onClick={handleEdit}>
+                    수정
+                  </button>
+
+                  <button type="button" onClick={handleDelete}>
+                    삭제
+                  </button>
+                </>
+              )}
+
+              <button type="button" onClick={handleBack}>
+                목록
+              </button>
+            </div>
           </div>
 
-          <button
-            type="button"
-            className={styles.listButton}
-            onClick={handleGoList}
-          >
-            목록으로
-          </button>
-        </section>
-
-        {/* 게시글 */}
-
-        <article className={styles.detailCard}>
           {/* 제목 */}
 
-          <header className={styles.detailHeader}>
-            <h2>{post.title}</h2>
+          <div className={styles.titleArea}>
+            <h1>{post.title}</h1>
+          </div>
 
-            <div className={styles.meta}>
-              <span>
-                작성자 <strong>{post.writerName || "사용자"}</strong>
-              </span>
+          {/* 게시글 정보 */}
+
+          <div className={styles.meta}>
+            <div>
+              <span className={styles.metaLabel}>작성자</span>
+
+              <span>{post.writerName || post.writerLoginId || "-"}</span>
+            </div>
+
+            <div>
+              <span className={styles.metaLabel}>작성일</span>
 
               <span>{formatDate(post.createdAt)}</span>
-
-              <span>조회 {post.viewCount ?? 0}</span>
             </div>
-          </header>
 
-          {/* 내용 */}
+            <div>
+              <span className={styles.metaLabel}>조회수</span>
 
-          <div className={styles.content}>
-            {post.questionContent || "등록된 문의 내용이 없습니다."}
+              <span>{getViewCount(post)}</span>
+            </div>
           </div>
+
+          {/* 질문 본문 */}
+
+          <article className={styles.content}>
+            {getQuestionContent(post)}
+          </article>
 
           {/* 첨부파일 */}
 
-          {attachments.length > 0 && (
-            <section className={styles.attachmentSection}>
-              <div className={styles.attachmentHeader}>
-                <strong>첨부파일</strong>
+          {hasAttachment && (
+            <div className={styles.attachment}>
+              <span className={styles.attachmentLabel}>첨부파일</span>
 
-                <span>{attachments.length}개</span>
-              </div>
-
-              <ul className={styles.attachmentList}>
-                {attachments.map((file, index) => (
-                  <li
-                    key={`${file.name}-${index}`}
-                    className={styles.attachmentItem}
-                  >
-                    <div className={styles.attachmentInformation}>
-                      <span className={styles.attachmentIcon}>📎</span>
-
-                      <div className={styles.attachmentText}>
-                        <span
-                          className={styles.attachmentName}
-                          title={file.name}
-                        >
-                          {file.name}
-                        </span>
-
-                        <span className={styles.attachmentSize}>
-                          {formatFileSize(file.size)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <span className={styles.attachmentStatus}>첨부됨</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+              {attachmentUrl ? (
+                <a
+                  href={attachmentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {attachmentName}
+                </a>
+              ) : (
+                <span>{attachmentName}</span>
+              )}
+            </div>
           )}
 
           {/* 답변 */}
 
-          {hasAnswer && (
+          {(post.answer || post.answerContent) && (
             <section className={styles.answerSection}>
               <div className={styles.answerHeader}>
-                <div>
-                  <span className={styles.answerLabel}>답변</span>
-
-                  <strong>{post.answerWriterName || "관리자"}</strong>
-                </div>
+                <h2>답변</h2>
 
                 {post.answeredAt && <span>{formatDate(post.answeredAt)}</span>}
               </div>
 
-              <div className={styles.answerContent}>{post.answerContent}</div>
-            </section>
-          )}
-
-          {/* 미답변 */}
-
-          {!hasAnswer && (
-            <section className={styles.waitingSection}>
-              <span className={styles.waitingIcon}>💬</span>
-
-              <div>
-                <strong>답변을 준비 중입니다.</strong>
-
-                <p>관리자가 문의 내용을 확인한 후 답변을 등록합니다.</p>
+              <div className={styles.answerContent}>
+                {post.answer || post.answerContent}
               </div>
             </section>
           )}
 
-          {/* 버튼 */}
+          {/* 하단 버튼 */}
 
-          <div className={styles.buttonArea}>
+          <div className={styles.bottomActions}>
             <button
               type="button"
-              className={styles.listButton}
-              onClick={handleGoList}
+              className={styles.backButton}
+              onClick={handleBack}
             >
               목록으로
             </button>
 
             {isMyPost && (
-              <>
-                <button
-                  type="button"
-                  className={styles.editButton}
-                  onClick={handleEdit}
-                >
+              <div className={styles.ownerActions}>
+                <button type="button" onClick={handleEdit}>
                   수정
                 </button>
 
-                <button
-                  type="button"
-                  className={styles.deleteButton}
-                  onClick={() => void handleDelete()}
-                >
+                <button type="button" onClick={handleDelete}>
                   삭제
                 </button>
-              </>
+              </div>
             )}
           </div>
-        </article>
+        </section>
       </main>
     </div>
   );

@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
 
@@ -14,10 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import AddressSearchLayer from "./AddressSearchLayer";
+import { cn } from "../../lib/utils";
 
-/* ===============================
-   회원가입 폼 입력값 타입
-=============================== */
+/* 회원가입 폼 입력값 타입 */
 
 type SignupFormValues = {
   userId: string;
@@ -32,7 +31,6 @@ type SignupFormValues = {
   is_terms_agreed: string;
   is_location_agreed: string;
   is_privacy_agreed: string;
-  // my_location: string; 현재 자치구 데이터가 없는 관계로 추후 추가
 };
 
 const defaultValues: SignupFormValues = {
@@ -53,103 +51,114 @@ const defaultValues: SignupFormValues = {
 function SignupPage() {
   const navigate = useNavigate();
 
-  // Form handling (react-hook-form)
-  const { getValues, setValue, watch } = useForm<SignupFormValues>({
-    defaultValues,
+  /* PASS 인증 정보 */
+
+  const verifiedInfo = getPassVerifiedInfo();
+
+  const phoneVerified = verifiedInfo !== null;
+
+  /* Form handling */
+
+  const { getValues, setValue, control } = useForm<SignupFormValues>({
+    defaultValues: {
+      ...defaultValues,
+      name: verifiedInfo?.name ?? "",
+      phone: verifiedInfo?.phone ?? "",
+    },
   });
 
-  // ID duplication check state
+  /* React Hook Form의 전체 값을 구독 */
+
+  const formValues = useWatch({
+    control,
+  });
+
+  const {
+    userId = "",
+    password = "",
+    passwordCheck = "",
+    name = "",
+    phone = "",
+    zipCode = "",
+    address = "",
+    detailAddress = "",
+    email = "",
+  } = formValues;
+
+  /* ID 중복 확인 상태 */
+
   const [isIdUnique, setIsIdUnique] = useState<boolean | null>(null);
+  const [checkedUserId, setCheckedUserId] = useState("");
   const [checkingId, setCheckingId] = useState(false);
 
-  // Reset ID check when userId changes
-  const userId = watch("userId");
-  useEffect(() => {
-    setIsIdUnique(null);
-  }, [userId]);
+  /*
+   * 현재 입력한 아이디와 중복 확인을 완료한 아이디가 다르면
+   * 중복 확인 결과를 사용하지 않는다.
+   */
 
+  const isIdCheckValid = isIdUnique === true && checkedUserId === userId.trim();
 
-
-
-
-
-  /* ===============================
-     PASS 인증
-  =============================== */
-
-  const [phoneVerified, setPhoneVerified] = useState(false);
-
-  /* ===============================
-     주소 검색 레이어팝업
-  =============================== */
+  /* 주소 검색 레이어팝업 */
 
   const [isAddressSearchOpen, setIsAddressSearchOpen] = useState(false);
 
-  /* ===============================
-     /signup/verify에서 PASS 인증 완료 후
-     저장된 이름/휴대폰 번호 자동 입력
-
-     sessionStorage에서 읽어오므로 새로고침 후에도 유지된다.
-  =============================== */
-
-  useEffect(() => {
-    const verified = getPassVerifiedInfo();
-
-    if (!verified) {
-      return;
-    }
-
-    setValue("name", verified.name);
-    setValue("phone", verified.phone);
-
-    setPhoneVerified(true);
-  }, [setValue]);
-
-  /* ===============================
-     입력 변경
-  =============================== */
+  /* 입력 변경 */
 
   const handleFieldChange =
     (field: keyof SignupFormValues) =>
-      (e: React.ChangeEvent<HTMLInputElement>) => {
-        setValue(field, e.target.value);
-      };
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setValue(field, e.target.value);
+    };
 
-  // ID duplicate check handler
+  /* ID 중복 확인 */
+
   const handleCheckId = async () => {
-    if (!userId.trim()) {
-      alert('아이디를 입력해주세요.');
+    const trimmedUserId = userId.trim();
+
+    if (!trimmedUserId) {
+      alert("아이디를 입력해주세요.");
       return;
     }
+
     setCheckingId(true);
+
     try {
-      const available = await checkUserIdApi(userId.trim());
-      // API returns { available: boolean } or boolean directly
-      const isAvailable = typeof available === 'object' && typeof available.available === 'boolean' ? available.available : !!available;
+      const available = await checkUserIdApi(trimmedUserId);
+
+      const isAvailable =
+        typeof available === "object" &&
+        typeof available.available === "boolean"
+          ? available.available
+          : !!available;
+
       setIsIdUnique(isAvailable);
+      setCheckedUserId(trimmedUserId);
+
       if (isAvailable) {
-        alert('사용 가능한 아이디입니다.');
+        alert("사용 가능한 아이디입니다.");
       } else {
-        alert('이미 사용 중인 아이디입니다.');
+        alert("이미 사용 중인 아이디입니다.");
       }
     } catch (err) {
       console.error(err);
-      alert('아이디 확인 중 오류가 발생했습니다.');
+
+      setIsIdUnique(null);
+      setCheckedUserId("");
+
+      alert("아이디 확인 중 오류가 발생했습니다.");
     } finally {
       setCheckingId(false);
     }
   };
 
-  /* ===============================
-     주소 검색
-  =============================== */
+  /* 주소 검색 */
 
   const handleAddressSearch = () => {
     setIsAddressSearchOpen(true);
   };
 
   const handleAddressComplete = (data: DaumPostcodeData) => {
-    let address =
+    let newAddress =
       data.userSelectedType === "R" ? data.roadAddress : data.jibunAddress;
 
     if (data.userSelectedType === "R") {
@@ -166,21 +175,20 @@ function SignupPage() {
       }
 
       if (extraAddress) {
-        address += ` (${extraAddress})`;
+        newAddress += ` (${extraAddress})`;
       }
     }
 
     setValue("zipCode", data.zonecode);
-    setValue("address", address);
+    setValue("address", newAddress);
     setIsAddressSearchOpen(false);
   };
 
-  /* ===============================
-     회원가입 (TanStack Query mutation)
-  =============================== */
+  /* 회원가입 mutation */
 
   const signupMutation = useMutation({
     mutationKey: ["signupStart"],
+
     mutationFn: (values: SignupFormValues) =>
       signupApi({
         name: values.name.trim(),
@@ -195,11 +203,15 @@ function SignupPage() {
         is_location_agreed: values.is_location_agreed === "1" ? 1 : 0,
         is_privacy_agreed: values.is_privacy_agreed === "1" ? 1 : 0,
       }),
+
     onSuccess: async (data) => {
       clearAllSignupStorage();
+
       await alert(data.msg);
+
       navigate("/login");
     },
+
     onError: async (error) => {
       console.error("회원가입 오류", error);
 
@@ -212,28 +224,35 @@ function SignupPage() {
     },
   });
 
+  /* 회원가입 */
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    /* /signup/terms 에서 sessionStorage에 저장해둔 약관 동의 값을
-       폼 데이터로 가져와 회원가입 요청에 함께 실어보낸다. */
-    setValue(
-      "is_terms_agreed",
-      sessionStorage.getItem("is_terms_agreed") ?? ""
-    );
-    setValue(
-      "is_location_agreed",
-      sessionStorage.getItem("is_location_agreed") ?? ""
-    );
-    setValue(
-      "is_privacy_agreed",
-      sessionStorage.getItem("is_privacy_agreed") ?? ""
-    );
+    /*
+     * 약관 동의 값은 sessionStorage에서 직접 가져온다.
+     *
+     * setValue() 후 바로 getValues()를 호출하는 방식 대신
+     * 제출할 객체에 직접 넣어 최신 값을 사용한다.
+     */
 
-    const values = getValues();
+    const values: SignupFormValues = {
+      ...getValues(),
 
-    if (!values.userId) {
+      is_terms_agreed: sessionStorage.getItem("is_terms_agreed") ?? "",
+
+      is_location_agreed: sessionStorage.getItem("is_location_agreed") ?? "",
+
+      is_privacy_agreed: sessionStorage.getItem("is_privacy_agreed") ?? "",
+    };
+
+    if (!values.userId.trim()) {
       alert("아이디를 입력해주세요.");
+      return;
+    }
+
+    if (!isIdCheckValid) {
+      alert("아이디 중복 확인을 해주세요.");
       return;
     }
 
@@ -244,7 +263,7 @@ function SignupPage() {
 
     if (!isValidPassword(values.password)) {
       alert(
-        "비밀번호는 영문, 숫자, 특수문자만 사용하여 8자 이상 16자 이하로 입력해주세요."
+        "비밀번호는 영문, 숫자, 특수문자만 사용하여 8자 이상 16자 이하로 입력해주세요.",
       );
       return;
     }
@@ -259,6 +278,16 @@ function SignupPage() {
       return;
     }
 
+    if (!values.name.trim()) {
+      alert("이름을 확인해주세요.");
+      return;
+    }
+
+    if (!values.phone.trim()) {
+      alert("휴대폰 번호를 확인해주세요.");
+      return;
+    }
+
     if (values.email && !isValidEmail(values.email)) {
       alert("이메일 형식이 올바르지 않습니다.");
       return;
@@ -268,63 +297,118 @@ function SignupPage() {
   };
 
   return (
-    <div className="tw-scope flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-[#f5f8f3] to-white px-4 py-10 sm:px-6">
-      <div className="flex w-full max-w-[520px] flex-col items-center gap-5 max-[900px]:gap-4 max-[600px]:gap-[14px] max-[380px]:gap-3">
-        {/* =========================
-            로고
-        ========================== */}
+    <div
+      className={cn(
+        "tw-scope",
+        "flex",
+        "min-h-screen",
+        "w-full",
+        "items-center",
+        "justify-center",
+        "bg-gradient-to-br",
+        "from-[#f5f8f3]",
+        "to-white",
+        "px-4",
+        "py-10",
+        "sm:px-6",
+      )}
+    >
+      <div
+        className={cn(
+          "flex",
+          "w-full",
+          "max-w-[520px]",
+          "flex-col",
+          "items-center",
+          "gap-5",
+          "max-[900px]:gap-4",
+          "max-[600px]:gap-[14px]",
+          "max-[380px]:gap-3",
+        )}
+      >
+        {/* 로고 */}
 
         <Link to="/" className="block">
           <img
             src="/ssanong.svg"
             alt="싸농 로고"
-            className="mx-auto h-[120px] w-auto max-[900px]:h-24 max-[600px]:h-[76px] max-[380px]:h-[68px]"
+            className={cn(
+              "mx-auto",
+              "h-[120px]",
+              "w-auto",
+              "max-[900px]:h-24",
+              "max-[600px]:h-[76px]",
+              "max-[380px]:h-[68px]",
+            )}
           />
         </Link>
 
-        {/* =========================
-            회원가입 카드
-        ========================== */}
+        {/* 회원가입 카드 */}
 
-        <Card className="w-full rounded-2xl border-border/60 shadow-lg sm:rounded-3xl">
-          <CardContent className="px-6 py-8 sm:px-8">
-            <form onSubmit={handleSubmit} className="flex flex-col gap-[18px]">
-              <div className="flex flex-col gap-2">
+        <Card
+          className={cn(
+            "w-full",
+            "rounded-2xl",
+            "border-border/60",
+            "shadow-lg",
+            "sm:rounded-3xl",
+          )}
+        >
+          <CardContent className={cn("px-6", "py-8", "sm:px-8")}>
+            <form
+              onSubmit={handleSubmit}
+              className={cn("flex", "flex-col", "gap-[18px]")}
+            >
+              {/* 아이디 */}
+
+              <div className={cn("flex", "flex-col", "gap-2")}>
                 <Label htmlFor="userId">
                   아이디<span className="text-red-500">*</span>
                 </Label>
-                <div className="flex items-center gap-2">
+
+                <div className={cn("flex", "items-center", "gap-2")}>
                   <Input
                     id="userId"
                     type="text"
                     name="userId"
                     placeholder="아이디"
                     className="h-11"
-                    value={watch("userId")}
+                    value={userId}
                     onChange={(e) => setValue("userId", e.target.value)}
                   />
+
                   <Button
                     type="button"
-                    className="h-11 shrink-0 px-3 sm:px-4"
+                    className={cn("h-11", "shrink-0", "px-3", "sm:px-4")}
                     onClick={handleCheckId}
                     disabled={checkingId || signupMutation.isPending}
                   >
-                    {checkingId ? '확인 중...' : '중복 확인'}
+                    {checkingId ? "확인 중..." : "중복 확인"}
                   </Button>
                 </div>
-                {isIdUnique === true && (
-                  <p className="text-xs font-semibold text-primary">
+
+                {isIdUnique === true && checkedUserId === userId.trim() && (
+                  <p className={cn("text-xs", "font-semibold", "text-primary")}>
                     ✔ 사용 가능한 아이디입니다.
                   </p>
                 )}
-                {isIdUnique === false && (
-                  <p className="text-xs font-semibold text-red-500">
+
+                {isIdUnique === false && checkedUserId === userId.trim() && (
+                  <p className={cn("text-xs", "font-semibold", "text-red-500")}>
                     ❌ 이미 사용 중인 아이디입니다.
+                  </p>
+                )}
+
+                {isIdUnique === true && checkedUserId !== userId.trim() && (
+                  <p className={cn("text-xs", "font-semibold", "text-red-500")}>
+                    아이디가 변경되었습니다. 다시 중복 확인해주세요.
                   </p>
                 )}
               </div>
 
-              <div className="flex flex-col gap-2">
+              {/* 비밀번호 */}
+
+              <div className={cn("flex", "flex-col", "gap-2")}>
                 <Label htmlFor="password">
                   비밀번호<span className="text-red-500">*</span>
                 </Label>
@@ -335,14 +419,17 @@ function SignupPage() {
                   name="password"
                   placeholder="비밀번호"
                   className="h-11"
-                  value={watch("password")}
+                  value={password}
                   onChange={(e) => setValue("password", e.target.value)}
                 />
               </div>
 
-              <div className="flex flex-col gap-2">
+              {/* 비밀번호 확인 */}
+
+              <div className={cn("flex", "flex-col", "gap-2")}>
                 <Label htmlFor="passwordCheck">
-                  비밀번호 확인<span className="text-red-500">*</span>
+                  비밀번호 확인
+                  <span className="text-red-500">*</span>
                 </Label>
 
                 <Input
@@ -351,12 +438,14 @@ function SignupPage() {
                   name="passwordCheck"
                   placeholder="비밀번호 확인"
                   className="h-11"
-                  value={watch("passwordCheck")}
+                  value={passwordCheck}
                   onChange={(e) => setValue("passwordCheck", e.target.value)}
                 />
               </div>
 
-              <div className="flex flex-col gap-2">
+              {/* 이름 */}
+
+              <div className={cn("flex", "flex-col", "gap-2")}>
                 <Label htmlFor="name">
                   이름<span className="text-red-500">*</span>
                 </Label>
@@ -367,14 +456,16 @@ function SignupPage() {
                   name="name"
                   placeholder="이름"
                   className="h-11"
-                  value={watch("name")}
+                  value={name}
                   disabled={phoneVerified}
                   readOnly
                   onChange={handleFieldChange("name")}
                 />
               </div>
 
-              <div className="flex flex-col gap-2">
+              {/* 전화번호 */}
+
+              <div className={cn("flex", "flex-col", "gap-2")}>
                 <Label htmlFor="phone">
                   전화번호<span className="text-red-500">*</span>
                 </Label>
@@ -385,27 +476,35 @@ function SignupPage() {
                   name="phone"
                   placeholder="휴대폰 번호"
                   className="h-11"
-                  value={watch("phone")}
+                  value={phone}
                   disabled={phoneVerified}
                   readOnly
                   onChange={handleFieldChange("phone")}
                 />
 
                 {phoneVerified && (
-                  <p className="text-xs font-semibold text-primary">
+                  <p className={cn("text-xs", "font-semibold", "text-primary")}>
                     ✔ PASS 휴대폰 인증 완료
                   </p>
                 )}
               </div>
 
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
+              {/* 주소 */}
+
+              <div className={cn("flex", "flex-col", "gap-2")}>
+                <div className={cn("flex", "items-center", "justify-between")}>
                   <Label htmlFor="address">주소</Label>
 
                   <Button
                     type="button"
                     variant="secondary"
-                    className="h-11 border-0 px-3 hover:cursor-pointer sm:px-4"
+                    className={cn(
+                      "h-11",
+                      "border-0",
+                      "px-3",
+                      "hover:cursor-pointer",
+                      "sm:px-4",
+                    )}
                     onClick={handleAddressSearch}
                   >
                     주소검색
@@ -418,8 +517,8 @@ function SignupPage() {
                   name="zipCode"
                   placeholder="우편번호"
                   maxLength={6}
-                  className="h-11 w-full sm:w-[130px]"
-                  value={watch("zipCode")}
+                  className={cn("h-11", "w-full", "sm:w-[130px]")}
+                  value={zipCode}
                   onChange={(e) => setValue("zipCode", e.target.value)}
                 />
 
@@ -429,40 +528,62 @@ function SignupPage() {
                   name="address"
                   placeholder="주소"
                   className="h-11"
-                  value={watch("address")}
+                  value={address}
                   onChange={(e) => setValue("address", e.target.value)}
                 />
               </div>
 
+              {/* 상세주소 */}
+
               <Input
+                id="detailAddress"
                 type="text"
                 name="detailAddress"
                 placeholder="상세주소"
                 className="h-11"
-                value={watch("detailAddress")}
+                value={detailAddress}
                 onChange={(e) => setValue("detailAddress", e.target.value)}
               />
 
-              <div className="flex flex-col gap-2">
-                <Label>이메일</Label>
+              {/* 이메일 */}
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className={cn("flex", "flex-col", "gap-2")}>
+                <Label htmlFor="email">이메일</Label>
+
+                <div
+                  className={cn(
+                    "flex",
+                    "flex-col",
+                    "gap-2",
+                    "sm:flex-row",
+                    "sm:items-center",
+                  )}
+                >
                   <Input
+                    id="email"
                     type="text"
+                    name="email"
                     placeholder="예) abc@naver.com"
-                    className="h-11 w-full"
-                    value={watch("email")}
-                    onChange={e => setValue("email", e.target.value)}
+                    className={cn("h-11", "w-full")}
+                    value={email}
+                    onChange={(e) => setValue("email", e.target.value)}
                   />
                 </div>
               </div>
 
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="mt-1 w-full border-0 hover:cursor-pointer"
-                  disabled={signupMutation.isPending || isIdUnique !== true}
-                >
+              {/* 가입 버튼 */}
+
+              <Button
+                type="submit"
+                size="lg"
+                className={cn(
+                  "mt-1",
+                  "w-full",
+                  "border-0",
+                  "hover:cursor-pointer",
+                )}
+                disabled={signupMutation.isPending || !isIdCheckValid}
+              >
                 {signupMutation.isPending ? "가입 중..." : "가입하기"}
               </Button>
             </form>
