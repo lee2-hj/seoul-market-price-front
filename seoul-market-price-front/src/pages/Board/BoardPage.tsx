@@ -33,6 +33,15 @@ interface BoardRowProps {
   isTopNotice?: boolean;
 }
 
+function formatBoardDate(dateStr?: string): string {
+  if (!dateStr) return "-";
+  if (dateStr.includes("T")) {
+    const [d, t] = dateStr.split("T");
+    return `${d.replace(/-/g, ".")} ${t ? t.slice(0, 5) : ""}`.trim();
+  }
+  return dateStr.replace(/-/g, ".");
+}
+
 function BoardRow({ item, displayNo, isTopNotice = false }: BoardRowProps) {
   const isNotice = isTopNotice || item.postType === "NOTICE";
 
@@ -68,9 +77,10 @@ function BoardRow({ item, displayNo, isTopNotice = false }: BoardRowProps) {
           to={`/board/${item.boardId}`}
           className={
             isNotice
-              ? "block truncate w-full text-[14px] font-bold text-[#7e5b16] hover:underline"
-              : "block truncate w-full text-[14px] font-semibold text-[#384138] hover:underline hover:text-[#4c9b55]"
+              ? "block truncate w-full text-[14px] font-bold text-[#7e5b16] no-underline hover:text-[#5c400c]"
+              : "block truncate w-full text-[14px] font-semibold text-[#384138] no-underline hover:text-[#4c9b55]"
           }
+          style={{ textDecoration: "none" }}
           title={item.title}
         >
           {item.title}
@@ -84,7 +94,7 @@ function BoardRow({ item, displayNo, isTopNotice = false }: BoardRowProps) {
 
       {/* 5. 작성일 (15%) */}
       <TableCell className="w-[15%] text-center text-[#5a6459]">
-        {item.createdAt}
+        {formatBoardDate(item.createdAt)}
       </TableCell>
 
       {/* 6. 조회수 (9%) */}
@@ -220,33 +230,35 @@ export default function BoardPage() {
               CUSTOMER CENTER
             </span>
             <h1 className="text-[36px] font-black text-[#242b23] tracking-tight">
-              게시판
+              공지사항
             </h1>
             <p className="text-[15px] text-[#667065]">
               서울시 농수산물 가격 정보 서비스의 주요 공지사항과 시민 소통 공간입니다.
             </p>
           </div>
 
-          {/* 카테고리 탭 ([일반게시판] [Q&A게시판] [자주묻는질문]) */}
+          {/* 카테고리 탭 ([공지사항] [질의응답] [자주 묻는 질문]) */}
           <div className="flex justify-center mb-6">
             <div className="flex items-center gap-2 p-1 bg-white rounded-[10px] border border-[#dce4da] shadow-sm">
               <button
                 type="button"
                 className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#4c9b55] text-white transition-all cursor-pointer"
               >
-                일반게시판
+                공지사항
               </button>
               <button
                 type="button"
+                onClick={() => navigate("/qna")}
                 className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all cursor-pointer"
               >
-                Q&A게시판
+                질의응답
               </button>
               <button
                 type="button"
+                onClick={() => navigate("/qna")}
                 className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all cursor-pointer"
               >
-                자주묻는질문
+                자주 묻는 질문
               </button>
             </div>
           </div>

@@ -36,18 +36,27 @@ type SignupFormValues = {
 };
 
 const defaultValues: SignupFormValues = {
+  name: "",
   userId: "",
   password: "",
   passwordCheck: "",
-  name: "",
   phone: "",
-  zipCode: "",
   address: "",
   detailAddress: "",
+  zipCode: "",
   email: "",
   is_terms_agreed: "",
   is_location_agreed: "",
   is_privacy_agreed: "",
+};
+
+const formatPhoneNumber = (value: string): string => {
+  if (!value) return "";
+  const raw = value.replace(/[^0-9]/g, "");
+  if (raw.length <= 3) return raw;
+  if (raw.length <= 7) return `${raw.slice(0, 3)}-${raw.slice(3)}`;
+  if (raw.length <= 10) return `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}`;
+  return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
 };
 
 function SignupPage() {
@@ -100,7 +109,7 @@ function SignupPage() {
     }
 
     setValue("name", verified.name);
-    setValue("phone", verified.phone);
+    setValue("phone", formatPhoneNumber(verified.phone));
 
     setPhoneVerified(true);
   }, [setValue]);
@@ -193,7 +202,7 @@ function SignupPage() {
         userId: values.userId.trim(),
         identityVerificationId: verified.identityVerificationId,
         password: values.password,
-        phone: values.phone.trim(),
+        phone: formatPhoneNumber(values.phone.trim()),
         address: values.address,
         addressDetail: values.detailAddress,
         zipcode: values.zipCode,
