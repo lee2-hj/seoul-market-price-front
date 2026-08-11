@@ -17,7 +17,7 @@ import SignupPage from "../pages/Signup/SignupPage";
 import SignupSelectPage from "../pages/SignupSelect/SignupSelectPage";
 import SignupTermsPage from "../pages/SignupTerms/SignupTermsPage";
 import SignupVerifyPage from "../pages/SignupVerify/SignupVerifyPage";
-import FindPasswordForm from "@/features/auth/components/FindPasswordForm";
+import FindPasswordPage from "../pages/FindPassword/FindPasswordPage";
 import FindIdPage from "../pages/FindId/FindIdPage";
 
 import PassCallbackPage from "../pages/PassCallback/PassCallbackPage";
@@ -274,7 +274,7 @@ function Router() {
           path="/find-password"
           element={
             <PublicRoute>
-              <FindPasswordForm />
+              <FindPasswordPage />
             </PublicRoute>
           }
         />
