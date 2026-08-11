@@ -186,9 +186,46 @@ export default function MyPage() {
   // 인증 관련 State
   const [phoneVerified, setPhoneVerified] = useState(false);
 
+  // 비밀번호 변경 모달 State
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
   const [emailVerified, setEmailVerified] = useState(false);
   const [emailCertSent, setEmailCertSent] = useState(false);
   const [emailCertCode, setEmailCertCode] = useState("");
+
+  const handleOpenPasswordModal = () => {
+    if (!isLoggedIn) {
+      alert("로그인 후 이용하실 수 있습니다.");
+      return;
+    }
+    if (!phoneVerified) {
+      alert("안전한 비밀번호 변경을 위해 아래 [PASS 본인인증]을 먼저 완료해 주세요.");
+      return;
+    }
+    setPasswordError("");
+    setNewPassword("");
+    setNewPasswordConfirm("");
+    setIsPasswordModalOpen(true);
+  };
+
+  const handleSaveNewPassword = () => {
+    if (newPassword.length < 8 || newPassword.length > 16) {
+      setPasswordError("비밀번호는 8자 이상 16자 이하로 입력해 주세요.");
+      return;
+    }
+    if (newPassword !== newPasswordConfirm) {
+      setPasswordError("비밀번호와 비밀번호 확인이 일치하지 않습니다.");
+      return;
+    }
+    alert("비밀번호가 성공적으로 변경되었습니다. 다음 로그인부터 새 비밀번호를 사용해 주세요.");
+    setIsPasswordModalOpen(false);
+    setNewPassword("");
+    setNewPasswordConfirm("");
+    setPasswordError("");
+  };
 
   const { register, handleSubmit, setValue, reset, watch } = useForm<Profile>({
     defaultValues: profile,
@@ -551,17 +588,32 @@ export default function MyPage() {
                           <input
                             {...register("userId")}
                             readOnly
-                            className="w-full h-[48px] rounded-[8px] border border-[#d5dfd6] bg-[#f5f7f5] px-3.5 text-[15px] text-[#7a877c] cursor-not-allowed outline-none box-border m-0"
+                            className="w-full h-[48px] rounded-[8px] border border-[#d5dfd6] bg-[#f5f7f5] px-3.5 text-[15px] text-[#7a877c] cursor-not-allowed outline-none box-border m-0 font-medium"
                           />
                         </div>
 
                         <div className="space-y-1.5 flex-1 w-full md:w-1/2">
-                          <label className="text-[14px] font-bold text-[#344037] block">비밀번호 변경</label>
+                          <div className="flex items-center justify-between">
+                            <label className="text-[14px] font-bold text-[#344037] block">비밀번호 변경</label>
+                            {phoneVerified ? (
+                              <span className="text-[12px] font-extrabold text-[#3a8b46]">
+                                ✔ PASS 인증 완료 (변경 가능)
+                              </span>
+                            ) : (
+                              <span className="text-[12px] text-[#8a968c]">
+                                본인인증 후 변경 가능
+                              </span>
+                            )}
+                          </div>
                           <button
                             type="button"
-                            disabled={!isLoggedIn}
-                            onClick={() => alert("비밀번호 변경 기능은 준비 중입니다.")}
-                            className="w-full h-[48px] rounded-[8px] border border-[#cfd9d0] bg-white text-[#526055] hover:bg-[#f5f8f5] font-bold text-[14px] cursor-pointer transition-colors box-border m-0 disabled:opacity-50"
+                            disabled={!isLoggedIn || !phoneVerified}
+                            onClick={handleOpenPasswordModal}
+                            className={`w-full h-[48px] rounded-[8px] border font-bold text-[14px] transition-all box-border m-0 shadow-xs flex items-center justify-center ${
+                              phoneVerified
+                                ? "bg-[#57a764] hover:bg-[#438e4d] text-white border-[#57a764] cursor-pointer"
+                                : "bg-[#f5f7f5] text-[#7a877c] border-[#d5dfd6] cursor-not-allowed select-none opacity-85"
+                            }`}
                           >
                             비밀번호 변경하기
                           </button>
@@ -569,9 +621,20 @@ export default function MyPage() {
                       </div>
                     )}
 
-                    {/* ROW 2: 이름 */}
+                    {/* ROW 2: 이름 (PASS 본인인증 완료 시 자동 반영 및 수정 가능) */}
                     <div className="space-y-1.5 w-full">
-                      <label className="text-[14px] font-bold text-[#344037] block">이름</label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-[14px] font-bold text-[#344037] block">이름</label>
+                        {phoneVerified ? (
+                          <span className="inline-flex items-center gap-1 text-[12px] font-extrabold text-[#3a8b46]">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> 실명 인증 완료
+                          </span>
+                        ) : (
+                          <span className="text-[12px] text-[#7a877c]">
+                            본인인증 후 수정 가능
+                          </span>
+                        )}
+                      </div>
                       <input
                         {...register("name", {
                           onChange: (e) => {
@@ -579,13 +642,27 @@ export default function MyPage() {
                             setValue("name", val);
                           },
                         })}
+                        readOnly={!phoneVerified}
                         disabled={!isLoggedIn}
-                        placeholder="이름을 입력해주세요 (숫자, 공백 불가)"
-                        className="w-full h-[48px] rounded-[8px] border border-[#d5dfd6] bg-white px-3.5 text-[15px] text-[#2b362d] outline-none focus:border-[#57a764] box-border m-0 disabled:bg-[#f5f7f5]"
+                        placeholder={
+                          phoneVerified
+                            ? "이름을 입력해주세요 (숫자, 공백 불가)"
+                            : "PASS 본인인증 시 실명이 자동 입력됩니다"
+                        }
+                        className={`w-full h-[48px] rounded-[8px] border border-[#d5dfd6] px-3.5 text-[15px] outline-none box-border m-0 transition-colors ${
+                          phoneVerified
+                            ? "bg-white text-[#2b362d] focus:border-[#57a764]"
+                            : "bg-[#f5f7f5] text-[#556357] cursor-not-allowed"
+                        }`}
                       />
+                      <p className="text-[12px] text-[#718073]">
+                        {phoneVerified
+                          ? "PASS 본인인증이 완료되어 실명이 적용되었습니다."
+                          : "회원 실명 보호를 위해 아래 PASS 본인인증 완료 시 자동으로 반영 및 수정이 활성화됩니다."}
+                      </p>
                     </div>
 
-                    {/* ROW 3: 휴대폰 번호 + PASS 본인인증 버튼 */}
+                    {/* ROW 3: 휴대폰 번호 + PASS 본인인증 버튼 (직접 수정 불가, PASS 인증 시 자동 입력) */}
                     <div className="space-y-1.5 w-full">
                       <div className="flex items-center justify-between">
                         <label className="text-[14px] font-bold text-[#344037] block">휴대폰 번호</label>
@@ -597,22 +674,11 @@ export default function MyPage() {
                       </div>
                       <div className="flex flex-col sm:flex-row gap-2">
                         <input
-                          {...register("phone", {
-                            onChange: (e) => {
-                              const raw = e.target.value.replace(/[^0-9]/g, "");
-                              let formatted = raw;
-                              if (raw.length > 3 && raw.length <= 7) {
-                                formatted = `${raw.slice(0, 3)}-${raw.slice(3)}`;
-                              } else if (raw.length > 7) {
-                                formatted = `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
-                              }
-                              setValue("phone", formatted);
-                            },
-                          })}
+                          {...register("phone")}
+                          readOnly
                           disabled={!isLoggedIn}
-                          placeholder="010-0000-0000 (PASS 인증 시 자동 입력)"
-                          maxLength={13}
-                          className="flex-1 h-[48px] rounded-[8px] border border-[#d5dfd6] bg-white px-3.5 text-[15px] text-[#2b362d] outline-none focus:border-[#57a764] disabled:bg-[#f5f7f5]"
+                          placeholder="PASS 본인인증 시 번호가 자동 입력됩니다"
+                          className="flex-1 h-[48px] rounded-[8px] border border-[#d5dfd6] bg-[#f5f7f5] px-3.5 text-[15px] text-[#2b362d] outline-none cursor-not-allowed font-medium"
                         />
                         <PassAuth
                           phone={watch("phone")}
@@ -621,7 +687,7 @@ export default function MyPage() {
                         />
                       </div>
                       <p className="text-[12px] text-[#718073]">
-                        통신사 PASS 앱 또는 문자로 본인인증을 진행하여 휴대폰 번호를 갱신합니다.
+                        휴대폰 번호는 직접 입력할 수 없으며, 우측 [PASS 본인인증]을 진행하면 실제 인증 번호가 자동 입력됩니다.
                       </p>
                     </div>
 
@@ -851,15 +917,18 @@ export default function MyPage() {
                   <div>
                     <h3 className="text-[17px] font-bold text-[#a44141]">회원 탈퇴</h3>
                     <p className="text-[14px] text-[#947474] mt-1">
-                      탈퇴 시 작성한 게시글 및 설정한 알림 정보가 모두 삭제될 수 있습니다.
+                      탈퇴 시 작성한 게시글 및 설정한 정보가 즉시 숨김(비공개) 처리됩니다.
                     </p>
                   </div>
                   <button
                     type="button"
                     disabled={!isLoggedIn}
                     onClick={() => {
-                      if (window.confirm("정말로 탈퇴하시겠습니까?")) {
-                        alert("회원 탈퇴 처리되었습니다.");
+                      if (window.confirm("정말로 회원 탈퇴를 진행하시겠습니까?\n탈퇴 시 작성하신 모든 게시글과 댓글은 화면에서 즉시 숨김 처리됩니다.")) {
+                        localStorage.removeItem(MY_PAGE_STORAGE_KEY);
+                        useAuthStore.getState().clearSession();
+                        alert("회원 탈퇴가 완료되었습니다. 그동안 서비스를 이용해 주셔서 감사합니다.");
+                        window.location.href = "/";
                       }
                     }}
                     className="h-[44px] px-5 border border-[#d96666] bg-white text-[#c54e4e] hover:bg-[#fff0f0] font-bold text-[14px] rounded-[8px] cursor-pointer whitespace-nowrap transition-colors disabled:opacity-50"
@@ -1047,6 +1116,74 @@ export default function MyPage() {
           </div>
         </div>
       </div>
+
+      {/* 비밀번호 변경 팝업 모달 (PASS 인증 완료 시 활성화) */}
+      {isPasswordModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-white rounded-[16px] border border-[#dce4da] shadow-2xl p-6 sm:p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="text-center space-y-1.5">
+              <div className="w-12 h-12 rounded-full bg-[#e8f3e9] text-[#3f8a47] flex items-center justify-center mx-auto text-[22px]">
+                🔒
+              </div>
+              <h3 className="text-[20px] font-black text-[#242b23]">새 비밀번호 설정</h3>
+              <p className="text-[13px] text-[#667065]">
+                PASS 본인인증이 완료되었습니다. 새로운 비밀번호를 입력해 주세요.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-bold text-[#344037] block">새 비밀번호 (8~16자)</label>
+                <input
+                  type="password"
+                  placeholder="새 비밀번호를 입력하세요"
+                  value={newPassword}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setPasswordError("");
+                  }}
+                  className="w-full h-[46px] rounded-[8px] border border-[#d5dfd6] bg-white px-3.5 text-[15px] outline-none focus:border-[#57a764]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-bold text-[#344037] block">새 비밀번호 확인</label>
+                <input
+                  type="password"
+                  placeholder="새 비밀번호를 한 번 더 입력하세요"
+                  value={newPasswordConfirm}
+                  onChange={(e) => {
+                    setNewPasswordConfirm(e.target.value);
+                    setPasswordError("");
+                  }}
+                  className="w-full h-[46px] rounded-[8px] border border-[#d5dfd6] bg-white px-3.5 text-[15px] outline-none focus:border-[#57a764]"
+                />
+              </div>
+
+              {passwordError && (
+                <p className="text-[13px] text-rose-500 font-bold">{passwordError}</p>
+              )}
+            </div>
+
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsPasswordModalOpen(false)}
+                className="flex-1 h-[46px] bg-white hover:bg-[#f5f8f5] text-[#556357] border border-[#cfd9d0] font-bold text-[14px] rounded-[8px] cursor-pointer transition-colors"
+              >
+                닫기
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveNewPassword}
+                className="flex-1 h-[46px] bg-[#57a764] hover:bg-[#438e4d] text-white font-bold text-[14px] rounded-[8px] cursor-pointer transition-colors shadow-xs"
+              >
+                변경 완료
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

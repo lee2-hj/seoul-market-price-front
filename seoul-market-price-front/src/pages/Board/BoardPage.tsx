@@ -186,8 +186,28 @@ export default function BoardPage() {
     return pages;
   }, [data, page]);
 
-  const notices = data?.notices || [];
-  const items = data?.items || [];
+  const isWithdrawnOrDeleted = (author?: string) => {
+    if (!author) return false;
+    const lower = author.trim().toLowerCase();
+    return (
+      lower.includes("탈퇴") ||
+      lower.includes("알 수 없음") ||
+      lower.includes("알수없음") ||
+      lower.includes("deleted") ||
+      lower.includes("withdrawn") ||
+      lower === "unknown" ||
+      lower === "none"
+    );
+  };
+
+  const notices = useMemo(() => {
+    return (data?.notices || []).filter((item) => !isWithdrawnOrDeleted(item.authorName));
+  }, [data?.notices]);
+
+  const items = useMemo(() => {
+    return (data?.items || []).filter((item) => !isWithdrawnOrDeleted(item.authorName));
+  }, [data?.items]);
+
   const totalElements = data?.totalElements || 0;
 
   return (

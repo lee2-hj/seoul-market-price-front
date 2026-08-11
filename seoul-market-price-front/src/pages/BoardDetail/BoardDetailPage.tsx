@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MessageSquare, Edit2, Trash2, Send } from "lucide-react";
+import type { BoardComment } from "@/features/board/types/board.types";
 
 import {
   getBoardPostApi,
@@ -179,7 +180,27 @@ export default function BoardDetailPage() {
     );
   }
 
-  const safeComments = Array.isArray(comments) ? comments : [];
+  const isWithdrawnOrDeleted = (author?: string, content?: string) => {
+    const authorLower = (author || "").trim().toLowerCase();
+    const contentLower = (content || "").trim().toLowerCase();
+    return (
+      authorLower.includes("탈퇴") ||
+      authorLower.includes("알 수 없음") ||
+      authorLower.includes("알수없음") ||
+      authorLower.includes("deleted") ||
+      authorLower.includes("withdrawn") ||
+      authorLower === "unknown" ||
+      contentLower.includes("삭제된 댓글") ||
+      contentLower.includes("탈퇴한 회원")
+    );
+  };
+
+  const safeComments = useMemo(() => {
+    const arr = Array.isArray(comments) ? comments : [];
+    return arr.filter((c) => !isWithdrawnOrDeleted(c.authorName, c.content));
+  }, [comments]);
+
+  const isPostWithdrawn = Boolean(post && isWithdrawnOrDeleted(post.authorName));
 
   return (
     <div className="min-h-screen bg-[#fafcf9]">
@@ -204,10 +225,16 @@ export default function BoardDetailPage() {
               <div className="py-20 text-center text-[#8a9388] text-[14px]">
                 게시글 정보를 불러오는 중입니다...
               </div>
-            ) : isError ? (
+            ) : isError || isPostWithdrawn ? (
               <div className="py-20 text-center space-y-4">
+                <div className="text-[36px]">🚫</div>
+                <h3 className="text-[18px] font-bold text-[#344037]">
+                  존재하지 않거나 삭제된 게시글입니다.
+                </h3>
                 <p className="text-rose-500 text-[14px]">
-                  오류가 발생했습니다: {(error as Error)?.message || "게시글 정보를 불러올 수 없습니다."}
+                  {isPostWithdrawn
+                    ? "작성자가 탈퇴하였거나 삭제된 게시글입니다."
+                    : (error as Error)?.message || "게시글 정보를 불러올 수 없습니다."}
                 </p>
                 <Button
                   variant="outline"
@@ -339,7 +366,7 @@ export default function BoardDetailPage() {
                 ) : safeComments.length === 0 ? (
                   <div className="py-8 text-center text-[13px] text-[#8a9388]">등록된 댓글이 없습니다. 첫 댓글을 남겨보세요!</div>
                 ) : (
-                  safeComments.map((comment) => {
+                  safeComments.map((comment: BoardComment) => {
                     const canModify = canModifyComment(comment.authorId, comment.authorName);
                     const isEditing = editingCommentId === comment.commentId;
 
