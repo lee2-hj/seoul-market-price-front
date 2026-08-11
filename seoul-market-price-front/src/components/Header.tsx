@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { BarChart3, ChevronDown, Headphones, LogIn, Map, Menu, Search, UserRound, X } from "lucide-react";
+import { BarChart3, Check, ChevronDown, Headphones, LogIn, Map, MapPin, Menu, Search, UserRound, X } from "lucide-react";
 
 import { logout } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
@@ -30,6 +30,31 @@ const MYPAGE_LINKS: MenuLink[] = [
   { to: "/mypage?tab=ACTIVITY", label: "활동 내역" },
 ];
 
+const SEOUL_DISTRICTS = [
+  "강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구", "금천구",
+  "노원구", "도봉구", "동대문구", "동작구", "마포구", "서대문구", "서초구", "성동구",
+  "성북구", "송파구", "양천구", "영등포구", "용산구", "은평구", "종로구", "중구", "중랑구",
+];
+
+const REGION_STORAGE_KEY = "ssabu_selected_region";
+
+function getSavedRegion(userId?: string): string {
+  if (userId) {
+    const settings = localStorage.getItem(`myPageSettings_${userId.trim().toLowerCase()}`);
+    if (settings) {
+      try {
+        const preferredDistrict = JSON.parse(settings)?.preferredDistrict;
+        if (SEOUL_DISTRICTS.includes(preferredDistrict)) return preferredDistrict;
+      } catch {
+        // 손상된 마이페이지 설정은 공통 지역값으로 대체한다.
+      }
+    }
+  }
+
+  const saved = localStorage.getItem(REGION_STORAGE_KEY);
+  return saved && SEOUL_DISTRICTS.includes(saved) ? saved : "강남구";
+}
+
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `group relative flex h-[68px] items-center gap-2 whitespace-nowrap px-1 text-[13px] font-extrabold tracking-[-0.025em] transition-colors no-underline after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:rounded-t-full after:transition-colors ${
     isActive ? "text-[#177827] after:bg-[#177827]" : "text-[#343934] after:bg-transparent hover:text-[#177827]"
@@ -55,7 +80,29 @@ function DesktopDropdown({ label, links, icon: Icon }: { label: string; links: M
 export default function Header() {
   const user = useAuthStore((state) => state.user);
   const [open, setOpen] = useState(false);
+  const [regionOpen, setRegionOpen] = useState(false);
+  const [region, setRegion] = useState(() => getSavedRegion());
   const isAuthenticated = user !== null;
+
+  useEffect(() => {
+    setRegion(getSavedRegion(user?.userId));
+  }, [user?.userId]);
+
+  const handleRegionChange = (nextRegion: string) => {
+    setRegion(nextRegion);
+    setRegionOpen(false);
+    localStorage.setItem(REGION_STORAGE_KEY, nextRegion);
+
+    if (user?.userId) {
+      const key = `myPageSettings_${user.userId.trim().toLowerCase()}`;
+      try {
+        const current = JSON.parse(localStorage.getItem(key) ?? "{}");
+        localStorage.setItem(key, JSON.stringify({ ...current, preferredDistrict: nextRegion }));
+      } catch {
+        localStorage.setItem(key, JSON.stringify({ preferredDistrict: nextRegion }));
+      }
+    }
+  };
 
   const handleLogout = async () => {
     if (!window.confirm("로그아웃 하시겠습니까?")) return;
@@ -65,10 +112,10 @@ export default function Header() {
   };
 
   return (
-    <header className="tw-scope sticky top-0 z-[1000] w-full bg-[#fbfbf7] px-1.5 pt-1.5 backdrop-blur-xl [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
-      <div className="mx-auto flex h-[68px] w-full items-center gap-7 rounded-[12px] border border-[#e3e7e1] bg-white/97 px-5 shadow-[0_3px_13px_rgba(33,49,30,0.07)] sm:px-7">
-        <Link to="/" onClick={() => setOpen(false)} className="flex h-[64px] w-[132px] shrink-0 items-center justify-center overflow-hidden rounded-[8px] no-underline lg:w-[150px]">
-          <img src="/logo.png" alt="싸부 로고" className="h-[88px] w-[88px] max-w-none object-contain" />
+    <header className="tw-scope sticky top-0 z-[1000] w-full border-b border-[#e3e7e1] bg-white/95 backdrop-blur-xl shadow-[0_3px_13px_rgba(33,49,30,0.06)] [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
+      <div className="mx-auto flex h-[72px] w-[min(1490px,calc(100%-48px))] items-center gap-7 max-[1240px]:w-[min(980px,calc(100%-36px))] max-[760px]:w-[calc(100%-24px)]">
+        <Link to="/" onClick={() => setOpen(false)} className="flex h-[72px] w-[150px] shrink-0 items-center justify-start overflow-hidden no-underline max-[760px]:w-[116px]">
+          <img src="/logo.png" alt="싸부 로고" className="h-[102px] w-[102px] max-w-none object-contain max-[760px]:h-[92px] max-[760px]:w-[92px]" />
         </Link>
 
         <nav className="ml-auto hidden h-[68px] items-center gap-8 lg:flex" aria-label="주요 메뉴">
@@ -81,6 +128,39 @@ export default function Header() {
         </nav>
 
         <div className="hidden shrink-0 items-center gap-2.5 lg:flex">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setRegionOpen((value) => !value)}
+              aria-haspopup="listbox"
+              aria-expanded={regionOpen}
+              className="flex h-[42px] items-center gap-1.5 rounded-[10px] border border-[#dfe5dd] bg-white px-3 text-[12px] font-extrabold text-[#344037] shadow-[0_2px_7px_rgba(33,49,30,0.05)] transition-colors hover:border-[#b9d2b9] hover:bg-[#f7faf5]"
+            >
+              <MapPin className="size-4 text-[#177827]" />
+              <span>{region}</span>
+              <ChevronDown className={`size-3.5 text-[#778077] transition-transform ${regionOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {regionOpen && (
+              <div className="absolute right-0 top-[49px] z-50 w-[250px] rounded-[12px] border border-[#e0e6df] bg-white p-3 shadow-[0_16px_36px_rgba(26,48,25,0.15)]" role="listbox" aria-label="내 지역 선택">
+                <div className="mb-2 px-1 text-[11px] font-extrabold text-[#748075]">내 지역 선택</div>
+                <div className="grid max-h-[260px] grid-cols-2 gap-1 overflow-y-auto pr-1">
+                  {SEOUL_DISTRICTS.map((district) => (
+                    <button
+                      key={district}
+                      type="button"
+                      role="option"
+                      aria-selected={region === district}
+                      onClick={() => handleRegionChange(district)}
+                      className={`flex min-h-9 items-center justify-between rounded-[7px] border-0 px-2.5 text-left text-[12px] font-semibold transition-colors ${region === district ? "bg-[#eaf6e6] text-[#177827]" : "bg-transparent text-[#555e56] hover:bg-[#f3f7f1]"}`}
+                    >
+                      {district}{region === district && <Check className="size-3.5" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
           {isAuthenticated ? (
             <>
               <span className="flex items-center gap-1.5 text-[13px] font-extrabold text-[#263329]"><UserRound className="size-4" />{user?.name ?? "회원"}님</span>
@@ -99,13 +179,20 @@ export default function Header() {
       </div>
 
       {open && (
-        <div className="absolute inset-x-1.5 top-[75px] max-h-[calc(100vh-78px)] overflow-y-auto rounded-b-[12px] border border-[#e5e8e4] bg-white px-5 py-4 shadow-[0_18px_35px_rgba(26,48,25,0.12)] lg:hidden">
+        <div className="absolute left-1/2 top-[72px] max-h-[calc(100vh-78px)] w-[min(980px,calc(100%-36px))] -translate-x-1/2 overflow-y-auto rounded-b-[12px] border border-[#e5e8e4] bg-white px-5 py-4 shadow-[0_18px_35px_rgba(26,48,25,0.12)] max-[760px]:w-[calc(100%-24px)] lg:hidden">
           <nav className="mx-auto flex max-w-[720px] flex-col" aria-label="모바일 메뉴">
             <Link to="/" onClick={() => setOpen(false)} className="flex min-h-11 items-center text-[14px] font-extrabold no-underline">홈</Link>
             {NAV_ITEMS.flatMap((item) => item.links ?? [{ to: item.to!, label: item.label }]).map((item) => (
               <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>
             ))}
             {isAuthenticated && MYPAGE_LINKS.map((item) => <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>)}
+            <label className="mt-3 flex items-center gap-2 border-t border-[#e5e8e4] pt-3 text-[13px] font-extrabold text-[#344037]">
+              <MapPin className="size-4 text-[#177827]" />
+              <span className="shrink-0">내 지역</span>
+              <select value={region} onChange={(event) => handleRegionChange(event.target.value)} className="ml-auto h-10 min-w-0 flex-1 rounded-[8px] border border-[#dfe5dd] bg-white px-3 text-[13px] font-semibold text-[#344037] outline-none focus:border-[#6ca875]">
+                {SEOUL_DISTRICTS.map((district) => <option key={district} value={district}>{district}</option>)}
+              </select>
+            </label>
             <div className="mt-3 border-t border-[#e5e8e4] pt-3">
               {isAuthenticated ? <Button type="button" variant="outline" onClick={handleLogout} className="h-11 w-full rounded-[8px]">{user?.name ?? "회원"}님 · 로그아웃</Button> : <Button asChild className="h-11 w-full rounded-[8px] bg-[#177827] text-white"><Link to="/login" onClick={() => setOpen(false)} className="no-underline">로그인</Link></Button>}
             </div>
