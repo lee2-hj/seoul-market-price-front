@@ -16,6 +16,15 @@ import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 
+function formatBoardDate(dateStr?: string): string {
+  if (!dateStr) return "-";
+  if (dateStr.includes("T")) {
+    const [d, t] = dateStr.split("T");
+    return `${d.replace(/-/g, ".")} ${t ? t.slice(0, 5) : ""}`.trim();
+  }
+  return dateStr.replace(/-/g, ".");
+}
+
 export default function BoardDetailPage() {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
@@ -264,7 +273,7 @@ export default function BoardDetailPage() {
                   </h2>
                   <div className="flex items-center gap-4 text-[13px] text-[#667065]">
                     <span>작성자: <strong className="text-[#343c33] font-bold">{post.authorName}</strong></span>
-                    <span>작성일: {post.createdAt}</span>
+                    <span>작성일: {formatBoardDate(post.createdAt)}</span>
                     <span>조회수: {post.viewCount}</span>
                   </div>
                 </div>
@@ -378,7 +387,7 @@ export default function BoardDetailPage() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <strong className="text-[14px] font-bold text-[#344037]">{comment.authorName}</strong>
-                            <span className="text-[12px] text-[#939c92]">{comment.createdAt}</span>
+                            <span className="text-[12px] text-[#939c92]">{formatBoardDate(comment.createdAt)}</span>
                           </div>
 
                           {/* 본인 또는 관리자만 수정/삭제 버튼 노출 */}

@@ -28,6 +28,14 @@ function SignupVerifyPage() {
      번호는 sessionStorage에 저장해, /signup 새로고침 시에도 값이
      유지되도록 한다.
   ========================= */
+  const formatPhoneNumber = (value: string): string => {
+    if (!value) return "";
+    const raw = value.replace(/[^0-9]/g, "");
+    if (raw.length <= 3) return raw;
+    if (raw.length <= 7) return `${raw.slice(0, 3)}-${raw.slice(3)}`;
+    if (raw.length <= 10) return `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}`;
+    return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
+  };
 
   const handleSuccess = async (result: {
     identityVerificationId: string;
@@ -53,7 +61,7 @@ function SignupVerifyPage() {
 
     savePassVerifiedInfo({
       name: result.name,
-      phone: result.phoneNumber,
+      phone: formatPhoneNumber(result.phoneNumber),
       identityVerificationId: result.identityVerificationId,
     });
 
