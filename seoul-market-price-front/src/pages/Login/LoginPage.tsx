@@ -27,7 +27,7 @@ function LoginPage() {
             로고
         ========================== */}
 
-        <Link to="/">
+        <Link to="/" style={{ textDecoration: "none" }} className="no-underline">
           <img
             src="/logo.png"
             alt="싸부 로고"
