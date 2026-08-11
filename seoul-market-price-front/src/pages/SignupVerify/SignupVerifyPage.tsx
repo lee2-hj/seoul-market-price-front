@@ -30,6 +30,7 @@ function SignupVerifyPage() {
   ========================= */
 
   const handleSuccess = async (result: {
+    identityVerificationId: string;
     name: string;
     phoneNumber: string;
   }) => {
@@ -53,6 +54,7 @@ function SignupVerifyPage() {
     savePassVerifiedInfo({
       name: result.name,
       phone: result.phoneNumber,
+      identityVerificationId: result.identityVerificationId,
     });
 
     navigate("/signup", { replace: true });

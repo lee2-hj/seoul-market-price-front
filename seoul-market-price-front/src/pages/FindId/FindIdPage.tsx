@@ -1,5 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
+import { Link } from "react-router-dom";
 
 import PassAuth from "@/features/auth/components/PassAuth";
 
@@ -83,6 +84,9 @@ function FindIdPage() {
 
   return (
     <div className={styles.container}>
+      <Link to="/" className={styles.logoLink} aria-label="싸부 홈으로 이동">
+        <img src="/logo.png" alt="싸부 로고" className={styles.logo} />
+      </Link>
       <div className={styles.box}>
         {step === 1 && (
           <>

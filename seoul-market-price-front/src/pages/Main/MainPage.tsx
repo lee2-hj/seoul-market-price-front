@@ -8,7 +8,6 @@ import {
   Lightbulb,
   MapPin,
   Search,
-  TrendingDown,
 } from "lucide-react";
 
 import styles from "./MainPage.module.css";
@@ -34,7 +33,6 @@ const TREND = [41, 41.8, 42.6, 43.1, 42.7, 42.9, 42.5];
 export default function MainPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const [propertyType, setPropertyType] = useState("아파트");
   const [range, setRange] = useState("7일");
   const [favorites, setFavorites] = useState<string[]>([]);
 
@@ -74,18 +72,10 @@ export default function MainPage() {
               />
               <button type="button" onClick={handleSearch}>검색</button>
             </div>
-            <div className={styles.typeTabs}>
-              {["아파트", "오피스텔", "빌라"].map((type) => (
-                <button key={type} type="button" data-active={propertyType === type} onClick={() => setPropertyType(type)}>
-                  <Building2 aria-hidden="true" />{type}
-                </button>
-              ))}
-            </div>
           </div>
 
           <div className={styles.heroVisual} aria-hidden="true">
             <img src="/apartment-hero.png" alt="" />
-            <span><TrendingDown /> 시세보다 저렴</span>
           </div>
         </section>
 
@@ -96,8 +86,6 @@ export default function MainPage() {
           </div>
           <div className={styles.metrics}>
             <article><span>최근 실거래가</span><strong>42억 5,000만</strong><small>2026.08.10 거래</small></article>
-            <article><span>직전 거래가</span><strong>41억 8,000만</strong><small>직전 대비 7,000만 상승</small></article>
-            <article><span>지역 평균가</span><strong>44억 2,000만</strong><small>서초구 평균 84㎡</small></article>
             <article className={styles.savingMetric}><span>시세 대비</span><strong>3.8% <em>저렴</em></strong><small>지역 평균보다 1억 7,000만 낮음</small></article>
           </div>
         </section>
