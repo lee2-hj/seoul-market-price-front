@@ -94,6 +94,7 @@ export interface BoardCreateRequest {
   title: string;
   content: string;
   postType?: PostType;
+  file?: File | null;
 }
 
 /**
@@ -102,4 +103,5 @@ export interface BoardCreateRequest {
 export interface BoardUpdateRequest {
   title?: string;
   content?: string;
+  file?: File | null;
 }

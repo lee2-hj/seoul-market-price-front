@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -19,6 +19,7 @@ export default function BoardEditPage() {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const boardId = Number(postId);
   const loginUser = useAuthStore((state) => state.user);
@@ -109,6 +110,7 @@ export default function BoardEditPage() {
     updateMutation.mutate({
       title: formData.title.trim(),
       content: formData.content.trim(),
+      file: selectedFile,
     });
   };
 
@@ -132,28 +134,37 @@ export default function BoardEditPage() {
   return (
     <div className="min-h-screen bg-slate-50/60 dark:bg-slate-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto space-y-8">
-        {/* 마이페이지 스타일 상단 헤더 */}
+        {/* 헤더 */}
         <div className="text-center space-y-2">
           <div className="inline-block px-3 py-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold tracking-widest uppercase rounded-full">
             EDIT POST
           </div>
           <h1 className="text-3xl font-extrabold text-slate-800 dark:text-white tracking-tight">
-            게시판
+            게시글 수정
           </h1>
           <p className="text-sm text-slate-400 dark:text-slate-400">
-            공지사항과 사용자 게시글을 확인하실 수 있습니다.
+            게시글 제목과 내용을 수정할 수 있습니다.
           </p>
         </div>
 
-        {/* 둥근 카드 폼 컨테이너 */}
+        {/* 폼 컨테이너 */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6 md:p-8">
           {isLoading ? (
-            <div className="py-20 text-center text-sm text-slate-400">
-              기존 게시글 정보를 불러오는 중입니다...
+            <div className="py-20 text-center text-slate-400 text-xs">
+              게시글 정보를 불러오는 중입니다...
             </div>
           ) : isError ? (
-            <div className="py-20 text-center text-sm text-rose-500">
-              오류가 발생했습니다: {(error as Error).message}
+            <div className="py-20 text-center space-y-4">
+              <p className="text-rose-500 text-xs">
+                오류가 발생했습니다: {(error as Error)?.message || "게시글 정보를 불러올 수 없습니다."}
+              </p>
+              <Button
+                variant="outline"
+                className="text-xs"
+                onClick={() => navigate(`/board/${boardId}`)}
+              >
+                상세보기로 돌아가기
+              </Button>
             </div>
           ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -200,6 +211,28 @@ export default function BoardEditPage() {
                 {errors.content && (
                   <p className="text-xs text-rose-500">{errors.content.message}</p>
                 )}
+              </div>
+
+              {/* 첨부파일 수정 */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-xs text-slate-500 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-600 dark:text-slate-300">첨부파일 변경 :</span>
+                  {selectedFile ? (
+                    <span className="text-emerald-600 font-bold">
+                      {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">새 첨부파일로 변경하려면 선택하세요</span>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setSelectedFile(file);
+                  }}
+                  className="text-xs text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                />
               </div>
 
               {/* 하단 버튼 */}
