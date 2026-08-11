@@ -105,3 +105,24 @@ export interface BoardUpdateRequest {
   content?: string;
   file?: File | null;
 }
+
+/**
+ * 첨부파일 응답 DTO
+ */
+export interface AttachmentResponse {
+  attachmentId: number;
+  boardId: number;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  uploadedAt: string;
+}
+
+/**
+ * 첨부파일 다운로드 URL 응답 DTO
+ */
+export interface AttachmentDownloadResponse {
+  downloadUrl: string;
+  fileName: string;
+  expiresAt?: string;
+}

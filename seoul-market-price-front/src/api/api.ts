@@ -523,6 +523,76 @@ export async function deleteBoardCommentApi(commentId: number): Promise<void> {
   await apiMiddleware.delete(`/api/boards/comments/${commentId}`);
 }
 
+/* ==========================================
+ 게시판 첨부파일 API (추가 요청용)
+========================================== */
+
+import type {
+  AttachmentResponse,
+  AttachmentDownloadResponse,
+} from "@/features/board/types/board.types";
+
+/**
+ * 게시글 첨부파일 다중/단일 업로드 API (POST /api/boards/:boardId/attachments)
+ */
+export async function uploadBoardAttachmentsApi(
+  boardId: number,
+  files: File[],
+): Promise<AttachmentResponse[]> {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append("files", file);
+  });
+
+  const response = await apiMiddleware.post<AttachmentResponse[]>(
+    `/api/boards/${boardId}/attachments`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
+  return response.data;
+}
+
+/**
+ * 게시글 첨부파일 목록 조회 API (GET /api/boards/:boardId/attachments)
+ */
+export async function getBoardAttachmentsApi(
+  boardId: number,
+): Promise<AttachmentResponse[]> {
+  const response = await apiMiddleware.get<AttachmentResponse[]>(
+    `/api/boards/${boardId}/attachments`,
+  );
+  return response.data || [];
+}
+
+/**
+ * 게시글 첨부파일 다운로드 URL 발급 API (GET /api/boards/:boardId/attachments/:attachmentId/download)
+ */
+export async function downloadBoardAttachmentApi(
+  boardId: number,
+  attachmentId: number,
+): Promise<AttachmentDownloadResponse> {
+  const response = await apiMiddleware.get<AttachmentDownloadResponse>(
+    `/api/boards/${boardId}/attachments/${attachmentId}/download`,
+  );
+  return response.data;
+}
+
+/**
+ * 게시글 첨부파일 삭제 API (DELETE /api/boards/:boardId/attachments/:attachmentId)
+ */
+export async function deleteBoardAttachmentApi(
+  boardId: number,
+  attachmentId: number,
+): Promise<void> {
+  await apiMiddleware.delete(
+    `/api/boards/${boardId}/attachments/${attachmentId}`,
+  );
+}
+
 /* Q&A 목록 응답 */
 
 export interface QnaListResponse {
