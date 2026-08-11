@@ -462,13 +462,13 @@ export async function createBoardPostApi(
 }
 
 /**
- * 게시글 수정 API (PUT /api/boards/:boardId)
+ * 게시글 수정 API (PATCH /api/boards/:boardId)
  */
 export async function updateBoardPostApi(
   boardId: number,
   data: BoardUpdateRequest,
 ): Promise<void> {
-  await apiMiddleware.put(`/api/boards/${boardId}`, data);
+  await apiMiddleware.patch(`/api/boards/${boardId}`, data);
 }
 
 /**

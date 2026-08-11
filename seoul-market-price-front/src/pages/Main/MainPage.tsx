@@ -1,691 +1,170 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Bell,
+  Building2,
+  ChevronRight,
+  Heart,
+  Lightbulb,
+  MapPin,
+  Search,
+  TrendingDown,
+} from "lucide-react";
 
 import styles from "./MainPage.module.css";
 
-/* 자주 찾는 인기 아파트 단지 */
-
-const POPULAR_ITEMS = [
-  {
-    name: "래미안 원베일리",
-    emoji: "🏢",
-    category: "서초구",
-    price: "42억 5,000",
-    unit: "전용 84㎡",
-    change: "+1.7%",
-    type: "up",
-  },
-  {
-    name: "마포래미안푸르지오",
-    emoji: "🏢",
-    category: "마포구",
-    price: "18억 7,000",
-    unit: "전용 84㎡",
-    change: "+2.7%",
-    type: "up",
-  },
-  {
-    name: "잠실엘스",
-    emoji: "🏢",
-    category: "송파구",
-    price: "24억 5,000",
-    unit: "전용 84㎡",
-    change: "-1.6%",
-    type: "down",
-  },
-  {
-    name: "헬리오시티",
-    emoji: "🏢",
-    category: "송파구",
-    price: "21억 3,000",
-    unit: "전용 84㎡",
-    change: "+2.4%",
-    type: "up",
-  },
-  {
-    name: "고덕그라시움",
-    emoji: "🏢",
-    category: "강동구",
-    price: "16억 8,000",
-    unit: "전용 84㎡",
-    change: "+1.8%",
-    type: "up",
-  },
-  {
-    name: "DMC파크뷰자이",
-    emoji: "🏢",
-    category: "서대문구",
-    price: "13억 5,000",
-    unit: "전용 84㎡",
-    change: "+1.5%",
-    type: "up",
-  },
+const APARTMENTS = [
+  { name: "래미안 원베일리", district: "서초구", price: "42억 5,000만", area: "84㎡", change: "-3.8%", image: "/apartments/apartment-1.jpg" },
+  { name: "마포래미안푸르지오", district: "마포구", price: "18억 7,000만", area: "84㎡", change: "-5.2%", image: "/apartments/apartment-2.jpg" },
+  { name: "헬리오시티", district: "송파구", price: "24억 5,000만", area: "84㎡", change: "-4.7%", image: "/apartments/apartment-3.jpg" },
+  { name: "고덕그라시움", district: "강동구", price: "16억 8,000만", area: "84㎡", change: "-3.6%", image: "/apartments/apartment-4.jpg" },
+  { name: "DMC파크뷰자이", district: "서대문구", price: "13억 5,000만", area: "84㎡", change: "-4.1%", image: "/apartments/apartment-5.jpg" },
 ];
-
-/* 지역 카테고리 */
-
-const CATEGORIES = ["전체", "서초구", "마포구", "송파구", "강동구", "서대문구"];
-
-/* 가격 비교 데이터 (마포래미안푸르지오 84㎡) */
-
-const PRICE_DATA = {
-  current: "18억 7,000만",
-  yesterday: "18억 2,000만",
-  lastMonth: "17억 8,000만",
-  lastYear: "16억 5,000만",
-  average: "15억 8,000만",
-};
-
-/* 서울 자치구별 아파트 평균 실거래가 (84㎡ 기준) */
 
 const DISTRICTS = [
-  { name: "강남구", price: "27억 8,000만", change: "+2.1%" },
-  { name: "서초구", price: "26억 5,000만", change: "+1.8%" },
-  { name: "송파구", price: "19억 8,000만", change: "+1.5%" },
-  { name: "용산구", price: "18억 9,000만", change: "+1.6%" },
-  { name: "성동구", price: "15억 8,000만", change: "+1.4%" },
-  { name: "마포구", price: "14억 5,000만", change: "+1.2%" },
-  { name: "광진구", price: "13억 9,000만", change: "+0.8%" },
-  { name: "양천구", price: "13억 5,000만", change: "+0.7%" },
-  { name: "영등포구", price: "12억 8,000만", change: "+0.9%" },
-  { name: "강동구", price: "12억 2,000만", change: "+0.6%" },
-  { name: "동작구", price: "11억 9,000만", change: "+0.5%" },
-  { name: "중구", price: "11억 5,000만", change: "+0.3%" },
-  { name: "종로구", price: "11억 2,000만", change: "+0.2%" },
-  { name: "서대문구", price: "10억 5,000만", change: "+0.4%" },
-  { name: "동대문구", price: "9억 8,000만", change: "+0.3%" },
-  { name: "성북구", price: "9억 2,000만", change: "-0.2%" },
-  { name: "은평구", price: "8억 9,000만", change: "-0.4%" },
-  { name: "강서구", price: "8억 8,000만", change: "+0.3%" },
-  { name: "관악구", price: "8억 5,000만", change: "-0.1%" },
-  { name: "구로구", price: "8억 2,000만", change: "-0.3%" },
-  { name: "노원구", price: "7억 9,000만", change: "-0.5%" },
-  { name: "중랑구", price: "7억 5,000만", change: "-0.2%" },
-  { name: "강북구", price: "7억 2,000만", change: "-0.4%" },
-  { name: "금천구", price: "6억 9,000만", change: "-0.6%" },
-  { name: "도봉구", price: "6억 8,000만", change: "-0.8%" },
+  { name: "강남구", price: "27억 8,000만", level: 5 },
+  { name: "서초구", price: "26억 5,000만", level: 5 },
+  { name: "송파구", price: "19억 8,000만", level: 4 },
+  { name: "용산구", price: "18억 9,000만", level: 4 },
+  { name: "성동구", price: "15억 8,000만", level: 3 },
 ];
 
-/* 공지사항 */
-
-const NOTICES = [
-  {
-    id: 1,
-    title: "싸부 서비스 이용 안내입니다.",
-    date: "2026.08.04",
-    important: true,
-  },
-  {
-    id: 2,
-    title: "부동산 실거래가 가격정보 업데이트 안내",
-    date: "2026.08.03",
-    important: true,
-  },
-  {
-    id: 3,
-    title: "부동산 가격정보 서비스 오픈 안내",
-    date: "2026.08.01",
-    important: false,
-  },
-  {
-    id: 4,
-    title: "싸부 홈페이지 이용약관 변경 안내",
-    date: "2026.07.30",
-    important: false,
-  },
-  {
-    id: 5,
-    title: "서비스 점검 일정 안내",
-    date: "2026.07.28",
-    important: false,
-  },
-];
-
-/* 질의응답 */
-
-const QNA_LIST = [
-  {
-    id: 1,
-    title: "가격정보는 얼마나 자주 업데이트되나요?",
-    date: "2026.08.04",
-    status: "답변완료",
-  },
-  {
-    id: 2,
-    title: "우리 동네 가격은 어떻게 확인하나요?",
-    date: "2026.08.03",
-    status: "답변완료",
-  },
-  {
-    id: 3,
-    title: "회원가입 후 이용 가능한 기능은 무엇인가요?",
-    date: "2026.08.02",
-    status: "답변대기",
-  },
-  {
-    id: 4,
-    title: "데이터 출처는 어디인가요?",
-    date: "2026.07.31",
-    status: "답변완료",
-  },
-  {
-    id: 5,
-    title: "서비스 오류 제보는 어디로 하나요?",
-    date: "2026.07.29",
-    status: "답변완료",
-  },
-];
+const TREND = [41, 41.8, 42.6, 43.1, 42.7, 42.9, 42.5];
 
 export default function MainPage() {
   const navigate = useNavigate();
-
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("전체");
-  const [region, setRegion] = useState("서울");
+  const [propertyType, setPropertyType] = useState("아파트");
+  const [range, setRange] = useState("7일");
+  const [favorites, setFavorites] = useState<string[]>([]);
 
-  /* 검색 실행 */
+  const chartPoints = useMemo(
+    () => TREND.map((value, index) => `${35 + index * 66},${112 - (value - 40) * 18}`).join(" "),
+    [],
+  );
 
   const handleSearch = () => {
     const keyword = search.trim();
-
-    if (!keyword) {
-      alert("검색할 아파트 단지명 또는 평형을 입력해주세요.");
-      return;
-    }
-
-    navigate(`/price?keyword=${encodeURIComponent(keyword)}`);
+    navigate(keyword ? `/price?keyword=${encodeURIComponent(keyword)}` : "/price");
   };
 
-  /* 선택된 카테고리의 단지 목록 */
-
-  const filteredItems =
-    category === "전체"
-      ? POPULAR_ITEMS
-      : POPULAR_ITEMS.filter((item) => item.category === category);
+  const toggleFavorite = (name: string) => {
+    setFavorites((current) => current.includes(name) ? current.filter((item) => item !== name) : [...current, name]);
+  };
 
   return (
-    <div className={styles.mainPage}>
-      {/* Hero */}
+    <div className={styles.dashboard}>
+      <main className={styles.main}>
+        <section className={styles.hero}>
+          <div className={styles.heroCopy}>
+            <span className={styles.eyebrow}>SMART REAL ESTATE</span>
+            <h1>오늘 가장 저렴한<br /><strong>아파트를 한눈에</strong></h1>
+            <p>서울 아파트 실거래가를 비교하고,<br />시세보다 저렴한 매물을 찾아보세요.</p>
+          </div>
 
-      <section className={styles.hero}>
-        <div className={styles.heroInner}>
-          <div className={styles.heroText}>
-            <h1>
-              내 주변의
-              <br />
-              <strong>싸게 보는 부동산</strong>
-            </h1>
-
-            <p>
-              싸부에서 아파트의 현재 실거래가와
-              <br />
-              지역별 시세 차이를 한눈에 비교해보세요.
-            </p>
-
-            {/* 검색 */}
-
+          <div className={styles.searchArea}>
             <div className={styles.searchBox}>
-              <span>🔍</span>
-
+              <Search aria-hidden="true" />
               <input
-                type="text"
                 value={search}
-                placeholder="원하시는 아파트 단지 또는 평형을 검색해보세요"
                 onChange={(event) => setSearch(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    handleSearch();
-                  }
-                }}
+                onKeyDown={(event) => event.key === "Enter" && handleSearch()}
+                placeholder="아파트명 또는 자치구를 검색해보세요"
+                aria-label="아파트 검색"
               />
-
-              <button type="button" onClick={handleSearch}>
-                검색
-              </button>
+              <button type="button" onClick={handleSearch}>검색</button>
             </div>
-
-            {/* 빠른 검색 */}
-
-            <div className={styles.quickSearch}>
-              <span>자주 찾는 평형</span>
-
-              <button
-                type="button"
-                onClick={() => setSearch("전용 84㎡(구 34평형)")}
-              >
-                전용 84㎡(구 34평형)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSearch("전용 59㎡(구 24평형)")}
-              >
-                전용 59㎡(구 24평형)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSearch("전용 49㎡(구 21평형)")}
-              >
-                전용 49㎡(구 21평형)
-              </button>
-            </div>
-          </div>
-
-          {/* 오늘의 대표 실거래가 */}
-
-          <div className={styles.heroPrice}>
-            <div className={styles.heroPriceHeader}>
-              <span>오늘의 대표 실거래가</span>
-              <small>서울 / 실거래 기준</small>
-            </div>
-
-            <div className={styles.heroProduct}>
-              <span className={styles.heroEmoji}>🏢</span>
-
-              <div>
-                <span>마포구</span>
-                <strong>마포래미안푸르지오</strong>
-              </div>
-            </div>
-
-            <div className={styles.heroPriceValue}>
-              18억 7,000
-              <small>만원 / 전용 84㎡</small>
-            </div>
-
-            <div className={styles.heroPriceChange}>
-              <span>전월 대비</span>
-              <strong>▲ 2.7%</strong>
-            </div>
-
-            <button
-              type="button"
-              className={styles.heroDetail}
-              onClick={() => navigate("/price")}
-            >
-              단지 실거래가 확인 →
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Quick Menu */}
-
-      <section className={styles.quickSection}>
-        <div className={styles.quickMenu}>
-          <Link to="/price" className={styles.quickCard}>
-            <span>🏢</span>
-
-            <div>
-              <strong>단지별 실거래가</strong>
-              <small>현재가격과 등락률을 한눈에</small>
-            </div>
-
-            <b>→</b>
-          </Link>
-
-          <Link to="/region-price" className={styles.quickCard}>
-            <span>📍</span>
-
-            <div>
-              <strong>자치구별 아파트 시세</strong>
-              <small>서울 25개 자치구 시세 비교</small>
-            </div>
-
-            <b>→</b>
-          </Link>
-
-          <Link to="/recommendation" className={styles.quickCard}>
-            <span>📊</span>
-
-            <div>
-              <strong>스마트 알뜰 추천</strong>
-              <small>저평가 & 급매 아파트 추천</small>
-            </div>
-
-            <b>→</b>
-          </Link>
-
-          <Link to="/qna" className={styles.quickCard}>
-            <span>💬</span>
-
-            <div>
-              <strong>고객센터</strong>
-              <small>공지사항과 질의응답을 확인하세요</small>
-            </div>
-
-            <b>→</b>
-          </Link>
-        </div>
-      </section>
-
-      {/* 오늘의 단지별 시세 현황 */}
-
-      <section className={styles.section}>
-        <div className={styles.sectionTitle}>
-          <div>
-            <span>PRICE DASHBOARD</span>
-            <h2>오늘의 단지별 시세 현황</h2>
-            <p>서울 주요 인기 아파트 단지의 실거래가와 가격 변동을 확인하세요.</p>
-          </div>
-
-          <Link to="/price">전체 단지 시세 →</Link>
-        </div>
-
-        <div className={styles.filterTabs}>
-          {CATEGORIES.map((item) => (
-            <button
-              type="button"
-              key={item}
-              className={category === item ? styles.activeTab : ""}
-              onClick={() => setCategory(item)}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-
-        <div className={styles.productGrid}>
-          {filteredItems.map((item) => (
-            <button
-              type="button"
-              key={item.name}
-              className={styles.productCard}
-              onClick={() =>
-                navigate(`/price?keyword=${encodeURIComponent(item.name)}`)
-              }
-            >
-              <div className={styles.productTop}>
-                <span className={styles.productEmoji}>{item.emoji}</span>
-
-                <span className={styles.productCategory}>{item.category}</span>
-              </div>
-
-              <h3>{item.name}</h3>
-
-              <div className={styles.productPrice}>
-                {item.price}
-                <small>만원 / {item.unit}</small>
-              </div>
-
-              <div className={styles.productChange}>
-                <span>전월 대비</span>
-
-                <strong
-                  className={item.type === "up" ? styles.up : styles.down}
-                >
-                  {item.type === "up" ? "▲" : "▼"}{" "}
-                  {item.change.replace(/[+-]/g, "")}
-                </strong>
-              </div>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* 가격 비교 */}
-
-      <section className={styles.comparisonSection}>
-        <div className={styles.sectionTitle}>
-          <div>
-            <span>PRICE COMPARISON</span>
-            <h2>마포래미안푸르지오 시세 비교</h2>
-            <p>기준시점별 실거래가를 비교하여 현재 가격 수준을 확인하세요.</p>
-          </div>
-
-          <button type="button" onClick={() => navigate("/price")}>
-            단지 상세 시세 →
-          </button>
-        </div>
-
-        <div className={styles.comparisonGrid}>
-          <div className={styles.currentPriceCard}>
-            <span>최근 실거래가</span>
-
-            <strong>
-              {PRICE_DATA.current}
-              <small>원</small>
-            </strong>
-
-            <em>▲ 2.7%</em>
-
-            <p>서울 마포구 아현동 / 전용 84㎡ 기준</p>
-          </div>
-
-          <div className={styles.referenceCard}>
-            <div>
-              <span>전월 실거래</span>
-              <strong>{PRICE_DATA.yesterday}원</strong>
-              <em>+5,000만원</em>
-            </div>
-
-            <div>
-              <span>3개월 전</span>
-              <strong>{PRICE_DATA.lastMonth}원</strong>
-              <em>+9,000만원</em>
-            </div>
-
-            <div>
-              <span>전년 동기</span>
-              <strong>{PRICE_DATA.lastYear}원</strong>
-              <em>+2억 2,000만원</em>
-            </div>
-
-            <div>
-              <span>2년 전</span>
-              <strong>{PRICE_DATA.average}원</strong>
-              <em>+2억 9,000만원</em>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 자치구별 아파트 시세 */}
-
-      <section className={styles.section}>
-        <div className={styles.sectionTitle}>
-          <div>
-            <span>SEOUL DISTRICT PRICE</span>
-            <h2>우리 동네 아파트 평균 시세는 얼마일까요?</h2>
-            <p>자치구별 84㎡ 기준 평균 실거래가를 비교하여 합리적인 지역을 찾아보세요.</p>
-          </div>
-
-          <select
-            value={region}
-            onChange={(event) => setRegion(event.target.value)}
-            className={styles.regionSelect}
-          >
-            <option value="서울">서울</option>
-          </select>
-        </div>
-
-        <div className={styles.districtLayout}>
-          <div className={styles.districtGrid}>
-            {DISTRICTS.map((district) => (
-              <button
-                type="button"
-                key={district.name}
-                className={styles.districtCard}
-                onClick={() =>
-                  navigate(
-                    `/region-price?district=${encodeURIComponent(
-                      district.name,
-                    )}`,
-                  )
-                }
-              >
-                <span>{district.name}</span>
-
-                <strong>
-                  {district.price}
-                  <small>원</small>
-                </strong>
-
-                <em
-                  className={
-                    district.change.startsWith("+") ? styles.up : styles.down
-                  }
-                >
-                  {district.change}
-                </em>
-              </button>
-            ))}
-          </div>
-
-          <div className={styles.districtSummary}>
-            <span>현재 선택 기준</span>
-
-            <h3>서울 자치구 평균가</h3>
-
-            <strong>
-              13억 2,000
-              <small>만원</small>
-            </strong>
-
-            <p>
-              현재 가장 합리적인 지역은
-              <b> 도봉구</b>입니다.
-            </p>
-
-            <button type="button" onClick={() => navigate("/region-price")}>
-              자치구별 상세 비교
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* 공지사항 및 질의응답 */}
-
-      <section className={styles.boardSection}>
-        <div className={styles.boardHeader}>
-          <div>
-            <span>COMMUNITY</span>
-            <h2>싸부 소식과 궁금한 이야기</h2>
-            <p>서비스 공지사항과 이용자들의 질문을 확인해보세요.</p>
-          </div>
-        </div>
-
-        <div className={styles.boardGrid}>
-          {/* 공지사항 */}
-
-          <div className={styles.boardBox}>
-            <div className={styles.boardBoxHeader}>
-              <div>
-                <span>NOTICE</span>
-                <h3>공지사항</h3>
-              </div>
-
-              <Link to="/notice">더보기 →</Link>
-            </div>
-
-            <div className={styles.boardList}>
-              {NOTICES.map((notice) => (
-                <button
-                  type="button"
-                  key={notice.id}
-                  className={styles.boardItem}
-                  onClick={() => navigate(`/notice/${notice.id}`)}
-                >
-                  <div className={styles.boardItemTitle}>
-                    {notice.important && (
-                      <span className={styles.noticeBadge}>중요</span>
-                    )}
-
-                    <strong>{notice.title}</strong>
-                  </div>
-
-                  <span className={styles.boardDate}>{notice.date}</span>
+            <div className={styles.typeTabs}>
+              {["아파트", "오피스텔", "빌라"].map((type) => (
+                <button key={type} type="button" data-active={propertyType === type} onClick={() => setPropertyType(type)}>
+                  <Building2 aria-hidden="true" />{type}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* 질의응답 */}
+          <div className={styles.heroVisual} aria-hidden="true">
+            <img src="/apartment-hero.png" alt="" />
+            <span><TrendingDown /> 시세보다 저렴</span>
+          </div>
+        </section>
 
-          <div className={styles.boardBox}>
-            <div className={styles.boardBoxHeader}>
-              <div>
-                <span>Q&amp;A</span>
-                <h3>질의응답</h3>
+        <section className={styles.summary} aria-label="대표 단지 가격 요약">
+          <div className={styles.apartmentSummary}>
+            <div className={styles.apartmentImage}><Building2 /></div>
+            <div><span>오늘의 대표 단지</span><h2>래미안 원베일리</h2><p>서초구 반포동 · 전용 84㎡</p></div>
+          </div>
+          <div className={styles.metrics}>
+            <article><span>최근 실거래가</span><strong>42억 5,000만</strong><small>2026.08.10 거래</small></article>
+            <article><span>직전 거래가</span><strong>41억 8,000만</strong><small>직전 대비 7,000만 상승</small></article>
+            <article><span>지역 평균가</span><strong>44억 2,000만</strong><small>서초구 평균 84㎡</small></article>
+            <article className={styles.savingMetric}><span>시세 대비</span><strong>3.8% <em>저렴</em></strong><small>지역 평균보다 1억 7,000만 낮음</small></article>
+          </div>
+        </section>
+
+        <section className={styles.middleGrid}>
+          <article className={styles.card}>
+            <header><h2>서울 지역별 평균가 비교</h2><button type="button" onClick={() => navigate("/price")}>전체 보기 <ChevronRight /></button></header>
+            <div className={styles.districtBody}>
+              <div className={styles.mapVisual} aria-label="서울 자치구 가격 지도">
+                <div className={styles.mapLegend}><span>낮음</span><i /><i /><i /><i /><i /><span>높음</span></div>
+                <img src="/seoul-district-map.svg" alt="서울 25개 자치구 실거래가 비교 지도" />
+                <span className={styles.mapPin}><MapPin /> 강북구 최저가</span>
               </div>
-
-              <Link to="/qna">더보기 →</Link>
+              <ol className={styles.ranking}>
+                {DISTRICTS.map((district, index) => <li key={district.name}><b>{index + 1}</b><span>{district.name}</span><strong>{district.price}</strong></li>)}
+              </ol>
             </div>
+          </article>
 
-            <div className={styles.boardList}>
-              {QNA_LIST.map((qna) => (
-                <button
-                  type="button"
-                  key={qna.id}
-                  className={styles.boardItem}
-                  onClick={() => navigate(`/qna/${qna.id}`)}
-                >
-                  <div className={styles.boardItemTitle}>
-                    <span
-                      className={
-                        qna.status === "답변완료"
-                          ? styles.answerComplete
-                          : styles.answerWaiting
-                      }
-                    >
-                      {qna.status}
-                    </span>
+          <article className={styles.card}>
+            <header><h2>실거래가 추이</h2><div className={styles.rangeTabs}>{["7일", "30일", "90일"].map((item) => <button type="button" key={item} data-active={range === item} onClick={() => setRange(item)}>{item}</button>)}</div></header>
+            <div className={styles.chart}>
+              <span className={styles.chartUnit}>억 원</span>
+              <svg viewBox="0 0 470 150" role="img" aria-label="래미안 원베일리 실거래가 추이">
+                {[35, 70, 105].map((y) => <line key={y} x1="28" y1={y} x2="445" y2={y} />)}
+                <polyline points={chartPoints} />
+                {TREND.map((value, index) => <g key={value + index}><circle cx={35 + index * 66} cy={112 - (value - 40) * 18} r="4" /><text x={35 + index * 66} y={100 - (value - 40) * 18}>{value}</text><text className={styles.date} x={35 + index * 66} y="139">8/{4 + index}</text></g>)}
+              </svg>
+              <p>래미안 원베일리 전용 84㎡ 최근 실거래 기준</p>
+            </div>
+          </article>
 
-                    <strong>{qna.title}</strong>
-                  </div>
+          <article className={`${styles.card} ${styles.insight}`}>
+            <header><h2>싸부의 한마디</h2><span>분석 완료</span></header>
+            <div><i><Lightbulb /></i><h3>최근 거래가가 지역<br />평균보다 낮아<br /><strong>지금 비교하기 좋습니다.</strong></h3></div>
+            <button type="button" onClick={() => navigate("/price")}>자세히 보기 <ChevronRight /></button>
+          </article>
+        </section>
 
-                  <span className={styles.boardDate}>{qna.date}</span>
+        <section className={styles.bottomGrid}>
+          <article className={`${styles.card} ${styles.bargains}`}>
+            <header><h2>급매 후보 TOP 5</h2><button type="button" onClick={() => navigate("/price")}>더보기 <ChevronRight /></button></header>
+            <div className={styles.bargainList}>
+              {APARTMENTS.map((item, index) => (
+                <button type="button" key={item.name} className={styles.bargainItem} onClick={() => navigate(`/price?keyword=${encodeURIComponent(item.name)}`)}>
+                  <b>{index + 1}</b><span className={styles.tower}><img src={item.image} alt={`${item.name} 아파트`} /></span><strong>{item.name}</strong><small>{item.price}</small><em>{item.change}</em>
+                  <span role="button" tabIndex={0} className={styles.favorite} data-active={favorites.includes(item.name)} onClick={(event) => { event.stopPropagation(); toggleFavorite(item.name); }} onKeyDown={(event) => { if (event.key === "Enter") toggleFavorite(item.name); }}><Heart /></span>
                 </button>
               ))}
             </div>
-          </div>
-        </div>
-      </section>
+          </article>
 
-      {/* 서비스 메뉴 */}
+          <article className={`${styles.card} ${styles.recommendation}`}>
+            <header><h2>오늘의 추천</h2><button type="button" onClick={() => navigate("/price")}>더보기 <ChevronRight /></button></header>
+            <div><i><MapPin /></i><p><span>가격 좋은 지역</span><strong>노원구에서<br /><em>7억원대</em> 아파트를 확인해보세요</strong><small>노원구 평균 84㎡ 시세 7억 9,000만</small></p></div>
+            <nav>{["노원구", "도봉구", "강북구", "중랑구"].map((district) => <button key={district} type="button" onClick={() => navigate(`/price?keyword=${district}`)}>{district}</button>)}</nav>
+          </article>
 
-      <section className={styles.serviceSection}>
-        <div className={styles.serviceCard}>
-          <span>❓</span>
+          <article className={`${styles.card} ${styles.alert}`}>
+            <header><h2>가격 알림</h2></header>
+            <div><i><Bell /></i><p>관심 단지의 가격 변동을<br />실시간으로 알려드려요.</p></div>
+            <button type="button" onClick={() => navigate("/mypage?tab=NOTIFICATION")}>가격 알림 설정하기</button>
+          </article>
+        </section>
 
-          <div>
-            <strong>자주 묻는 질문</strong>
-            <p>가격정보와 서비스 이용방법을 확인하세요.</p>
-          </div>
-
-          <Link to="/faq">바로가기 →</Link>
-        </div>
-
-        <div className={styles.serviceCard}>
-          <span>💬</span>
-
-          <div>
-            <strong>질의응답 게시판</strong>
-            <p>궁금한 내용을 문의하고 답변을 확인하세요.</p>
-          </div>
-
-          <Link to="/qna">바로가기 →</Link>
-        </div>
-      </section>
-
-      {/* API 안내 */}
-
-      <section className={styles.apiNotice}>
-        <div>
-          <span>📊</span>
-
-          <div>
-            <strong>국토교통부 실거래가 공개시스템 연동</strong>
-
-            <p>
-              국토교통부 및 서울시 부동산 실거래가 정보를 기반으로 투명한 시세 서비스를 제공합니다.
-            </p>
-          </div>
-        </div>
-
-        <span className={styles.apiStatus}>● 데이터 서비스 정상</span>
-      </section>
+        <div className={styles.source}>본 가격 정보는 국토교통부 실거래가 공개시스템 데이터를 기반으로 하며, 목 데이터로 표시됩니다.<span>최종 업데이트 2026.08.11</span></div>
+      </main>
     </div>
   );
 }
