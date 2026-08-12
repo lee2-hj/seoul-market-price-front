@@ -88,7 +88,7 @@ function SignupVerifyPage() {
 
         <Link to="/" style={{ textDecoration: "none" }} className="block no-underline">
           <img
-            src="/logo.png"
+            src="/logo-teal.png"
             alt="싸부 로고"
             className="mx-auto block h-[145px] sm:h-[160px] w-auto max-[900px]:h-32 max-[600px]:h-28 max-[380px]:h-24 object-contain drop-shadow-sm"
           />

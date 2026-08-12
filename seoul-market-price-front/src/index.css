@@ -1,17 +1,21 @@
 :root {
-  --ssabu-primary: #177827;
-  --ssabu-primary-dark: #086d16;
-  --ssabu-primary-soft: #f1faeb;
-  --ssabu-navy: #102d55;
-  --ssabu-gold: #c8a33b;
-  --ssabu-bg: #fbfbf7;
+  --ssabu-primary: #0F8AA8;
+  --ssabu-primary-dark: #0B5E73;
+  --ssabu-primary-soft: #E8F6F9;
+  --ssabu-light-teal: #7CC9D8;
+  --ssabu-navy: #123047;
+  --ssabu-gold: #F59E0B;
+  --ssabu-bg: #F5FAFC;
   --ssabu-surface: #ffffff;
-  --ssabu-text: #141714;
-  --ssabu-muted: #686d68;
-  --ssabu-border: #e5e8e4;
-  --ssabu-danger: #d94a55;
+  --ssabu-text: #13202B;
+  --ssabu-muted: #6B7280;
+  --ssabu-border: #DCE8ED;
+  --ssabu-danger: #DC2626;
+  --ssabu-positive: #0F766E;
+  --ssabu-price-down: #0891B2;
+  --ssabu-warning: #F59E0B;
   --ssabu-radius: 12px;
-  --ssabu-shadow: 0 3px 14px rgba(35, 54, 33, 0.075);
+  --ssabu-shadow: 0 3px 14px rgba(18, 48, 71, 0.075);
   font-family: Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   color: var(--ssabu-text);
   background: var(--ssabu-bg);
@@ -34,7 +38,7 @@ img { max-width: 100%; }
 ::selection { color: #fff; background: var(--ssabu-primary); }
 
 :focus-visible {
-  outline: 2px solid rgba(23, 120, 39, 0.42);
+  outline: 2px solid rgba(15, 138, 168, 0.42);
   outline-offset: 2px;
 }
 
@@ -47,7 +51,7 @@ img { max-width: 100%; }
 /* Shared support-inspired surface treatment for legacy page modules. */
 [class*="_page_"] {
   background:
-    radial-gradient(circle at 84% 9%, rgba(225, 240, 213, 0.28), transparent 22%),
+    radial-gradient(circle at 84% 9%, rgba(124, 201, 216, 0.2), transparent 22%),
     var(--ssabu-bg) !important;
 }
 
@@ -68,11 +72,11 @@ img { max-width: 100%; }
 .public-page-shell > main > .tw-scope {
   min-height: calc(100vh - 184px) !important;
   background:
-    radial-gradient(circle at 80% 16%, rgba(225, 240, 213, 0.4), transparent 24%),
-    linear-gradient(135deg, #f7f9f4 0%, #fff 58%, #f8faf6 100%) !important;
+    radial-gradient(circle at 80% 16%, rgba(124, 201, 216, 0.24), transparent 24%),
+    linear-gradient(135deg, #F5FAFC 0%, #fff 58%, #F0F8FA 100%) !important;
 }
 
-.public-page-shell > main > .tw-scope > div > a:has(> img[src="/logo.png"]) {
+.public-page-shell > main > .tw-scope > div > a:has(> img[src="/logo-teal.png"]) {
   display: none !important;
 }
 
@@ -80,7 +84,7 @@ img { max-width: 100%; }
 .public-page-shell [data-slot="card"] {
   border: 1px solid var(--ssabu-border) !important;
   border-radius: 16px !important;
-  box-shadow: 0 12px 36px rgba(32, 54, 30, 0.09) !important;
+  box-shadow: 0 12px 36px rgba(18, 48, 71, 0.09) !important;
 }
 
 input:not([type="checkbox"]):not([type="radio"]),
@@ -93,8 +97,8 @@ textarea {
 input:not([type="checkbox"]):not([type="radio"]):focus,
 select:focus,
 textarea:focus {
-  border-color: rgba(23, 120, 39, 0.55) !important;
-  box-shadow: 0 0 0 3px rgba(23, 120, 39, 0.09);
+  border-color: rgba(15, 138, 168, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(15, 138, 168, 0.09);
   outline: none;
 }
 
