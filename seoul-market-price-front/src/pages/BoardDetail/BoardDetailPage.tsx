@@ -1,8 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MessageSquare, Edit2, Trash2, Send } from "lucide-react";
-import type { BoardComment } from "@/features/board/types/board.types";
+import { MessageSquare, Edit2, Trash2, Send, Paperclip, Download } from "lucide-react";
+import type {
+  BoardComment,
+  AttachmentResponse,
+} from "@/features/board/types/board.types";
+import * as api from "@/api/api";
 
 import {
   getBoardPostApi,
@@ -54,6 +58,43 @@ export default function BoardDetailPage() {
     queryFn: () => getBoardCommentsApi(boardId),
     enabled: !isNaN(boardId) && boardId > 0,
   });
+
+  // 첨부파일 목록 Query (api.ts에 getBoardAttachmentsApi 구현 시 자동 로드)
+  const { data: attachments = [] } = useQuery<AttachmentResponse[]>({
+    queryKey: ["boardAttachments", boardId],
+    queryFn: async () => {
+      const getAttachmentsFn = (api as any).getBoardAttachmentsApi;
+      if (typeof getAttachmentsFn === "function") {
+        return await getAttachmentsFn(boardId);
+      }
+      return [];
+    },
+    enabled: !isNaN(boardId) && boardId > 0,
+  });
+
+  // 첨부파일 다운로드 핸들러
+  const handleDownload = async (attachmentId: number, originalFilename: string) => {
+    try {
+      const downloadFn = (api as any).downloadBoardAttachmentApi;
+      if (typeof downloadFn === "function") {
+        const res = await downloadFn(boardId, attachmentId);
+        if (res?.downloadUrl) {
+          const a = document.createElement("a");
+          a.href = res.downloadUrl;
+          a.download = res.originalFilename || originalFilename || "download";
+          a.target = "_blank";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          return;
+        }
+      }
+      alert("다운로드 링크를 생성 중이거나 API 연동 준비 중입니다.");
+    } catch (err) {
+      console.error("다운로드 실패:", err);
+      alert("파일 다운로드 중 오류가 발생했습니다.");
+    }
+  };
 
   // 게시글 삭제 Mutation
   const deletePostMutation = useMutation({
@@ -181,7 +222,7 @@ export default function BoardDetailPage() {
       <div className="min-h-screen bg-[#fafcf9]">
         <div className="py-12 px-4 text-center">
           <p className="text-rose-500 font-medium text-sm">유효하지 않은 게시글 번호입니다.</p>
-          <Link to="/board" className="mt-4 inline-block text-[#4c9b55] text-xs underline">
+          <Link to="/board" className="mt-4 inline-block text-[#4c9b55] text-xs font-semibold no-underline">
             목록으로 돌아가기
           </Link>
         </div>
@@ -189,27 +230,7 @@ export default function BoardDetailPage() {
     );
   }
 
-  const isWithdrawnOrDeleted = (author?: string, content?: string) => {
-    const authorLower = (author || "").trim().toLowerCase();
-    const contentLower = (content || "").trim().toLowerCase();
-    return (
-      authorLower.includes("탈퇴") ||
-      authorLower.includes("알 수 없음") ||
-      authorLower.includes("알수없음") ||
-      authorLower.includes("deleted") ||
-      authorLower.includes("withdrawn") ||
-      authorLower === "unknown" ||
-      contentLower.includes("삭제된 댓글") ||
-      contentLower.includes("탈퇴한 회원")
-    );
-  };
-
-  const safeComments = useMemo(() => {
-    const arr = Array.isArray(comments) ? comments : [];
-    return arr.filter((c) => !isWithdrawnOrDeleted(c.authorName, c.content));
-  }, [comments]);
-
-  const isPostWithdrawn = Boolean(post && isWithdrawnOrDeleted(post.authorName));
+  const safeComments = Array.isArray(comments) ? comments : [];
 
   return (
     <div className="min-h-screen bg-[#fafcf9]">
@@ -234,16 +255,14 @@ export default function BoardDetailPage() {
               <div className="py-20 text-center text-[#8a9388] text-[14px]">
                 게시글 정보를 불러오는 중입니다...
               </div>
-            ) : isError || isPostWithdrawn ? (
+            ) : isError ? (
               <div className="py-20 text-center space-y-4">
                 <div className="text-[36px]">🚫</div>
                 <h3 className="text-[18px] font-bold text-[#344037]">
                   존재하지 않거나 삭제된 게시글입니다.
                 </h3>
                 <p className="text-rose-500 text-[14px]">
-                  {isPostWithdrawn
-                    ? "작성자가 탈퇴하였거나 삭제된 게시글입니다."
-                    : (error as Error)?.message || "게시글 정보를 불러올 수 없습니다."}
+                  {(error as Error)?.message || "게시글 정보를 불러올 수 없습니다."}
                 </p>
                 <Button
                   variant="outline"
@@ -279,9 +298,46 @@ export default function BoardDetailPage() {
                 </div>
 
                 {/* 본문 */}
-                <div className="py-4 text-[15px] text-[#384138] leading-relaxed whitespace-pre-wrap min-h-[200px]">
+                <div className="py-4 text-[15px] text-[#384138] leading-relaxed whitespace-pre-wrap min-h-[160px]">
                   {post.content}
                 </div>
+
+                {/* 첨부파일 영역 */}
+                {attachments.length > 0 && (
+                  <div className="p-4 bg-[#f6f9f6] border border-[#dce8dc] rounded-[10px] space-y-2">
+                    <div className="flex items-center gap-1.5 text-[13px] font-bold text-[#3d5340]">
+                      <Paperclip className="w-4 h-4 text-[#4c9b55]" />
+                      <span>첨부파일 ({attachments.length}개)</span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {attachments.map((file, idx) => {
+                        const fileId = file.attachmentId ?? file.id ?? idx;
+                        const fileName = file.originalFilename || file.fileName || "첨부파일";
+                        const fileSize = file.size ?? file.fileSize ?? 0;
+                        return (
+                          <div
+                            key={fileId}
+                            className="flex items-center justify-between p-2.5 bg-white border border-[#e2ece2] rounded-[8px] text-[13px] gap-2"
+                          >
+                            <span className="font-medium text-[#2d3a2f] truncate">
+                              {fileName}
+                              <span className="text-[11px] text-[#78887a] ml-2 font-normal">
+                                ({(fileSize / 1024).toFixed(1)} KB)
+                              </span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleDownload(Number(fileId), fileName)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[12px] font-bold rounded-[6px] transition-colors cursor-pointer shrink-0 shadow-xs border-none"
+                            >
+                              <Download className="w-3.5 h-3.5" /> 다운로드
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* 하단 버튼 */}
                 <div className="flex items-center justify-between pt-6 border-t border-[#edf1ec]">

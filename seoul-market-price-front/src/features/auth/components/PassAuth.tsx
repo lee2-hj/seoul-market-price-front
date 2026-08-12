@@ -24,10 +24,14 @@ function preloadPortOneSdk() {
   document.head.appendChild(script);
 }
 
-interface PassAuthResult {
+export type MembershipStatus = "NEW" | "ACTIVE" | "WITHDRAWN";
+
+export interface PassAuthResult {
   identityVerificationId: string;
   name: string;
   phoneNumber: string;
+  membershipStatus?: MembershipStatus;
+  signupAllowed?: boolean;
 }
 
 interface PassAuthProps {
@@ -171,8 +175,9 @@ function PassAuth({ phone, onSuccess, className }: PassAuthProps) {
       onSuccess({
         identityVerificationId,
         name: response.data.name,
-
         phoneNumber: response.data.phoneNumber,
+        membershipStatus: response.data.membershipStatus,
+        signupAllowed: response.data.signupAllowed,
       });
     } catch (error) {
       console.error("PASS 인증 오류", error);

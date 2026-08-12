@@ -3,10 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import * as api from "@/api/api";
 import { getBoardPostApi, updateBoardPostApi, deleteBoardPostApi } from "@/api/api";
 import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
-import type { BoardUpdateRequest } from "@/features/board/types/board.types";
+import type {
+  AttachmentResponse,
+} from "@/features/board/types/board.types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -55,6 +58,34 @@ export default function BoardEditPage() {
     enabled: !isNaN(boardId) && boardId > 0,
   });
 
+  const { data: existingAttachments = [] } = useQuery<AttachmentResponse[]>({
+    queryKey: ["boardAttachments", boardId],
+    queryFn: async () => {
+      const getAttachmentsFn = (api as any).getBoardAttachmentsApi;
+      if (typeof getAttachmentsFn === "function") {
+        return await getAttachmentsFn(boardId);
+      }
+      return [];
+    },
+    enabled: !isNaN(boardId) && boardId > 0,
+  });
+
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: async (attachmentId: number) => {
+      const deleteFn = (api as any).deleteBoardAttachmentApi;
+      if (typeof deleteFn === "function") {
+        await deleteFn(boardId, attachmentId);
+      }
+    },
+    onSuccess: () => {
+      alert("첨부파일이 삭제되었습니다.");
+      queryClient.invalidateQueries({ queryKey: ["boardAttachments", boardId] });
+    },
+    onError: (err: Error) => {
+      alert(`첨부파일 삭제 중 오류가 발생했습니다: ${err.message}`);
+    },
+  });
+
   useEffect(() => {
     if (post && isAuthInitialized) {
       const curId = String(loginUser?.userId || "").trim().toLowerCase();
@@ -82,10 +113,30 @@ export default function BoardEditPage() {
   }, [post, loginUser, isAuthInitialized, boardId, navigate, reset]);
 
   const updateMutation = useMutation({
-    mutationFn: (data: BoardUpdateRequest) => updateBoardPostApi(boardId, data),
+    mutationFn: async (data: { title: string; content: string; file: File | null }) => {
+      // 1. 게시글 수정
+      await updateBoardPostApi(boardId, {
+        title: data.title,
+        content: data.content,
+      });
+
+      // 2. 새 첨부파일이 선택된 경우 추가 업로드
+      if (data.file) {
+        const uploadFn = (api as any).uploadBoardAttachmentsApi;
+        if (typeof uploadFn === "function") {
+          try {
+            await uploadFn(boardId, [data.file]);
+          } catch (uploadErr) {
+            console.error("첨부파일 업로드 실패:", uploadErr);
+            alert("게시글은 수정되었으나 새 첨부파일 업로드에 실패했습니다.");
+          }
+        }
+      }
+    },
     onSuccess: () => {
       alert("게시글이 성공적으로 수정되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["boardAttachments", boardId] });
       queryClient.invalidateQueries({ queryKey: ["boards"] });
       navigate(`/board/${boardId}`);
     },
@@ -213,16 +264,53 @@ export default function BoardEditPage() {
                 )}
               </div>
 
-              {/* 첨부파일 수정 */}
+              {/* 기존 첨부파일 목록 */}
+              {existingAttachments.length > 0 && (
+                <div className="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
+                  <span className="font-semibold text-slate-700 dark:text-slate-300 block">
+                    현재 등록된 첨부파일 :
+                  </span>
+                  <div className="space-y-1.5">
+                    {existingAttachments.map((att, idx) => {
+                      const attId = att.attachmentId ?? att.id ?? idx;
+                      const attName = att.originalFilename || att.fileName || "첨부파일";
+                      const attSize = att.size ?? att.fileSize ?? 0;
+                      return (
+                        <div
+                          key={attId}
+                          className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
+                        >
+                          <span className="text-slate-700 dark:text-slate-200 font-medium truncate">
+                            {attName} ({(attSize / 1024).toFixed(1)} KB)
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm("이 첨부파일을 삭제하시겠습니까?")) {
+                                deleteAttachmentMutation.mutate(Number(attId));
+                              }
+                            }}
+                            className="text-rose-500 hover:text-rose-700 font-semibold px-2 py-1 text-[11px] rounded hover:bg-rose-50 transition-colors cursor-pointer border-none bg-transparent"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 새 첨부파일 추가 */}
               <div className="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-xs text-slate-500 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-slate-600 dark:text-slate-300">첨부파일 변경 :</span>
+                  <span className="font-semibold text-slate-600 dark:text-slate-300">새 첨부파일 추가 :</span>
                   {selectedFile ? (
                     <span className="text-emerald-600 font-bold">
                       {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
                     </span>
                   ) : (
-                    <span className="text-slate-400">새 첨부파일로 변경하려면 선택하세요</span>
+                    <span className="text-slate-400">파일을 추가하려면 선택하세요</span>
                   )}
                 </div>
                 <input
