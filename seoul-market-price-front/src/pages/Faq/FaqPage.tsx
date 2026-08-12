@@ -1,8 +1,13 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getFaqsApi, getFaqDetailApi } from "@/api/api";
 import styles from "./FaqPage.module.css";
+
+// 임시 API 헬퍼 (팀원분이 새 API 및 FaqPage를 반영하기 전까지 빌드 오류 방지용)
+const getFaqsApi = async (_category?: string): Promise<FaqItem[]> => {
+  return [];
+};
+const getFaqDetailApi = async (_id: number): Promise<void> => {};
 
 interface FaqItem {
   id: number;
@@ -113,7 +118,7 @@ function FaqPage() {
 
   const faqsData: FaqItem[] = useMemo(() => {
     if (apiFaqs && apiFaqs.length > 0) {
-      return apiFaqs.map((f) => ({
+      return apiFaqs.map((f: FaqItem) => ({
         id: f.id,
         category: f.category || "가격변동",
         question: f.question,
