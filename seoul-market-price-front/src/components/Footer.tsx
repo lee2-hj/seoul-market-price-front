@@ -1,10 +1,10 @@
 export default function Footer() {
   return (
-    <footer className="tw-scope w-full bg-[#10253f] text-white [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
+    <footer className="tw-scope w-full bg-[#123047] text-white [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
       <div className="mx-auto flex min-h-[112px] w-[min(1280px,calc(100%-32px))] flex-col items-center justify-between gap-5 py-7 sm:w-[min(1280px,calc(100%-48px))] md:flex-row md:py-0">
         <div className="flex items-center gap-3">
           <img
-            src="/logo.png"
+            src="/logo-teal.png"
             alt="싸부 로고"
             className="h-[48px] w-auto rounded-[7px] bg-white object-contain p-1"
           />

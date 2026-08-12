@@ -45,7 +45,7 @@ function LoginPage() {
                 className="mx-auto mb-3 block w-fit no-underline"
               >
                 <img
-                  src="/logo.png"
+                  src="/logo-teal.png"
                   alt="싸부 로고"
                   className="block h-[120px] w-auto object-contain drop-shadow-sm max-[600px]:h-[105px]"
                 />
