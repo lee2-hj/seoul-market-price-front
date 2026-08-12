@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MessageSquare, Edit2, Trash2, Send } from "lucide-react";
+import type { BoardComment } from "@/features/board/types/board.types";
 
 import {
   getBoardPostApi,
@@ -11,8 +12,18 @@ import {
   updateBoardCommentApi,
   deleteBoardCommentApi,
 } from "@/api/api";
-import { getLoginUser, isLogin, type LoginUser } from "@/features/auth/utils/auth";
+import { isLogin } from "@/features/auth/utils/auth";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { Button } from "@/components/ui/button";
+
+function formatBoardDate(dateStr?: string): string {
+  if (!dateStr) return "-";
+  if (dateStr.includes("T")) {
+    const [d, t] = dateStr.split("T");
+    return `${d.replace(/-/g, ".")} ${t ? t.slice(0, 5) : ""}`.trim();
+  }
+  return dateStr.replace(/-/g, ".");
+}
 
 export default function BoardDetailPage() {
   const { postId } = useParams<{ postId: string }>();
@@ -21,16 +32,9 @@ export default function BoardDetailPage() {
 
   const boardId = Number(postId);
 
-  // 로그인 상태 및 유저 정보 안전 파싱
-  let loginUser: LoginUser | null = null;
-  let isLoggedIn = false;
-  try {
-    loginUser = getLoginUser();
-    isLoggedIn = isLogin();
-  } catch {
-    loginUser = null;
-    isLoggedIn = false;
-  }
+  // 로그인 상태 및 유저 정보 반응형 구독
+  const loginUser = useAuthStore((state) => state.user);
+  const isLoggedIn = isLogin();
 
   // 댓글 입력 및 수정 State
   const [commentContent, setCommentContent] = useState("");
@@ -145,8 +149,30 @@ export default function BoardDetailPage() {
   const canModifyComment = (commentAuthorId?: string, commentAuthorName?: string) => {
     if (!loginUser) return false;
     if (loginUser.role === "ADMIN") return true;
-    if (loginUser.userId && commentAuthorId && loginUser.userId === commentAuthorId) return true;
-    if (loginUser.name && commentAuthorName && loginUser.name === commentAuthorName) return true;
+
+    const curId = String(loginUser.userId || "").trim().toLowerCase();
+    const targetId = String(commentAuthorId || "").trim().toLowerCase();
+    if (curId && targetId && (curId === targetId || curId.includes(targetId) || targetId.includes(curId))) return true;
+
+    const curName = String(loginUser.name || "").trim();
+    const targetName = String(commentAuthorName || "").trim();
+    if (curName && targetName && curName === targetName) return true;
+
+    return false;
+  };
+
+  const canModifyPost = (postAuthorId?: string, postAuthorName?: string) => {
+    if (!loginUser) return false;
+    if (loginUser.role === "ADMIN") return true;
+
+    const curId = String(loginUser.userId || "").trim().toLowerCase();
+    const targetId = String(postAuthorId || "").trim().toLowerCase();
+    if (curId && targetId && (curId === targetId || curId.includes(targetId) || targetId.includes(curId))) return true;
+
+    const curName = String(loginUser.name || "").trim();
+    const targetName = String(postAuthorName || "").trim();
+    if (curName && targetName && curName === targetName) return true;
+
     return false;
   };
 
@@ -163,7 +189,27 @@ export default function BoardDetailPage() {
     );
   }
 
-  const safeComments = Array.isArray(comments) ? comments : [];
+  const isWithdrawnOrDeleted = (author?: string, content?: string) => {
+    const authorLower = (author || "").trim().toLowerCase();
+    const contentLower = (content || "").trim().toLowerCase();
+    return (
+      authorLower.includes("탈퇴") ||
+      authorLower.includes("알 수 없음") ||
+      authorLower.includes("알수없음") ||
+      authorLower.includes("deleted") ||
+      authorLower.includes("withdrawn") ||
+      authorLower === "unknown" ||
+      contentLower.includes("삭제된 댓글") ||
+      contentLower.includes("탈퇴한 회원")
+    );
+  };
+
+  const safeComments = useMemo(() => {
+    const arr = Array.isArray(comments) ? comments : [];
+    return arr.filter((c) => !isWithdrawnOrDeleted(c.authorName, c.content));
+  }, [comments]);
+
+  const isPostWithdrawn = Boolean(post && isWithdrawnOrDeleted(post.authorName));
 
   return (
     <div className="min-h-screen bg-[#fafcf9]">
@@ -188,10 +234,16 @@ export default function BoardDetailPage() {
               <div className="py-20 text-center text-[#8a9388] text-[14px]">
                 게시글 정보를 불러오는 중입니다...
               </div>
-            ) : isError ? (
+            ) : isError || isPostWithdrawn ? (
               <div className="py-20 text-center space-y-4">
+                <div className="text-[36px]">🚫</div>
+                <h3 className="text-[18px] font-bold text-[#344037]">
+                  존재하지 않거나 삭제된 게시글입니다.
+                </h3>
                 <p className="text-rose-500 text-[14px]">
-                  오류가 발생했습니다: {(error as Error)?.message || "게시글 정보를 불러올 수 없습니다."}
+                  {isPostWithdrawn
+                    ? "작성자가 탈퇴하였거나 삭제된 게시글입니다."
+                    : (error as Error)?.message || "게시글 정보를 불러올 수 없습니다."}
                 </p>
                 <Button
                   variant="outline"
@@ -221,7 +273,7 @@ export default function BoardDetailPage() {
                   </h2>
                   <div className="flex items-center gap-4 text-[13px] text-[#667065]">
                     <span>작성자: <strong className="text-[#343c33] font-bold">{post.authorName}</strong></span>
-                    <span>작성일: {post.createdAt}</span>
+                    <span>작성일: {formatBoardDate(post.createdAt)}</span>
                     <span>조회수: {post.viewCount}</span>
                   </div>
                 </div>
@@ -234,11 +286,13 @@ export default function BoardDetailPage() {
                 {/* 하단 버튼 */}
                 <div className="flex items-center justify-between pt-6 border-t border-[#edf1ec]">
                   <div className="flex items-center gap-2">
-                    <Link to={`/board/${boardId}/edit`}>
-                      <Button className="h-[42px] px-6 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[14px] font-bold rounded-[7px]">
-                        수정
-                      </Button>
-                    </Link>
+                    {canModifyPost(post.authorId, post.authorName) && (
+                      <Link to={`/board/${boardId}/edit`}>
+                        <Button className="h-[42px] px-6 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[14px] font-bold rounded-[7px]">
+                          수정
+                        </Button>
+                      </Link>
+                    )}
                     <Button
                       variant="outline"
                       onClick={() => navigate("/board")}
@@ -248,14 +302,16 @@ export default function BoardDetailPage() {
                     </Button>
                   </div>
 
-                  <Button
-                    variant="outline"
-                    onClick={handleDeletePost}
-                    disabled={deletePostMutation.isPending}
-                    className="h-[42px] px-6 border-rose-200 text-rose-600 hover:bg-rose-50 text-[14px] font-bold rounded-[7px]"
-                  >
-                    {deletePostMutation.isPending ? "삭제 중..." : "삭제"}
-                  </Button>
+                  {canModifyPost(post.authorId, post.authorName) && (
+                    <Button
+                      variant="outline"
+                      onClick={handleDeletePost}
+                      disabled={deletePostMutation.isPending}
+                      className="h-[42px] px-6 border-rose-200 text-rose-600 hover:bg-rose-50 text-[14px] font-bold rounded-[7px]"
+                    >
+                      {deletePostMutation.isPending ? "삭제 중..." : "삭제"}
+                    </Button>
+                  )}
                 </div>
               </>
             ) : (
@@ -319,7 +375,7 @@ export default function BoardDetailPage() {
                 ) : safeComments.length === 0 ? (
                   <div className="py-8 text-center text-[13px] text-[#8a9388]">등록된 댓글이 없습니다. 첫 댓글을 남겨보세요!</div>
                 ) : (
-                  safeComments.map((comment) => {
+                  safeComments.map((comment: BoardComment) => {
                     const canModify = canModifyComment(comment.authorId, comment.authorName);
                     const isEditing = editingCommentId === comment.commentId;
 
@@ -331,7 +387,7 @@ export default function BoardDetailPage() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <strong className="text-[14px] font-bold text-[#344037]">{comment.authorName}</strong>
-                            <span className="text-[12px] text-[#939c92]">{comment.createdAt}</span>
+                            <span className="text-[12px] text-[#939c92]">{formatBoardDate(comment.createdAt)}</span>
                           </div>
 
                           {/* 본인 또는 관리자만 수정/삭제 버튼 노출 */}

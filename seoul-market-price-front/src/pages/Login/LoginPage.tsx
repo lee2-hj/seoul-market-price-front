@@ -24,18 +24,6 @@ function LoginPage() {
 
       <div className="flex w-full flex-col items-center gap-5 max-[900px]:gap-4 max-[600px]:gap-[14px] max-[380px]:gap-3">
         {/* =========================
-            로고
-        ========================== */}
-
-        <Link to="/">
-          <img
-            src="/ssanong.svg"
-            alt="싸농 로고"
-            className="mx-auto block h-[120px] w-auto translate-x-[8%] max-[900px]:h-24 max-[600px]:h-[76px] max-[380px]:h-[68px]"
-          />
-        </Link>
-
-        {/* =========================
             로그인 카드
         ========================== */}
 
@@ -50,6 +38,26 @@ function LoginPage() {
           )}
         >
           <CardContent className="p-0">
+            <div className="mb-8 text-center">
+              <Link
+                to="/"
+                aria-label="싸부 홈으로 이동"
+                className="mx-auto mb-3 block w-fit no-underline"
+              >
+                <img
+                  src="/logo.png"
+                  alt="싸부 로고"
+                  className="block h-[120px] w-auto object-contain drop-shadow-sm max-[600px]:h-[105px]"
+                />
+              </Link>
+              <h1 className="m-0 text-[28px] font-black tracking-[-0.045em] text-[#141714]">
+                로그인
+              </h1>
+              <p className="mt-2 text-[12px] text-[#777d77]">
+                싸부에서 오늘의 부동산 가격을 확인해보세요.
+              </p>
+            </div>
+
             <LoginForm />
 
             <SocialLogin mode="login" />

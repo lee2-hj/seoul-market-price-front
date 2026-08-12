@@ -7,6 +7,9 @@ import {
   isPageReload,
 } from "@/lib/signupFlow";
 
+import { ensureAuthLoaded } from "@/features/auth/utils/auth";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
+
 import LoginPage from "../pages/Login/LoginPage";
 import MainPage from "../pages/Main/MainPage";
 
@@ -14,7 +17,7 @@ import SignupPage from "../pages/Signup/SignupPage";
 import SignupSelectPage from "../pages/SignupSelect/SignupSelectPage";
 import SignupTermsPage from "../pages/SignupTerms/SignupTermsPage";
 import SignupVerifyPage from "../pages/SignupVerify/SignupVerifyPage";
-import FindPasswordPage from "../pages/FindPassword/FindPasswordPage";
+import FindPasswordForm from "@/features/auth/components/FindPasswordForm";
 import FindIdPage from "../pages/FindId/FindIdPage";
 
 import PassCallbackPage from "../pages/PassCallback/PassCallbackPage";
@@ -75,6 +78,23 @@ function Router() {
       clearAllSignupStorage();
     }
   }, []);
+
+  /* =========================
+     accessToken이 HttpOnly 쿠키라 프론트에서 로그인 여부를 직접
+     판별할 수 없다. 새로고침 등으로 zustand가 비어있는 상태로
+     앱이 열리면 /api/members/me로 로그인 여부를 먼저 확인한 뒤
+     라우트(PrivateRoute/PublicRoute)를 렌더링해야, 로그인된
+     사용자가 잠깐 비로그인으로 오판되는 것을 막을 수 있다.
+  ========================= */
+  const isAuthInitialized = useAuthStore((state) => state.isInitialized);
+
+  useEffect(() => {
+    void ensureAuthLoaded();
+  }, []);
+
+  if (!isAuthInitialized) {
+    return null;
+  }
 
   return (
     <BrowserRouter>
@@ -254,7 +274,7 @@ function Router() {
           path="/find-password"
           element={
             <PublicRoute>
-              <FindPasswordPage />
+              <FindPasswordForm />
             </PublicRoute>
           }
         />

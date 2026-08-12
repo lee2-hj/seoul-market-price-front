@@ -1,8 +1,10 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { createBoardPostApi } from "@/api/api";
+import { isLogin } from "@/features/auth/utils/auth";
 import type { BoardCreateRequest } from "@/features/board/types/board.types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,6 +17,15 @@ interface BoardWriteFormData {
 export default function BoardWritePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // 비로그인 접근 방어
+  useEffect(() => {
+    if (!isLogin()) {
+      alert("로그인이 필요한 서비스입니다.");
+      navigate("/login", { replace: true });
+    }
+  }, [navigate]);
 
   const {
     register,
@@ -47,9 +58,15 @@ export default function BoardWritePage() {
   });
 
   const onSubmit = (formData: BoardWriteFormData) => {
+    if (!isLogin()) {
+      alert("로그인이 필요합니다.");
+      navigate("/login");
+      return;
+    }
     createMutation.mutate({
       title: formData.title.trim(),
       content: formData.content.trim(),
+      file: selectedFile,
     });
   };
 
@@ -118,9 +135,23 @@ export default function BoardWritePage() {
             </div>
 
             {/* 첨부파일 */}
-            <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-xs text-slate-500 flex items-center justify-between">
-              <span className="font-semibold text-slate-600 dark:text-slate-300">첨부파일 : </span>
-              <input type="file" className="text-xs text-slate-500" />
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-xs text-slate-500 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-slate-600 dark:text-slate-300">첨부파일 :</span>
+                {selectedFile && (
+                  <span className="text-emerald-600 font-bold">
+                    {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                  </span>
+                )}
+              </div>
+              <input
+                type="file"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  setSelectedFile(file);
+                }}
+                className="text-xs text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+              />
             </div>
 
             {/* 하단 버튼 */}

@@ -1,38 +1,23 @@
-import { Link } from "react-router-dom";
-
-const FOOTER_LINKS = [
-  { to: "/price", label: "가격정보" },
-  { to: "/region-price", label: "지역별 가격" },
-  { to: "/notice", label: "공지사항" },
-  { to: "/qna", label: "질의응답" },
-  { to: "/mypage", label: "마이페이지" },
-];
-
 export default function Footer() {
   return (
-    <footer className="tw-scope w-full bg-[#263329] text-white [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
-      <div className="mx-auto flex w-[min(1280px,calc(100%-32px))] min-h-[180px] flex-col items-center justify-center gap-5 py-9 sm:w-[min(1280px,calc(100%-48px))] md:flex-row md:justify-between md:gap-[30px] md:py-0">
-        <div className="flex items-center gap-2">
-          <span className="text-[21px]">🥕</span>
-          <strong className="text-[18px]">싸.농</strong>
-          <small className="border-l border-[#4d594e] pl-2 text-[9px] text-[#9da99e]">
-            싸게 보는 농수산물
-          </small>
+    <footer className="tw-scope w-full bg-[#10253f] text-white [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
+      <div className="mx-auto flex min-h-[112px] w-[min(1280px,calc(100%-32px))] flex-col items-center justify-between gap-5 py-7 sm:w-[min(1280px,calc(100%-48px))] md:flex-row md:py-0">
+        <div className="flex items-center gap-3">
+          <img
+            src="/logo.png"
+            alt="싸부 로고"
+            className="h-[48px] w-auto rounded-[7px] bg-white object-contain p-1"
+          />
+          <div className="flex flex-col">
+            <strong className="text-[15px] font-extrabold tracking-[-0.03em]">SSABU</strong>
+            <span className="text-[10px] text-white/55">싸게 보는 부동산</span>
+          </div>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-x-[18px] gap-y-2 sm:gap-[22px]">
-          {FOOTER_LINKS.map((link) => (
-            <Link
-              key={link.to + link.label}
-              to={link.to}
-              className="text-[11px] text-[#bec8bf] no-underline transition-colors hover:text-white"
-            >
-              {link.label}
-            </Link>
-          ))}
+        <div className="text-center text-[10px] leading-5 text-white/55 md:text-right">
+          <p>본 서비스의 가격 정보는 공개 데이터를 기반으로 제공됩니다.</p>
+          <p>© 2026 SSABU. All rights reserved.</p>
         </div>
-
-        <p className="text-[9px] text-[#818c82]">© 2026 싸농. All rights reserved.</p>
       </div>
     </footer>
   );

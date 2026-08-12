@@ -1,4 +1,3 @@
-import axios from "axios";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 
@@ -65,35 +64,25 @@ function FindIdPage() {
         identityVerificationId,
       );
 
-      const response = await findIdApi(identityVerificationId);
+      const response = await findIdApi(identityVerificationId, name, phone);
 
       console.log("[아이디 찾기] 백엔드 응답:", response);
 
-      if (!response.found || response.maskedUserIds.length === 0) {
-        alert("본인인증 정보와 일치하는 회원 정보를 찾을 수 없습니다.");
-        return;
+      if (response.found && response.maskedUserIds && response.maskedUserIds.length > 0) {
+        setMaskedUserIds(response.maskedUserIds);
+      } else {
+        setMaskedUserIds([]);
       }
 
-      /* 조회된 아이디 목록 저장 */
-
-      setMaskedUserIds(response.maskedUserIds);
-
       /* 아이디 조회 결과 화면으로 이동 */
-
       setStep(2);
     } catch (error) {
       console.error("[아이디 찾기] API 오류:", error);
 
-      if (axios.isAxiosError(error)) {
-        const errorMessage = error.response?.data?.message;
-        if (errorMessage) {
-          alert(`아이디 찾기 실패: ${errorMessage}`);
-        } else {
-          alert("서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
-        }
-      } else {
-        alert("알 수 없는 오류가 발생했습니다.");
-      }
+      // 회원 정보가 없거나 500/404 오류가 발생하더라도 Step 1에 멈춰있지 않고
+      // Step 2 결과 화면으로 이동하여 "가입된 회원 정보 없음" 결과를 보여줍니다.
+      setMaskedUserIds([]);
+      setStep(2);
     } finally {
       setIsLoading(false);
     }
@@ -198,7 +187,7 @@ function FindIdPage() {
                 />
 
                 {!passVerified && !isLoading && (
-                  <PassAuth phone={phone} onSuccess={handlePassSuccess} />
+                  <PassAuth name={name} phone={phone} onSuccess={handlePassSuccess} />
                 )}
               </div>
             </div>
@@ -223,47 +212,102 @@ function FindIdPage() {
 
         {step === 2 && (
           <>
-            <h1>아이디 확인</h1>
+            <h1>{maskedUserIds.length > 0 ? "아이디 확인" : "아이디 찾기 결과"}</h1>
 
             <p className={styles.description}>
-              본인인증이 완료되었습니다.
-              <br />
-              가입된 아이디를 확인해주세요.
+              {maskedUserIds.length > 0 ? (
+                <>
+                  본인인증이 완료되었습니다.
+                  <br />
+                  가입된 아이디를 확인해주세요.
+                </>
+              ) : (
+                <>
+                  본인인증은 완료되었으나,
+                  <br />
+                  가입된 회원 정보를 찾을 수 없습니다.
+                </>
+              )}
             </p>
 
             {/* 조회 결과 */}
 
-            <div className={styles.result}>
-              <span className={styles.resultLabel}>가입된 아이디</span>
+            {maskedUserIds.length > 0 ? (
+              <div className={styles.result}>
+                <span className={styles.resultLabel}>가입된 아이디</span>
 
-              {maskedUserIds.map((id) => (
-                <div key={id} className={styles.userId}>
-                  {id}
+                {maskedUserIds.map((id) => (
+                  <div key={id} className={styles.userId}>
+                    {id}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.result}>
+                <span className={styles.resultLabel}>조회 결과</span>
+
+                <div
+                  className={styles.userId}
+                  style={{
+                    fontSize: "14px",
+                    color: "#444",
+                    lineHeight: "1.6",
+                    fontWeight: "normal",
+                    textAlign: "left",
+                    padding: "10px 0",
+                  }}
+                >
+                  <strong style={{ color: "#e53935", display: "block", marginBottom: "6px" }}>
+                    일치하는 회원 정보가 존재하지 않습니다.
+                  </strong>
+                  <span style={{ fontSize: "12px", color: "#666" }}>
+                    • 가입 시 입력한 이름과 휴대폰 번호가 맞는지 확인해 주세요.
+                    <br />
+                    • 카카오 / 구글 소셜 연동 계정은 로그인 페이지에서 소셜 로그인을 이용해 주세요.
+                  </span>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
 
-            {/* 로그인 / 비밀번호 찾기 */}
+            {/* 버튼 영역 */}
 
             <div className={styles.actionGroup}>
-              <Link to="/login" className={styles.loginButton}>
-                로그인하기
-              </Link>
+              {maskedUserIds.length > 0 ? (
+                <>
+                  <Link to="/login" className={styles.loginButton}>
+                    로그인하기
+                  </Link>
 
-              <Link to="/find-password" className={styles.passwordButton}>
-                비밀번호 찾기
-              </Link>
+                  <Link to="/find-password" className={styles.passwordButton}>
+                    비밀번호 찾기
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link to="/signup/select" className={styles.loginButton}>
+                    회원가입하기
+                  </Link>
+
+                  <button
+                    type="button"
+                    className={styles.passwordButton}
+                    onClick={handleReset}
+                  >
+                    다시 찾기
+                  </button>
+                </>
+              )}
             </div>
 
-            {/* 다시 찾기 */}
-
-            <button
-              type="button"
-              className={styles.resetButton}
-              onClick={handleReset}
-            >
-              다시 찾기
-            </button>
+            {maskedUserIds.length > 0 && (
+              <button
+                type="button"
+                className={styles.resetButton}
+                onClick={handleReset}
+              >
+                다시 찾기
+              </button>
+            )}
           </>
         )}
       </div>

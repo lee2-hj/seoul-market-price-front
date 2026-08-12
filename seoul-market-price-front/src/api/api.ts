@@ -1,6 +1,9 @@
 import axios from "axios";
 
-import apiMiddleware, { BACKEND_URL } from "./middleware";
+import apiMiddleware, {
+  BACKEND_URL,
+  type RetryableRequestConfig,
+} from "./middleware";
 
 // ===============================
 // 로그인 응답
@@ -30,6 +33,41 @@ export async function loginApi(
     userId,
     password,
   });
+
+  return response.data;
+}
+
+// ===============================
+// 내 정보 조회
+// ===============================
+
+// accessToken이 HttpOnly 쿠키라 프론트에서 파싱할 수 없으므로,
+// 새로고침 등으로 zustand의 로그인 정보가 비어있을 때
+// 이 API로 로그인 여부와 유저 정보를 다시 확인한다.
+export interface MemberMeResponse {
+  memberId: number;
+
+  userId: string;
+
+  name: string;
+}
+
+export async function getMemberMeApi(): Promise<MemberMeResponse> {
+  // 비로그인 상태에서 401이 나는 것은 정상 상황이므로,
+  // 세션 만료 alert이 뜨지 않도록 silent 요청으로 표시한다.
+  //
+  // 매번 다른 쿼리스트링(_t)을 붙여 브라우저가 로그아웃 이전에
+  // 로그인 상태로 캐시해둔 응답을 재사용하지 않고, 새로고침 시에도
+  // 항상 서버에 다시 물어보도록 강제한다. 그렇지 않으면 로그아웃 후
+  // 새로고침해도 캐시된 "로그인됨" 응답이 그대로 재사용되어
+  // 헤더가 로그인 상태로 남는 문제가 생긴다.
+  const response = await apiMiddleware.get<MemberMeResponse>(
+    "/api/members/me",
+    {
+      silentAuthCheck: true,
+      params: { _t: Date.now() },
+    } as RetryableRequestConfig,
+  );
 
   return response.data;
 }
@@ -74,6 +112,8 @@ export interface SignupRequest {
   name: string;
 
   userId: string;
+
+  identityVerificationId: string;
 
   password: string;
 
@@ -122,14 +162,40 @@ export async function findIdApi(phone: string) {
 }
 
 // ===============================
-// 비밀번호 찾기
+// 비밀번호 재설정
 // ===============================
 
-export async function findPasswordApi(userId: string, phone: string) {
-  const response = await apiMiddleware.post("/api/users/find-password", {
-    userId,
-    phone,
-  });
+export interface PasswordResetVerifyResponse {
+  verified: boolean;
+  resetToken: string;
+  expiresInSeconds: number;
+}
+
+export async function verifyPasswordResetApi(
+  identityVerificationId: string,
+  userId: string,
+): Promise<PasswordResetVerifyResponse> {
+  const response = await apiMiddleware.post<PasswordResetVerifyResponse>(
+    "/api/members/password-reset/verify",
+    { identityVerificationId, userId },
+  );
+
+  return response.data;
+}
+
+export interface PasswordResetCompleteResponse {
+  message: string;
+}
+
+export async function completePasswordResetApi(
+  resetToken: string,
+  newPassword: string,
+  newPasswordConfirm: string,
+): Promise<PasswordResetCompleteResponse> {
+  const response = await apiMiddleware.post<PasswordResetCompleteResponse>(
+    "/api/members/password-reset/complete",
+    { resetToken, newPassword, newPasswordConfirm },
+  );
 
   return response.data;
 }
@@ -398,13 +464,13 @@ export async function createBoardPostApi(
 }
 
 /**
- * 게시글 수정 API (PUT /api/boards/:boardId)
+ * 게시글 수정 API (PATCH /api/boards/:boardId)
  */
 export async function updateBoardPostApi(
   boardId: number,
   data: BoardUpdateRequest,
 ): Promise<void> {
-  await apiMiddleware.put(`/api/boards/${boardId}`, data);
+  await apiMiddleware.patch(`/api/boards/${boardId}`, data);
 }
 
 /**

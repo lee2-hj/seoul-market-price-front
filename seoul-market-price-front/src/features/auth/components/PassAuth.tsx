@@ -32,12 +32,17 @@ export interface PassAuthResult {
  */
 export interface PassAuthProps {
   /*
+   * 인증 전에 입력한 이름
+   */
+  name?: string;
+
+  /*
    * 인증 전에 입력한 휴대폰 번호
    */
   phone?: string;
 
   /*
-   * PASS 인증 성공 후 부모 컴포넌트로 전달
+   * PASS 인증 성공 후 부모 컴포넌어로 전달
    */
   onSuccess: (result: PassAuthResult) => void;
 
@@ -67,6 +72,7 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8081";
  * PASS 인증 컴포넌트
  */
 export function PassAuth({
+  name,
   phone,
   onSuccess,
   className,
@@ -122,7 +128,7 @@ export function PassAuth({
 
       console.log("[PASS] PortOne 브라우저 SDK 인증 성공");
 
-      let verifiedName = "";
+      let verifiedName = name?.trim() ?? "";
       let verifiedPhone = normalizedPhone;
 
       /*

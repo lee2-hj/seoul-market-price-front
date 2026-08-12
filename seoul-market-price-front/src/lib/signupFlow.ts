@@ -11,6 +11,7 @@ const FLOW_BOOT_ID_KEY = "signup_flow_boot_id";
 const FLOW_PATH_KEY = "signup_flow_last_path";
 const VERIFIED_NAME_KEY = "signup_verified_name";
 const VERIFIED_PHONE_KEY = "signup_verified_phone";
+const VERIFIED_IDENTITY_KEY = "signup_verified_identity_id";
 const TERMS_AGREED_KEY = "is_terms_agreed";
 const LOCATION_AGREED_KEY = "is_location_agreed";
 const PRIVACY_AGREED_KEY = "is_privacy_agreed";
@@ -47,6 +48,7 @@ const ALL_SIGNUP_STORAGE_KEYS = [
   PRIVACY_AGREED_KEY,
   VERIFIED_NAME_KEY,
   VERIFIED_PHONE_KEY,
+  VERIFIED_IDENTITY_KEY,
 ] as const;
 
 /*
@@ -149,18 +151,31 @@ export function isPageReload(): boolean {
    router state 대신 sessionStorage에 저장한다.
 =============================== */
 
-export function savePassVerifiedInfo(info: { name: string; phone: string }) {
+export function savePassVerifiedInfo(info: {
+  name: string;
+  phone: string;
+  identityVerificationId: string;
+}) {
   sessionStorage.setItem(VERIFIED_NAME_KEY, info.name);
   sessionStorage.setItem(VERIFIED_PHONE_KEY, info.phone);
+  sessionStorage.setItem(
+    VERIFIED_IDENTITY_KEY,
+    info.identityVerificationId,
+  );
 }
 
-export function getPassVerifiedInfo(): { name: string; phone: string } | null {
+export function getPassVerifiedInfo(): {
+  name: string;
+  phone: string;
+  identityVerificationId: string;
+} | null {
   const name = sessionStorage.getItem(VERIFIED_NAME_KEY);
   const phone = sessionStorage.getItem(VERIFIED_PHONE_KEY);
+  const identityVerificationId = sessionStorage.getItem(VERIFIED_IDENTITY_KEY);
 
-  if (!name || !phone) {
+  if (!name || !phone || !identityVerificationId) {
     return null;
   }
 
-  return { name, phone };
+  return { name, phone, identityVerificationId };
 }

@@ -14,31 +14,6 @@ export type NoticeLevel = "IMPORTANT" | "NORMAL";
 export type BoardSearchType = "TITLE_CONTENT" | "WRITER";
 
 /**
- * 백엔드 단일 게시글 아이템 DTO
- */
-export interface BackendBoardListItem {
-  boardId: number;
-  title: string;
-  authorName: string;
-  createdAt: string;
-  viewCount: number;
-  postType: PostType;
-  noticeLevel?: NoticeLevel;
-  pinned?: boolean;
-}
-
-/**
- * 백엔드 게시글 목록 페이징 응답 DTO
- */
-export interface BackendBoardPageResponse {
-  content: BackendBoardListItem[];
-  totalPages: number;
-  totalElements: number;
-  size: number;
-  number: number;
-}
-
-/**
  * 게시글 목록용 프론트엔드 모델
  */
 export interface BoardListItem {
@@ -119,6 +94,7 @@ export interface BoardCreateRequest {
   title: string;
   content: string;
   postType?: PostType;
+  file?: File | null;
 }
 
 /**
@@ -127,4 +103,5 @@ export interface BoardCreateRequest {
 export interface BoardUpdateRequest {
   title?: string;
   content?: string;
+  file?: File | null;
 }
