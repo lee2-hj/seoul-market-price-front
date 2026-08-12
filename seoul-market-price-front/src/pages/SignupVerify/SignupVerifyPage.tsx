@@ -28,8 +28,17 @@ function SignupVerifyPage() {
      번호는 sessionStorage에 저장해, /signup 새로고침 시에도 값이
      유지되도록 한다.
   ========================= */
+  const formatPhoneNumber = (value: string): string => {
+    if (!value) return "";
+    const raw = value.replace(/[^0-9]/g, "");
+    if (raw.length <= 3) return raw;
+    if (raw.length <= 7) return `${raw.slice(0, 3)}-${raw.slice(3)}`;
+    if (raw.length <= 10) return `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}`;
+    return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
+  };
 
   const handleSuccess = async (result: {
+    identityVerificationId: string;
     name: string;
     phoneNumber: string;
   }) => {
@@ -52,7 +61,8 @@ function SignupVerifyPage() {
 
     savePassVerifiedInfo({
       name: result.name,
-      phone: result.phoneNumber,
+      phone: formatPhoneNumber(result.phoneNumber),
+      identityVerificationId: result.identityVerificationId,
     });
 
     navigate("/signup", { replace: true });
@@ -65,11 +75,11 @@ function SignupVerifyPage() {
             로고
         ========================== */}
 
-        <Link to="/" className="block">
+        <Link to="/" style={{ textDecoration: "none" }} className="block no-underline">
           <img
-            src="/ssanong.svg"
-            alt="싸농 로고"
-            className="mx-auto h-[120px] w-auto max-[900px]:h-24 max-[600px]:h-[76px] max-[380px]:h-[68px]"
+            src="/logo.png"
+            alt="싸부 로고"
+            className="mx-auto block h-[145px] sm:h-[160px] w-auto max-[900px]:h-32 max-[600px]:h-28 max-[380px]:h-24 object-contain drop-shadow-sm"
           />
         </Link>
 

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { getLoginUser, logout } from "@/features/auth/utils/auth";
 import styles from "./QnaWritePage.module.css";
 
 /* 질의응답 작성 폼 */
@@ -8,6 +9,13 @@ import styles from "./QnaWritePage.module.css";
 interface QnaForm {
   title: string;
   content: string;
+}
+
+/* 첨부파일 정보 */
+
+interface QnaAttachment {
+  name: string;
+  size: number;
 }
 
 /* 질의응답 게시글 */
@@ -24,6 +32,10 @@ interface QnaPost {
   date: string;
   views: number;
 
+  /* 첨부파일 */
+
+  attachments?: QnaAttachment[];
+
   /* 답변 정보 */
 
   answer: string;
@@ -32,56 +44,28 @@ interface QnaPost {
   answerDate?: string;
 }
 
-/* 로그인 사용자 */
+/* 첨부파일 제한 */
 
-interface LoginUser {
-  userId?: string;
-  name?: string;
-  userName?: string;
-  role?: string;
-}
+const MAX_FILE_COUNT = 3;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-/* 로그인 사용자 조회 */
+/* 허용 확장자 */
 
-const getLoginUser = (): LoginUser | null => {
-  const storedUser = localStorage.getItem("loginUser");
-
-  if (!storedUser) {
-    return null;
-  }
-
-  try {
-    const parsedUser: unknown = JSON.parse(storedUser);
-
-    if (
-      !parsedUser ||
-      typeof parsedUser !== "object" ||
-      Array.isArray(parsedUser)
-    ) {
-      return null;
-    }
-
-    return parsedUser as LoginUser;
-  } catch (error) {
-    console.error("로그인 사용자 정보 확인 실패:", error);
-
-    return null;
-  }
-};
+const ALLOWED_FILE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "pdf"];
 
 /* 로그인 사용자 이름 */
 
-const getLoginUserName = (user: LoginUser | null): string => {
+const getLoginUserName = (user: { name: string; userId: string } | null): string => {
   if (!user) {
     return "사용자";
   }
 
-  return user.name || user.userName || user.userId || "사용자";
+  return user.name || user.userId || "사용자";
 };
 
-/* 관리자 여부 */
+/* 관리자 여부 (zustand 기준) */
 
-const isAdminUser = (user: LoginUser | null): boolean => {
+const isAdminUser = (user: { role: string } | null): boolean => {
   if (!user?.role) {
     return false;
   }
@@ -103,10 +87,95 @@ const getCurrentDate = (): string => {
   ].join(".");
 };
 
+/* 파일 크기 표시 */
+
+const formatFileSize = (size: number): string => {
+  if (size < 1024) {
+    return `${size} B`;
+  }
+
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+/* 파일 확장자 조회 */
+
+const getFileExtension = (fileName: string): string => {
+  const lastDotIndex = fileName.lastIndexOf(".");
+
+  if (lastDotIndex === -1) {
+    return "";
+  }
+
+  return fileName.slice(lastDotIndex + 1).toLowerCase();
+};
+
+/* 기존 질의응답 게시글 조회 */
+
+const getStoredPosts = (): QnaPost[] => {
+  const storedPosts = localStorage.getItem("qnaPosts");
+
+  if (!storedPosts) {
+    return [];
+  }
+
+  try {
+    const parsedPosts: unknown = JSON.parse(storedPosts);
+
+    if (!Array.isArray(parsedPosts)) {
+      return [];
+    }
+
+    return parsedPosts.map((post) => {
+      const item = post as Partial<QnaPost>;
+
+      return {
+        id: item.id ?? 0,
+
+        /* 기존 게시글의 정보를 그대로 유지 */
+
+        author: item.author ?? "사용자",
+        authorId: item.authorId ?? "",
+        title: item.title ?? "",
+        content: item.content ?? "",
+        date: item.date ?? "",
+        views: item.views ?? 0,
+
+        /* 기존 첨부파일 정보 유지 */
+
+        attachments: Array.isArray(item.attachments)
+          ? item.attachments.map((file) => ({
+              name: file.name ?? "",
+              size: file.size ?? 0,
+            }))
+          : [],
+
+        /* 기존 답변 정보 유지 */
+
+        answer: item.answer ?? "",
+        answerAuthor: item.answerAuthor,
+        answerAuthorId: item.answerAuthorId,
+        answerDate: item.answerDate,
+      };
+    });
+  } catch (error) {
+    console.error("질의응답 게시글 조회 실패:", error);
+
+    return [];
+  }
+};
+
 /* 질의응답 Write Page */
 
 function QnaWritePage() {
   const navigate = useNavigate();
+
+  /* 파일 input 접근용 Ref */
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   /* 로그인 사용자 */
 
@@ -125,6 +194,10 @@ function QnaWritePage() {
     content: "",
   });
 
+  /* 첨부파일 */
+
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+
   /* 등록 상태 */
 
   const [loading, setLoading] = useState(false);
@@ -142,6 +215,107 @@ function QnaWritePage() {
     }));
   };
 
+  /* 파일 선택 버튼 */
+
+  const handleFileButtonClick = () => {
+    if (loading) {
+      return;
+    }
+
+    fileInputRef.current?.click();
+  };
+
+  /* 파일 선택 */
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files ?? []);
+
+    if (selectedFiles.length === 0) {
+      return;
+    }
+
+    /* 기존 파일 + 새 파일 */
+
+    const combinedFiles = [...attachedFiles, ...selectedFiles];
+
+    /* 파일 개수 검사 */
+
+    if (combinedFiles.length > MAX_FILE_COUNT) {
+      alert(`첨부파일은 최대 ${MAX_FILE_COUNT}개까지 등록할 수 있습니다.`);
+
+      event.target.value = "";
+
+      return;
+    }
+
+    /* 파일 검사 */
+
+    for (const file of selectedFiles) {
+      const extension = getFileExtension(file.name);
+
+      /* 확장자 검사 */
+
+      if (!ALLOWED_FILE_EXTENSIONS.includes(extension)) {
+        alert(
+          `${file.name}\n허용되지 않는 파일 형식입니다.\n\n허용 형식: JPG, JPEG, PNG, GIF, PDF`,
+        );
+
+        event.target.value = "";
+
+        return;
+      }
+
+      /* 파일 크기 검사 */
+
+      if (file.size > MAX_FILE_SIZE) {
+        alert(`${file.name}\n파일 크기가 10MB를 초과했습니다.`);
+
+        event.target.value = "";
+
+        return;
+      }
+    }
+
+    /* 동일 파일 중복 검사 */
+
+    const duplicateFile = selectedFiles.find((newFile) =>
+      attachedFiles.some(
+        (existingFile) =>
+          existingFile.name === newFile.name &&
+          existingFile.size === newFile.size &&
+          existingFile.lastModified === newFile.lastModified,
+      ),
+    );
+
+    if (duplicateFile) {
+      alert(`${duplicateFile.name}\n이미 첨부된 파일입니다.`);
+
+      event.target.value = "";
+
+      return;
+    }
+
+    /* 첨부파일 상태 저장 */
+
+    setAttachedFiles(combinedFiles);
+
+    /* 같은 파일을 다시 선택할 수 있도록 초기화 */
+
+    event.target.value = "";
+  };
+
+  /* 첨부파일 삭제 */
+
+  const handleRemoveFile = (index: number) => {
+    if (loading) {
+      return;
+    }
+
+    setAttachedFiles((prev) =>
+      prev.filter((_, fileIndex) => fileIndex !== index),
+    );
+  };
+
   /* 입력값 검사 */
 
   const validateForm = (): boolean => {
@@ -150,71 +324,29 @@ function QnaWritePage() {
 
     if (!title) {
       alert("제목을 입력해주세요.");
+
       return false;
     }
 
     if (title.length > 100) {
       alert("제목은 100자 이내로 입력해주세요.");
+
       return false;
     }
 
     if (!content) {
       alert("내용을 입력해주세요.");
+
       return false;
     }
 
     if (content.length > 5000) {
       alert("내용은 5,000자 이내로 입력해주세요.");
+
       return false;
     }
 
     return true;
-  };
-
-  /* 기존 질의응답 게시글 조회 */
-
-  const getStoredPosts = (): QnaPost[] => {
-    const storedPosts = localStorage.getItem("qnaPosts");
-
-    if (!storedPosts) {
-      return [];
-    }
-
-    try {
-      const parsedPosts: unknown = JSON.parse(storedPosts);
-
-      if (!Array.isArray(parsedPosts)) {
-        return [];
-      }
-
-      /*
-        기존 데이터에 answer 필드가 없는 경우에도
-        답변 기능이 정상적으로 동작하도록 기본값을 넣는다.
-      */
-
-      return parsedPosts.map((post) => {
-        const item = post as Partial<QnaPost>;
-
-        return {
-          id: item.id ?? Date.now(),
-          author: item.author ?? "사용자",
-          authorId: item.authorId ?? "",
-          title: item.title ?? "",
-          content: item.content ?? "",
-          date: item.date ?? "",
-          views: item.views ?? 0,
-
-          answer: item.answer ?? "",
-          answerAuthor: item.answerAuthor,
-          answerAuthorId: item.answerAuthorId,
-          answerDate: item.answerDate,
-        };
-      });
-    } catch (error) {
-      console.error("질의응답 게시글 조회 실패:", error);
-
-      return [];
-    }
   };
 
   /* 질의응답 등록 */
@@ -222,7 +354,7 @@ function QnaWritePage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    /* 최신 로그인 사용자 확인 */
+    /* 등록 시점의 로그인 사용자 다시 확인 */
 
     const loginUser = getLoginUser();
 
@@ -243,17 +375,28 @@ function QnaWritePage() {
     try {
       setLoading(true);
 
-      /*
-        현재는 프론트 테스트를 위해 localStorage 사용.
-
-        추후 Spring Boot + MySQL 연결 시
-        이 부분을 POST /api/qna 요청으로 교체한다.
-
-        답변 기능을 고려하여 새 게시글 생성 시
-        answer는 빈 문자열로 저장한다.
-      */
+      /* 기존 게시글 조회 */
 
       const existingPosts = getStoredPosts();
+
+      /*
+       * 현재 프론트 테스트 단계에서는
+       * 실제 File 객체를 localStorage에 저장하지 않는다.
+       *
+       * 대신 파일명과 파일 크기를 저장한다.
+       */
+
+      const attachments: QnaAttachment[] = attachedFiles.map((file) => ({
+        name: file.name,
+        size: file.size,
+      }));
+
+      /*
+       * 중요
+       *
+       * 아래 title / content는 현재 입력된 값을 그대로 저장한다.
+       * 다른 게시글의 내용으로 변경하지 않는다.
+       */
 
       const newPost: QnaPost = {
         id: Date.now(),
@@ -262,12 +405,28 @@ function QnaWritePage() {
 
         author: getLoginUserName(loginUser),
         authorId: loginUser.userId,
+
+        /* 입력한 제목 그대로 저장 */
+
         title: form.title.trim(),
+
+        /* 입력한 내용 그대로 저장 */
+
         content: form.content.trim(),
+
+        /* 작성 날짜 */
+
         date: getCurrentDate(),
+
+        /* 새 글이므로 조회수 0 */
+
         views: 0,
 
-        /* 답변 정보 */
+        /* 첨부파일 이름 + 크기 */
+
+        attachments,
+
+        /* 새 글은 미답변 상태 */
 
         answer: "",
         answerAuthor: undefined,
@@ -275,17 +434,37 @@ function QnaWritePage() {
         answerDate: undefined,
       };
 
+      /*
+       * 기존 게시글을 유지하면서
+       * 새 게시글만 맨 앞에 추가한다.
+       */
+
       const updatedPosts: QnaPost[] = [newPost, ...existingPosts];
+
+      /*
+       * localStorage 저장
+       *
+       * title
+       * content
+       * attachments
+       * author
+       * date
+       * views
+       * answer
+       * 모두 함께 저장된다.
+       */
 
       localStorage.setItem("qnaPosts", JSON.stringify(updatedPosts));
 
-      alert("답변이 등록되었습니다.");
+      alert("질의응답이 등록되었습니다.");
+
+      /* Q&A 목록으로 이동 */
 
       navigate("/qna");
     } catch (error) {
-      console.error("답변 등록 실패:", error);
+      console.error("질의응답 등록 실패:", error);
 
-      alert("답변 등록에 실패했습니다. 다시 시도해주세요.");
+      alert("질의응답 등록에 실패했습니다. 다시 시도해주세요.");
     } finally {
       setLoading(false);
     }
@@ -293,10 +472,8 @@ function QnaWritePage() {
 
   /* 로그아웃 */
 
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("loginUser");
-    localStorage.removeItem("user");
+  const handleLogout = async () => {
+    await logout();
 
     navigate("/");
   };
@@ -598,6 +775,89 @@ function QnaWritePage() {
             </div>
           </div>
 
+          {/* 첨부파일 */}
+
+          <div className={styles.formGroup}>
+            <label htmlFor="file">첨부파일</label>
+
+            <input
+              ref={fileInputRef}
+              id="file"
+              type="file"
+              className={styles.fileInput}
+              accept=".jpg,.jpeg,.png,.gif,.pdf"
+              multiple
+              onChange={handleFileChange}
+              disabled={loading || attachedFiles.length >= MAX_FILE_COUNT}
+            />
+
+            <div className={styles.fileUploadArea}>
+              <button
+                type="button"
+                className={styles.fileSelectButton}
+                onClick={handleFileButtonClick}
+                disabled={loading || attachedFiles.length >= MAX_FILE_COUNT}
+              >
+                📎 파일 선택
+              </button>
+
+              <div className={styles.fileGuide}>
+                <strong>파일을 첨부해주세요.</strong>
+
+                <span>최대 {MAX_FILE_COUNT}개 · 파일당 최대 10MB</span>
+
+                <span>JPG, JPEG, PNG, GIF, PDF</span>
+              </div>
+            </div>
+
+            {/* 선택된 파일 */}
+
+            {attachedFiles.length > 0 && (
+              <div className={styles.fileList}>
+                <div className={styles.fileListHeader}>
+                  <strong>선택된 파일</strong>
+
+                  <span>
+                    {attachedFiles.length} / {MAX_FILE_COUNT}
+                  </span>
+                </div>
+
+                <ul>
+                  {attachedFiles.map((file, index) => (
+                    <li
+                      key={`${file.name}-${file.lastModified}-${index}`}
+                      className={styles.fileItem}
+                    >
+                      <div className={styles.fileInformation}>
+                        <span className={styles.fileIcon}>📎</span>
+
+                        <div className={styles.fileText}>
+                          <span className={styles.fileName} title={file.name}>
+                            {file.name}
+                          </span>
+
+                          <span className={styles.fileSize}>
+                            {formatFileSize(file.size)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        className={styles.fileRemoveButton}
+                        onClick={() => handleRemoveFile(index)}
+                        disabled={loading}
+                        aria-label={`${file.name} 첨부파일 삭제`}
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
           {/* 안내 문구 */}
 
           <div className={styles.notice}>
@@ -607,11 +867,13 @@ function QnaWritePage() {
               <strong>질의응답 이용 안내</strong>
 
               <p>
-                작성한 질의응답는 작성자 본인이 확인할 수 있으며,
+                작성한 질의응답은 작성자 본인이 확인할 수 있으며,
                 <br />
                 관리자는 모든 질의응답 게시글을 확인하고 답변할 수 있습니다.
                 <br />
                 답변이 등록되면 게시글 상세 화면에서 확인할 수 있습니다.
+                <br />
+                첨부파일은 최대 3개까지 등록할 수 있으며 파일당 최대 10MB입니다.
               </p>
             </div>
           </div>

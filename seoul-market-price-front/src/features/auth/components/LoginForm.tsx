@@ -66,37 +66,37 @@ function LoginForm() {
           name
         }
 
-        accessToken은 쿠키가 기준(source of truth)이므로
-        응답 바디 검증은 userId만으로 충분하다.
+        백엔드는 accessToken 쿠키가 아니라 Authorization 헤더만
+        검사하므로, 응답 바디의 accessToken을 zustand에 저장해
+        요청마다 헤더로 실어보내야 한다.
       */
 
-      if (!data?.userId) {
+      if (!data?.userId || !data.accessToken) {
         throw new Error("로그인 응답 데이터 오류");
       }
 
       /*
         로그인 정보 저장
 
-        localStorage
+        zustand(useAuthStore)
               ↓
-        Home.tsx
-              ↓
-        getToken()
+        Header 등에서 구독 / axios 요청 인터셉터에서 Authorization 헤더로 사용
               ↓
         MainPage 이동
 
       */
 
-      saveLogin({
-        userId: data.userId,
+      saveLogin(
+        {
+          userId: data.userId,
 
-        name: data.name,
+          name: data.name,
 
-        // 백엔드 로그인 응답에는 role이 내려오지 않는다.
-        role: "",
-
-        accessToken: data.accessToken,
-      });
+          // 백엔드 로그인 응답에는 role이 내려오지 않는다.
+          role: "",
+        },
+        data.accessToken,
+      );
 
       /*
         주소 유지

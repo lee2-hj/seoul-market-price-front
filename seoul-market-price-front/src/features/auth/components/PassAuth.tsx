@@ -25,6 +25,7 @@ function preloadPortOneSdk() {
 }
 
 interface PassAuthResult {
+  identityVerificationId: string;
   name: string;
   phoneNumber: string;
 }
@@ -168,6 +169,7 @@ function PassAuth({ phone, onSuccess, className }: PassAuthProps) {
       alert("PASS 휴대폰 인증 완료");
 
       onSuccess({
+        identityVerificationId,
         name: response.data.name,
 
         phoneNumber: response.data.phoneNumber,

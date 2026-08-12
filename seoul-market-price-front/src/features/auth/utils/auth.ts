@@ -1,168 +1,138 @@
-export interface LoginUser {
-  userId: string;
-  name: string;
-  role: string;
-  accessToken?: string;
-}
+import { getMemberMeApi, logoutApi } from "@/api/api";
+import { useAuthStore, type AuthUser } from "../store/useAuthStore";
 
-/* 로그인 정보 저장 */
+export type { AuthUser as LoginUser };
 
-export function saveLogin(user: LoginUser) {
-  const loginUser: LoginUser = {
-    userId: user.userId,
-    name: user.name,
-    role: user.role,
-    accessToken: user.accessToken,
-  };
+/* 로그아웃 버튼으로 로그아웃했음을 표시하는 sessionStorage 키.
 
-  localStorage.setItem(
-    "loginUser",
-    JSON.stringify(loginUser)
-  );
+   Header의 로그아웃은 로그아웃 처리 직후 window.location.href로
+   페이지를 다시 불러온다. 이때 zustand는 새 값으로 초기화되므로,
+   "로그아웃했다"는 사실은 sessionStorage에 남겨둬야 새로고침된
+   페이지의 ensureAuthLoaded()가 이를 알 수 있다.
 
-  if (user.accessToken) {
-    localStorage.setItem(
-      "accessToken",
-      user.accessToken
-    );
-  }
-}
+   saveLogin()으로 다시 로그인하기 전까지는 지우지 않는다 — 첫
+   새로고침에서만 지우면, 그다음 새로고침부터는 다시 서버에 로그인
+   여부를 묻게 되어 로그인 상태로 되돌아가 버릴 수 있다. */
 
-/* 로그인 사용자 조회 */
+const JUST_LOGGED_OUT_KEY = "auth:justLoggedOut";
 
-export function getLoginUser(): LoginUser | null {
-  const savedUser = localStorage.getItem("loginUser");
+/* "방금 로그아웃했다" 표시 제거
 
-  if (!savedUser) {
-    return null;
-  }
+   일반 로그인(saveLogin)뿐 아니라, 카카오/구글 같은 소셜 로그인도
+   다시 로그인을 시도하는 것이므로 이 표시를 지워야 한다. 소셜 로그인은
+   백엔드 OAuth 인증 페이지로 완전히 이동했다가 돌아오는 방식이라
+   saveLogin()을 거치지 않으므로, 리다이렉트 직전에 이 함수를 따로
+   호출해 지워둬야 한다. 지우지 않으면 로그아웃 이력이 있는 브라우저
+   탭에서는 소셜 로그인에 성공해도 ensureAuthLoaded()가 서버 확인을
+   계속 건너뛰어 로그인 처리가 안 된 것처럼 보인다. */
 
+export function clearJustLoggedOut() {
   try {
-    const parsedUser = JSON.parse(savedUser) as LoginUser;
-
-    return parsedUser;
-  } catch (error) {
-    console.error(
-      "로그인 정보 파싱 오류",
-      error
-    );
-
-    logout();
-
-    return null;
-  }
-}
-
-/* 쿠키 조회 */
-
-function getCookie(name: string): string | null {
-  const match = document.cookie.match(
-    new RegExp(
-      "(?:^|; )" +
-        name.replace(
-          /([.$?*|{}()[\]\\/+^])/g,
-          "\\$1"
-        ) +
-        "=([^;]*)"
-    )
-  );
-
-  return match
-    ? decodeURIComponent(match[1])
-    : null;
-}
-
-/* 쿠키 삭제 */
-
-function deleteCookie(name: string) {
-  const expire =
-    "expires=Thu, 01 Jan 1970 00:00:00 UTC; max-age=0";
-
-  const host = window.location.hostname;
-
-  [
-    `${name}=; ${expire}; path=/;`,
-    `${name}=; ${expire}; path=/; domain=${host};`,
-    `${name}=; ${expire}; path=/; domain=.${host};`,
-  ].forEach((cookieString) => {
-    document.cookie = cookieString;
-  });
-}
-
-/* JWT 토큰 조회 */
-
-export function getToken(): string | null {
-  return getCookie("accessToken");
-}
-
-/* JWT payload 디코딩 */
-
-function decodeTokenPayload(
-  token: string
-): { exp?: number } | null {
-  try {
-    const payload = token.split(".")[1];
-
-    if (!payload) {
-      return null;
-    }
-
-    const base64 = payload
-      .replace(/-/g, "+")
-      .replace(/_/g, "/");
-
-    const json = decodeURIComponent(
-      atob(base64)
-        .split("")
-        .map(
-          (character) =>
-            "%" +
-            character.charCodeAt(0)
-              .toString(16)
-              .padStart(2, "0")
-        )
-        .join("")
-    );
-
-    return JSON.parse(json);
+    sessionStorage.removeItem(JUST_LOGGED_OUT_KEY);
   } catch {
-    return null;
+    // sessionStorage에 접근할 수 없는 환경은 무시한다.
   }
 }
 
-/* 토큰 만료 여부 확인 */
+/* 로그인 정보 저장
 
-export function isTokenExpired(
-  token: string
-): boolean {
-  const decoded = decodeTokenPayload(token);
+   accessToken은 쿠키(HttpOnly)로도 내려오지만, 백엔드가 인증 시
+   Authorization 헤더만 검사하므로 응답 바디의 accessToken 값을
+   zustand 메모리에 저장해 요청마다 헤더로 실어보낸다. */
 
-  if (!decoded || !decoded.exp) {
-    return true;
-  }
+export function saveLogin(user: AuthUser, accessToken: string) {
+  useAuthStore.getState().setSession(user, accessToken);
 
-  return decoded.exp * 1000 <= Date.now();
+  // 로그아웃 이후 다시 로그인한 것이므로, 남아있을 수 있는
+  // "방금 로그아웃했다" 표시를 지워 다음 새로고침에서
+  // 로그인 상태 복구가 정상적으로 이루어지게 한다.
+  clearJustLoggedOut();
 }
 
-/* 로그인 여부 확인 */
+/* 로그인 사용자 조회 (zustand 기준) */
+
+export function getLoginUser(): AuthUser | null {
+  return useAuthStore.getState().user;
+}
+
+/* 로그인 여부 확인 (zustand 기준) */
 
 export function isLogin(): boolean {
-  const token = getToken();
+  return useAuthStore.getState().user !== null;
+}
 
-  if (!token) {
-    return false;
+/* zustand 로그인 정보 복구
+
+   새로고침 등으로 zustand(메모리)가 초기화되어 비어있을 때 시도한다.
+   accessToken이 없는 채로 /api/members/me를 호출하면 401이 나지만,
+   axios 인터셉터가 이를 잡아 refreshToken(HttpOnly 쿠키)으로
+   /api/auth/reissue를 조용히 시도하고, 성공하면 새 accessToken을
+   zustand에 저장한 뒤 /api/members/me를 재시도해준다.
+   refreshToken마저 없거나 만료된 경우(비로그인)에는 실패로 끝나고
+   비로그인 상태로 확정한다. */
+
+export async function ensureAuthLoaded(): Promise<void> {
+  if (useAuthStore.getState().user || useAuthStore.getState().isInitialized) {
+    return;
   }
 
-  return !isTokenExpired(token);
+  // 로그아웃 버튼으로 로그아웃한 뒤라면, 서버에 로그인 여부를 다시
+  // 묻지 않고 곧바로 비로그인 상태로 확정한다. 이 표시는 saveLogin()으로
+  // 실제 재로그인이 일어나기 전까지 지우지 않는다 — 로그아웃 직후 첫
+  // 새로고침에서만 지워버리면, 그다음 새로고침부터는 다시 서버 확인
+  // 로직을 타면서 (아직 서버에서 완전히 무효화되지 않은 세션 탓에)
+  // 로그인 상태로 되돌아가 버리는 문제가 있었다.
+  try {
+    if (sessionStorage.getItem(JUST_LOGGED_OUT_KEY) === "1") {
+      useAuthStore.getState().setInitialized();
+
+      return;
+    }
+  } catch {
+    // sessionStorage에 접근할 수 없는 환경은 무시하고 평소대로 진행한다.
+  }
+
+  try {
+    const me = await getMemberMeApi();
+
+    // /api/members/me 요청이 진행되는 동안 로그인이 완료되어
+    // zustand가 이미 채워졌다면, 뒤늦게 도착한 이 응답으로
+    // 로그인 직후의 값을 덮어쓰면 안 된다.
+    if (useAuthStore.getState().user) {
+      return;
+    }
+
+    useAuthStore.getState().setUser({
+      userId: me.userId,
+      name: me.name,
+      role: "",
+    });
+  } catch {
+    if (!useAuthStore.getState().user) {
+      useAuthStore.getState().setInitialized();
+    }
+  }
 }
 
 /* 로그아웃 */
 
-export function logout() {
-  localStorage.removeItem("loginUser");
-  localStorage.removeItem("accessToken");
+export async function logout() {
+  try {
+    // accessToken/refreshToken 모두 HttpOnly 쿠키라 프론트에서 못 지우므로
+    // 서버가 로그아웃 처리 시 쿠키를 만료시켜줘야 한다.
+    await logoutApi();
+  } catch (e) {
+    console.warn("Logout API error", e);
+  }
 
-  deleteCookie("accessToken");
-  deleteCookie("refreshToken");
+  useAuthStore.getState().clearSession();
+
+  // 로그아웃 직후 페이지가 새로고침되더라도 ensureAuthLoaded()가
+  // 서버에 로그인 여부를 다시 묻지 않고 곧바로 비로그인으로
+  // 확정하도록 표시를 남긴다.
+  try {
+    sessionStorage.setItem(JUST_LOGGED_OUT_KEY, "1");
+  } catch {
+    // sessionStorage에 접근할 수 없는 환경은 무시한다.
+  }
 }
-

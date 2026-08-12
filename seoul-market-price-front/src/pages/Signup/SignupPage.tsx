@@ -36,18 +36,27 @@ type SignupFormValues = {
 };
 
 const defaultValues: SignupFormValues = {
+  name: "",
   userId: "",
   password: "",
   passwordCheck: "",
-  name: "",
   phone: "",
-  zipCode: "",
   address: "",
   detailAddress: "",
+  zipCode: "",
   email: "",
   is_terms_agreed: "",
   is_location_agreed: "",
   is_privacy_agreed: "",
+};
+
+const formatPhoneNumber = (value: string): string => {
+  if (!value) return "";
+  const raw = value.replace(/[^0-9]/g, "");
+  if (raw.length <= 3) return raw;
+  if (raw.length <= 7) return `${raw.slice(0, 3)}-${raw.slice(3)}`;
+  if (raw.length <= 10) return `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}`;
+  return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
 };
 
 function SignupPage() {
@@ -88,7 +97,7 @@ function SignupPage() {
     }
 
     setValue("name", verified.name);
-    setValue("phone", verified.phone);
+    setValue("phone", formatPhoneNumber(verified.phone));
 
     setPhoneVerified(true);
   }, [setValue]);
@@ -144,12 +153,19 @@ function SignupPage() {
 
   const signupMutation = useMutation({
     mutationKey: ["signupStart"],
-    mutationFn: (values: SignupFormValues) =>
-      signupApi({
+    mutationFn: (values: SignupFormValues) => {
+      const verified = getPassVerifiedInfo();
+
+      if (!verified) {
+        throw new Error("PASS 본인인증 정보가 없습니다.");
+      }
+
+      return signupApi({
         name: values.name.trim(),
         userId: values.userId.trim(),
+        identityVerificationId: verified.identityVerificationId,
         password: values.password,
-        phone: values.phone.trim(),
+        phone: formatPhoneNumber(values.phone.trim()),
         address: values.address,
         addressDetail: values.detailAddress,
         zipcode: values.zipCode,
@@ -157,7 +173,8 @@ function SignupPage() {
         is_terms_agreed: values.is_terms_agreed === "1" ? 1 : 0,
         is_location_agreed: values.is_location_agreed === "1" ? 1 : 0,
         is_privacy_agreed: values.is_privacy_agreed === "1" ? 1 : 0,
-      }),
+      });
+    },
     onSuccess: async (data) => {
       clearAllSignupStorage();
       await alert(data.msg);
@@ -237,11 +254,11 @@ function SignupPage() {
             로고
         ========================== */}
 
-        <Link to="/" className="block">
+        <Link to="/" style={{ textDecoration: "none" }} className="block no-underline">
           <img
-            src="/ssanong.svg"
-            alt="싸농 로고"
-            className="mx-auto h-[120px] w-auto max-[900px]:h-24 max-[600px]:h-[76px] max-[380px]:h-[68px]"
+            src="/logo.png"
+            alt="싸부 로고"
+            className="mx-auto block h-[145px] sm:h-[160px] w-auto max-[900px]:h-32 max-[600px]:h-28 object-contain drop-shadow-sm"
           />
         </Link>
 
