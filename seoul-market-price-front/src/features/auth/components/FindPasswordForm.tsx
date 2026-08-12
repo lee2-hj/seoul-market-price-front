@@ -193,7 +193,7 @@ export default function FindPasswordForm() {
           style={{ textDecoration: "none" }}
         >
           <img
-            src="/logo.png"
+            src="/logo-teal.png"
             alt="싸부 로고"
             className="mx-auto block h-[140px] sm:h-[155px] w-auto object-contain drop-shadow-sm"
           />
