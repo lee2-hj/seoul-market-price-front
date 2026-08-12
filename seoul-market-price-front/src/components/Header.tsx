@@ -18,7 +18,7 @@ const NAV_ITEMS: Array<{ label: string; to?: string; icon: typeof Search; links?
     links: [
       { to: "/board", label: "공지사항" },
       { to: "/qna", label: "질의응답" },
-      { to: "/qna", label: "자주 묻는 질문" },
+      { to: "/faq", label: "자주 묻는 질문" },
     ],
   },
 ];
