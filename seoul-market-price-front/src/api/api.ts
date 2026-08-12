@@ -5,6 +5,20 @@ import apiMiddleware, {
   type RetryableRequestConfig,
 } from "./middleware";
 
+import type {
+  BoardListRequest,
+  BoardPageResponse,
+  BoardListItem,
+  BoardDetail,
+  BoardCreateRequest,
+  BoardUpdateRequest,
+  BoardComment,
+  CommentCreateRequest,
+  CommentUpdateRequest,
+  PostType,
+  NoticeLevel,
+} from "@/features/board/types/board.types";
+
 // ===============================
 // 로그인 응답
 // ===============================
@@ -152,12 +166,24 @@ export async function signupApi(signupData: SignupRequest) {
 // ===============================
 // 아이디 찾기
 // ===============================
+export interface FindIdResponse {
+  found: boolean;
+  maskedUserIds: string[];
+}
 
-export async function findIdApi(phone: string) {
-  const response = await apiMiddleware.post("/api/users/find-id", {
-    phone,
-  });
-
+export async function findIdApi(
+  identityVerificationId: string,
+  name?: string,
+  phone?: string,
+): Promise<FindIdResponse> {
+  const response = await apiMiddleware.post<FindIdResponse>(
+    "/api/members/find-id",
+    {
+      identityVerificationId,
+      ...(name && { name }),
+      ...(phone && { phone, phoneNumber: phone }),
+    },
+  );
   return response.data;
 }
 
@@ -260,10 +286,18 @@ export async function checkUserIdApi(userId: string) {
 // ===============================
 
 export interface CheckMemberResponse {
-  isduplicated: boolean;
+  isduplicated?: boolean;
+  verified?: boolean;
+  name?: string;
+  phoneNumber?: string;
+  membershipStatus?: "NEW" | "ACTIVE" | "WITHDRAWN";
+  signupAllowed?: boolean;
 }
 
-export async function checkMemberApi(name: string, phone: string) {
+export async function checkMemberApi(
+  name: string,
+  phone: string,
+): Promise<CheckMemberResponse> {
   const response = await apiMiddleware.get<CheckMemberResponse>(
     "/api/members/check-member",
     {
@@ -288,20 +322,6 @@ export function isAuthError(error: unknown) {
 // ===============================
 // 게시판 (Board) API
 // ===============================
-
-import type {
-  BoardListRequest,
-  BoardPageResponse,
-  BoardListItem,
-  BoardDetail,
-  BoardCreateRequest,
-  BoardUpdateRequest,
-  BoardComment,
-  CommentCreateRequest,
-  CommentUpdateRequest,
-  PostType,
-  NoticeLevel,
-} from "@/features/board/types/board.types";
 
 interface RawBoardListItem {
   boardId?: number;
