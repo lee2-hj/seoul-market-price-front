@@ -105,3 +105,23 @@ export interface BoardUpdateRequest {
   content?: string;
   file?: File | null;
 }
+
+/**
+ * 첨부파일 정보 응답 모델
+ */
+export interface AttachmentResponse {
+  id: number;
+  originalFilename: string;
+  contentType: string;
+  size: number;
+  createdAt: string;
+}
+
+/**
+ * 첨부파일 다운로드 URL 응답 모델
+ */
+export interface AttachmentDownloadResponse {
+  downloadUrl: string;
+  originalFilename: string;
+  expiresInSeconds?: number;
+}

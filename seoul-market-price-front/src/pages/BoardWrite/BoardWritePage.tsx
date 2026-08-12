@@ -3,9 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import * as api from "@/api/api";
 import { createBoardPostApi } from "@/api/api";
 import { isLogin } from "@/features/auth/utils/auth";
-import type { BoardCreateRequest } from "@/features/board/types/board.types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -42,7 +42,30 @@ export default function BoardWritePage() {
   const titleValue = watch("title") || "";
 
   const createMutation = useMutation({
-    mutationFn: (data: BoardCreateRequest) => createBoardPostApi(data),
+    mutationFn: async (data: { title: string; content: string; file: File | null }) => {
+      // 1. 게시글 텍스트 등록
+      const postRes = await createBoardPostApi({
+        title: data.title,
+        content: data.content,
+      });
+
+      const newBoardId = (postRes as any)?.id || (postRes as any)?.boardId;
+
+      // 2. 첨부파일이 있고 api.ts에 업로드 함수가 구현되어 있으면 즉시 호출
+      if (data.file && newBoardId) {
+        const uploadFn = (api as any).uploadBoardAttachmentsApi;
+        if (typeof uploadFn === "function") {
+          try {
+            await uploadFn(newBoardId, [data.file]);
+          } catch (uploadErr) {
+            console.error("첨부파일 업로드 실패:", uploadErr);
+            alert("게시글은 등록되었으나 첨부파일 업로드 중 오류가 발생했습니다.");
+          }
+        }
+      }
+
+      return { boardId: newBoardId };
+    },
     onSuccess: (res) => {
       alert("게시글이 성공적으로 등록되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["boards"] });
