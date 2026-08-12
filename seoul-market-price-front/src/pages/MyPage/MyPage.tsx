@@ -6,7 +6,7 @@ import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { CheckCircle2, HelpCircle, Search } from "lucide-react";
 import PassAuth from "@/features/auth/components/PassAuth";
-import { getBoardPostsApi } from "@/api/api";
+import { getBoardPostsApi, getBoardCommentsApi } from "@/api/api";
 import apiMiddleware from "@/api/middleware";
 import * as api from "@/api/api";
 
@@ -457,11 +457,92 @@ export default function MyPage() {
     const currentName = (authUser.name || "").trim().toLowerCase();
     const currentId = (authUser.userId || "").trim().toLowerCase();
 
-    return boardData.items.filter((item) => {
-      const author = (item.authorName || "").trim().toLowerCase();
+    return boardData.items.filter((item: any) => {
+      const author = (item.authorName || item.writer || item.author || "").trim().toLowerCase();
       return (currentName && author === currentName) || (currentId && author === currentId);
     });
   }, [boardData, authUser]);
+
+  // 내가 작성한 댓글 조회 & 필터링
+  const [myComments, setMyComments] = useState<
+    Array<{
+      commentId: number;
+      boardId: number;
+      boardTitle: string;
+      content: string;
+      createdAt: string;
+    }>
+  >([]);
+  const [isCommentsLoading, setIsCommentsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isLoggedIn || !authUser || !boardData?.items || boardData.items.length === 0) {
+      setMyComments([]);
+      return;
+    }
+
+    let isMounted = true;
+    setIsCommentsLoading(true);
+
+    const currentName = (authUser.name || "").trim().toLowerCase();
+    const currentId = (authUser.userId || "").trim().toLowerCase();
+
+    // 상위 최근 게시글들에 대해 댓글을 병렬 조회하여 내가 작성한 댓글 추출
+    Promise.all(
+      boardData.items.slice(0, 30).map(async (post) => {
+        try {
+          const comments = await getBoardCommentsApi(post.boardId);
+          if (!Array.isArray(comments)) return [];
+
+          return comments
+            .filter((c: any) => {
+              const cAuthorName = (
+                c.authorName ||
+                c.writer ||
+                c.author ||
+                c.memberName ||
+                c.name ||
+                ""
+              )
+                .trim()
+                .toLowerCase();
+              const cAuthorId = (c.authorId || c.userId || c.writer || "")
+                .trim()
+                .toLowerCase();
+
+              return (
+                (currentId && cAuthorId === currentId) ||
+                (currentName && cAuthorName === currentName) ||
+                (currentId && cAuthorName === currentId)
+              );
+            })
+            .map((c: any) => ({
+              commentId: c.commentId || c.id || 0,
+              boardId: post.boardId,
+              boardTitle: post.title,
+              content: c.content || "",
+              createdAt: c.createdAt || "",
+            }));
+        } catch {
+          return [];
+        }
+      })
+    )
+      .then((results) => {
+        if (isMounted) {
+          const flat = results.flat().sort((a, b) => (b.commentId || 0) - (a.commentId || 0));
+          setMyComments(flat);
+          setIsCommentsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setIsCommentsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isLoggedIn, authUser, boardData]);
 
   // 폼이 수정되었는지 여부 계산 (Dirty check)
   const isFormDirty = useMemo(() => {
@@ -655,15 +736,15 @@ export default function MyPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafcf9]">
+    <div className="min-h-screen bg-[#F5FAFC]">
       <div className="py-12 px-5 sm:px-8">
         <div className="max-w-[1000px] mx-auto space-y-8">
           {/* 헤더 */}
           <div className="text-center space-y-2 mb-8">
-            <span className="inline-block px-3 py-1 bg-[#e8f3e9] text-[#3f8a47] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
-              CUSTOMER CENTER
+            <span className="inline-block px-3 py-1 bg-[#E6F4F2] text-[#0F766E] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
+              SSABU CUSTOMER CENTER
             </span>
-            <h1 className="text-[36px] font-black text-[#242b23] tracking-tight">
+            <h1 className="text-[36px] font-black text-[#123047] tracking-tight">
               마이페이지
             </h1>
             <p className="text-[15px] text-[#667065]">
@@ -673,14 +754,14 @@ export default function MyPage() {
 
           {/* 메인 탭 */}
           <div className="flex justify-center mb-6">
-            <div className="flex items-center gap-2 p-1.5 bg-white rounded-[10px] border border-[#dce4da] shadow-sm">
+            <div className="flex items-center gap-2 p-1.5 bg-white rounded-[10px] border border-[#DCE8ED] shadow-sm">
               <button
                 type="button"
                 onClick={() => handleTabChange("PROFILE")}
                 className={`py-2.5 px-6 text-[14px] font-bold rounded-[8px] transition-all cursor-pointer ${
                   activeTab === "PROFILE"
-                    ? "bg-[#57a764] text-white shadow-sm"
-                    : "text-[#526055] hover:bg-[#f5f8f5]"
+                    ? "bg-[#123047] text-white shadow-xs"
+                    : "text-[#6B7280] hover:bg-[#F0F7FA]"
                 }`}
               >
                 내 정보 관리
@@ -690,8 +771,8 @@ export default function MyPage() {
                 onClick={() => handleTabChange("NOTIFICATION")}
                 className={`py-2.5 px-6 text-[14px] font-bold rounded-[8px] transition-all cursor-pointer ${
                   activeTab === "NOTIFICATION"
-                    ? "bg-[#57a764] text-white shadow-sm"
-                    : "text-[#526055] hover:bg-[#f5f8f5]"
+                    ? "bg-[#123047] text-white shadow-xs"
+                    : "text-[#6B7280] hover:bg-[#F0F7FA]"
                 }`}
               >
                 알림 설정
@@ -701,8 +782,8 @@ export default function MyPage() {
                 onClick={() => handleTabChange("ACTIVITY")}
                 className={`py-2.5 px-6 text-[14px] font-bold rounded-[8px] transition-all cursor-pointer ${
                   activeTab === "ACTIVITY"
-                    ? "bg-[#57a764] text-white shadow-sm"
-                    : "text-[#526055] hover:bg-[#f5f8f5]"
+                    ? "bg-[#123047] text-white shadow-xs"
+                    : "text-[#6B7280] hover:bg-[#F0F7FA]"
                 }`}
               >
                 내 활동
@@ -711,7 +792,7 @@ export default function MyPage() {
           </div>
 
           {/* 메인 카드 컨테이너 */}
-          <div className="bg-white border border-[#dce4da] rounded-[12px] p-8 md:p-10 shadow-[0_7px_24px_rgba(45,70,45,0.05)]">
+          <div className="bg-white border border-[#DCE8ED] rounded-[12px] p-8 md:p-10 shadow-xs">
             {/* TAB 1: 내 정보 */}
             {activeTab === "PROFILE" && (
               <form onSubmit={handleSubmit(handleSaveAll)} className="space-y-12">
@@ -722,7 +803,7 @@ export default function MyPage() {
                     </p>
                     <Link
                       to="/login"
-                      className="inline-block px-5 py-2 bg-[#57a764] text-white font-bold text-[13px] rounded-[6px]"
+                      className="inline-block px-5 py-2 bg-[#0F8AA8] text-white font-bold text-[13px] rounded-[6px]"
                     >
                       로그인하러 가기
                     </Link>
@@ -732,8 +813,8 @@ export default function MyPage() {
                 {/* 1. 회원 정보 관리 */}
                 <div className="space-y-6">
                   <div className="text-center space-y-1">
-                    <h2 className="text-[22px] font-black text-[#242b23]">회원 정보 관리</h2>
-                    <p className="text-[14px] text-[#667065]">
+                    <h2 className="text-[22px] font-black text-[#123047]">회원 정보 관리</h2>
+                    <p className="text-[14px] text-[#6B7280]">
                       회원님의 필수 인적사항과 휴대폰 및 이메일 인증을 진행하실 수 있습니다.
                     </p>
                   </div>
@@ -741,10 +822,10 @@ export default function MyPage() {
                   <div className="space-y-5 max-w-[820px] mx-auto">
                     {/* ROW 1: 로그인 방식에 따른 분기 */}
                     {isSocialUser ? (
-                      <div className="w-full bg-[#f4fbf5] border border-[#cbe4cf] rounded-[12px] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 box-border shadow-xs">
+                      <div className="w-full bg-[#F0F7FA] border border-[#DCE8ED] rounded-[12px] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 box-border shadow-xs">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <strong className="text-[15px] font-black text-[#1e2a20]">
+                            <strong className="text-[15px] font-black text-[#123047]">
                               {socialProvider || "소셜"} 연동 계정으로 로그인 중입니다
                             </strong>
 
@@ -753,57 +834,57 @@ export default function MyPage() {
                               <button
                                 type="button"
                                 aria-label="소셜 계정 안내 툴팁"
-                                className="w-5 h-5 rounded-full bg-[#d6ebd9] hover:bg-[#4c9b55] text-[#2e7438] hover:text-white font-black text-[11px] flex items-center justify-center cursor-pointer transition-all shadow-xs"
+                                className="w-5 h-5 rounded-full bg-[#E6F4F2] hover:bg-[#0F8AA8] text-[#0F766E] hover:text-white font-black text-[11px] flex items-center justify-center cursor-pointer transition-all shadow-xs"
                               >
                                 ?
                               </button>
 
                               {/* 툴팁 팝오버 */}
-                              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2.5 hidden group-hover:flex flex-col w-[290px] p-3.5 bg-[#1b251d] text-white text-[12px] rounded-[10px] shadow-2xl z-50 leading-relaxed text-center pointer-events-none transition-all">
-                                <div className="font-bold text-[#86efac] mb-1 flex items-center justify-center gap-1">
+                              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2.5 hidden group-hover:flex flex-col w-[290px] p-3.5 bg-[#123047] text-white text-[12px] rounded-[10px] shadow-2xl z-50 leading-relaxed text-center pointer-events-none transition-all">
+                                <div className="font-bold text-[#7CC9D8] mb-1 flex items-center justify-center gap-1">
                                   <HelpCircle className="w-3.5 h-3.5" /> 소셜 계정 정보 변경 안내
                                 </div>
                                 <span>
                                   소셜({socialProvider || "해당"}) 계정은 별도의 비밀번호가 없습니다.
                                 </span>
-                                <span className="text-[#d0ded2] mt-1">
+                                <span className="text-[#DCE8ED] mt-1">
                                   회원정보 및 비밀번호 변경은 <b>{socialProvider || "소셜"} 계정 관리 사이트</b>로 이동하여 변경해 주세요.
                                 </span>
                                 {/* 말풍선 꼬리 */}
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-[#1b251d]"></div>
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-[#123047]"></div>
                               </div>
                             </div>
                           </div>
 
-                          <p className="text-[12px] text-[#627565]">
+                          <p className="text-[12px] text-[#6B7280]">
                             소셜 연동 계정은 아이디 및 비밀번호 수정이 제공되지 않습니다.
                           </p>
                         </div>
 
-                        <span className="text-[12px] font-bold px-3.5 py-1.5 bg-white border border-[#b8ddbc] text-[#2e7438] rounded-full shrink-0 text-center shadow-2xs self-start sm:self-auto">
+                        <span className="text-[12px] font-bold px-3.5 py-1.5 bg-white border border-[#DCE8ED] text-[#0F8AA8] rounded-full shrink-0 text-center shadow-2xs self-start sm:self-auto">
                           {socialProvider || "소셜"} 간편로그인
                         </span>
                       </div>
                     ) : (
                       <div className="flex flex-col md:flex-row gap-4 w-full">
                         <div className="space-y-1.5 flex-1 w-full md:w-1/2">
-                          <label className="text-[14px] font-bold text-[#344037] block">아이디</label>
+                          <label className="text-[14px] font-bold text-[#13202B] block">아이디</label>
                           <input
                             {...register("userId")}
                             readOnly
-                            className="w-full h-[48px] rounded-[8px] border border-[#d5dfd6] bg-[#f5f7f5] px-3.5 text-[15px] text-[#7a877c] cursor-not-allowed outline-none box-border m-0 font-medium"
+                            className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-[#F0F7FA] px-3.5 text-[15px] text-[#6B7280] cursor-not-allowed outline-none box-border m-0 font-medium"
                           />
                         </div>
 
                         <div className="space-y-1.5 flex-1 w-full md:w-1/2">
                           <div className="flex items-center justify-between">
-                            <label className="text-[14px] font-bold text-[#344037] block">비밀번호 변경</label>
+                            <label className="text-[14px] font-bold text-[#13202B] block">비밀번호 변경</label>
                             {phoneVerified ? (
-                              <span className="text-[12px] font-extrabold text-[#3a8b46]">
+                              <span className="text-[12px] font-extrabold text-[#0F766E]">
                                 ✔ PASS 인증 완료 (변경 가능)
                               </span>
                             ) : (
-                              <span className="text-[12px] text-[#8a968c]">
+                              <span className="text-[12px] text-[#6B7280]">
                                 본인인증 후 변경 가능
                               </span>
                             )}
@@ -814,8 +895,8 @@ export default function MyPage() {
                             onClick={handleOpenPasswordModal}
                             className={`w-full h-[48px] rounded-[8px] border font-bold text-[14px] transition-all box-border m-0 shadow-xs flex items-center justify-center ${
                               phoneVerified
-                                ? "bg-[#57a764] hover:bg-[#438e4d] text-white border-[#57a764] cursor-pointer"
-                                : "bg-[#f5f7f5] text-[#7a877c] border-[#d5dfd6] cursor-not-allowed select-none opacity-85"
+                                ? "bg-[#0F8AA8] hover:bg-[#0B5E73] text-white border-[#0F8AA8] cursor-pointer"
+                                : "bg-[#F0F7FA] text-[#6B7280] border-[#DCE8ED] cursor-not-allowed select-none opacity-85"
                             }`}
                           >
                             비밀번호 변경하기
@@ -827,13 +908,13 @@ export default function MyPage() {
                     {/* ROW 2: 이름 (PASS 본인인증 완료 시 자동 반영 및 수정 가능) */}
                     <div className="space-y-1.5 w-full">
                       <div className="flex items-center justify-between">
-                        <label className="text-[14px] font-bold text-[#344037] block">이름</label>
+                        <label className="text-[14px] font-bold text-[#13202B] block">이름</label>
                         {phoneVerified ? (
-                          <span className="inline-flex items-center gap-1 text-[12px] font-extrabold text-[#3a8b46]">
+                          <span className="inline-flex items-center gap-1 text-[12px] font-extrabold text-[#0F766E]">
                             <CheckCircle2 className="w-3.5 h-3.5" /> 실명 인증 완료
                           </span>
                         ) : (
-                          <span className="text-[12px] text-[#7a877c]">
+                          <span className="text-[12px] text-[#6B7280]">
                             본인인증 후 수정 가능
                           </span>
                         )}
@@ -852,13 +933,13 @@ export default function MyPage() {
                             ? "이름을 입력해주세요 (숫자, 공백 불가)"
                             : "PASS 본인인증 시 실명이 자동 입력됩니다"
                         }
-                        className={`w-full h-[48px] rounded-[8px] border border-[#d5dfd6] px-3.5 text-[15px] outline-none box-border m-0 transition-colors ${
+                        className={`w-full h-[48px] rounded-[8px] border border-[#DCE8ED] px-3.5 text-[15px] outline-none box-border m-0 transition-colors ${
                           phoneVerified
-                            ? "bg-white text-[#2b362d] focus:border-[#57a764]"
-                            : "bg-[#f5f7f5] text-[#556357] cursor-not-allowed"
+                            ? "bg-white text-[#13202B] focus:border-[#0F8AA8]"
+                            : "bg-[#F0F7FA] text-[#6B7280] cursor-not-allowed"
                         }`}
                       />
-                      <p className="text-[12px] text-[#718073]">
+                      <p className="text-[12px] text-[#6B7280]">
                         {phoneVerified
                           ? "PASS 본인인증이 완료되어 실명이 적용되었습니다."
                           : "회원 실명 보호를 위해 아래 PASS 본인인증 완료 시 자동으로 반영 및 수정이 활성화됩니다."}
@@ -868,9 +949,9 @@ export default function MyPage() {
                     {/* ROW 3: 휴대폰 번호 + PASS 본인인증 버튼 (직접 수정 불가, PASS 인증 시 자동 입력) */}
                     <div className="space-y-1.5 w-full">
                       <div className="flex items-center justify-between">
-                        <label className="text-[14px] font-bold text-[#344037] block">휴대폰 번호</label>
+                        <label className="text-[14px] font-bold text-[#13202B] block">휴대폰 번호</label>
                         {phoneVerified && (
-                          <span className="inline-flex items-center gap-1 text-[12px] font-extrabold text-[#3a8b46]">
+                          <span className="inline-flex items-center gap-1 text-[12px] font-extrabold text-[#0F766E]">
                             <CheckCircle2 className="w-4 h-4" /> PASS 인증 완료
                           </span>
                         )}
@@ -881,15 +962,15 @@ export default function MyPage() {
                           readOnly
                           disabled={!isLoggedIn}
                           placeholder="PASS 본인인증 시 번호가 자동 입력됩니다"
-                          className="flex-1 h-[48px] rounded-[8px] border border-[#d5dfd6] bg-[#f5f7f5] px-3.5 text-[15px] text-[#2b362d] outline-none cursor-not-allowed font-medium"
+                          className="flex-1 h-[48px] rounded-[8px] border border-[#DCE8ED] bg-[#F0F7FA] px-3.5 text-[15px] text-[#13202B] outline-none cursor-not-allowed font-medium"
                         />
                         <PassAuth
                           phone={watch("phone")}
                           onSuccess={handlePassSuccess}
-                          className="h-[48px] px-5 bg-[#4c9b55] hover:bg-[#438b4b] text-white font-bold text-[14px] rounded-[8px] cursor-pointer whitespace-nowrap transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm shrink-0"
+                          className="h-[48px] px-5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white font-bold text-[14px] rounded-[8px] cursor-pointer whitespace-nowrap transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-xs shrink-0"
                         />
                       </div>
-                      <p className="text-[12px] text-[#718073]">
+                      <p className="text-[12px] text-[#6B7280]">
                         휴대폰 번호는 직접 입력할 수 없으며, 우측 [PASS 본인인증]을 진행하면 실제 인증 번호가 자동 입력됩니다.
                       </p>
                     </div>
@@ -897,9 +978,9 @@ export default function MyPage() {
                     {/* ROW 4: 이메일 주소 + 이메일 인증 버튼 */}
                     <div className="space-y-1.5 w-full">
                       <div className="flex items-center justify-between">
-                        <label className="text-[14px] font-bold text-[#344037] block">이메일 주소</label>
+                        <label className="text-[14px] font-bold text-[#13202B] block">이메일 주소</label>
                         {emailVerified && (
-                          <span className="inline-flex items-center gap-1 text-[12px] font-extrabold text-[#3a8b46]">
+                          <span className="inline-flex items-center gap-1 text-[12px] font-extrabold text-[#0F766E]">
                             <CheckCircle2 className="w-4 h-4" /> 인증 완료
                           </span>
                         )}
@@ -908,13 +989,13 @@ export default function MyPage() {
                         <input
                           {...register("email")}
                           disabled={!isLoggedIn}
-                          className="flex-1 h-[48px] rounded-[8px] border border-[#d5dfd6] bg-white px-3.5 text-[15px] text-[#2b362d] outline-none focus:border-[#57a764] disabled:bg-[#f5f7f5]"
+                          className="flex-1 h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
                         />
                         <button
                           type="button"
                           disabled={!isLoggedIn || emailVerified}
                           onClick={handleSendEmailCert}
-                          className="h-[48px] px-5 bg-[#343c33] hover:bg-[#252b24] text-white font-bold text-[13px] rounded-[8px] cursor-pointer whitespace-nowrap transition-colors disabled:opacity-50"
+                          className="h-[48px] px-5 bg-[#123047] hover:bg-[#0B5E73] text-white font-bold text-[13px] rounded-[8px] cursor-pointer whitespace-nowrap transition-colors disabled:opacity-50"
                         >
                           {emailVerified ? "인증됨" : "이메일 인증"}
                         </button>
@@ -929,12 +1010,12 @@ export default function MyPage() {
                             placeholder="인증번호 6자리 (테스트: 654321)"
                             value={emailCertCode}
                             onChange={(e) => setEmailCertCode(e.target.value)}
-                            className="flex-1 h-[42px] rounded-[6px] border border-[#57a764] bg-white px-3 text-[14px] outline-none"
+                            className="flex-1 h-[42px] rounded-[6px] border border-[#0F8AA8] bg-white px-3 text-[14px] outline-none"
                           />
                           <button
                             type="button"
                             onClick={handleVerifyEmailCode}
-                            className="h-[42px] px-4 bg-[#57a764] hover:bg-[#438e4d] text-white font-bold text-[13px] rounded-[6px]"
+                            className="h-[42px] px-4 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white font-bold text-[13px] rounded-[6px] cursor-pointer"
                           >
                             인증 확인
                           </button>
@@ -945,32 +1026,32 @@ export default function MyPage() {
                     {/* ROW 5: 기본 주소 & 상세 주소 */}
                     <div className="flex flex-col md:flex-row gap-4 w-full">
                       <div className="space-y-1.5 flex-1 w-full md:w-1/2">
-                        <label className="text-[14px] font-bold text-[#344037] block">기본 주소</label>
+                        <label className="text-[14px] font-bold text-[#13202B] block">기본 주소</label>
                         <input
                           {...register("address")}
                           disabled={!isLoggedIn}
-                          className="w-full h-[48px] rounded-[8px] border border-[#d5dfd6] bg-white px-3.5 text-[15px] text-[#2b362d] outline-none focus:border-[#57a764] box-border m-0 disabled:bg-[#f5f7f5]"
+                          className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA]"
                         />
                       </div>
 
                       <div className="space-y-1.5 flex-1 w-full md:w-1/2">
-                        <label className="text-[14px] font-bold text-[#344037] block">상세 주소</label>
+                        <label className="text-[14px] font-bold text-[#13202B] block">상세 주소</label>
                         <input
                           {...register("detailAddress")}
                           disabled={!isLoggedIn}
-                          className="w-full h-[48px] rounded-[8px] border border-[#d5dfd6] bg-white px-3.5 text-[15px] text-[#2b362d] outline-none focus:border-[#57a764] box-border m-0 disabled:bg-[#f5f7f5]"
+                          className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA]"
                         />
                       </div>
                     </div>
 
                     {/* ROW 6: 선호 지역 설정 */}
                     <div className="space-y-1.5 w-full">
-                      <label className="text-[14px] font-bold text-[#344037] block">선호 지역 설정</label>
+                      <label className="text-[14px] font-bold text-[#13202B] block">선호 지역 설정</label>
                       <select
                         value={preferredDistrict}
                         disabled={!isLoggedIn}
                         onChange={(e) => setPreferredDistrict(e.target.value)}
-                        className="w-full h-[48px] rounded-[8px] border border-[#d5dfd6] bg-white px-3.5 text-[15px] text-[#2b362d] outline-none focus:border-[#57a764] box-border m-0 disabled:bg-[#f5f7f5]"
+                        className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA]"
                       >
                         {SEOUL_DISTRICTS.map((district) => (
                           <option key={district} value={district}>
@@ -983,10 +1064,10 @@ export default function MyPage() {
                 </div>
 
                 {/* 2. 관심 품목 설정 */}
-                <div className="pt-8 border-t border-[#e7ece7] space-y-4">
+                <div className="pt-8 border-t border-[#DCE8ED] space-y-4">
                   <div className="text-center space-y-1">
-                    <h2 className="text-[20px] font-bold text-[#242b23]">관심 아파트 단지</h2>
-                    <p className="text-[14px] text-[#667065]">
+                    <h2 className="text-[20px] font-bold text-[#123047]">관심 아파트 단지</h2>
+                    <p className="text-[14px] text-[#6B7280]">
                       관심 아파트 단지를 등록해 두면 실거래가 시세를 더 빠르게 찾아볼 수 있습니다.
                     </p>
                   </div>
@@ -1011,15 +1092,15 @@ export default function MyPage() {
                               handleFavoriteAdd();
                             }
                           }}
-                          className="h-[48px] w-full rounded-[8px] border border-[#d5dfd6] bg-white pl-10 pr-4 text-[15px] text-[#2b362d] outline-none focus:border-[#57a764] box-border m-0 disabled:bg-[#f5f7f5]"
+                          className="h-[48px] w-full rounded-[8px] border border-[#DCE8ED] bg-white pl-10 pr-4 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA]"
                         />
-                        <Search className="w-4 h-4 text-[#8a968c] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <Search className="w-4 h-4 text-[#6B7280] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       </div>
                       <button
                         type="button"
                         disabled={!isLoggedIn}
                         onClick={handleFavoriteAdd}
-                        className="h-[48px] px-6 w-full sm:w-auto bg-[#57a764] hover:bg-[#438e4d] text-white text-[14px] font-bold rounded-[8px] border-none outline-none cursor-pointer transition-colors box-border m-0 shrink-0 disabled:opacity-50"
+                        className="h-[48px] px-6 w-full sm:w-auto bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[8px] border-none outline-none cursor-pointer transition-colors box-border m-0 shrink-0 disabled:opacity-50 shadow-xs"
                       >
                         추가
                       </button>
@@ -1027,7 +1108,7 @@ export default function MyPage() {
 
                     {/* 실시간 아파트 검색 추천 드롭다운 */}
                     {isAptDropdownOpen && newFavoriteItem.trim().length > 0 && (
-                      <div className="absolute top-full left-0 right-0 sm:right-[72px] mt-1.5 bg-white border border-[#d5dfd6] rounded-[10px] shadow-xl z-50 max-h-[240px] overflow-y-auto divide-y divide-[#f0f4f0]">
+                      <div className="absolute top-full left-0 right-0 sm:right-[72px] mt-1.5 bg-white border border-[#DCE8ED] rounded-[10px] shadow-xl z-50 max-h-[240px] overflow-y-auto divide-y divide-[#F0F7FA]">
                         {aptSuggestions.length > 0 ? (
                           aptSuggestions.map((apt) => {
                             const isAdded = favoriteItems.includes(apt.name);
@@ -1036,22 +1117,22 @@ export default function MyPage() {
                                 key={apt.name}
                                 type="button"
                                 onClick={() => handleSelectApartment(apt.name)}
-                                className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#f2f8f3] transition-colors cursor-pointer"
+                                className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#F0F7FA] transition-colors cursor-pointer"
                               >
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[11px] font-bold px-2 py-0.5 bg-[#e8f3e9] text-[#3f8a47] rounded-md">
+                                  <span className="text-[11px] font-bold px-2 py-0.5 bg-[#E6F4F2] text-[#0F766E] rounded-md">
                                     {apt.district}
                                   </span>
-                                  <span className="text-[14px] font-bold text-[#242b23]">
+                                  <span className="text-[14px] font-bold text-[#123047]">
                                     {apt.name}
                                   </span>
                                 </div>
                                 {isAdded ? (
-                                  <span className="text-[12px] text-[#8a968c] font-medium">
+                                  <span className="text-[12px] text-[#6B7280] font-medium">
                                     등록됨
                                   </span>
                                 ) : (
-                                  <span className="text-[12px] text-[#57a764] font-bold">
+                                  <span className="text-[12px] text-[#0F8AA8] font-bold">
                                     + 선택
                                   </span>
                                 )}
@@ -1059,7 +1140,7 @@ export default function MyPage() {
                             );
                           })
                         ) : (
-                          <div className="p-4 text-center text-[13px] text-[#8a968c]">
+                          <div className="p-4 text-center text-[13px] text-[#6B7280]">
                             일치하는 아파트 단지가 없습니다.
                           </div>
                         )}
@@ -1072,12 +1153,12 @@ export default function MyPage() {
                     {favoriteItems.map((item) => (
                       <span
                         key={item}
-                        className="inline-flex items-center gap-1.5 min-h-[36px] px-4 rounded-full bg-[#edf7ee] text-[#397644] text-[14px] font-bold"
+                        className="inline-flex items-center gap-1.5 min-h-[36px] px-4 rounded-full bg-[#E6F4F2] text-[#0F766E] text-[14px] font-bold border border-[#7CC9D8]"
                       >
                         <span>🏢 {item}</span>
                         <span
                           onClick={() => handleFavoriteRemove(item)}
-                          className="cursor-pointer font-extrabold text-[15px] text-[#397644] hover:text-[#1c4524] transition-colors leading-none select-none pl-0.5"
+                          className="cursor-pointer font-extrabold text-[15px] text-[#0F766E] hover:text-[#0B5E73] transition-colors leading-none select-none pl-0.5"
                           role="button"
                           tabIndex={0}
                           aria-label={`${item} 삭제`}
@@ -1090,10 +1171,10 @@ export default function MyPage() {
                 </div>
 
                 {/* 3. 가격 변동 알림 설정 */}
-                <div className="pt-8 border-t border-[#e7ece7] space-y-4">
+                <div className="pt-8 border-t border-[#DCE8ED] space-y-4">
                   <div className="text-center space-y-1">
-                    <h3 className="text-[18px] font-bold text-[#344037]">실거래가 변동 알림</h3>
-                    <p className="text-[14px] text-[#7a877c]">
+                    <h3 className="text-[18px] font-bold text-[#123047]">실거래가 변동 알림</h3>
+                    <p className="text-[14px] text-[#6B7280]">
                       설정된 아파트 단지의 실거래가 변동 알림을 켜거나 끌 수 있습니다.
                     </p>
                   </div>
@@ -1101,31 +1182,31 @@ export default function MyPage() {
                   {/* 등록된 가격 알림 리스트 */}
                   <div className="space-y-2.5 max-w-[820px] mx-auto pt-2">
                     {priceAlerts.length === 0 ? (
-                      <p className="p-6 border border-dashed border-[#d5dfd6] rounded-[10px] text-center text-[14px] text-[#7a877c]">
+                      <p className="p-6 border border-dashed border-[#DCE8ED] rounded-[10px] text-center text-[14px] text-[#6B7280]">
                         등록된 실거래가 변동 알림이 없습니다.
                       </p>
                     ) : (
                       priceAlerts.map((alertItem) => (
                         <div
                           key={alertItem.id}
-                          className="flex items-center justify-between p-4 bg-white border border-[#e1e8e2] rounded-[10px]"
+                          className="flex items-center justify-between p-4 bg-white border border-[#DCE8ED] rounded-[10px]"
                         >
                           <div>
-                            <strong className="text-[15px] font-bold text-[#344037] block">
+                            <strong className="text-[15px] font-bold text-[#123047] block">
                               🏢 {alertItem.itemName}
                             </strong>
-                            <span className="text-[13px] text-[#718073] block mt-1">
+                            <span className="text-[13px] text-[#6B7280] block mt-1">
                               {alertItem.threshold.toLocaleString()}만원 {PRICE_ALERT_CONDITION_LABELS[alertItem.condition]}
                             </span>
                           </div>
 
                           <div className="flex items-center gap-3">
-                            <label className="inline-flex items-center gap-1.5 text-[13px] font-extrabold text-[#4d5e50] cursor-pointer">
+                            <label className="inline-flex items-center gap-1.5 text-[13px] font-extrabold text-[#123047] cursor-pointer">
                               <input
                                 type="checkbox"
                                 checked={alertItem.enabled}
                                 onChange={() => handlePriceAlertToggle(alertItem.id)}
-                                className="w-[18px] h-[18px] accent-[#57a764] cursor-pointer"
+                                className="w-[18px] h-[18px] accent-[#0F8AA8] cursor-pointer"
                               />
                               {alertItem.enabled ? "알림 ON" : "알림 OFF"}
                             </label>
@@ -1146,13 +1227,13 @@ export default function MyPage() {
                 {/* ========================================================
                     [회원 정보 및 설정 저장] & [변경 취소] 버튼 영역
                 ======================================================== */}
-                <div className="pt-8 border-t border-[#e7ece7] text-center">
+                <div className="pt-8 border-t border-[#DCE8ED] text-center">
                   <div className="flex flex-wrap items-center justify-center gap-3">
                     {isFormDirty && (
                       <button
                         type="button"
                         onClick={handleCancelChanges}
-                        className="h-[52px] px-8 bg-white hover:bg-[#f5f8f5] text-[#556357] border border-[#cfd9d0] text-[15px] font-bold rounded-[8px] cursor-pointer transition-all shadow-xs"
+                        className="h-[52px] px-8 bg-white hover:bg-[#F0F7FA] text-[#6B7280] border border-[#DCE8ED] text-[15px] font-bold rounded-[8px] cursor-pointer transition-all shadow-xs"
                       >
                         변경 취소
                       </button>
@@ -1160,12 +1241,12 @@ export default function MyPage() {
                     <button
                       type="submit"
                       disabled={!isLoggedIn}
-                      className="h-[52px] px-10 bg-[#57a764] hover:bg-[#438e4d] text-white text-[16px] font-bold rounded-[8px] border-none outline-none cursor-pointer transition-colors shadow-md disabled:opacity-50"
+                      className="h-[52px] px-10 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[16px] font-bold rounded-[8px] border-none outline-none cursor-pointer transition-colors shadow-xs disabled:opacity-50"
                     >
                       회원 정보 및 설정 저장
                     </button>
                   </div>
-                  <p className="text-[13px] text-[#7a877c] mt-2">
+                  <p className="text-[13px] text-[#6B7280] mt-2">
                     회원 인적사항, 관심 단지 및 알림 설정 변경사항이 일괄 저장됩니다.
                   </p>
                 </div>
@@ -1194,13 +1275,13 @@ export default function MyPage() {
             {activeTab === "NOTIFICATION" && (
               <div className="space-y-8 max-w-[820px] mx-auto">
                 <div className="text-center space-y-1 mb-6">
-                  <h2 className="text-[20px] font-bold text-[#242b23]">알림 수신 설정</h2>
+                  <h2 className="text-[20px] font-bold text-[#123047]">알림 수신 설정</h2>
                   <p className="text-[14px] text-[#667065]">
                     아파트 실거래가 변동 알림 및 관심 단지 관련 푸시 알림의 수신 여부를 선택할 수 있습니다.
                   </p>
                 </div>
 
-                <div className="border border-[#e1e8e2] rounded-[10px] divide-y divide-[#e7ece7] bg-white">
+                <div className="border border-[#DCE8ED] rounded-[10px] divide-y divide-[#DCE8ED] bg-white">
                   {[
                     { key: "priceChange", label: "전체 실거래가 변동 알림 받기", desc: "주요 서울 아파트 실거래가 변동 소식을 실시간으로 제공받습니다." },
                     { key: "priceIncrease", label: "시세 상승 알림 받기", desc: "시세가 상승하는 단지의 동향을 빠르게 알림으로 받습니다." },
@@ -1209,13 +1290,13 @@ export default function MyPage() {
                   ].map((item) => (
                     <label
                       key={item.key}
-                      className="flex items-center justify-between gap-6 p-5 cursor-pointer hover:bg-[#f8faf8] transition-colors"
+                      className="flex items-center justify-between gap-6 p-5 cursor-pointer hover:bg-[#F0F7FA] transition-colors"
                     >
                       <div>
-                        <strong className="text-[15px] font-bold text-[#344037] block">
+                        <strong className="text-[15px] font-bold text-[#123047] block">
                           {item.label}
                         </strong>
-                        <span className="text-[13px] text-[#7a877c] block mt-1">
+                        <span className="text-[13px] text-[#6B7280] block mt-1">
                           {item.desc}
                         </span>
                       </div>
@@ -1228,7 +1309,7 @@ export default function MyPage() {
                             [item.key]: e.target.checked,
                           }))
                         }
-                        className="w-[18px] h-[18px] accent-[#57a764] cursor-pointer"
+                        className="w-[18px] h-[18px] accent-[#0F8AA8] cursor-pointer"
                       />
                     </label>
                   ))}
@@ -1238,7 +1319,7 @@ export default function MyPage() {
                   <button
                     type="button"
                     onClick={handleSaveNotificationSettings}
-                    className="h-[48px] px-8 bg-[#57a764] hover:bg-[#438e4d] text-white text-[15px] font-bold rounded-[8px] border-none outline-none cursor-pointer transition-colors"
+                    className="h-[48px] px-8 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[15px] font-bold rounded-[8px] border-none outline-none cursor-pointer transition-colors shadow-xs"
                   >
                     알림 설정 저장
                   </button>
@@ -1250,21 +1331,21 @@ export default function MyPage() {
             {activeTab === "ACTIVITY" && (
               <div className="space-y-6">
                 <div className="text-center space-y-1 mb-6">
-                  <h2 className="text-[20px] font-bold text-[#242b23]">내 활동</h2>
-                  <p className="text-[14px] text-[#667065]">
+                  <h2 className="text-[20px] font-bold text-[#123047]">내 활동</h2>
+                  <p className="text-[14px] text-[#6B7280]">
                     내가 실제로 작성한 게시글과 댓글을 확인하고 해당 글로 바로 이동할 수 있습니다.
                   </p>
                 </div>
 
                 {/* 내 활동 서브 탭 */}
-                <div className="flex items-center gap-2 pb-3 border-b border-[#e1e8e2]">
+                <div className="flex items-center gap-2 pb-3 border-b border-[#DCE8ED]">
                   <button
                     type="button"
                     onClick={() => setActivityType("POST")}
                     className={
                       activityType === "POST"
-                        ? "h-[38px] px-4 rounded-[8px] bg-[#57a764] border border-[#57a764] text-white font-bold text-[14px] cursor-pointer"
-                        : "h-[38px] px-4 rounded-[8px] bg-white border border-[#d8e2d9] text-[#718073] font-bold text-[14px] hover:bg-[#f5f8f5] cursor-pointer"
+                        ? "h-[38px] px-4 rounded-[8px] bg-[#0F8AA8] border border-[#0F8AA8] text-white font-bold text-[14px] cursor-pointer"
+                        : "h-[38px] px-4 rounded-[8px] bg-white border border-[#DCE8ED] text-[#6B7280] font-bold text-[14px] hover:bg-[#F0F7FA] cursor-pointer"
                     }
                   >
                     작성한 게시글 {isLoggedIn && !isBoardLoading && `(${myPosts.length})`}
@@ -1274,20 +1355,20 @@ export default function MyPage() {
                     onClick={() => setActivityType("COMMENT")}
                     className={
                       activityType === "COMMENT"
-                        ? "h-[38px] px-4 rounded-[8px] bg-[#57a764] border border-[#57a764] text-white font-bold text-[14px] cursor-pointer"
-                        : "h-[38px] px-4 rounded-[8px] bg-white border border-[#d8e2d9] text-[#718073] font-bold text-[14px] hover:bg-[#f5f8f5] cursor-pointer"
+                        ? "h-[38px] px-4 rounded-[8px] bg-[#0F8AA8] border border-[#0F8AA8] text-white font-bold text-[14px] cursor-pointer"
+                        : "h-[38px] px-4 rounded-[8px] bg-white border border-[#DCE8ED] text-[#6B7280] font-bold text-[14px] hover:bg-[#F0F7FA] cursor-pointer"
                     }
                   >
-                    작성한 댓글
+                    작성한 댓글 {isLoggedIn && !isCommentsLoading && `(${myComments.length})`}
                   </button>
                 </div>
 
                 {/* 실제 게시글/댓글 목록 리스트 */}
-                <div className="border border-[#e1e8e2] rounded-[10px] divide-y divide-[#e7ece7] bg-white overflow-hidden">
+                <div className="border border-[#DCE8ED] rounded-[10px] divide-y divide-[#DCE8ED] bg-white overflow-hidden">
                   {activityType === "POST" && (
                     <>
                       {isBoardLoading ? (
-                        <div className="p-12 text-center text-[#7a877c] text-[14px]">
+                        <div className="p-12 text-center text-[#6B7280] text-[14px]">
                           내가 작성한 게시글을 불러오는 중입니다...
                         </div>
                       ) : myPosts.length > 0 ? (
@@ -1300,23 +1381,23 @@ export default function MyPage() {
                             <Link
                               key={post.boardId}
                               to={`/board/${post.boardId}`}
-                              className="flex items-center justify-between p-5 hover:bg-[#f5faf5] transition-colors group no-underline text-inherit"
+                              className="flex items-center justify-between p-5 hover:bg-[#F0F7FA] transition-colors group no-underline text-inherit"
                               style={{ textDecoration: "none", color: "inherit" }}
                             >
                               <div className="min-w-0 pr-4">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[11px] font-extrabold px-2 py-0.5 bg-[#e8f4e9] text-[#4c8c53] rounded-full shrink-0 no-underline">
+                                  <span className="text-[11px] font-extrabold px-2 py-0.5 bg-[#E6F4F2] text-[#0F766E] rounded-full shrink-0 no-underline">
                                     {post.postType === "NOTICE" ? "공지" : "일반"}
                                   </span>
-                                  <strong className="text-[15px] font-bold text-[#344037] group-hover:text-[#4c9b55] transition-colors block truncate no-underline">
+                                  <strong className="text-[15px] font-bold text-[#123047] group-hover:text-[#0F8AA8] transition-colors block truncate no-underline">
                                     {post.title}
                                   </strong>
                                 </div>
-                                <span className="text-[13px] text-[#7a877c] block mt-1.5 no-underline">
+                                <span className="text-[13px] text-[#6B7280] block mt-1.5 no-underline">
                                   작성일 {formattedDate} · 조회수 {post.viewCount}
                                 </span>
                               </div>
-                              <b aria-hidden="true" className="text-[#57a764] text-[24px] font-normal leading-none shrink-0 group-hover:translate-x-1 transition-transform no-underline">
+                              <b aria-hidden="true" className="text-[#0F8AA8] text-[24px] font-normal leading-none shrink-0 group-hover:translate-x-1 transition-transform no-underline">
                                 ›
                               </b>
                             </Link>
@@ -1325,15 +1406,15 @@ export default function MyPage() {
                       ) : (
                         <div className="p-12 text-center space-y-3">
                           <div className="text-[32px]">📝</div>
-                          <p className="text-[15px] font-bold text-[#344037]">
+                          <p className="text-[15px] font-bold text-[#123047]">
                             작성하신 게시글이 없습니다.
                           </p>
-                          <p className="text-[13px] text-[#7a877c]">
+                          <p className="text-[13px] text-[#6B7280]">
                             게시판에서 새로운 게시글을 작성해보세요!
                           </p>
                           <Link
                             to="/board/write"
-                            className="inline-block px-5 py-2.5 bg-[#57a764] hover:bg-[#438e4d] text-white text-[13px] font-bold rounded-[8px] transition-colors shadow-xs no-underline"
+                            className="inline-block px-5 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[13px] font-bold rounded-[8px] transition-colors shadow-xs no-underline"
                             style={{ textDecoration: "none" }}
                           >
                             새 게시글 작성하러 가기 →
@@ -1344,22 +1425,62 @@ export default function MyPage() {
                   )}
 
                   {activityType === "COMMENT" && (
-                    <div className="p-12 text-center space-y-3">
-                      <div className="text-[32px]">💬</div>
-                      <p className="text-[15px] font-bold text-[#344037]">
-                        작성하신 댓글이 없습니다.
-                      </p>
-                      <p className="text-[13px] text-[#7a877c]">
-                        게시글을 읽고 자유롭게 댓글을 남겨보세요!
-                      </p>
-                      <Link
-                        to="/board"
-                        className="inline-block px-5 py-2.5 bg-[#57a764] hover:bg-[#438e4d] text-white text-[13px] font-bold rounded-[8px] transition-colors shadow-xs no-underline"
-                        style={{ textDecoration: "none" }}
-                      >
-                        게시판 둘러보기 →
-                      </Link>
-                    </div>
+                    <>
+                      {isCommentsLoading ? (
+                        <div className="p-12 text-center text-[#6B7280] text-[14px]">
+                          내가 작성한 댓글을 불러오는 중입니다...
+                        </div>
+                      ) : myComments.length > 0 ? (
+                        myComments.map((comment) => {
+                          const formattedDate = comment.createdAt?.includes("T")
+                            ? `${comment.createdAt.split("T")[0].replace(/-/g, ".")} ${comment.createdAt.split("T")[1].slice(0, 5)}`
+                            : comment.createdAt || "-";
+
+                          return (
+                            <Link
+                              key={`${comment.boardId}-${comment.commentId}`}
+                              to={`/board/${comment.boardId}`}
+                              className="flex items-center justify-between p-5 hover:bg-[#F0F7FA] transition-colors group no-underline text-inherit"
+                              style={{ textDecoration: "none", color: "inherit" }}
+                            >
+                              <div className="min-w-0 pr-4">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] font-extrabold px-2 py-0.5 bg-[#E6F4F2] text-[#0F766E] rounded-full shrink-0 no-underline">
+                                    댓글
+                                  </span>
+                                  <strong className="text-[15px] font-bold text-[#123047] group-hover:text-[#0F8AA8] transition-colors block truncate no-underline">
+                                    {comment.content}
+                                  </strong>
+                                </div>
+                                <span className="text-[13px] text-[#6B7280] block mt-1.5 no-underline">
+                                  원문 글: {comment.boardTitle} · 작성일 {formattedDate}
+                                </span>
+                              </div>
+                              <b aria-hidden="true" className="text-[#0F8AA8] text-[24px] font-normal leading-none shrink-0 group-hover:translate-x-1 transition-transform no-underline">
+                                ›
+                              </b>
+                            </Link>
+                          );
+                        })
+                      ) : (
+                        <div className="p-12 text-center space-y-3">
+                          <div className="text-[32px]">💬</div>
+                          <p className="text-[15px] font-bold text-[#123047]">
+                            작성하신 댓글이 없습니다.
+                          </p>
+                          <p className="text-[13px] text-[#6B7280]">
+                            게시글을 읽고 자유롭게 댓글을 남겨보세요!
+                          </p>
+                          <Link
+                            to="/board"
+                            className="inline-block px-5 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[13px] font-bold rounded-[8px] transition-colors shadow-xs no-underline"
+                            style={{ textDecoration: "none" }}
+                          >
+                            게시판 둘러보기 →
+                          </Link>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -1371,20 +1492,20 @@ export default function MyPage() {
       {/* 비밀번호 변경 팝업 모달 (PASS 인증 완료 시 활성화) */}
       {isPasswordModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md bg-white rounded-[16px] border border-[#dce4da] shadow-2xl p-6 sm:p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-white rounded-[16px] border border-[#DCE8ED] shadow-2xl p-6 sm:p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200">
             <div className="text-center space-y-1.5">
-              <div className="w-12 h-12 rounded-full bg-[#e8f3e9] text-[#3f8a47] flex items-center justify-center mx-auto text-[22px]">
+              <div className="w-12 h-12 rounded-full bg-[#E6F4F2] text-[#0F766E] flex items-center justify-center mx-auto text-[22px]">
                 🔒
               </div>
-              <h3 className="text-[20px] font-black text-[#242b23]">새 비밀번호 설정</h3>
-              <p className="text-[13px] text-[#667065]">
+              <h3 className="text-[20px] font-black text-[#123047]">새 비밀번호 설정</h3>
+              <p className="text-[13px] text-[#6B7280]">
                 PASS 본인인증이 완료되었습니다. 새로운 비밀번호를 입력해 주세요.
               </p>
             </div>
 
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-[#344037] block">새 비밀번호 (8~16자)</label>
+                <label className="text-[13px] font-bold text-[#13202B] block">새 비밀번호 (8~16자)</label>
                 <input
                   type="password"
                   placeholder="새 비밀번호를 입력하세요"
@@ -1393,12 +1514,12 @@ export default function MyPage() {
                     setNewPassword(e.target.value);
                     setPasswordError("");
                   }}
-                  className="w-full h-[46px] rounded-[8px] border border-[#d5dfd6] bg-white px-3.5 text-[15px] outline-none focus:border-[#57a764]"
+                  className="w-full h-[46px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8]"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-[#344037] block">새 비밀번호 확인</label>
+                <label className="text-[13px] font-bold text-[#13202B] block">새 비밀번호 확인</label>
                 <input
                   type="password"
                   placeholder="새 비밀번호를 한 번 더 입력하세요"
@@ -1407,7 +1528,7 @@ export default function MyPage() {
                     setNewPasswordConfirm(e.target.value);
                     setPasswordError("");
                   }}
-                  className="w-full h-[46px] rounded-[8px] border border-[#d5dfd6] bg-white px-3.5 text-[15px] outline-none focus:border-[#57a764]"
+                  className="w-full h-[46px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8]"
                 />
               </div>
 
@@ -1420,14 +1541,14 @@ export default function MyPage() {
               <button
                 type="button"
                 onClick={() => setIsPasswordModalOpen(false)}
-                className="flex-1 h-[46px] bg-white hover:bg-[#f5f8f5] text-[#556357] border border-[#cfd9d0] font-bold text-[14px] rounded-[8px] cursor-pointer transition-colors"
+                className="flex-1 h-[46px] bg-white hover:bg-[#F0F7FA] text-[#6B7280] border border-[#DCE8ED] font-bold text-[14px] rounded-[8px] cursor-pointer transition-colors"
               >
                 닫기
               </button>
               <button
                 type="button"
                 onClick={handleSaveNewPassword}
-                className="flex-1 h-[46px] bg-[#57a764] hover:bg-[#438e4d] text-white font-bold text-[14px] rounded-[8px] cursor-pointer transition-colors shadow-xs"
+                className="flex-1 h-[46px] bg-[#0F8AA8] hover:bg-[#0B5E73] text-white font-bold text-[14px] rounded-[8px] cursor-pointer transition-colors shadow-xs"
               >
                 변경 완료
               </button>
@@ -1439,19 +1560,19 @@ export default function MyPage() {
       {/* 일반 회원 탈퇴 비밀번호 확인 모달 */}
       {isWithdrawModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-            <div className="w-full max-w-[420px] rounded-[16px] bg-white p-6 shadow-2xl space-y-5">
+            <div className="w-full max-w-[420px] rounded-[16px] bg-white p-6 shadow-2xl space-y-5 border border-[#DCE8ED]">
               <div className="text-center space-y-1">
                 <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-2 text-xl font-bold">
                   ⚠️
                 </div>
-                <h3 className="text-[20px] font-bold text-[#242b23]">회원 탈퇴 확인</h3>
-                <p className="text-[13px] text-[#667065]">
+                <h3 className="text-[20px] font-bold text-[#123047]">회원 탈퇴 확인</h3>
+                <p className="text-[13px] text-[#6B7280]">
                   안전한 탈퇴를 위해 현재 계정의 비밀번호를 입력해 주세요.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <label className="block text-[13px] font-bold text-[#344037]">
+                <label className="block text-[13px] font-bold text-[#13202B]">
                   비밀번호 입력
                 </label>
                 <input
@@ -1468,7 +1589,7 @@ export default function MyPage() {
                       handleConfirmWithdrawWithPassword();
                     }
                   }}
-                  className="h-[46px] w-full rounded-[8px] border border-[#d5dfd6] bg-white px-4 text-[14px] text-[#2b362d] outline-none focus:border-rose-400"
+                  className="h-[46px] w-full rounded-[8px] border border-[#DCE8ED] bg-white px-4 text-[14px] text-[#13202B] outline-none focus:border-rose-400"
                 />
                 {withdrawError && (
                   <p className="text-[12px] font-bold text-rose-500">{withdrawError}</p>
@@ -1483,7 +1604,7 @@ export default function MyPage() {
                 <button
                   type="button"
                   onClick={() => setIsWithdrawModalOpen(false)}
-                  className="h-[42px] px-5 rounded-[8px] border border-[#d5dfd6] bg-white text-[14px] font-bold text-[#556357] hover:bg-[#f5f8f5] cursor-pointer transition-colors"
+                  className="h-[42px] px-5 rounded-[8px] border border-[#DCE8ED] bg-white text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA] cursor-pointer transition-colors"
                 >
                   취소
                 </button>
@@ -1491,7 +1612,7 @@ export default function MyPage() {
                   type="button"
                   disabled={isWithdrawing}
                   onClick={handleConfirmWithdrawWithPassword}
-                  className="h-[42px] px-6 rounded-[8px] bg-rose-600 hover:bg-rose-700 text-[14px] font-bold text-white border-none cursor-pointer transition-colors shadow-sm disabled:opacity-50"
+                  className="h-[42px] px-6 rounded-[8px] bg-rose-600 hover:bg-rose-700 text-[14px] font-bold text-white border-none cursor-pointer transition-colors shadow-xs disabled:opacity-50"
                 >
                   {isWithdrawing ? "탈퇴 처리 중..." : "탈퇴 확인"}
                 </button>

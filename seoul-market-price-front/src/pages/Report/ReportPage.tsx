@@ -71,19 +71,19 @@ export default function ReportPage() {
   };
 
   return (
-    <div className="w-full min-h-screen bg-[#f8faf8] text-[#2d3a2f] py-10 px-4 sm:px-6 lg:px-8">
+    <div className="w-full min-h-screen bg-[#F5FAFC] text-[#13202B] py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-[1140px] mx-auto space-y-6">
         {/* 상단 헤더 영역 */}
-        <div className="bg-white border border-[#e2ece2] rounded-[16px] p-6 sm:p-8 shadow-xs">
+        <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[16px] p-6 sm:p-8 shadow-xs">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <span className="text-[13px] font-bold text-[#4c9b55] uppercase tracking-wider block mb-1">
+              <span className="text-[13px] font-extrabold text-[#0F8AA8] uppercase tracking-wider block mb-1">
                 SSABU CLEAN REAL ESTATE
               </span>
-              <h1 className="text-[22px] sm:text-[26px] font-extrabold text-[#222b23] tracking-tight">
+              <h1 className="text-[22px] sm:text-[26px] font-extrabold text-[#123047] tracking-tight">
                 허위 매물 및 불공정 거래 신고 센터
               </h1>
-              <p className="text-[14px] text-[#6b7c6d] mt-1.5 leading-relaxed">
+              <p className="text-[14px] text-[#6B7280] mt-1.5 leading-relaxed">
                 싸부(SSABU)는 허위 가격, 미존재 매물, 시세 왜곡 없는 투명한
                 서울 부동산 거래 환경을 만들어갑니다.
               </p>
@@ -91,14 +91,14 @@ export default function ReportPage() {
             <button
               type="button"
               onClick={handleWriteClick}
-              className="inline-flex items-center justify-center h-[46px] px-6 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[14px] font-bold rounded-[8px] transition-colors shadow-xs cursor-pointer border-none shrink-0"
+              className="inline-flex items-center justify-center h-[46px] px-6 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[8px] transition-colors shadow-xs cursor-pointer border-none shrink-0"
             >
               신고 접수하기
             </button>
           </div>
 
           {/* 카테고리 필터 탭 */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pt-6 mt-6 border-t border-[#edf3ed] pb-1">
+          <div className="flex items-center gap-1.5 overflow-x-auto pt-6 mt-6 border-t border-[#DCE8ED] pb-1">
             {(
               [
                 "ALL",
@@ -120,8 +120,8 @@ export default function ReportPage() {
                   }}
                   className={`px-3.5 py-2 rounded-[8px] text-[13px] font-semibold transition-colors shrink-0 cursor-pointer border ${
                     isActive
-                      ? "bg-[#2d3a2f] text-white border-[#2d3a2f]"
-                      : "bg-[#f4f7f4] text-[#556457] border-[#e2ece2] hover:bg-[#e8efe8]"
+                      ? "bg-[#123047] text-white border-[#123047] shadow-xs"
+                      : "bg-[#F0F7FA] text-[#13202B] border-[#DCE8ED] hover:bg-[#E1EFF5]"
                   }`}
                 >
                   {REPORT_CATEGORY_MAP[cat]}
@@ -132,10 +132,10 @@ export default function ReportPage() {
         </div>
 
         {/* 검색 및 건수 바 */}
-        <div className="bg-white border border-[#e2ece2] rounded-[12px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-          <p className="text-[14px] text-[#6b7c6d]">
+        <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[12px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <p className="text-[14px] text-[#6B7280]">
             총{" "}
-            <strong className="text-[#4c9b55] font-extrabold">
+            <strong className="text-[#0F8AA8] font-extrabold">
               {filteredReports.length}
             </strong>
             건의 신고 접수 내역이 있습니다.
@@ -150,11 +150,11 @@ export default function ReportPage() {
               placeholder="단지명 또는 신고 제목 검색"
               value={searchKeyword}
               onChange={(e) => setSearchKeyword(e.target.value)}
-              className="h-[38px] px-3.5 rounded-[7px] border border-[#d3dfd3] text-[13px] text-[#2d3a2f] bg-[#fafcfa] focus:outline-none focus:border-[#4c9b55] w-full sm:w-[240px]"
+              className="h-[38px] px-3.5 rounded-[7px] border border-[#DCE8ED] text-[13px] text-[#13202B] bg-[#F5FAFC] focus:outline-none focus:border-[#0F8AA8] w-full sm:w-[240px]"
             />
             <button
               type="submit"
-              className="h-[38px] px-4 rounded-[7px] bg-[#343c33] hover:bg-[#252b24] text-white text-[13px] font-bold border-none cursor-pointer transition-colors shrink-0"
+              className="h-[38px] px-4 rounded-[7px] bg-[#123047] hover:bg-[#0B5E73] text-white text-[13px] font-bold border-none cursor-pointer transition-colors shrink-0"
             >
               검색
             </button>
@@ -162,7 +162,7 @@ export default function ReportPage() {
               <button
                 type="button"
                 onClick={handleReset}
-                className="h-[38px] px-3 rounded-[7px] bg-white border border-[#dce4da] text-[#5a6459] hover:bg-[#eef3ed] text-[13px] font-medium cursor-pointer shrink-0"
+                className="h-[38px] px-3 rounded-[7px] bg-white border border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA] text-[13px] font-medium cursor-pointer shrink-0"
               >
                 초기화
               </button>
@@ -171,16 +171,16 @@ export default function ReportPage() {
         </div>
 
         {/* 신고 목록 테이블 */}
-        <div className="bg-white border border-[#e2ece2] rounded-[14px] overflow-hidden shadow-xs">
+        <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[14px] overflow-hidden shadow-xs">
           {paginatedReports.length === 0 ? (
-            <div className="py-20 text-center text-[#88988a] text-[14px]">
+            <div className="py-20 text-center text-[#6B7280] text-[14px]">
               접수된 신고 내역이 없습니다.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left border-collapse">
                 <thead>
-                  <tr className="bg-[#f5f8f5] border-b border-[#e2ece2] text-[13px] text-[#556457] font-bold">
+                  <tr className="bg-[#F0F7FA] border-b border-[#DCE8ED] text-[13px] text-[#123047] font-bold">
                     <th className="py-3.5 px-4 text-center w-[70px]">번호</th>
                     <th className="py-3.5 px-4 text-center w-[130px]">
                       신고 유형
@@ -195,7 +195,7 @@ export default function ReportPage() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#edf3ed] text-[13px]">
+                <tbody className="divide-y divide-[#DCE8ED] text-[13px]">
                   {paginatedReports.map((item) => {
                     const statusMeta = REPORT_STATUS_MAP[item.status];
                     const canView = canUserViewReport(item, loginUser);
@@ -203,13 +203,13 @@ export default function ReportPage() {
                     return (
                       <tr
                         key={item.id}
-                        className="hover:bg-[#f9fbf9] transition-colors"
+                        className="hover:bg-[#F5FAFC] transition-colors"
                       >
-                        <td className="py-4 px-4 text-center text-[#78887a] font-medium">
+                        <td className="py-4 px-4 text-center text-[#6B7280] font-medium">
                           {item.id}
                         </td>
                         <td className="py-4 px-4 text-center">
-                          <span className="inline-block px-2.5 py-1 rounded-[5px] bg-[#f0f4f0] text-[#4d5e4f] text-[12px] font-semibold">
+                          <span className="inline-block px-2.5 py-1 rounded-[5px] bg-[#E1EFF5] text-[#0B5E73] text-[12px] font-semibold">
                             {REPORT_CATEGORY_MAP[item.category]}
                           </span>
                         </td>
@@ -221,27 +221,27 @@ export default function ReportPage() {
                           >
                             <div className="flex items-center gap-2">
                               {item.isSecret && (
-                                <span className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-[#fef2f2] text-[#dc2626] border border-[#fecaca]">
+                                <span className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]">
                                   비공개
                                 </span>
                               )}
-                              <span className="font-bold text-[#2d3a2f] group-hover:text-[#4c9b55] transition-colors truncate max-w-[480px]">
+                              <span className="font-bold text-[#13202B] group-hover:text-[#0F8AA8] transition-colors truncate max-w-[480px]">
                                 {item.isSecret && !canView
                                   ? "작성자와 관리자만 열람할 수 있는 비공개 신고글입니다."
                                   : item.title}
                               </span>
                             </div>
-                            <span className="text-[12px] text-[#78887a] block mt-0.5 font-normal truncate max-w-[500px]">
+                            <span className="text-[12px] text-[#6B7280] block mt-0.5 font-normal truncate max-w-[500px]">
                               {item.isSecret && !canView
                                 ? "신고 대상 정보 비공개"
                                 : `대상: ${item.targetProperty}`}
                             </span>
                           </Link>
                         </td>
-                        <td className="py-4 px-4 text-center text-[#68786a]">
+                        <td className="py-4 px-4 text-center text-[#6B7280]">
                           {item.authorName}
                         </td>
-                        <td className="py-4 px-4 text-center text-[#78887a]">
+                        <td className="py-4 px-4 text-center text-[#6B7280]">
                           {item.createdAt}
                         </td>
                         <td className="py-4 px-4 text-center">
@@ -258,43 +258,52 @@ export default function ReportPage() {
               </table>
             </div>
           )}
-        </div>
 
-        {/* 페이지네이션 */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-1.5 pt-4">
-            <button
-              type="button"
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="h-[36px] px-3.5 rounded-[7px] border border-[#dce4da] bg-white text-[#4d5e4f] text-[13px] font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#f4f7f4] cursor-pointer"
-            >
-              이전
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+          {/* 페이지네이션 */}
+          {totalPages > 1 && (
+            <div className="p-4 border-t border-[#DCE8ED] flex items-center justify-center gap-1.5">
               <button
-                key={page}
                 type="button"
-                onClick={() => setCurrentPage(page)}
-                className={`w-[36px] h-[36px] rounded-[7px] text-[13px] font-bold transition-colors cursor-pointer border ${
-                  currentPage === page
-                    ? "bg-[#4c9b55] text-white border-[#4c9b55]"
-                    : "bg-white text-[#556457] border-[#dce4da] hover:bg-[#f4f7f4]"
-                }`}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 rounded-[6px] border border-[#DCE8ED] text-[12px] text-[#6B7280] disabled:opacity-40 hover:bg-[#F0F7FA] cursor-pointer disabled:cursor-not-allowed"
               >
-                {page}
+                이전
               </button>
-            ))}
-            <button
-              type="button"
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="h-[36px] px-3.5 rounded-[7px] border border-[#dce4da] bg-white text-[#4d5e4f] text-[13px] font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#f4f7f4] cursor-pointer"
-            >
-              다음
-            </button>
-          </div>
-        )}
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (pageNum) => {
+                  const isActive = pageNum === currentPage;
+                  return (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-[32px] h-[32px] rounded-[6px] text-[13px] font-bold cursor-pointer transition-colors border ${
+                        isActive
+                          ? "bg-[#0F8AA8] text-white border-[#0F8AA8]"
+                          : "bg-white text-[#6B7280] border-[#DCE8ED] hover:bg-[#F0F7FA]"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                }
+              )}
+
+              <button
+                type="button"
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 rounded-[6px] border border-[#DCE8ED] text-[12px] text-[#6B7280] disabled:opacity-40 hover:bg-[#F0F7FA] cursor-pointer disabled:cursor-not-allowed"
+              >
+                다음
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

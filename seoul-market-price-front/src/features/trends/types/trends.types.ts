@@ -41,6 +41,8 @@ export interface MonthlyPriceTrendPoint {
 export interface TrendsDataResponse {
   selectedGu: string;
   selectedDong: string;
+  selectedComplex: string;
+  complexList: string[];
   summary: MarketSummary;
   rankings: ComplexRankingItem[];
   monthlyTrends: MonthlyPriceTrendPoint[];
