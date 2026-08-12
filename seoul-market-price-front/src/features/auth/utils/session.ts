@@ -26,6 +26,6 @@ export async function handleSessionExpired(){
     );
 
 
-    window.location.href = "/login";
+    window.location.href = "/";
 
 }

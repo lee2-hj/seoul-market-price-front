@@ -7,6 +7,8 @@ import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { CheckCircle2, HelpCircle, Search } from "lucide-react";
 import PassAuth from "@/features/auth/components/PassAuth";
 import { getBoardPostsApi } from "@/api/api";
+import apiMiddleware from "@/api/middleware";
+import * as api from "@/api/api";
 
 /**
  * 마이페이지 상단 선택 탭
@@ -265,6 +267,7 @@ export default function MyPage() {
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [withdrawPassword, setWithdrawPassword] = useState("");
   const [withdrawError, setWithdrawError] = useState("");
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   const [emailVerified, setEmailVerified] = useState(false);
   const [emailCertSent, setEmailCertSent] = useState(false);
@@ -301,13 +304,40 @@ export default function MyPage() {
     setPasswordError("");
   };
 
-  // 실제 탈퇴 처리 로직
-  const executeWithdrawal = () => {
-    const userKey = getStorageKey(authUser?.userId || profile.userId);
-    localStorage.removeItem(userKey);
-    useAuthStore.getState().clearSession();
-    alert("회원 탈퇴가 완료되었습니다. 그동안 서비스를 이용해 주셔서 감사합니다.");
-    window.location.href = "/";
+  // 실제 탈퇴 처리 로직 (백엔드 DELETE /api/members/me 연동)
+  const executeWithdrawal = async (password?: string) => {
+    setIsWithdrawing(true);
+    setWithdrawError("");
+    try {
+      const now = new Date().toISOString();
+      const withdrawFn = (api as any).withdrawMemberApi;
+      if (typeof withdrawFn === "function") {
+        await withdrawFn(password, now);
+      } else {
+        await apiMiddleware.delete("/api/members/me", {
+          data: {
+            password: password || "",
+            deletedAt: now,
+          },
+        });
+      }
+
+      // 로컬 스토리지 및 세션 초기화
+      const userKey = getStorageKey(authUser?.userId || profile.userId);
+      localStorage.removeItem(userKey);
+      useAuthStore.getState().clearSession();
+      alert("회원 탈퇴가 완료되었습니다. 그동안 서비스를 이용해 주셔서 감사합니다.");
+      window.location.href = "/";
+    } catch (error: any) {
+      console.error("회원 탈퇴 실패:", error);
+      const errorMsg =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        "비밀번호가 일치하지 않거나 회원 탈퇴 처리에 실패했습니다.";
+      setWithdrawError(errorMsg);
+    } finally {
+      setIsWithdrawing(false);
+    }
   };
 
   // 회원 탈퇴 버튼 클릭 분기 (일반 vs 소셜)
@@ -331,7 +361,7 @@ export default function MyPage() {
   };
 
   // 일반 회원 비밀번호 입력 후 최종 탈퇴 확인
-  const handleConfirmWithdrawWithPassword = () => {
+  const handleConfirmWithdrawWithPassword = async () => {
     const pwd = withdrawPassword.trim();
     if (!pwd) {
       setWithdrawError("비밀번호를 입력해 주세요.");
@@ -341,8 +371,7 @@ export default function MyPage() {
       setWithdrawError("비밀번호를 올바르게 입력해 주세요.");
       return;
     }
-    setIsWithdrawModalOpen(false);
-    executeWithdrawal();
+    await executeWithdrawal(pwd);
   };
 
   const { register, handleSubmit, setValue, reset, watch } = useForm<Profile>({
@@ -1460,10 +1489,11 @@ export default function MyPage() {
                 </button>
                 <button
                   type="button"
+                  disabled={isWithdrawing}
                   onClick={handleConfirmWithdrawWithPassword}
-                  className="h-[42px] px-6 rounded-[8px] bg-rose-600 hover:bg-rose-700 text-[14px] font-bold text-white border-none cursor-pointer transition-colors shadow-sm"
+                  className="h-[42px] px-6 rounded-[8px] bg-rose-600 hover:bg-rose-700 text-[14px] font-bold text-white border-none cursor-pointer transition-colors shadow-sm disabled:opacity-50"
                 >
-                  탈퇴 확인
+                  {isWithdrawing ? "탈퇴 처리 중..." : "탈퇴 확인"}
                 </button>
               </div>
             </div>

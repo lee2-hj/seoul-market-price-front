@@ -5,6 +5,20 @@ import apiMiddleware, {
   type RetryableRequestConfig,
 } from "./middleware";
 
+import type {
+  BoardListRequest,
+  BoardPageResponse,
+  BoardListItem,
+  BoardDetail,
+  BoardCreateRequest,
+  BoardUpdateRequest,
+  BoardComment,
+  CommentCreateRequest,
+  CommentUpdateRequest,
+  PostType,
+  NoticeLevel,
+} from "@/features/board/types/board.types";
+
 // ===============================
 // 로그인 응답
 // ===============================
@@ -152,7 +166,6 @@ export async function signupApi(signupData: SignupRequest) {
 // ===============================
 // 아이디 찾기
 // ===============================
-
 export interface FindIdResponse {
   found: boolean;
   maskedUserIds: string[];
@@ -171,7 +184,6 @@ export async function findIdApi(
       ...(phone && { phone, phoneNumber: phone }),
     },
   );
-
   return response.data;
 }
 
@@ -274,10 +286,18 @@ export async function checkUserIdApi(userId: string) {
 // ===============================
 
 export interface CheckMemberResponse {
-  isduplicated: boolean;
+  isduplicated?: boolean;
+  verified?: boolean;
+  name?: string;
+  phoneNumber?: string;
+  membershipStatus?: "NEW" | "ACTIVE" | "WITHDRAWN";
+  signupAllowed?: boolean;
 }
 
-export async function checkMemberApi(name: string, phone: string) {
+export async function checkMemberApi(
+  name: string,
+  phone: string,
+): Promise<CheckMemberResponse> {
   const response = await apiMiddleware.get<CheckMemberResponse>(
     "/api/members/check-member",
     {
@@ -302,20 +322,6 @@ export function isAuthError(error: unknown) {
 // ===============================
 // 게시판 (Board) API
 // ===============================
-
-import type {
-  BoardListRequest,
-  BoardPageResponse,
-  BoardListItem,
-  BoardDetail,
-  BoardCreateRequest,
-  BoardUpdateRequest,
-  BoardComment,
-  CommentCreateRequest,
-  CommentUpdateRequest,
-  PostType,
-  NoticeLevel,
-} from "@/features/board/types/board.types";
 
 interface RawBoardListItem {
   boardId?: number;
@@ -535,6 +541,76 @@ export async function updateBoardCommentApi(
  */
 export async function deleteBoardCommentApi(commentId: number): Promise<void> {
   await apiMiddleware.delete(`/api/boards/comments/${commentId}`);
+}
+
+/* ==========================================
+ 게시판 첨부파일 API (추가 요청용)
+========================================== */
+
+import type {
+  AttachmentResponse,
+  AttachmentDownloadResponse,
+} from "@/features/board/types/board.types";
+
+/**
+ * 게시글 첨부파일 다중/단일 업로드 API (POST /api/boards/:boardId/attachments)
+ */
+export async function uploadBoardAttachmentsApi(
+  boardId: number,
+  files: File[],
+): Promise<AttachmentResponse[]> {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append("files", file);
+  });
+
+  const response = await apiMiddleware.post<AttachmentResponse[]>(
+    `/api/boards/${boardId}/attachments`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
+  return response.data;
+}
+
+/**
+ * 게시글 첨부파일 목록 조회 API (GET /api/boards/:boardId/attachments)
+ */
+export async function getBoardAttachmentsApi(
+  boardId: number,
+): Promise<AttachmentResponse[]> {
+  const response = await apiMiddleware.get<AttachmentResponse[]>(
+    `/api/boards/${boardId}/attachments`,
+  );
+  return response.data || [];
+}
+
+/**
+ * 게시글 첨부파일 다운로드 URL 발급 API (GET /api/boards/:boardId/attachments/:attachmentId/download)
+ */
+export async function downloadBoardAttachmentApi(
+  boardId: number,
+  attachmentId: number,
+): Promise<AttachmentDownloadResponse> {
+  const response = await apiMiddleware.get<AttachmentDownloadResponse>(
+    `/api/boards/${boardId}/attachments/${attachmentId}/download`,
+  );
+  return response.data;
+}
+
+/**
+ * 게시글 첨부파일 삭제 API (DELETE /api/boards/:boardId/attachments/:attachmentId)
+ */
+export async function deleteBoardAttachmentApi(
+  boardId: number,
+  attachmentId: number,
+): Promise<void> {
+  await apiMiddleware.delete(
+    `/api/boards/${boardId}/attachments/${attachmentId}`,
+  );
 }
 
 /* Q&A 목록 응답 */

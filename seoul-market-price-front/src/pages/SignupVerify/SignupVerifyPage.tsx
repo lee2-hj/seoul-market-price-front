@@ -37,28 +37,39 @@ function SignupVerifyPage() {
     return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
   };
 
-  const handleSuccess = async (result: {
-    identityVerificationId: string;
-    name: string;
-    phoneNumber: string;
-  }) => {
-    try {
-      const { isduplicated } = await checkMemberApi(
-        result.name,
-        result.phoneNumber
-      );
-
-      if (isduplicated) {
-        alert("이미 가입된 회원입니다");
+  const handleSuccess = async (result: import("@/features/auth/components/PassAuth").PassAuthResult) => {
+    // 1) 본인인증 확인 응답에 membershipStatus / signupAllowed가 포함된 경우
+    if (result.membershipStatus) {
+      if (result.membershipStatus === "ACTIVE" || result.signupAllowed === false) {
+        alert("이미 가입된 회원입니다. 로그인해 주세요.");
         navigate("/login");
         return;
       }
-    } catch (error) {
-      console.error("회원 가입 여부 확인 오류", error);
-      alert("회원 정보를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.");
-      return;
+    } else {
+      // 2) 백엔드 응답 연동 전 또는 checkMemberApi를 통한 검증 (하위 호환)
+      try {
+        const checkRes: any = await checkMemberApi(
+          result.name,
+          result.phoneNumber
+        );
+
+        if (
+          checkRes?.membershipStatus === "ACTIVE" ||
+          checkRes?.signupAllowed === false ||
+          checkRes?.isduplicated === true
+        ) {
+          alert("이미 가입된 회원입니다. 로그인해 주세요.");
+          navigate("/login");
+          return;
+        }
+      } catch (error) {
+        console.error("회원 가입 여부 확인 오류", error);
+        alert("회원 정보를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.");
+        return;
+      }
     }
 
+    // NEW(신규) 또는 WITHDRAWN(탈퇴) 회원은 곧바로 회원가입 페이지로 이동
     savePassVerifiedInfo({
       name: result.name,
       phone: formatPhoneNumber(result.phoneNumber),

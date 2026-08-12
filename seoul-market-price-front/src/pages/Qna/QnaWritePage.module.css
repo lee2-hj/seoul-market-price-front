@@ -1,23 +1,35 @@
-/* Q&A 작성 페이지 전체 */
+/* Q&A 글쓰기 페이지 전체 */
 
 .page {
   min-height: 100vh;
+  padding: 0 0 100px;
   background: #f7f9f6;
   color: #202620;
-  font-family: "Pretendard", "Noto Sans KR", Arial, sans-serif;
+  font-family:
+    "Pretendard",
+    "Noto Sans KR",
+    Arial,
+    sans-serif;
+  box-sizing: border-box;
 }
 
-/* 최상단 사용자 영역 */
+.page *,
+.page *::before,
+.page *::after {
+  box-sizing: border-box;
+}
+
+/* 상단 사용자 영역 */
 
 .topUserBar {
   width: 100%;
-  background: #ffffff;
   border-bottom: 1px solid #edf0eb;
+  background: #ffffff;
 }
 
 .topUserInner {
-  width: min(1200px, calc(100% - 48px));
-  min-height: 42px;
+  width: min(1280px, calc(100% - 48px));
+  height: 42px;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -34,18 +46,19 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: #3f493f;
   font-size: 13px;
   font-weight: 600;
+  color: #3f483f;
 }
 
 .adminBadge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   padding: 3px 7px;
-  border-radius: 4px;
-  background: #eef5eb;
-  color: #4f774c;
+  border-radius: 999px;
+  background: #edf6e9;
+  color: #4c7d3e;
   font-size: 11px;
   font-weight: 700;
 }
@@ -53,14 +66,14 @@
 .logoutButton {
   border: 0;
   background: transparent;
-  color: #7b8279;
-  font-size: 12px;
+  color: #737b73;
+  font-size: 13px;
   cursor: pointer;
-  padding: 4px 0;
+  transition: color 0.2s ease;
 }
 
 .logoutButton:hover {
-  color: #222;
+  color: #315d2b;
 }
 
 /* Header */
@@ -70,533 +83,314 @@
   z-index: 20;
   width: 100%;
   background: #ffffff;
-  border-bottom: 1px solid #e7ebe4;
+  border-bottom: 1px solid #e8ece6;
 }
 
 .headerInner {
-  width: min(1200px, calc(100% - 48px));
-  height: 78px;
+  width: min(1280px, calc(100% - 48px));
+  height: 76px;
   margin: 0 auto;
   display: flex;
   align-items: center;
 }
 
-/* 로고 */
-
 .logo {
   flex-shrink: 0;
+  padding: 0;
   border: 0;
   background: transparent;
-  color: #3e6b3d;
-  font-size: 30px;
+  color: #315d2b;
+  font-size: 27px;
   font-weight: 900;
-  letter-spacing: -2px;
+  letter-spacing: -1.5px;
   cursor: pointer;
-  padding: 0;
-  margin-right: 62px;
 }
-
-.logo:hover {
-  color: #315c30;
-}
-
-/* 메인 메뉴 */
 
 .mainNav {
   display: flex;
-  align-items: center;
-  gap: 5px;
+  align-items: stretch;
   height: 100%;
-}
-
-.navItem {
-  height: 78px;
-  padding: 0 17px;
-  border: 0;
-  background: transparent;
-  color: #303630;
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.navItem:hover {
-  color: #3f713e;
+  margin-left: 70px;
 }
 
 .navMenu {
   position: relative;
   height: 100%;
-  display: flex;
-  align-items: center;
 }
+
+.navItem {
+  height: 100%;
+  padding: 0 22px;
+  border: 0;
+  background: transparent;
+  color: #303730;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.navItem:hover {
+  color: #3d7434;
+  background: #f6f9f4;
+}
+
+/* 메가 메뉴 */
 
 .megaMenu {
   position: absolute;
-  top: 78px;
-  left: 0;
-  min-width: 205px;
-  padding: 20px 0;
+  top: calc(100% + 1px);
+  left: 50%;
+  min-width: 230px;
+  padding: 20px;
+  border: 1px solid #e5ebe2;
+  border-radius: 0 0 12px 12px;
   background: #ffffff;
-  border: 1px solid #e4e9e1;
-  border-radius: 0 0 10px 10px;
-  box-shadow: 0 12px 28px rgba(40, 55, 40, 0.08);
+  box-shadow: 0 12px 30px rgba(40, 55, 40, 0.1);
   opacity: 0;
   visibility: hidden;
-  transform: translateY(-6px);
+  transform: translate(-50%, -8px);
   transition:
-    opacity 0.18s ease,
-    transform 0.18s ease,
-    visibility 0.18s ease;
+    opacity 0.2s ease,
+    visibility 0.2s ease,
+    transform 0.2s ease;
 }
 
 .navMenu:hover .megaMenu {
   opacity: 1;
   visibility: visible;
-  transform: translateY(0);
+  transform: translate(-50%, 0);
 }
 
 .megaColumn {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 .megaColumn strong {
-  padding: 0 20px 10px;
-  color: #3f713e;
+  margin-bottom: 8px;
+  color: #315d2b;
   font-size: 14px;
 }
 
 .megaColumn button {
-  width: 100%;
+  padding: 9px 8px;
   border: 0;
+  border-radius: 7px;
   background: transparent;
-  padding: 8px 20px;
+  color: #535b53;
   text-align: left;
-  color: #555d54;
   font-size: 13px;
   cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .megaColumn button:hover {
-  background: #f4f7f2;
-  color: #3f713e;
+  background: #f3f7f1;
+  color: #315d2b;
 }
 
 /* 본문 */
 
 .container {
-  width: min(1000px, calc(100% - 48px));
+  width: min(980px, calc(100% - 48px));
   margin: 0 auto;
-  padding: 60px 0 100px;
+  padding-top: 68px;
 }
 
-/* 페이지 제목 */
+/* 페이지 헤더 */
 
 .pageHeader {
-  position: relative;
   display: flex;
   align-items: flex-end;
-  justify-content: flex-end;
-  min-height: 78px;
-  margin-top: 42px;
-  margin-bottom: 10px;
-  text-align: center;
+  justify-content: space-between;
+  gap: 30px;
+  margin-bottom: 32px;
 }
 
 .headerText {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: max-content;
-  max-width: calc(100% - 180px);
-  transform: translate(-50%, -50%);
-  text-align: center;
+  min-width: 0;
 }
 
 .pageLabel {
   display: block;
-  margin-bottom: 8px;
-  color: #5a8055;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1px;
+  margin-bottom: 9px;
+  color: #5c8752;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
 }
 
 .pageHeader h1 {
   margin: 0;
   color: #202620;
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 800;
   letter-spacing: -1.5px;
 }
 
 .pageHeader p {
   margin: 12px 0 0;
-  color: #7a8178;
-  font-size: 14px;
+  color: #707970;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
-/* 목록으로 버튼 */
+/* 목록 버튼 */
 
 .listButton {
   flex-shrink: 0;
-  height: 42px;
-  padding: 0 20px;
-  border: 1px solid #d9ded6;
-  border-radius: 7px;
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid #dce3d9;
+  border-radius: 8px;
   background: #ffffff;
-  color: #555d54;
-  font-size: 13px;
+  color: #4c554c;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
-.listButton:hover {
-  border-color: #9cad96;
-  background: #f7f9f6;
+.listButton:hover:not(:disabled) {
+  border-color: #a9bca3;
+  background: #f5f8f3;
+  color: #315d2b;
 }
 
-.listButton:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-/* 작성 Form */
+/* 작성 폼 */
 
 .form {
-  padding: 42px;
+  padding: 38px;
+  border: 1px solid #e4e9e1;
+  border-radius: 16px;
   background: #ffffff;
-  border: 1px solid #e3e8e1;
-  border-radius: 12px;
-  box-shadow: 0 6px 20px rgba(40, 55, 40, 0.04);
+  box-shadow: 0 8px 25px rgba(39, 55, 39, 0.04);
 }
 
+/* 입력 그룹 */
+
 .formGroup {
-  display: flex;
-  flex-direction: column;
   margin-bottom: 30px;
 }
 
-.formGroup label {
+.formGroup > label {
+  display: block;
   margin-bottom: 10px;
-  color: #303630;
+  color: #303730;
   font-size: 14px;
   font-weight: 700;
 }
 
-.formGroup label span {
-  color: #c75a4a;
+.formGroup > label span {
+  color: #d95b4b;
 }
-
-/* 입력창 */
 
 .formGroup input,
 .formGroup textarea {
   width: 100%;
-  box-sizing: border-box;
-  border: 1px solid #d9ded7;
-  border-radius: 7px;
+  border: 1px solid #dce3da;
+  border-radius: 9px;
   background: #ffffff;
-  color: #252a25;
+  color: #202620;
   font-family: inherit;
   font-size: 14px;
   outline: none;
   transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .formGroup input {
-  height: 48px;
-  padding: 0 14px;
+  height: 50px;
+  padding: 0 15px;
 }
 
 .formGroup textarea {
-  min-height: 280px;
-  padding: 14px;
+  min-height: 270px;
+  padding: 15px;
   line-height: 1.7;
   resize: vertical;
 }
 
 .formGroup input:focus,
 .formGroup textarea:focus {
-  border-color: #71966c;
-  box-shadow: 0 0 0 3px rgba(113, 150, 108, 0.1);
+  border-color: #6f9b66;
+  box-shadow: 0 0 0 3px rgba(111, 155, 102, 0.1);
 }
 
 .formGroup input:disabled,
 .formGroup textarea:disabled {
   background: #f5f7f4;
-  color: #777d75;
+  color: #7a817a;
   cursor: not-allowed;
 }
 
-.formGroup input::placeholder,
-.formGroup textarea::placeholder {
-  color: #a7aca5;
+.formGroup small {
+  display: block;
+  margin-top: 8px;
+  color: #899089;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
-/* 입력창 하단 설명 + 글자 수 */
+/* 입력 하단 정보 */
 
 .fieldBottom {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 15px;
-  margin-top: 8px;
 }
 
 .fieldBottom small {
-  margin-top: 0;
-  color: #929890;
-  font-size: 12px;
+  margin-top: 8px;
 }
 
 .fieldBottom > span {
   flex-shrink: 0;
-  color: #929890;
+  color: #8a9289;
   font-size: 12px;
 }
 
-/* 기본 안내 문구 */
-
-.formGroup > small {
-  margin-top: 8px;
-  color: #929890;
-  font-size: 12px;
-}
-
-/* 작성자 입력창 */
-
-#author {
-  background: #f5f7f4;
-  color: #777d75;
-  cursor: not-allowed;
-}
-
-/* 파일 input */
-
-.fileInput {
-  display: none;
-}
-
-/* 파일 업로드 영역 */
-
-.fileUploadArea {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  min-height: 82px;
-  padding: 16px 18px;
-  box-sizing: border-box;
-  border: 1px dashed #cfd7cb;
-  border-radius: 8px;
-  background: #fafcf9;
-}
-
-/* 파일 선택 버튼 */
-
-.fileSelectButton {
-  flex-shrink: 0;
-  height: 42px;
-  padding: 0 18px;
-  border: 1px solid #bfc9ba;
-  border-radius: 7px;
-  background: #ffffff;
-  color: #4f5b4d;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.fileSelectButton:hover {
-  border-color: #71966c;
-  background: #f4f8f2;
-  color: #3f713e;
-}
-
-.fileSelectButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 파일 안내 */
-
-.fileGuide {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.fileGuide strong {
-  color: #4d554c;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.fileGuide span {
-  color: #8b9289;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-/* 파일 목록 */
-
-.fileList {
-  margin-top: 12px;
-  padding: 15px 17px;
-  border: 1px solid #e1e6df;
-  border-radius: 8px;
-  background: #fbfcfa;
-}
-
-.fileListHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.fileListHeader strong {
-  color: #4d554c;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.fileListHeader span {
-  color: #8b9289;
-  font-size: 12px;
-}
-
-/* 파일 목록 ul */
-
-.fileList ul {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-/* 개별 파일 */
-
-.fileItem {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 15px;
-  min-height: 52px;
-  padding: 8px 10px;
-  box-sizing: border-box;
-  border: 1px solid #e5e9e3;
-  border-radius: 6px;
-  background: #ffffff;
-}
-
-.fileInformation {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.fileIcon {
-  flex-shrink: 0;
-  font-size: 16px;
-}
-
-.fileText {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.fileName {
-  display: block;
-  max-width: 600px;
-  overflow: hidden;
-  color: #4b534a;
-  font-size: 13px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.fileSize {
-  color: #969c94;
-  font-size: 11px;
-}
-
-/* 파일 삭제 버튼 */
-
-.fileRemoveButton {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: #969d94;
-  font-size: 22px;
-  font-weight: 300;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.fileRemoveButton:hover {
-  background: #f5f6f4;
-  color: #c75a4a;
-}
-
-.fileRemoveButton:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-/* 안내 문구 */
+/* 안내 영역 */
 
 .notice {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  margin-top: 5px;
-  padding: 16px 18px;
-  border: 1px solid #e4eadf;
-  border-radius: 7px;
+  gap: 13px;
+  margin-top: 6px;
+  padding: 17px 18px;
+  border: 1px solid #e4ebdf;
+  border-radius: 10px;
   background: #f7faf5;
 }
 
 .noticeIcon {
   flex-shrink: 0;
-  margin-top: 1px;
-  font-size: 16px;
-}
-
-.notice > div {
-  min-width: 0;
+  font-size: 18px;
+  line-height: 1.4;
 }
 
 .notice strong {
   display: block;
-  margin-bottom: 6px;
-  color: #596356;
+  margin-bottom: 5px;
+  color: #466640;
   font-size: 13px;
-  font-weight: 700;
 }
 
 .notice p {
   margin: 0;
-  color: #697268;
+  color: #6e776d;
   font-size: 12px;
   line-height: 1.7;
 }
@@ -605,45 +399,60 @@
 
 .buttonArea {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 10px;
-  margin-top: 38px;
+  margin-top: 34px;
+  padding-top: 28px;
+  border-top: 1px solid #edf0eb;
 }
 
 .cancelButton,
 .submitButton {
-  min-width: 120px;
-  height: 46px;
-  padding: 0 24px;
-  border-radius: 7px;
+  min-width: 110px;
+  height: 48px;
+  padding: 0 22px;
+  border-radius: 8px;
+  font-family: inherit;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.1s ease;
 }
 
 .cancelButton {
-  border: 1px solid #d7ddd4;
+  border: 1px solid #d9dfd7;
   background: #ffffff;
-  color: #5c635b;
+  color: #626a62;
 }
 
-.cancelButton:hover {
-  background: #f6f8f5;
+.cancelButton:hover:not(:disabled) {
+  border-color: #bcc6b9;
+  background: #f7f8f6;
 }
 
 .submitButton {
-  border: 1px solid #4f774c;
-  background: #4f774c;
+  border: 1px solid #4f7d47;
+  background: #4f7d47;
   color: #ffffff;
 }
 
-.submitButton:hover {
-  background: #41673f;
-  border-color: #41673f;
+.submitButton:hover:not(:disabled) {
+  border-color: #3f6939;
+  background: #3f6939;
+}
+
+.cancelButton:active:not(:disabled),
+.submitButton:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .cancelButton:disabled,
-.submitButton:disabled {
+.submitButton:disabled,
+.listButton:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -651,38 +460,45 @@
 /* 로그인 필요 화면 */
 
 .loginRequired {
-  width: min(600px, 100%);
-  box-sizing: border-box;
-  margin: 100px auto;
-  padding: 55px 30px;
+  width: min(620px, 100%);
+  margin: 100px auto 0;
+  padding: 58px 40px;
+  border: 1px solid #e4e9e1;
+  border-radius: 18px;
   background: #ffffff;
-  border: 1px solid #e3e8e1;
-  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(39, 55, 39, 0.05);
   text-align: center;
-  box-shadow: 0 6px 20px rgba(40, 55, 40, 0.04);
 }
 
 .loginIcon {
-  margin-bottom: 18px;
-  font-size: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  background: #f0f5ed;
+  font-size: 27px;
 }
 
 .loginRequired .pageLabel {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .loginRequired h1 {
   margin: 0;
-  color: #282d28;
-  font-size: 23px;
+  color: #252b25;
+  font-size: 26px;
   font-weight: 800;
+  letter-spacing: -1px;
 }
 
 .loginRequired p {
-  margin: 15px 0 0;
-  color: #7a8178;
+  margin: 12px 0 0;
+  color: #737b73;
   font-size: 14px;
-  line-height: 1.8;
+  line-height: 1.6;
 }
 
 .loginButtonArea {
@@ -694,106 +510,108 @@
 
 .backButton,
 .loginButton {
-  min-width: 130px;
-  height: 44px;
-  padding: 0 18px;
-  border-radius: 7px;
-  font-size: 13px;
+  min-width: 135px;
+  height: 46px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
 }
 
 .backButton {
-  border: 1px solid #d8ded5;
+  border: 1px solid #d9dfd7;
   background: #ffffff;
-  color: #5d655b;
+  color: #626a62;
 }
 
 .backButton:hover {
-  background: #f6f8f5;
+  background: #f7f8f6;
 }
 
 .loginButton {
-  border: 1px solid #4f774c;
-  background: #4f774c;
+  border: 1px solid #4f7d47;
+  background: #4f7d47;
   color: #ffffff;
 }
 
 .loginButton:hover {
-  background: #41673f;
+  background: #3f6939;
 }
 
-/* 반응형 */
+/* 태블릿 */
 
 @media (max-width: 900px) {
   .headerInner {
-    width: calc(100% - 32px);
-  }
-
-  .logo {
-    margin-right: 25px;
-  }
-
-  .navItem {
-    padding: 0 10px;
-    font-size: 13px;
-  }
-
-  .container {
-    width: calc(100% - 32px);
-  }
-
-  .form {
-    padding: 35px;
-  }
-}
-
-@media (max-width: 720px) {
-  .topUserInner {
-    width: calc(100% - 32px);
-  }
-
-  .headerInner {
-    height: auto;
-    min-height: 70px;
-    flex-wrap: wrap;
-    padding: 10px 0;
-  }
-
-  .logo {
-    margin-right: 20px;
+    width: min(100% - 32px, 1280px);
   }
 
   .mainNav {
-    overflow-x: auto;
-    max-width: 100%;
+    margin-left: 25px;
   }
 
   .navItem {
-    height: 50px;
-    padding: 0 9px;
-    font-size: 12px;
-  }
-
-  .navMenu {
-    height: 50px;
-  }
-
-  .megaMenu {
-    top: 50px;
+    padding: 0 13px;
+    font-size: 14px;
   }
 
   .container {
-    padding-top: 40px;
+    width: min(100% - 32px, 980px);
+    padding-top: 50px;
+  }
+}
+
+/* 모바일 */
+
+@media (max-width: 700px) {
+  .topUserInner {
+    width: calc(100% - 28px);
+    height: 38px;
+  }
+
+  .headerInner {
+    width: calc(100% - 28px);
+    height: auto;
+    min-height: 68px;
+    padding: 12px 0;
+    flex-wrap: wrap;
+  }
+
+  .logo {
+    font-size: 24px;
+  }
+
+  .mainNav {
+    order: 3;
+    width: 100%;
+    height: 48px;
+    margin: 10px 0 0;
+    overflow-x: auto;
+  }
+
+  .navItem {
+    padding: 0 12px;
+    font-size: 13px;
+  }
+
+  .megaMenu {
+    display: none;
+  }
+
+  .container {
+    width: calc(100% - 28px);
+    padding-top: 38px;
   }
 
   .pageHeader {
     align-items: flex-start;
     flex-direction: column;
+    gap: 20px;
   }
 
-  .pageHeader {
-    gap: 18px;
+  .pageHeader h1 {
+    font-size: 29px;
   }
 
   .listButton {
@@ -802,19 +620,15 @@
 
   .form {
     padding: 25px 20px;
+    border-radius: 13px;
   }
 
-  .fileUploadArea {
-    align-items: flex-start;
-    flex-direction: column;
+  .formGroup {
+    margin-bottom: 25px;
   }
 
-  .fileSelectButton {
-    width: 100%;
-  }
-
-  .fileGuide {
-    width: 100%;
+  .formGroup textarea {
+    min-height: 230px;
   }
 
   .buttonArea {
@@ -826,6 +640,11 @@
     width: 100%;
   }
 
+  .loginRequired {
+    margin-top: 50px;
+    padding: 45px 22px;
+  }
+
   .loginButtonArea {
     flex-direction: column-reverse;
   }
@@ -834,66 +653,9 @@
   .loginButton {
     width: 100%;
   }
-}
 
-@media (max-width: 480px) {
-  .topUserInner {
-    min-height: 40px;
-  }
-
-  .container {
-    width: calc(100% - 24px);
-    padding-bottom: 70px;
-  }
-
-  .pageHeader h1 {
-    font-size: 27px;
-  }
-
-  .pageHeader p {
-    font-size: 13px;
-  }
-
-  .form {
-    padding: 22px 16px;
-  }
-
-  .formGroup {
-    margin-bottom: 25px;
-  }
-
-  .formGroup textarea {
-    min-height: 220px;
-  }
-
-  .fieldBottom {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .fileUploadArea {
-    padding: 14px;
-  }
-
-  .fileItem {
-    align-items: flex-start;
-  }
-
-  .fileInformation {
-    min-width: 0;
-  }
-
-  .fileName {
-    max-width: 200px;
-  }
-
-  .notice {
-    padding: 14px;
-  }
-
-  .notice p {
-    line-height: 1.6;
+  .notice p br {
+    display: none;
   }
 }
 
