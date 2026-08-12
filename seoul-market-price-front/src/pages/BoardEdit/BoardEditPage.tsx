@@ -271,27 +271,32 @@ export default function BoardEditPage() {
                     현재 등록된 첨부파일 :
                   </span>
                   <div className="space-y-1.5">
-                    {existingAttachments.map((att) => (
-                      <div
-                        key={att.id}
-                        className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
-                      >
-                        <span className="text-slate-700 dark:text-slate-200 font-medium truncate">
-                          {att.originalFilename} ({(att.size / 1024).toFixed(1)} KB)
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.confirm("이 첨부파일을 삭제하시겠습니까?")) {
-                              deleteAttachmentMutation.mutate(att.id);
-                            }
-                          }}
-                          className="text-rose-500 hover:text-rose-700 font-semibold px-2 py-1 text-[11px] rounded hover:bg-rose-50 transition-colors cursor-pointer border-none bg-transparent"
+                    {existingAttachments.map((att, idx) => {
+                      const attId = att.attachmentId ?? att.id ?? idx;
+                      const attName = att.originalFilename || att.fileName || "첨부파일";
+                      const attSize = att.size ?? att.fileSize ?? 0;
+                      return (
+                        <div
+                          key={attId}
+                          className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
                         >
-                          삭제
-                        </button>
-                      </div>
-                    ))}
+                          <span className="text-slate-700 dark:text-slate-200 font-medium truncate">
+                            {attName} ({(attSize / 1024).toFixed(1)} KB)
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm("이 첨부파일을 삭제하시겠습니까?")) {
+                                deleteAttachmentMutation.mutate(Number(attId));
+                              }
+                            }}
+                            className="text-rose-500 hover:text-rose-700 font-semibold px-2 py-1 text-[11px] rounded hover:bg-rose-50 transition-colors cursor-pointer border-none bg-transparent"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

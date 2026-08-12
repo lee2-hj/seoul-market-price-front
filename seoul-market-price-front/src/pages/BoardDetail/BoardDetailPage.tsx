@@ -310,26 +310,31 @@ export default function BoardDetailPage() {
                       <span>첨부파일 ({attachments.length}개)</span>
                     </div>
                     <div className="space-y-1.5">
-                      {attachments.map((file) => (
-                        <div
-                          key={file.id}
-                          className="flex items-center justify-between p-2.5 bg-white border border-[#e2ece2] rounded-[8px] text-[13px] gap-2"
-                        >
-                          <span className="font-medium text-[#2d3a2f] truncate">
-                            {file.originalFilename}
-                            <span className="text-[11px] text-[#78887a] ml-2 font-normal">
-                              ({(file.size / 1024).toFixed(1)} KB)
-                            </span>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleDownload(file.id, file.originalFilename)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[12px] font-bold rounded-[6px] transition-colors cursor-pointer shrink-0 shadow-xs border-none"
+                      {attachments.map((file, idx) => {
+                        const fileId = file.attachmentId ?? file.id ?? idx;
+                        const fileName = file.originalFilename || file.fileName || "첨부파일";
+                        const fileSize = file.size ?? file.fileSize ?? 0;
+                        return (
+                          <div
+                            key={fileId}
+                            className="flex items-center justify-between p-2.5 bg-white border border-[#e2ece2] rounded-[8px] text-[13px] gap-2"
                           >
-                            <Download className="w-3.5 h-3.5" /> 다운로드
-                          </button>
-                        </div>
-                      ))}
+                            <span className="font-medium text-[#2d3a2f] truncate">
+                              {fileName}
+                              <span className="text-[11px] text-[#78887a] ml-2 font-normal">
+                                ({(fileSize / 1024).toFixed(1)} KB)
+                              </span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleDownload(Number(fileId), fileName)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[12px] font-bold rounded-[6px] transition-colors cursor-pointer shrink-0 shadow-xs border-none"
+                            >
+                              <Download className="w-3.5 h-3.5" /> 다운로드
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
