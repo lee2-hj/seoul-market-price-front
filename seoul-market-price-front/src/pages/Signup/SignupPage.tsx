@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
 
-import { signupApi, checkUserIdApi } from "@/api/api";
+import { signupApi } from "@/api/api";
 import { clearAllSignupStorage, getPassVerifiedInfo } from "@/lib/signupFlow";
 import { isValidEmail, isValidPassword } from "@/lib/validators";
 
@@ -62,25 +62,13 @@ const formatPhoneNumber = (value: string): string => {
 function SignupPage() {
   const navigate = useNavigate();
 
-  // Form handling (react-hook-form)
+  /* ===============================
+     회원 정보 (react-hook-form)
+  =============================== */
+
   const { getValues, setValue, watch } = useForm<SignupFormValues>({
     defaultValues,
   });
-
-  // ID duplication check state
-  const [isIdUnique, setIsIdUnique] = useState<boolean | null>(null);
-  const [checkingId, setCheckingId] = useState(false);
-
-  // Reset ID check when userId changes
-  const userId = watch("userId");
-  useEffect(() => {
-    setIsIdUnique(null);
-  }, [userId]);
-
-
-
-
-
 
   /* ===============================
      PASS 인증
@@ -123,31 +111,6 @@ function SignupPage() {
       (e: React.ChangeEvent<HTMLInputElement>) => {
         setValue(field, e.target.value);
       };
-
-  // ID duplicate check handler
-  const handleCheckId = async () => {
-    if (!userId.trim()) {
-      alert('아이디를 입력해주세요.');
-      return;
-    }
-    setCheckingId(true);
-    try {
-      const available = await checkUserIdApi(userId.trim());
-      // API returns { available: boolean } or boolean directly
-      const isAvailable = typeof available === 'object' && typeof available.available === 'boolean' ? available.available : !!available;
-      setIsIdUnique(isAvailable);
-      if (isAvailable) {
-        alert('사용 가능한 아이디입니다.');
-      } else {
-        alert('이미 사용 중인 아이디입니다.');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('아이디 확인 중 오류가 발생했습니다.');
-    } finally {
-      setCheckingId(false);
-    }
-  };
 
   /* ===============================
      주소 검색
@@ -310,35 +273,15 @@ function SignupPage() {
                 <Label htmlFor="userId">
                   아이디<span className="text-red-500">*</span>
                 </Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="userId"
-                    type="text"
-                    name="userId"
-                    placeholder="아이디"
-                    className="h-11"
-                    value={watch("userId")}
-                    onChange={(e) => setValue("userId", e.target.value)}
-                  />
-                  <Button
-                    type="button"
-                    className="h-11 shrink-0 px-3 sm:px-4"
-                    onClick={handleCheckId}
-                    disabled={checkingId || signupMutation.isPending}
-                  >
-                    {checkingId ? '확인 중...' : '중복 확인'}
-                  </Button>
-                </div>
-                {isIdUnique === true && (
-                  <p className="text-xs font-semibold text-primary">
-                    ✔ 사용 가능한 아이디입니다.
-                  </p>
-                )}
-                {isIdUnique === false && (
-                  <p className="text-xs font-semibold text-red-500">
-                    ❌ 이미 사용 중인 아이디입니다.
-                  </p>
-                )}
+
+                <Input
+                  id="userId"
+                  type="text"
+                  name="userId"
+                  placeholder="아이디"
+                  value={watch("userId")}
+                  onChange={(e) => setValue("userId", e.target.value)}
+                />
               </div>
 
               <div className="flex flex-col gap-2">
@@ -351,7 +294,6 @@ function SignupPage() {
                   type="password"
                   name="password"
                   placeholder="비밀번호"
-                  className="h-11"
                   value={watch("password")}
                   onChange={(e) => setValue("password", e.target.value)}
                 />
@@ -367,7 +309,6 @@ function SignupPage() {
                   type="password"
                   name="passwordCheck"
                   placeholder="비밀번호 확인"
-                  className="h-11"
                   value={watch("passwordCheck")}
                   onChange={(e) => setValue("passwordCheck", e.target.value)}
                 />
@@ -383,7 +324,6 @@ function SignupPage() {
                   type="text"
                   name="name"
                   placeholder="이름"
-                  className="h-11"
                   value={watch("name")}
                   disabled={phoneVerified}
                   readOnly
@@ -401,7 +341,6 @@ function SignupPage() {
                   type="tel"
                   name="phone"
                   placeholder="휴대폰 번호"
-                  className="h-11"
                   value={watch("phone")}
                   disabled={phoneVerified}
                   readOnly
@@ -422,7 +361,8 @@ function SignupPage() {
                   <Button
                     type="button"
                     variant="secondary"
-                    className="h-11 border-0 px-3 hover:cursor-pointer sm:px-4"
+                    size="sm"
+                    className="border-0 hover:cursor-pointer"
                     onClick={handleAddressSearch}
                   >
                     주소검색
@@ -435,7 +375,7 @@ function SignupPage() {
                   name="zipCode"
                   placeholder="우편번호"
                   maxLength={6}
-                  className="h-11 w-full sm:w-[130px]"
+                  className="w-[130px]"
                   value={watch("zipCode")}
                   onChange={(e) => setValue("zipCode", e.target.value)}
                 />
@@ -445,7 +385,6 @@ function SignupPage() {
                   type="text"
                   name="address"
                   placeholder="주소"
-                  className="h-11"
                   value={watch("address")}
                   onChange={(e) => setValue("address", e.target.value)}
                 />
@@ -455,7 +394,6 @@ function SignupPage() {
                 type="text"
                 name="detailAddress"
                 placeholder="상세주소"
-                className="h-11"
                 value={watch("detailAddress")}
                 onChange={(e) => setValue("detailAddress", e.target.value)}
               />
@@ -467,19 +405,19 @@ function SignupPage() {
                   <Input
                     type="text"
                     placeholder="예) abc@naver.com"
-                    className="h-11 w-full"
+                    className="w-full"
                     value={watch("email")}
                     onChange={e => setValue("email", e.target.value)}
                   />
                 </div>
               </div>
 
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="mt-1 w-full border-0 hover:cursor-pointer"
-                  disabled={signupMutation.isPending || isIdUnique !== true}
-                >
+              <Button
+                type="submit"
+                size="lg"
+                className="mt-1 w-full border-0 hover:cursor-pointer"
+                disabled={signupMutation.isPending}
+              >
                 {signupMutation.isPending ? "가입 중..." : "가입하기"}
               </Button>
             </form>

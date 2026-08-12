@@ -2,9 +2,14 @@
 
 .page {
   min-height: 100vh;
+  padding: 0 0 100px;
   background: #f7f9f6;
   color: #202620;
-  font-family: "Pretendard", "Noto Sans KR", Arial, sans-serif;
+  font-family:
+    "Pretendard",
+    "Noto Sans KR",
+    Arial,
+    sans-serif;
   box-sizing: border-box;
 }
 
@@ -14,198 +19,20 @@
   box-sizing: border-box;
 }
 
-/* 최상단 사용자 영역 */
-
-.topUserBar {
-  width: 100%;
-  background: #ffffff;
-  border-bottom: 1px solid #edf0eb;
-}
-
-.topUserInner {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  width: min(1200px, calc(100% - 48px));
-  min-height: 42px;
-  margin: 0 auto;
-}
-
-.userArea {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.userName {
-  display: inline-flex;
-  align-items: center;
-  color: #3f493f;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.logoutButton {
-  padding: 4px 0;
-  border: 0;
-  background: transparent;
-  color: #7b8279;
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.logoutButton:hover {
-  color: #222222;
-}
-
-/* Header */
-
-.mainHeader {
-  position: relative;
-  z-index: 20;
-  width: 100%;
-  border-bottom: 1px solid #e7ebe4;
-  background: #ffffff;
-}
-
-.headerInner {
-  display: flex;
-  align-items: center;
-  width: min(1200px, calc(100% - 48px));
-  height: 78px;
-  margin: 0 auto;
-}
-
-/* 로고 */
-
-.logo {
-  flex-shrink: 0;
-  width: auto;
-  height: auto;
-  margin: 0 62px 0 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #3e6b3d;
-  font-family: inherit;
-  font-size: 30px;
-  font-weight: 900;
-  letter-spacing: -2px;
-  cursor: pointer;
-}
-
-/* 메인 메뉴 */
-
-.mainNav {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  height: 100%;
-}
-
-.navItem {
-  height: 78px;
-  padding: 0 17px;
-  border: 0;
-  background: transparent;
-  color: #303630;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: color 0.18s ease;
-}
-
-.navItem:hover {
-  color: #3f713e;
-}
-
-.navMenu {
-  position: relative;
-  display: flex;
-  align-items: center;
-  height: 100%;
-}
-
-/* 메가메뉴 */
-
-.megaMenu {
-  position: absolute;
-  top: 78px;
-  left: 0;
-  min-width: 205px;
-  padding: 20px 0;
-  border: 1px solid #e4e9e1;
-  border-radius: 0 0 10px 10px;
-  background: #ffffff;
-  box-shadow: 0 12px 28px rgba(40, 55, 40, 0.08);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-6px);
-  transition:
-    opacity 0.18s ease,
-    transform 0.18s ease,
-    visibility 0.18s ease;
-}
-
-.navMenu:hover .megaMenu {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-
-.megaColumn {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.megaColumn strong {
-  padding: 0 20px 10px;
-  color: #3f713e;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.megaColumn button {
-  width: 100%;
-  padding: 8px 20px;
-  border: 0;
-  background: transparent;
-  color: #555d54;
-  font-family: inherit;
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background 0.18s ease,
-    color 0.18s ease;
-}
-
-.megaColumn button:hover {
-  background: #f4f7f2;
-  color: #3f713e;
-}
-
 /* 본문 */
-
 .container {
-  width: min(1000px, calc(100% - 48px));
+  width: min(980px, calc(100% - 48px));
   margin: 0 auto;
-  padding: 60px 0 100px;
+  padding-top: 68px;
 }
 
-/* 페이지 제목 */
-
+/* 페이지 헤더 */
 .pageHeader {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 30px;
-  margin-bottom: 35px;
+  margin-bottom: 32px;
 }
 
 .headerText {
@@ -214,500 +41,142 @@
 
 .pageLabel {
   display: block;
-  margin-bottom: 8px;
-  color: #5a8055;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1px;
+  margin-bottom: 9px;
+  color: #5c8752;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
 }
 
 .pageHeader h1 {
   margin: 0;
   color: #202620;
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 800;
   letter-spacing: -1.5px;
 }
 
 .pageHeader p {
   margin: 12px 0 0;
-  color: #7a8178;
-  font-size: 14px;
+  color: #707970;
+  font-size: 15px;
   line-height: 1.6;
 }
 
-/* 돌아가기 */
-
 .listButton {
   flex-shrink: 0;
-  height: 42px;
-  padding: 0 20px;
-  border: 1px solid #d9ded6;
-  border-radius: 7px;
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid #dce3d9;
+  border-radius: 8px;
   background: #ffffff;
-  color: #555d54;
-  font-family: inherit;
-  font-size: 13px;
+  color: #4c554c;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition:
-    border-color 0.18s ease,
-    background 0.18s ease;
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
-.listButton:hover {
-  border-color: #9cad96;
-  background: #f7f9f6;
+.listButton:hover:not(:disabled) {
+  border-color: #a9bca3;
+  background: #f5f8f3;
+  color: #315d2b;
 }
 
-.listButton:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-/* 수정 Form */
-
+/* 작성 폼 */
 .form {
-  padding: 42px;
-  border: 1px solid #e3e8e1;
-  border-radius: 12px;
+  padding: 38px;
+  border: 1px solid #e4e9e1;
+  border-radius: 16px;
   background: #ffffff;
-  box-shadow: 0 6px 20px rgba(40, 55, 40, 0.04);
+  box-shadow: 0 8px 25px rgba(39, 55, 39, 0.04);
 }
 
 .formGroup {
-  display: flex;
-  flex-direction: column;
   margin-bottom: 30px;
 }
 
-.formGroup label {
+.formGroup > label {
+  display: block;
   margin-bottom: 10px;
-  color: #303630;
+  color: #303730;
   font-size: 14px;
   font-weight: 700;
 }
 
-.formGroup label span {
-  color: #c75a4a;
+.formGroup > label span {
+  color: #d95b4b;
 }
 
 .formGroup input,
 .formGroup textarea {
   width: 100%;
-  border: 1px solid #d9ded7;
-  border-radius: 7px;
-  outline: none;
+  border: 1px solid #dce3da;
+  border-radius: 9px;
   background: #ffffff;
-  color: #252a25;
+  color: #202620;
   font-family: inherit;
   font-size: 14px;
+  outline: none;
   transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .formGroup input {
-  height: 48px;
-  padding: 0 14px;
+  height: 50px;
+  padding: 0 15px;
 }
 
 .formGroup textarea {
-  min-height: 280px;
-  padding: 14px;
+  min-height: 270px;
+  padding: 15px;
   line-height: 1.7;
   resize: vertical;
 }
 
 .formGroup input:focus,
 .formGroup textarea:focus {
-  border-color: #71966c;
-  box-shadow: 0 0 0 3px rgba(113, 150, 108, 0.1);
+  border-color: #6f9b66;
+  box-shadow: 0 0 0 3px rgba(111, 155, 102, 0.1);
 }
-
-.formGroup input:disabled {
-  background: #f5f7f4;
-  color: #777d75;
-  cursor: not-allowed;
-}
-
-.formGroup input:disabled:focus {
-  border-color: #d9ded7;
-  box-shadow: none;
-}
-
-.formGroup input:disabled::placeholder,
-.formGroup textarea:disabled::placeholder {
-  color: #b0b5ae;
-}
-
-.formGroup input::placeholder,
-.formGroup textarea::placeholder {
-  color: #a7aca5;
-}
-
-.formGroup small {
-  margin-top: 8px;
-  color: #929890;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-/* 안내 문구 */
-
-.notice {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  margin-top: 5px;
-  padding: 15px 17px;
-  border: 1px solid #e4eadf;
-  border-radius: 7px;
-  background: #f7faf5;
-}
-
-.notice span {
-  flex-shrink: 0;
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-.notice p {
-  margin: 0;
-  color: #697268;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-/* 버튼 영역 */
 
 .buttonArea {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 10px;
-  margin-top: 38px;
+  margin-top: 34px;
+  padding-top: 28px;
+  border-top: 1px solid #edf0eb;
 }
 
 .cancelButton,
 .submitButton {
-  min-width: 120px;
-  height: 46px;
-  padding: 0 24px;
-  border-radius: 7px;
+  min-width: 110px;
+  height: 48px;
+  padding: 0 22px;
+  border-radius: 8px;
   font-family: inherit;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    opacity 0.18s ease;
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .cancelButton {
-  border: 1px solid #d7ddd4;
+  border: 1px solid #d9dfd7;
   background: #ffffff;
-  color: #5c635b;
-}
-
-.cancelButton:hover {
-  background: #f6f8f5;
+  color: #626a62;
 }
 
 .submitButton {
-  border: 1px solid #4f774c;
-  background: #4f774c;
+  border: 1px solid #4f7d47;
+  background: #4f7d47;
   color: #ffffff;
 }
-
-.submitButton:hover {
-  border-color: #41673f;
-  background: #41673f;
-}
-
-.cancelButton:disabled,
-.submitButton:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-/* 로그인 / 오류 안내 */
-
-.loginRequired {
-  width: min(600px, 100%);
-  margin: 100px auto;
-  padding: 55px 30px;
-  border: 1px solid #e3e8e1;
-  border-radius: 12px;
-  background: #ffffff;
-  text-align: center;
-  box-shadow: 0 6px 20px rgba(40, 55, 40, 0.04);
-}
-
-.loginIcon {
-  margin-bottom: 18px;
-  font-size: 40px;
-  line-height: 1;
-}
-
-.loginRequired h1 {
-  margin: 0;
-  color: #282d28;
-  font-size: 23px;
-  font-weight: 800;
-  letter-spacing: -0.8px;
-}
-
-.loginRequired p {
-  margin: 15px 0 0;
-  color: #7a8178;
-  font-size: 14px;
-  line-height: 1.8;
-}
-
-/* 로그인 안내 버튼 */
-
-.loginButtonArea {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-}
-
-.backButton,
-.loginButton {
-  min-width: 130px;
-  height: 44px;
-  padding: 0 18px;
-  border-radius: 7px;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease;
-}
-
-.backButton {
-  border: 1px solid #d8ded5;
-  background: #ffffff;
-  color: #5d655b;
-}
-
-.backButton:hover {
-  background: #f6f8f5;
-}
-
-.loginButton {
-  border: 1px solid #4f774c;
-  background: #4f774c;
-  color: #ffffff;
-}
-
-.loginButton:hover {
-  border-color: #41673f;
-  background: #41673f;
-}
-
-/* Tablet */
-
-@media (max-width: 900px) {
-  .topUserInner,
-  .headerInner {
-    width: calc(100% - 32px);
-  }
-
-  .logo {
-    margin-right: 25px;
-  }
-
-  .navItem {
-    padding: 0 10px;
-    font-size: 13px;
-  }
-
-  .container {
-    width: calc(100% - 32px);
-  }
-}
-
-/* Mobile */
-
-@media (max-width: 720px) {
-  .topUserInner {
-    width: calc(100% - 32px);
-  }
-
-  .headerInner {
-    height: auto;
-    min-height: 70px;
-    padding: 10px 0;
-    flex-wrap: wrap;
-  }
-
-  .logo {
-    margin-right: 20px;
-    font-size: 27px;
-  }
-
-  .mainNav {
-    max-width: 100%;
-    overflow-x: auto;
-    overflow-y: visible;
-    scrollbar-width: none;
-  }
-
-  .mainNav::-webkit-scrollbar {
-    display: none;
-  }
-
-  .navItem {
-    height: 50px;
-    padding: 0 9px;
-    font-size: 12px;
-  }
-
-  .navMenu {
-    height: 50px;
-  }
-
-  .megaMenu {
-    top: 50px;
-  }
-
-  .container {
-    padding-top: 40px;
-  }
-
-  .pageHeader {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 18px;
-  }
-
-  .pageHeader h1 {
-    font-size: 29px;
-  }
-
-  .pageHeader p {
-    font-size: 13px;
-  }
-
-  .listButton {
-    width: 100%;
-  }
-
-  .form {
-    padding: 25px 20px;
-  }
-
-  .buttonArea {
-    flex-direction: column-reverse;
-  }
-
-  .cancelButton,
-  .submitButton {
-    width: 100%;
-  }
-
-  .loginButtonArea {
-    flex-direction: column-reverse;
-  }
-
-  .backButton,
-  .loginButton {
-    width: 100%;
-  }
-}
-
-/* Small Mobile */
-
-@media (max-width: 480px) {
-  .topUserInner {
-    width: calc(100% - 24px);
-    min-height: 40px;
-  }
-
-  .userArea {
-    gap: 9px;
-  }
-
-  .userName {
-    font-size: 12px;
-  }
-
-  .logoutButton {
-    font-size: 11px;
-  }
-
-  .headerInner {
-    width: calc(100% - 24px);
-  }
-
-  .logo {
-    font-size: 25px;
-  }
-
-  .container {
-    width: calc(100% - 24px);
-    padding-bottom: 70px;
-  }
-
-  .pageHeader h1 {
-    font-size: 27px;
-  }
-
-  .pageHeader p {
-    font-size: 12px;
-  }
-
-  .form {
-    padding: 22px 16px;
-    border-radius: 9px;
-  }
-
-  .formGroup {
-    margin-bottom: 25px;
-  }
-
-  .formGroup label {
-    font-size: 13px;
-  }
-
-  .formGroup input {
-    height: 46px;
-    font-size: 13px;
-  }
-
-  .formGroup textarea {
-    min-height: 220px;
-    font-size: 13px;
-  }
-
-  .formGroup small {
-    font-size: 11px;
-  }
-
-  .notice {
-    padding: 13px 14px;
-  }
-
-  .notice p {
-    font-size: 11px;
-  }
-
-  .loginRequired {
-    margin: 60px auto;
-    padding: 45px 20px;
-  }
-
-  .loginRequired h1 {
-    font-size: 20px;
-  }
-
-  .loginRequired p {
-    font-size: 13px;
-  }
-}
-

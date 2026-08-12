@@ -157,7 +157,7 @@ function QnaPage() {
 
   /* 페이지네이션 */
 
-  const POSTS_PER_PAGE = 5;
+  const POSTS_PER_PAGE = 10;
   const MAX_PAGE = 5;
 
   const [currentPage, setCurrentPage] = useState(1);
