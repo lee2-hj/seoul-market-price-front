@@ -1,115 +1,164 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ChangeEvent,
-  type KeyboardEvent,
-} from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { getQnasApi, type QnaListResponse } from "@/api/api";
-import { getLoginUser, isLogin, logout } from "@/features/auth/utils/auth";
-
-import styles from "./QnaPage.module.css";
-
-/* 검색 조건 */
+import { getLoginUser, isLogin } from "@/features/auth/utils/auth";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+} from "@/components/ui/pagination";
 
 type SearchType = "title" | "author" | "content";
 
-/* 페이지 설정 */
-
-const POSTS_PER_PAGE = 5;
-const MAX_PAGE = 5;
-
-/* 관리자 여부 */
+const POSTS_PER_PAGE = 10;
 
 const isAdminUser = (role: string): boolean => {
-  if (!role) {
-    return false;
-  }
-
+  if (!role) return false;
   const normalizedRole = role.toUpperCase();
-
   return normalizedRole === "ADMIN" || normalizedRole === "ROLE_ADMIN";
 };
 
-/* Q&A 페이지 */
+function formatDate(dateStr?: string): string {
+  if (!dateStr) return "-";
+  if (dateStr.includes("T")) {
+    const [d, t] = dateStr.split("T");
+    return `${d.replace(/-/g, ".")} ${t ? t.slice(0, 5) : ""}`.trim();
+  }
+  return dateStr.replace(/-/g, ".");
+}
 
-function QnaPage() {
+interface QnaRowProps {
+  item: QnaListResponse;
+  displayNo: number;
+  isAdmin: boolean;
+  isMyPost: boolean;
+  onPostClick: (post: QnaListResponse) => void;
+}
+
+function QnaRow({
+  item,
+  displayNo,
+  isAdmin,
+  isMyPost,
+  onPostClick,
+}: QnaRowProps) {
+  const answered = Boolean(
+    item.answeredAt ||
+    item.answerStatus === "ANSWERED" ||
+    item.answerStatus === "답변완료"
+  );
+  const isPrivate = item.publicQuestion === false;
+
+  return (
+    <TableRow className="bg-white hover:bg-[#f8faf7]">
+      {/* 1. 번호 (9%) */}
+      <TableCell className="w-[9%] text-center text-[#5a6459] font-medium">
+        {displayNo}
+      </TableCell>
+
+      {/* 2. 구분 배지 (10%) */}
+      <TableCell className="w-[10%] text-center">
+        <span
+          className={
+            answered
+              ? "inline-flex items-center justify-center min-w-[56px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#e8f4e9] text-[#4c8c53]"
+              : "inline-flex items-center justify-center min-w-[56px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#f1f5f9] text-[#64748b]"
+          }
+        >
+          {answered ? "답변완료" : "답변대기"}
+        </span>
+      </TableCell>
+
+      {/* 3. 제목 (43%) */}
+      <TableCell className="w-[43%] text-left max-w-0">
+        <button
+          type="button"
+          onClick={() => onPostClick(item)}
+          className="block truncate w-full text-[14px] font-semibold text-[#384138] hover:text-[#4c9b55] text-left cursor-pointer border-none bg-transparent p-0 no-underline"
+          style={{ textDecoration: "none" }}
+          title={
+            isPrivate
+              ? isAdmin
+                ? "관리자 권한으로 비공개글 보기"
+                : isMyPost
+                  ? "내 비공개 게시글 보기"
+                  : "비공개 게시글입니다."
+              : "공개 게시글 보기"
+          }
+        >
+          <span className="truncate">
+            {isPrivate && <span className="mr-1 inline-block text-[13px]">🔒</span>}
+            {!isPrivate || isAdmin || isMyPost
+              ? item.title
+              : "비공개 글입니다."}
+          </span>
+          {item.attachmentAvailable && (
+            <span className="ml-1.5 inline-block text-[12px]" title="첨부파일 있음">
+              📎
+            </span>
+          )}
+        </button>
+      </TableCell>
+
+      {/* 4. 작성자 (14%) */}
+      <TableCell className="w-[14%] text-center text-[#5a6459]">
+        {item.writerName || "-"}
+      </TableCell>
+
+      {/* 5. 작성일 (15%) */}
+      <TableCell className="w-[15%] text-center text-[#5a6459]">
+        {formatDate(item.createdAt)}
+      </TableCell>
+
+      {/* 6. 조회수 (9%) */}
+      <TableCell className="w-[9%] text-center text-[#5a6459]">
+        {item.viewCount ?? 0}
+      </TableCell>
+    </TableRow>
+  );
+}
+
+export default function QnaPage() {
   const navigate = useNavigate();
-
-  /* 로그인 상태 */
 
   const isLoggedIn = isLogin();
 
-  /* 로그인 사용자 정보 */
-
   const loginUser = useMemo(() => {
-    if (!isLoggedIn) {
-      return null;
-    }
-
+    if (!isLoggedIn) return null;
     return getLoginUser();
   }, [isLoggedIn]);
 
-  /* 로그인 사용자 ID */
-
   const loginUserId = String(loginUser?.userId ?? "").trim();
-
-  /* 로그인 사용자 이름 */
-
-  const loginUserName = loginUser?.name || loginUser?.userId || "사용자";
-
-  /* 관리자 여부 */
 
   const isAdmin = useMemo(() => {
     return isAdminUser(loginUser?.role ?? "");
   }, [loginUser]);
 
-  /* Q&A 게시글 */
-
   const [posts, setPosts] = useState<QnaListResponse[]>([]);
-
-  /* 전체 메뉴 */
-
-  const [isAllMenuOpen, setIsAllMenuOpen] = useState(false);
-
-  /* 검색 */
-
   const [searchType, setSearchType] = useState<SearchType>("title");
-
   const [searchKeyword, setSearchKeyword] = useState("");
-
   const [appliedKeyword, setAppliedKeyword] = useState("");
 
-  /* 페이지네이션 */
-
   const [currentPage, setCurrentPage] = useState(1);
-
   const [totalElements, setTotalElements] = useState(0);
-
   const [totalPagesFromApi, setTotalPagesFromApi] = useState(0);
 
-  /* API 로딩 상태 */
-
   const [isLoading, setIsLoading] = useState(false);
-
-  /* API 오류 */
-
   const [errorMessage, setErrorMessage] = useState("");
-
-  /*
-   * 게시글 작성자 ID 조회
-   *
-   * 백엔드 DTO 구조가 변경되었을 경우를 대비한다.
-   *
-   * 우선순위
-   *
-   * 1. writerLoginId
-   * 2. userId
-   * 3. memberId
-   */
 
   const getPostWriterId = useCallback((post: QnaListResponse): string => {
     const postData = post as QnaListResponse & {
@@ -117,1113 +166,330 @@ function QnaPage() {
       userId?: string | number | null;
       memberId?: string | number | null;
     };
-
-    const writerLoginId = String(postData.writerLoginId ?? "").trim();
-
-    if (writerLoginId) {
-      return writerLoginId;
-    }
-
-    const userId = String(postData.userId ?? "").trim();
-
-    if (userId) {
-      return userId;
-    }
-
-    const memberId = String(postData.memberId ?? "").trim();
-
-    if (memberId) {
-      return memberId;
-    }
-
-    return "";
+    return (
+      String(postData.writerLoginId ?? "").trim() ||
+      String(postData.userId ?? "").trim() ||
+      String(postData.memberId ?? "").trim() ||
+      ""
+    );
   }, []);
-
-  /*
-   * 내가 작성한 게시글인지 확인
-   */
 
   const isMyPost = useCallback(
     (post: QnaListResponse): boolean => {
       const postWriterId = getPostWriterId(post);
-
-      if (!loginUserId || !postWriterId) {
-        return false;
-      }
-
+      if (!loginUserId || !postWriterId) return false;
       return postWriterId === loginUserId;
     },
-    [getPostWriterId, loginUserId],
+    [getPostWriterId, loginUserId]
   );
-
-  /*
-   * 답변 완료 여부
-   *
-   * answeredAt이 존재하면 답변 완료로 판단한다.
-   */
-
-  const hasAnswer = useCallback((post: QnaListResponse): boolean => {
-    return Boolean(post.answeredAt);
-  }, []);
-
-  /*
-   * Q&A 목록 API 조회
-   *
-   * localStorage는 사용하지 않는다.
-   *
-   * GET /api/qnas API 응답만 사용한다.
-   *
-   * 화면 페이지는 1부터 시작하고
-   * Spring Boot Pageable은 0부터 시작한다.
-   */
 
   const fetchQnaPosts = useCallback(async (page: number, keyword: string) => {
     setIsLoading(true);
     setErrorMessage("");
-
     try {
-      /*
-       * 화면 1페이지
-       * -> API page=0
-       *
-       * 화면 2페이지
-       * -> API page=1
-       */
-
       const response = await getQnasApi(page - 1, POSTS_PER_PAGE, keyword);
-
-      console.log("Q&A API 호출 성공");
-      console.log("Q&A API 응답:", response);
-      console.log("Q&A 게시글:", response?.content);
-      console.log("전체 게시글 수:", response?.totalElements);
-      console.log("전체 페이지 수:", response?.totalPages);
-
-      /*
-       * 백엔드 응답 구조 확인
-       */
-
       if (!response || !Array.isArray(response.content)) {
-        console.error("Q&A API 응답 구조가 올바르지 않습니다.", response);
-
         setPosts([]);
         setTotalElements(0);
         setTotalPagesFromApi(0);
         setErrorMessage("Q&A API 응답 형식이 올바르지 않습니다.");
-
         return;
       }
-
-      /*
-       * 개발 중 작성자 ID 필드 확인
-       */
-
-      response.content.forEach((post, index) => {
-        const postData = post as QnaListResponse & {
-          writerLoginId?: string | number | null;
-          userId?: string | number | null;
-          memberId?: string | number | null;
-        };
-
-        console.log(`Q&A 게시글 ${index + 1} 작성자 정보`, {
-          id: post.id,
-          title: post.title,
-          writerName: post.writerName,
-          writerLoginId: postData.writerLoginId,
-          userId: postData.userId,
-          memberId: postData.memberId,
-        });
-      });
-
-      /*
-       * 백엔드에서 받은 게시글만 화면에 표시한다.
-       */
-
       setPosts(response.content);
-
       setTotalElements(response.totalElements ?? 0);
-
       setTotalPagesFromApi(response.totalPages ?? 0);
     } catch (error) {
       console.error("Q&A 목록 조회 실패:", error);
-
       setPosts([]);
       setTotalElements(0);
       setTotalPagesFromApi(0);
-
       setErrorMessage("Q&A 목록을 불러오는 중 오류가 발생했습니다.");
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  /*
-   * 페이지 최초 진입
-   *
-   * GET /api/qnas?page=0&size=5
-   */
-
   useEffect(() => {
-    void fetchQnaPosts(1, "");
+    const timerId = window.setTimeout(() => {
+      void fetchQnaPosts(1, "");
+    }, 0);
+    return () => window.clearTimeout(timerId);
   }, [fetchQnaPosts]);
 
-  /* 전체 페이지 수 */
+  const PAGE_BLOCK_SIZE = 5;
 
-  const totalPages = Math.min(Math.max(1, totalPagesFromApi), MAX_PAGE);
+  const totalPages = Math.max(1, totalPagesFromApi);
 
-  /* 검색 Placeholder */
+  const pageNumbers = useMemo(() => {
+    const currentBlock = Math.floor((currentPage - 1) / PAGE_BLOCK_SIZE);
+    const startPage = currentBlock * PAGE_BLOCK_SIZE + 1;
+    const endPage = Math.min(totalPages, startPage + PAGE_BLOCK_SIZE - 1);
 
-  const searchPlaceholder = useMemo(() => {
-    switch (searchType) {
-      case "title":
-        return "제목을 입력해주세요.";
-
-      case "author":
-        return "작성자를 입력해주세요.";
-
-      case "content":
-        return "작성글 내용을 입력해주세요.";
-
-      default:
-        return "검색어를 입력해주세요.";
+    const pages: number[] = [];
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
     }
-  }, [searchType]);
+    return pages;
+  }, [totalPages, currentPage]);
 
-  /* 검색 */
 
-  const handleSearch = () => {
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
     const keyword = searchKeyword.trim();
-
     setAppliedKeyword(keyword);
     setCurrentPage(1);
-
     void fetchQnaPosts(1, keyword);
   };
-
-  /* Enter 검색 */
-
-  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
-      handleSearch();
-    }
-  };
-
-  /* 검색 조건 변경 */
-
-  const handleSearchTypeChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    const newSearchType = event.target.value as SearchType;
-
-    setSearchType(newSearchType);
-    setSearchKeyword("");
-    setAppliedKeyword("");
-    setCurrentPage(1);
-
-    /*
-     * 현재 백엔드 API는 keyword만 전달한다.
-     *
-     * searchType은 현재 화면에서만 관리한다.
-     *
-     * 추후 백엔드에서 searchType을 지원하면
-     * getQnasApi에 searchType을 추가한다.
-     */
-
-    void fetchQnaPosts(1, "");
-  };
-
-  /* 검색 초기화 */
 
   const handleResetSearch = () => {
     setSearchKeyword("");
     setAppliedKeyword("");
     setSearchType("title");
     setCurrentPage(1);
-
     void fetchQnaPosts(1, "");
   };
 
-  /* 글쓰기 */
-
   const handleWrite = () => {
-    /*
-     * auth.ts의 isLogin()을 기준으로
-     * 로그인 상태를 확인한다.
-     */
-
     if (!isLoggedIn || !loginUserId) {
       alert("로그인 후 글쓰기가 가능합니다.");
-
       navigate("/login");
-
       return;
     }
-
     navigate("/qna/write");
   };
 
-  /* 게시글 클릭 */
-
   const handlePostClick = (post: QnaListResponse) => {
-    /*
-     * 로그인하지 않은 사용자는
-     * 게시글 상세 내용을 볼 수 없다.
-     */
+    const isPrivate = post.publicQuestion === false;
 
-    if (!isLoggedIn || !loginUserId) {
-      alert("로그인 후 게시글 내용을 확인할 수 있습니다.");
-
-      navigate("/login");
-
+    // 공개글은 모두가 내용을 확인할 수 있습니다.
+    if (!isPrivate) {
+      navigate(`/qna/${post.id}`);
       return;
     }
 
-    /*
-     * 게시글 작성자 ID 조회
-     */
-
-    const postWriterId = getPostWriterId(post);
-
-    /*
-     * 내가 작성한 글인지 확인
-     */
+    // 비공개글은 로그인 필요 및 작성자 본인 / 관리자만 확인 가능합니다.
+    if (!isLoggedIn || !loginUserId) {
+      alert("비공개 게시글은 작성자 본인과 관리자만 확인할 수 있습니다. 로그인 후 이용해주세요.");
+      navigate("/login");
+      return;
+    }
 
     const myPost = isMyPost(post);
-
-    /*
-     * 개발 중 권한 확인 로그
-     */
-
-    console.log("Q&A 게시글 접근 권한 확인");
-    console.log("게시글 ID:", post.id);
-    console.log("게시글 제목:", post.title);
-    console.log("게시글 작성자 이름:", post.writerName);
-    console.log("게시글 작성자 ID:", postWriterId);
-    console.log("현재 로그인 사용자 ID:", loginUserId);
-    console.log("내 게시글 여부:", myPost);
-    console.log("관리자 여부:", isAdmin);
-
-    /*
-     * 관리자 또는 본인 게시글만
-     * 상세 페이지로 이동한다.
-     */
-
     if (!isAdmin && !myPost) {
-      alert("본인이 작성한 게시글만 내용을 확인할 수 있습니다.");
-
+      alert("비공개 게시글은 작성자 본인과 관리자만 확인할 수 있습니다.");
       return;
     }
-
-    /*
-     * 상세 페이지에서
-     *
-     * GET /api/qnas/{id}
-     *
-     * 를 호출한다.
-     */
 
     navigate(`/qna/${post.id}`);
   };
 
-  /* 페이지 이동 */
-
   const handlePageChange = (page: number) => {
-    if (page < 1 || page > totalPages) {
-      return;
-    }
-
+    if (page < 1 || page > totalPages) return;
     setCurrentPage(page);
-
     void fetchQnaPosts(page, appliedKeyword);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
-  /* 이전 페이지 */
-
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      handlePageChange(currentPage - 1);
-    }
-  };
-
-  /* 다음 페이지 */
-
-  const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      handlePageChange(currentPage + 1);
-    }
-  };
-
-  /* 로그아웃 */
-
-  const handleLogout = async () => {
-    try {
-      /*
-       * auth.ts의 logout()을 호출한다.
-       *
-       * 현재 프로젝트의 인증 구조에 맞춰
-       * 로그인 정보를 정리한다.
-       */
-
-      await logout();
-    } catch (error) {
-      console.error("로그아웃 처리 중 오류:", error);
-    } finally {
-      navigate("/");
-    }
-  };
-
-  /* 전체 메뉴 이동 */
-
-  const handleAllMenuNavigate = (path: string) => {
-    setIsAllMenuOpen(false);
-
-    navigate(path);
-  };
-
-  /* 날짜 포맷 */
-
-  const formatDate = (date: string) => {
-    if (!date) {
-      return "-";
-    }
-
-    /*
-     * 백엔드 LocalDateTime
-     *
-     * 2026-08-07T11:27:42
-     *
-     * 화면
-     *
-     * 2026.08.07
-     */
-
-    const parsedDate = new Date(date);
-
-    if (Number.isNaN(parsedDate.getTime())) {
-      return date;
-    }
-
-    const year = parsedDate.getFullYear();
-
-    const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
-
-    const day = String(parsedDate.getDate()).padStart(2, "0");
-
-    return `${year}.${month}.${day}`;
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
-    <div>
-      {/* 최상단 사용자 영역 */}
+    <div className="min-h-screen bg-[#fafcf9]">
+      <div className="py-12 px-5 sm:px-8">
+        <div className="max-w-[1000px] mx-auto space-y-8">
+          {/* 헤더 영역 */}
+          <div className="text-center space-y-2 mb-8">
+            <span className="inline-block px-3 py-1 bg-[#e8f3e9] text-[#3f8a47] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
+              CUSTOMER CENTER
+            </span>
+            <h1 className="text-[36px] font-black text-[#242b23] tracking-tight">
+              질의응답
+            </h1>
+            <p className="text-[15px] text-[#667065]">
+              서울시 농수산물 가격 정보 서비스 이용 중 궁금한 점이나 문의사항을 남겨주세요.
+            </p>
+          </div>
 
-      <div className={styles.topUserBar}>
-        <div className={styles.topUserInner}>
-          <div className={styles.userArea}>
-            {isLoggedIn ? (
-              <>
-                <span className={styles.userName}>{loginUserName}</span>
-
-                {isAdmin && <span className={styles.adminBadge}>관리자</span>}
-
-                <button
-                  type="button"
-                  className={styles.logoutButton}
-                  onClick={handleLogout}
-                >
-                  로그아웃
-                </button>
-              </>
-            ) : (
+          {/* 카테고리 탭 ([공지사항] [질의응답] [자주 묻는 질문]) */}
+          <div className="flex justify-center mb-6">
+            <div className="flex items-center gap-2 p-1 bg-white rounded-[10px] border border-[#dce4da] shadow-sm">
               <button
                 type="button"
-                className={styles.loginLink}
-                onClick={() => navigate("/login")}
+                onClick={() => navigate("/board")}
+                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all cursor-pointer no-underline"
+                style={{ textDecoration: "none" }}
               >
-                로그인
+                공지사항
               </button>
+              <button
+                type="button"
+                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#4c9b55] text-white transition-all cursor-pointer no-underline"
+                style={{ textDecoration: "none" }}
+              >
+                질의응답
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/board")}
+                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all cursor-pointer no-underline"
+                style={{ textDecoration: "none" }}
+              >
+                자주 묻는 질문
+              </button>
+            </div>
+          </div>
+
+          {/* 검색 영역 */}
+          <div className="bg-[#f4f7f3] border border-[#dce4da] rounded-[12px] p-5 mb-6">
+            <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row items-center gap-3">
+              <select
+                value={searchType}
+                onChange={(e) => setSearchType(e.target.value as SearchType)}
+                className="h-[44px] w-full md:w-[130px] rounded-[7px] border border-[#dce4da] bg-white px-3 text-[14px] text-[#3e483d] focus:outline-none focus:border-[#4c9b55]"
+              >
+                <option value="title">제목</option>
+                <option value="author">작성자</option>
+                <option value="content">내용</option>
+              </select>
+              <Input
+                type="text"
+                placeholder="검색어를 입력하세요."
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                className="h-[44px] flex-1 bg-white border-[#dce4da] text-[14px] placeholder:text-[#939c92] focus-visible:ring-[#4c9b55]"
+              />
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <Button
+                  type="submit"
+                  className="h-[44px] px-6 bg-[#343c33] hover:bg-[#252b24] text-white text-[14px] font-bold rounded-[7px] flex-1 md:flex-none no-underline"
+                  style={{ textDecoration: "none" }}
+                >
+                  검색
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleResetSearch}
+                  className="h-[44px] px-5 bg-white border-[#dce4da] text-[#5a6459] hover:bg-[#eef3ed] text-[14px] font-bold rounded-[7px] flex-1 md:flex-none no-underline"
+                  style={{ textDecoration: "none" }}
+                >
+                  초기화
+                </Button>
+              </div>
+            </form>
+          </div>
+
+          {/* 목록 건수 정보 & 글쓰기 버튼 영역 */}
+          <div className="flex items-center justify-between mb-3 min-h-[44px]">
+            <p className="text-[14px] text-[#667065]">
+              전체 <strong className="text-[#4c9b55] font-extrabold">{totalElements}</strong>개의 게시글이 있습니다.
+            </p>
+            <button
+              type="button"
+              onClick={handleWrite}
+              className="inline-flex items-center justify-center min-w-[94px] h-[42px] px-5 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[14px] font-bold rounded-[7px] transition-colors border border-[#4c9b55] cursor-pointer no-underline"
+              style={{ textDecoration: "none" }}
+            >
+              글쓰기
+            </button>
+          </div>
+
+          {/* Table 영역 */}
+          <div className="w-full bg-white border border-[#dce4da] rounded-[12px] shadow-[0_7px_24px_rgba(45,70,45,0.05)] overflow-hidden">
+            {isLoading ? (
+              <div className="p-16 text-center text-[#8a9388] text-[14px]">
+                Q&A 게시글 목록을 불러오는 중입니다...
+              </div>
+            ) : errorMessage ? (
+              <div className="p-16 text-center text-rose-500 text-[14px] space-y-3">
+                <p>{errorMessage}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void fetchQnaPosts(currentPage, appliedKeyword)}
+                  className="h-[36px] px-4 text-[13px] no-underline"
+                  style={{ textDecoration: "none" }}
+                >
+                  다시 불러오기
+                </Button>
+              </div>
+            ) : posts.length === 0 ? (
+              <div className="p-16 text-center text-[#8a9388] text-[14px]">
+                등록된 질의응답이 없습니다.
+              </div>
+            ) : (
+              <Table className="min-w-[820px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[9%] text-center">번호</TableHead>
+                    <TableHead className="w-[10%] text-center">구분</TableHead>
+                    <TableHead className="w-[43%] text-center">제목</TableHead>
+                    <TableHead className="w-[14%] text-center">작성자</TableHead>
+                    <TableHead className="w-[15%] text-center">작성일</TableHead>
+                    <TableHead className="w-[9%] text-center">조회수</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {posts.map((post, index) => {
+                    const displayNo = totalElements - ((currentPage - 1) * POSTS_PER_PAGE + index);
+                    const myPost = isMyPost(post);
+                    return (
+                      <QnaRow
+                        key={post.id}
+                        item={post}
+                        displayNo={displayNo > 0 ? displayNo : index + 1}
+                        isAdmin={isAdmin}
+                        isMyPost={myPost}
+                        onPostClick={handlePostClick}
+                      />
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          {/* 권한 안내 & Pagination */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-end text-[13px] text-[#8a9388]">
+              <span>
+                {isAdmin
+                  ? "🛡️ 관리자 계정은 모든 질의응답 게시글을 확인할 수 있습니다."
+                  : "🔒 게시글 내용은 작성자 본인만 확인할 수 있습니다."}
+              </span>
+            </div>
+
+            {!isLoading && !errorMessage && posts.length > 0 && (
+              <Pagination className="pt-2">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage <= 1}
+                    />
+                  </PaginationItem>
+
+                  {pageNumbers.map((p) => (
+                    <PaginationItem key={p}>
+                      <PaginationLink
+                        isActive={p === currentPage}
+                        onClick={() => handlePageChange(p)}
+                      >
+                        {p}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage >= totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             )}
           </div>
         </div>
       </div>
-
-      {/* Main Header */}
-
-      <header className={styles.mainHeader}>
-        <div
-          className={styles.headerInner}
-          onMouseLeave={() => setIsAllMenuOpen(false)}
-        >
-          {/* 로고 */}
-
-          <button
-            type="button"
-            className={styles.logo}
-            onClick={() => navigate("/")}
-            aria-label="싸농 홈으로 이동"
-          >
-            싸농
-          </button>
-
-          {/* 상단 가로 메뉴 */}
-
-          <nav className={styles.mainNav} aria-label="주요 메뉴">
-            {/* 홈 */}
-
-            <button
-              type="button"
-              className={styles.navItem}
-              onClick={() => navigate("/")}
-            >
-              홈
-            </button>
-
-            {/* 가격 상세 정보 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                가격 상세 정보
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>가격정보</strong>
-
-                  <button type="button" onClick={() => navigate("/price")}>
-                    품목별 시세 조회
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/price/detail")}
-                  >
-                    가격 추이 그래프
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/price/detail")}
-                  >
-                    급상승 / 급락 품목
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 자치구별 가격정보 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                자치구별 가격정보
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>자치구별 지도 비교</strong>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/region-price")}
-                  >
-                    자치구간 1:1 비교
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/region-price")}
-                  >
-                    시장 / 마트 유형별 비교
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 스마트 추천 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                스마트 추천
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>스마트 추천</strong>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/recommendation")}
-                  >
-                    오늘의 알뜰 장바구니
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/recommendation")}
-                  >
-                    가격 하락 품목 추천
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/recommendation")}
-                  >
-                    이달의 제철 농수산물
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 고객센터 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                고객센터
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>고객센터</strong>
-
-                  <button type="button" onClick={() => navigate("/notice")}>
-                    공지사항
-                  </button>
-
-                  <button type="button" onClick={() => navigate("/qna")}>
-                    질의응답
-                  </button>
-
-                  <button type="button" onClick={() => navigate("/faq")}>
-                    자주 묻는 질문
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 마이페이지 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                마이페이지
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>마이페이지</strong>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/mypage/info")}
-                  >
-                    내 정보 수정
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/mypage/interests")}
-                  >
-                    관심품목 & 우리동네 설정
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/mypage/alerts")}
-                  >
-                    가격 변동 타겟 알림
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 전체 메뉴 버튼 */}
-
-            <button
-              type="button"
-              className={styles.allMenuButton}
-              onClick={() => setIsAllMenuOpen((prev) => !prev)}
-              aria-label="전체 메뉴"
-              aria-expanded={isAllMenuOpen}
-            >
-              <span className={styles.menuIcon}>
-                <span></span>
-                <span></span>
-                <span></span>
-              </span>
-            </button>
-          </nav>
-
-          {/* 전체 메뉴 */}
-
-          {isAllMenuOpen && (
-            <div
-              className={styles.allMenuPanel}
-              onMouseLeave={() => setIsAllMenuOpen(false)}
-            >
-              <div className={styles.allMenuHeader}>
-                <h2 className={styles.allMenuTitle}>전체 메뉴</h2>
-
-                <button
-                  type="button"
-                  className={styles.allMenuClose}
-                  onClick={() => setIsAllMenuOpen(false)}
-                  aria-label="전체 메뉴 닫기"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className={styles.allMenuList}>
-                {/* 가격정보 */}
-
-                <div className={styles.allMenuGroup}>
-                  <strong className={styles.allMenuGroupTitle}>가격정보</strong>
-
-                  <button
-                    type="button"
-                    className={styles.allMenuItem}
-                    onClick={() => handleAllMenuNavigate("/price")}
-                  >
-                    품목별 시세 조회
-                  </button>
-
-                  <button
-                    type="button"
-                    className={styles.allMenuItem}
-                    onClick={() => handleAllMenuNavigate("/price/detail")}
-                  >
-                    가격 추이 그래프
-                  </button>
-
-                  <button
-                    type="button"
-                    className={styles.allMenuItem}
-                    onClick={() => handleAllMenuNavigate("/price/detail")}
-                  >
-                    급상승 / 급락 품목
-                  </button>
-                </div>
-
-                {/* 자치구별 가격정보 */}
-
-                <div className={styles.allMenuGroup}>
-                  <strong className={styles.allMenuGroupTitle}>
-                    자치구별 가격정보
-                  </strong>
-
-                  <button
-                    type="button"
-                    className={styles.allMenuItem}
-                    onClick={() => handleAllMenuNavigate("/region-price")}
-                  >
-                    자치구간 1:1 비교
-                  </button>
-
-                  <button
-                    type="button"
-                    className={styles.allMenuItem}
-                    onClick={() => handleAllMenuNavigate("/region-price")}
-                  >
-                    시장 / 마트 유형별 비교
-                  </button>
-                </div>
-
-                {/* 스마트 추천 */}
-
-                <div className={styles.allMenuGroup}>
-                  <strong className={styles.allMenuGroupTitle}>
-                    스마트 추천
-                  </strong>
-
-                  <button
-                    type="button"
-                    className={styles.allMenuItem}
-                    onClick={() => handleAllMenuNavigate("/recommendation")}
-                  >
-                    오늘의 알뜰 장바구니
-                  </button>
-
-                  <button
-                    type="button"
-                    className={styles.allMenuItem}
-                    onClick={() => handleAllMenuNavigate("/recommendation")}
-                  >
-                    가격 하락 품목 추천
-                  </button>
-
-                  <button
-                    type="button"
-                    className={styles.allMenuItem}
-                    onClick={() => handleAllMenuNavigate("/recommendation")}
-                  >
-                    이달의 제철 농수산물
-                  </button>
-                </div>
-
-                {/* 고객센터 */}
-
-                <div className={styles.allMenuGroup}>
-                  <strong className={styles.allMenuGroupTitle}>고객센터</strong>
-
-                  <button
-                    type="button"
-                    className={styles.allMenuItem}
-                    onClick={() => handleAllMenuNavigate("/notice")}
-                  >
-                    공지사항
-                  </button>
-
-                  <button
-                    type="button"
-                    className={styles.allMenuItem}
-                    onClick={() => handleAllMenuNavigate("/qna")}
-                  >
-                    질의응답
-                  </button>
-
-                  <button
-                    type="button"
-                    className={styles.allMenuItem}
-                    onClick={() => handleAllMenuNavigate("/faq")}
-                  >
-                    자주 묻는 질문
-                  </button>
-                </div>
-
-                {/* 마이페이지 */}
-
-                <div className={styles.allMenuGroup}>
-                  <strong className={styles.allMenuGroupTitle}>
-                    마이페이지
-                  </strong>
-
-                  <button
-                    type="button"
-                    className={styles.allMenuItem}
-                    onClick={() => handleAllMenuNavigate("/mypage/info")}
-                  >
-                    내 정보 수정
-                  </button>
-
-                  <button
-                    type="button"
-                    className={styles.allMenuItem}
-                    onClick={() => handleAllMenuNavigate("/mypage/interests")}
-                  >
-                    관심품목 & 우리동네 설정
-                  </button>
-
-                  <button
-                    type="button"
-                    className={styles.allMenuItem}
-                    onClick={() => handleAllMenuNavigate("/mypage/alerts")}
-                  >
-                    가격 변동 타겟 알림
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </header>
-
-      {/* 질의응답 본문 */}
-
-      <main className={styles.container}>
-        {/* 페이지 제목 */}
-
-        <section className={styles.pageHeader}>
-          <div className={styles.headerText}>
-            <h1>질의응답</h1>
-
-            <p>궁금한 점이나 서비스 이용 관련 문의를 남겨주세요.</p>
-          </div>
-        </section>
-
-        {/* 게시판 탭 */}
-
-        <nav className={styles.boardTabs} aria-label="고객센터 메뉴">
-          <button
-            type="button"
-            className={styles.boardTab}
-            onClick={() => navigate("/notice")}
-          >
-            공지사항
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.boardTab} ${styles.active}`}
-            aria-current="page"
-          >
-            질의응답 게시판
-          </button>
-
-          <button
-            type="button"
-            className={styles.boardTab}
-            onClick={() => navigate("/faq")}
-          >
-            자주 묻는 질문
-          </button>
-        </nav>
-
-        {/* 검색 */}
-
-        <section className={styles.searchArea} aria-label="질의응답 검색">
-          <div className={styles.searchBox}>
-            <label htmlFor="qna-search" className={styles.searchLabel}>
-              검색어
-            </label>
-
-            <select
-              value={searchType}
-              onChange={handleSearchTypeChange}
-              className={styles.searchSelect}
-              aria-label="검색 조건"
-            >
-              <option value="title">제목</option>
-
-              <option value="author">작성자</option>
-
-              <option value="content">작성글</option>
-            </select>
-
-            <input
-              id="qna-search"
-              type="text"
-              value={searchKeyword}
-              onChange={(event) => setSearchKeyword(event.target.value)}
-              onKeyDown={handleSearchKeyDown}
-              placeholder={searchPlaceholder}
-              className={styles.searchInput}
-            />
-
-            <button
-              type="button"
-              className={styles.searchButton}
-              onClick={handleSearch}
-            >
-              조회
-            </button>
-          </div>
-
-          {/* 글쓰기 */}
-
-          <button
-            type="button"
-            className={styles.writeButton}
-            onClick={handleWrite}
-            title={
-              !isLoggedIn ? "로그인 후 글쓰기가 가능합니다." : "질의응답 글쓰기"
-            }
-          >
-            <span className={styles.writeIcon}>+</span>
-            글쓰기
-          </button>
-        </section>
-
-        {/* 검색 결과 */}
-
-        {appliedKeyword && (
-          <div className={styles.searchResult} aria-live="polite">
-            <span>"{appliedKeyword}"</span> 검색 결과{" "}
-            <strong>{totalElements}</strong>건
-            <button type="button" onClick={handleResetSearch}>
-              검색 초기화
-            </button>
-          </div>
-        )}
-
-        {/* API 오류 */}
-
-        {errorMessage && (
-          <div className={styles.empty} role="alert">
-            <div className={styles.emptyIcon}>⚠️</div>
-
-            <h3>{errorMessage}</h3>
-
-            <p>잠시 후 다시 시도해주세요.</p>
-
-            <button
-              type="button"
-              onClick={() => void fetchQnaPosts(currentPage, appliedKeyword)}
-            >
-              다시 불러오기
-            </button>
-          </div>
-        )}
-
-        {/* 로딩 */}
-
-        {isLoading && !errorMessage && (
-          <div className={styles.empty} aria-live="polite">
-            <div className={styles.emptyIcon}>⏳</div>
-
-            <h3>Q&A 목록을 불러오는 중입니다.</h3>
-
-            <p>잠시만 기다려주세요.</p>
-          </div>
-        )}
-
-        {/* 질의응답 게시글 목록 */}
-
-        {!isLoading && !errorMessage && (
-          <section className={styles.board} aria-label="질의응답 게시글 목록">
-            <div className={styles.tableHeader}>
-              <div className={styles.numberColumn}>번호</div>
-
-              <div className={styles.titleColumn}>제목</div>
-
-              <div className={styles.authorColumn}>작성자</div>
-
-              <div className={styles.dateColumn}>날짜</div>
-
-              <div className={styles.viewsColumn}>조회수</div>
-            </div>
-
-            {posts.length > 0 ? (
-              <div className={styles.tableBody}>
-                {posts.map((post, index) => {
-                  /*
-                   * 게시글 번호
-                   */
-
-                  const postNumber =
-                    totalElements -
-                    ((currentPage - 1) * POSTS_PER_PAGE + index);
-
-                  const answered = hasAnswer(post);
-
-                  const myPost = isMyPost(post);
-
-                  return (
-                    <button
-                      type="button"
-                      key={post.id}
-                      className={styles.tableRow}
-                      onClick={() => handlePostClick(post)}
-                      title={
-                        isAdmin
-                          ? "관리자 권한으로 게시글 보기"
-                          : myPost
-                            ? "내 게시글 보기"
-                            : isLoggedIn
-                              ? "본인이 작성한 게시글만 확인할 수 있습니다."
-                              : "로그인 후 게시글을 확인할 수 있습니다."
-                      }
-                    >
-                      <div className={styles.numberColumn}>{postNumber}</div>
-
-                      <div className={styles.titleColumn}>
-                        <span className={styles.postTitle}>{post.title}</span>
-
-                        {answered && (
-                          <span
-                            className={styles.answerStatus}
-                            aria-label="답변 완료"
-                          >
-                            <span className={styles.answerArrow}>↳</span>
-                            답변이 완료되었습니다
-                          </span>
-                        )}
-
-                        {post.attachmentAvailable && (
-                          <span
-                            aria-label="첨부파일 있음"
-                            title="첨부파일 있음"
-                          >
-                            📎
-                          </span>
-                        )}
-                      </div>
-
-                      <div className={styles.authorColumn}>
-                        {post.writerName}
-                      </div>
-
-                      <div className={styles.dateColumn}>
-                        {formatDate(post.createdAt)}
-                      </div>
-
-                      <div className={styles.viewsColumn}>{post.viewCount}</div>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className={styles.empty}>
-                <div className={styles.emptyIcon}>🔍</div>
-
-                <h3>등록된 질의응답이 없습니다.</h3>
-
-                <p>궁금한 내용을 질의응답 글쓰기로 등록해주세요.</p>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* 페이지네이션 */}
-
-        {!isLoading && !errorMessage && totalElements > 0 && (
-          <nav className={styles.pagination} aria-label="질의응답 페이지 이동">
-            <button
-              type="button"
-              className={styles.pageArrow}
-              onClick={handlePreviousPage}
-              disabled={currentPage === 1}
-              aria-label="이전 페이지"
-            >
-              ‹
-            </button>
-
-            {Array.from(
-              {
-                length: MAX_PAGE,
-              },
-              (_, index) => index + 1,
-            ).map((page) => (
-              <button
-                key={page}
-                type="button"
-                className={`${styles.pageNumber} ${
-                  currentPage === page ? styles.pageActive : ""
-                }`}
-                onClick={() => handlePageChange(page)}
-                disabled={page > totalPages}
-                aria-current={currentPage === page ? "page" : undefined}
-              >
-                {page}
-              </button>
-            ))}
-
-            <button
-              type="button"
-              className={styles.pageArrow}
-              onClick={handleNextPage}
-              disabled={currentPage === totalPages}
-              aria-label="다음 페이지"
-            >
-              ›
-            </button>
-          </nav>
-        )}
-
-        {/* 하단 정보 */}
-
-        <div className={styles.boardInfo}>
-          <span>
-            전체 <strong>{totalElements}</strong>건
-          </span>
-
-          <span className={styles.loginInfo}>
-            {isAdmin
-              ? "🛡️ 관리자 계정은 모든 질의응답 게시글을 확인할 수 있습니다."
-              : "🔒 게시글 내용은 작성자 본인만 확인할 수 있습니다."}
-          </span>
-        </div>
-      </main>
     </div>
   );
 }
 
-export default QnaPage;

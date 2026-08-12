@@ -58,10 +58,15 @@ export interface PassAuthProps {
 }
 
 /*
- * PortOne 공개 식별자
+ * PortOne 공개 식별자 (환경변수 우선, 기본값 보동)
  */
-const PORTONE_STORE_ID = "store-80402af7-238f-44bf-8b5d-a4f3c415f38d";
-const PORTONE_CHANNEL_KEY = "channel-key-ca4c46cd-a367-4f7a-873f-c5aae5e73e27";
+const PORTONE_STORE_ID =
+  import.meta.env.VITE_PORTONE_STORE_ID ||
+  "store-80402af7-238f-44bf-8b5d-a4f3c415f38d";
+
+const PORTONE_CHANNEL_KEY =
+  import.meta.env.VITE_PORTONE_CHANNEL_KEY ||
+  "channel-key-ca4c46cd-a367-4f7a-873f-c5aae5e73e27";
 
 /*
  * 백엔드 서버 주소
@@ -155,15 +160,13 @@ export function PassAuth({
           }
           if (typeof response.data?.phoneNumber === "string") {
             verifiedPhone = response.data.phoneNumber.replace(/\D/g, "");
+          } else if (typeof response.data?.phone === "string") {
+            verifiedPhone = response.data.phone.replace(/\D/g, "");
           }
-        } catch (error) {
-          /*
-           * 백엔드 500 에러 발생 시 프로세스를 중단하지 않고
-           * 프론트엔드 입력값 기반으로 계속 진행합니다.
-           */
-          console.log(
-            "[PASS] 백엔드 confirm API 호출 오류 (우회 처리됨). 프론트엔드 데이터로 정상 진행합니다.",
-            error,
+        } catch (confirmError) {
+          console.warn(
+            "[PASS] 백엔드 confirm API 호출 오류 (예외 우회 처리됨):",
+            confirmError,
           );
         }
       }
@@ -183,7 +186,23 @@ export function PassAuth({
       onSuccess(passAuthResult);
     } catch (error) {
       console.error("[PASS] PortOne 인증 실행 오류:", error);
-      alert("PASS 인증 요청 중 오류가 발생했습니다.");
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const backendMsg =
+          typeof error.response?.data?.message === "string"
+            ? error.response.data.message
+            : "";
+
+        alert(
+          `본인인증 서버 확인 실패 (${status ? status + " Error" : "통신 오류"})\n${
+            backendMsg
+              ? backendMsg
+              : "백엔드 포트원 API 시크릿 키 및 채널 설정을 확인해 주세요."
+          }`,
+        );
+      } else {
+        alert("PASS 본인인증 처리 중 오류가 발생했습니다.");
+      }
     } finally {
       setVerifying(false);
     }

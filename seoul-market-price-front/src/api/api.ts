@@ -153,10 +153,24 @@ export async function signupApi(signupData: SignupRequest) {
 // 아이디 찾기
 // ===============================
 
-export async function findIdApi(phone: string) {
-  const response = await apiMiddleware.post("/api/users/find-id", {
-    phone,
-  });
+export interface FindIdResponse {
+  found: boolean;
+  maskedUserIds: string[];
+}
+
+export async function findIdApi(
+  identityVerificationId: string,
+  name?: string,
+  phone?: string,
+): Promise<FindIdResponse> {
+  const response = await apiMiddleware.post<FindIdResponse>(
+    "/api/members/find-id",
+    {
+      identityVerificationId,
+      ...(name && { name }),
+      ...(phone && { phone, phoneNumber: phone }),
+    },
+  );
 
   return response.data;
 }

@@ -11,6 +11,7 @@ export interface AuthUser {
   userId: string;
   name: string;
   role: string;
+  accessToken?: string;
 }
 
 interface AuthState {
@@ -26,7 +27,7 @@ interface AuthState {
   // 막기 위해 필요하다. 새 로그인이 성공하면 다시 false로 돌아간다.
   loggedOut: boolean;
   // 로그인: 유저 정보 + accessToken을 함께 저장한다.
-  setSession: (user: AuthUser, accessToken: string) => void;
+  setSession: (user: AuthUser, accessToken?: string) => void;
   // 토큰 재발급: accessToken만 갱신한다.
   setAccessToken: (accessToken: string) => void;
   // /api/members/me로 복구: 유저 정보만 채운다(토큰은 재발급 과정에서 이미 저장됨).
@@ -40,7 +41,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   accessToken: null,
   isInitialized: false,
   loggedOut: false,
-  setSession: (user, accessToken) =>
+  setSession: (user, accessToken = "") =>
     set({ user, accessToken, isInitialized: true, loggedOut: false }),
   setAccessToken: (accessToken) => set({ accessToken }),
   setUser: (user) => set({ user, isInitialized: true, loggedOut: false }),

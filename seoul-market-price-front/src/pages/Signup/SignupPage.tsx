@@ -193,6 +193,7 @@ function SignupPage() {
       signupApi({
         name: values.name.trim(),
         userId: values.userId.trim(),
+        identityVerificationId: verifiedInfo?.identityVerificationId ?? "",
         password: values.password,
         phone: values.phone.trim(),
         address: values.address,

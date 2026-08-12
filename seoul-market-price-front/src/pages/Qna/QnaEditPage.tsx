@@ -2,10 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 
-import styles from "./QnaEditPage.module.css";
-
-/* 백엔드 서버 주소 */
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8081";
+import apiMiddleware from "@/api/middleware";
+import { getLoginUser, isLogin, logout } from "@/features/auth/utils/auth";
 
 /* Q&A 상세 응답 */
 interface QnaDetailResponse {
@@ -26,15 +24,7 @@ interface QnaDetailResponse {
   answeredAt?: string;
 }
 
-/* 로그인 사용자 */
-interface LoginUser {
-  userId?: string;
-  name?: string;
-  userName?: string;
-  role?: string;
-}
-
-/* 첨부파일 최대 용량 */
+/* 첨부파일 최대 용량 (10MB) */
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 /* 허용 확장자 */
@@ -54,66 +44,15 @@ const ALLOWED_FILE_EXTENSIONS = [
   "txt",
 ];
 
-/* 로그인 사용자 정보 */
-const getLoginUser = (): LoginUser | null => {
-  const storedUser = localStorage.getItem("loginUser");
-
-  if (!storedUser) {
-    return null;
-  }
-
-  try {
-    const parsedUser: unknown = JSON.parse(storedUser);
-
-    if (
-      !parsedUser ||
-      typeof parsedUser !== "object" ||
-      Array.isArray(parsedUser)
-    ) {
-      return null;
-    }
-
-    return parsedUser as LoginUser;
-  } catch (error) {
-    console.error("로그인 사용자 정보 확인 실패:", error);
-
-    return null;
-  }
-};
-
-/* 로그인 사용자 ID */
-const getCurrentUserId = (): string => {
-  const user = getLoginUser();
-
-  if (!user) {
-    return "";
-  }
-
-  return user.userId || "";
-};
-
-/* 로그인 사용자 이름 */
-const getCurrentUserName = (): string => {
-  const user = getLoginUser();
-
-  if (!user) {
-    return "사용자";
-  }
-
-  return user.name || user.userName || user.userId || "사용자";
-};
-
 /* 관리자 여부 */
-const isAdminUser = (): boolean => {
-  const user = getLoginUser();
-
-  if (!user?.role) {
+const isAdminUser = (role?: string): boolean => {
+  if (!role) {
     return false;
   }
 
-  const role = user.role.toUpperCase();
+  const normalized = role.toUpperCase();
 
-  return role === "ADMIN" || role === "ROLE_ADMIN";
+  return normalized === "ADMIN" || normalized === "ROLE_ADMIN";
 };
 
 /* 파일 용량 표시 */
@@ -148,23 +87,21 @@ function QnaEditPage() {
   /* 파일 input 참조 */
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  /* 로그인 상태 */
-  const isLoggedIn = Boolean(localStorage.getItem("loginUser"));
+  /* 로그인 사용자 (zustand 기반) */
+  const currentUser = getLoginUser();
 
-  /* 현재 로그인 사용자 */
-  const currentUser = useMemo(() => {
-    return getLoginUser();
-  }, []);
-
-  /* 현재 로그인 사용자 ID */
+  /* 로그인 사용자 ID */
   const currentUserId = useMemo(() => {
-    return getCurrentUserId();
-  }, []);
+    return currentUser?.userId ?? "";
+  }, [currentUser]);
+
+  /* 로그인 사용자 여부 (zustand 기반) */
+  const isLoggedIn = isLogin();
 
   /* 관리자 여부 */
   const isAdmin = useMemo(() => {
-    return isAdminUser();
-  }, []);
+    return isAdminUser(currentUser?.role);
+  }, [currentUser]);
 
   /* 게시글 */
   const [post, setPost] = useState<QnaDetailResponse | null>(null);
@@ -241,11 +178,8 @@ function QnaEditPage() {
         setLoading(true);
         setErrorMessage("");
 
-        const response = await axios.get<QnaDetailResponse>(
-          `${BACKEND_URL}/api/qnas/${qnaId}`,
-          {
-            withCredentials: true,
-          },
+        const response = await apiMiddleware.get<QnaDetailResponse>(
+          `/api/qnas/${qnaId}`,
         );
 
         const data = response.data;
@@ -572,7 +506,7 @@ function QnaEditPage() {
 
       console.log("=================================");
       console.log("Q&A 수정 요청 시작");
-      console.log("수정 URL:", `${BACKEND_URL}/api/qnas/${post.id}`);
+      console.log("수정 URL:", `/api/qnas/${post.id}`);
       console.log("수정 데이터:", requestData);
       console.log("작성자:", isAuthor);
       console.log("관리자:", isAdmin);
@@ -584,15 +518,9 @@ function QnaEditPage() {
        * 현재 백엔드 @RequestBody QnaUpdateRequest에 맞춰
        * JSON으로 전송한다.
        */
-      const response = await axios.patch<QnaDetailResponse>(
-        `${BACKEND_URL}/api/qnas/${post.id}`,
+      const response = await apiMiddleware.patch<QnaDetailResponse>(
+        `/api/qnas/${post.id}`,
         requestData,
-        {
-          withCredentials: true,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
       );
 
       console.log("=================================");
@@ -643,8 +571,7 @@ function QnaEditPage() {
         if (error.response?.status === 401) {
           alert("로그인 정보가 만료되었습니다. 다시 로그인해주세요.");
 
-          localStorage.removeItem("loginUser");
-          localStorage.removeItem("accessToken");
+          await logout();
 
           navigate("/login");
 
@@ -681,21 +608,12 @@ function QnaEditPage() {
     }
   };
 
-  /* 로그아웃 */
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("loginUser");
-    localStorage.removeItem("user");
-
-    navigate("/");
-  };
-
   /* 로딩 상태 */
   if (loading) {
     return (
-      <div className={styles.page}>
-        <div className={styles.loadingContainer}>
-          <p>게시글 정보를 불러오는 중입니다...</p>
+      <div className="min-h-screen bg-[#fafcf9] py-12 px-5 sm:px-8">
+        <div className="max-w-[800px] mx-auto text-center p-16 text-[#8a9388] text-[14px]">
+          게시글 정보를 불러오는 중입니다...
         </div>
       </div>
     );
@@ -704,19 +622,17 @@ function QnaEditPage() {
   /* 오류 상태 */
   if (errorMessage) {
     return (
-      <div className={styles.page}>
-        <div className={styles.errorContainer}>
-          <div className={styles.errorIcon}>⚠️</div>
-
-          <h1>오류가 발생했습니다.</h1>
-
-          <p>{errorMessage}</p>
-
-          <div className={styles.loginButtonArea}>
+      <div className="min-h-screen bg-[#fafcf9] py-12 px-5 sm:px-8">
+        <div className="max-w-[800px] mx-auto text-center space-y-6">
+          <div className="text-[32px]">⚠️</div>
+          <h1 className="text-[28px] font-black text-[#242b23]">오류가 발생했습니다.</h1>
+          <p className="text-[15px] text-[#667065]">{errorMessage}</p>
+          <div className="pt-4">
             <button
               type="button"
-              className={styles.backButton}
+              className="px-5 py-2.5 bg-white border border-[#dce4da] text-[#5c665b] rounded-[7px] text-[14px] font-bold hover:bg-[#f0f5ef] cursor-pointer no-underline"
               onClick={() => navigate("/qna")}
+              style={{ textDecoration: "none" }}
             >
               Q&A 목록으로
             </button>
@@ -729,31 +645,27 @@ function QnaEditPage() {
   /* 로그인하지 않은 경우 */
   if (!isLoggedIn || !currentUser || !currentUserId) {
     return (
-      <div className={styles.page}>
-        <div className={styles.errorContainer}>
-          <div className={styles.errorIcon}>🔒</div>
-
-          <h1>로그인이 필요합니다.</h1>
-
-          <p>
-            Q&A 게시글 수정은
-            <br />
-            로그인한 회원만 이용할 수 있습니다.
+      <div className="min-h-screen bg-[#fafcf9] py-12 px-5 sm:px-8">
+        <div className="max-w-[800px] mx-auto text-center space-y-6">
+          <div className="text-[32px]">🔒</div>
+          <h1 className="text-[28px] font-black text-[#242b23]">로그인이 필요합니다.</h1>
+          <p className="text-[15px] text-[#667065]">
+            Q&A 게시글 수정은 로그인한 회원만 이용할 수 있습니다.
           </p>
-
-          <div className={styles.loginButtonArea}>
+          <div className="flex justify-center gap-3 pt-4">
             <button
               type="button"
-              className={styles.backButton}
+              className="px-5 py-2.5 bg-white border border-[#dce4da] text-[#5c665b] rounded-[7px] text-[14px] font-bold hover:bg-[#f0f5ef] cursor-pointer no-underline"
               onClick={() => navigate("/qna")}
+              style={{ textDecoration: "none" }}
             >
               Q&A로 돌아가기
             </button>
-
             <button
               type="button"
-              className={styles.loginButton}
+              className="px-5 py-2.5 bg-[#4c9b55] text-white rounded-[7px] text-[14px] font-bold hover:bg-[#438b4b] cursor-pointer no-underline"
               onClick={() => navigate("/login")}
+              style={{ textDecoration: "none" }}
             >
               로그인하기
             </button>
@@ -766,19 +678,17 @@ function QnaEditPage() {
   /* 게시글이 없는 경우 */
   if (!post) {
     return (
-      <div className={styles.page}>
-        <div className={styles.errorContainer}>
-          <div className={styles.errorIcon}>❓</div>
-
-          <h1>게시글을 찾을 수 없습니다.</h1>
-
-          <p>삭제되었거나 존재하지 않는 게시글입니다.</p>
-
-          <div className={styles.loginButtonArea}>
+      <div className="min-h-screen bg-[#fafcf9] py-12 px-5 sm:px-8">
+        <div className="max-w-[800px] mx-auto text-center space-y-6">
+          <div className="text-[32px]">❓</div>
+          <h1 className="text-[28px] font-black text-[#242b23]">게시글을 찾을 수 없습니다.</h1>
+          <p className="text-[15px] text-[#667065]">삭제되었거나 존재하지 않는 게시글입니다.</p>
+          <div className="pt-4">
             <button
               type="button"
-              className={styles.backButton}
+              className="px-5 py-2.5 bg-[#4c9b55] text-white rounded-[7px] text-[14px] font-bold hover:bg-[#438b4b] cursor-pointer no-underline"
               onClick={() => navigate("/qna")}
+              style={{ textDecoration: "none" }}
             >
               Q&A 목록으로
             </button>
@@ -796,31 +706,27 @@ function QnaEditPage() {
    */
   if (!canEdit) {
     return (
-      <div className={styles.page}>
-        <div className={styles.errorContainer}>
-          <div className={styles.errorIcon}>🔒</div>
-
-          <h1>수정할 수 없는 게시글입니다.</h1>
-
-          <p>
-            본인이 작성한 Q&A 게시글만
-            <br />
-            수정할 수 있습니다.
+      <div className="min-h-screen bg-[#fafcf9] py-12 px-5 sm:px-8">
+        <div className="max-w-[800px] mx-auto text-center space-y-6">
+          <div className="text-[32px]">🔒</div>
+          <h1 className="text-[28px] font-black text-[#242b23]">수정할 수 없는 게시글입니다.</h1>
+          <p className="text-[15px] text-[#667065]">
+            본인이 작성한 Q&A 게시글만 수정할 수 있습니다.
           </p>
-
-          <div className={styles.loginButtonArea}>
+          <div className="flex justify-center gap-3 pt-4">
             <button
               type="button"
-              className={styles.backButton}
+              className="px-5 py-2.5 bg-white border border-[#dce4da] text-[#5c665b] rounded-[7px] text-[14px] font-bold hover:bg-[#f0f5ef] cursor-pointer no-underline"
               onClick={() => navigate(`/qna/${post.id}`)}
+              style={{ textDecoration: "none" }}
             >
               게시글로 돌아가기
             </button>
-
             <button
               type="button"
-              className={styles.loginButton}
+              className="px-5 py-2.5 bg-[#4c9b55] text-white rounded-[7px] text-[14px] font-bold hover:bg-[#438b4b] cursor-pointer no-underline"
               onClick={() => navigate("/qna")}
+              style={{ textDecoration: "none" }}
             >
               Q&A 목록으로
             </button>
@@ -832,174 +738,16 @@ function QnaEditPage() {
 
   /* 게시글 수정 화면 */
   return (
-    <div className={styles.page}>
-      {/* 사용자 영역 */}
-      <div className={styles.userArea}>
-        <span>
-          {getCurrentUserName()}
-          {isAdmin && " (관리자)"}
-        </span>
-
-        <button
-          type="button"
-          className={styles.logoutButton}
-          onClick={handleLogout}
-        >
-          로그아웃
-        </button>
-      </div>
-
-      {/* Header */}
-      <header className={styles.mainHeader}>
-        <div className={styles.headerInner}>
-          {/* 로고 */}
-          <button
-            type="button"
-            className={styles.logo}
-            onClick={() => navigate("/")}
-            aria-label="싸농 홈으로 이동"
-          >
-            싸농
-          </button>
-
-          {/* 메인 메뉴 */}
-          <nav className={styles.mainNav} aria-label="주요 메뉴">
-            {/* 홈 */}
-            <button
-              type="button"
-              className={styles.navItem}
-              onClick={() => navigate("/")}
-            >
-              홈
-            </button>
-
-            {/* 가격 상세 정보 */}
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                가격 상세 정보
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>가격정보</strong>
-
-                  <button type="button" onClick={() => navigate("/price")}>
-                    품목별 시세 조회
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/price/detail")}
-                  >
-                    가격 추이 그래프
-                  </button>
-
-                  <button type="button" onClick={() => navigate("/price")}>
-                    급상승 / 급락 품목
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 자치구별 가격정보 */}
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                자치구별 가격정보
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>자치구별 지도 비교</strong>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/region-price")}
-                  >
-                    자치구간 1:1 비교
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/region-price")}
-                  >
-                    시장 / 마트 유형별 비교
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 스마트 추천 */}
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                스마트 추천
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>스마트 추천</strong>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/recommendation")}
-                  >
-                    오늘의 알뜰 장바구니
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/recommendation")}
-                  >
-                    가격 하락 품목 추천
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/recommendation")}
-                  >
-                    이달의 제철 농수산물
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 고객센터 */}
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                고객센터
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>고객센터</strong>
-
-                  <button type="button" onClick={() => navigate("/board")}>
-                    공지사항
-                  </button>
-
-                  <button type="button" onClick={() => navigate("/qna")}>
-                    Q&A
-                  </button>
-
-                  <button type="button" onClick={() => navigate("/faq")}>
-                    자주 묻는 질문
-                  </button>
-                </div>
-              </div>
-            </div>
-          </nav>
-        </div>
-      </header>
-
-      {/* 본문 */}
-      <main className={styles.container}>
+    <div className="min-h-screen bg-[#fafcf9] py-12 px-5 sm:px-8">
+      <div className="max-w-[800px] mx-auto space-y-8">
         {/* 페이지 제목 */}
-        <section className={styles.pageHeader}>
-          <div className={styles.headerText}>
-            <span className={styles.pageLabel}>Q&A</span>
-
-            <h1>문의 수정</h1>
-
-            <p>
+        <div className="flex items-center justify-between pb-6 border-b border-[#dce4da]">
+          <div>
+            <span className="inline-block px-3 py-1 bg-[#e8f3e9] text-[#3f8a47] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
+              CUSTOMER CENTER
+            </span>
+            <h1 className="text-[32px] font-black text-[#242b23] tracking-tight">문의 수정</h1>
+            <p className="text-[14px] text-[#667065] mt-1">
               {isAdmin
                 ? "관리자 권한으로 문의 내용을 수정할 수 있습니다."
                 : "작성하신 문의 내용을 수정해주세요."}
@@ -1008,28 +756,30 @@ function QnaEditPage() {
 
           <button
             type="button"
-            className={styles.listButton}
+            className="px-4 py-2 bg-white border border-[#dce4da] text-[#5c665b] rounded-[7px] text-[14px] font-bold hover:bg-[#f0f5ef] transition-colors cursor-pointer no-underline"
             onClick={() => navigate(`/qna/${post.id}`)}
             disabled={loading}
+            style={{ textDecoration: "none" }}
           >
             돌아가기
           </button>
-        </section>
+        </div>
 
         {/* 수정 Form */}
-        <form className={styles.form} onSubmit={handleSubmit}>
+        <form className="bg-white border border-[#dce4da] rounded-[12px] p-6 md:p-8 space-y-6 shadow-sm" onSubmit={handleSubmit}>
           {/* 작성자 */}
-          <div className={styles.formGroup}>
-            <label htmlFor="author">작성자</label>
+          <div className="space-y-1.5">
+            <label htmlFor="author" className="block text-[14px] font-bold text-[#343c33]">작성자</label>
 
             <input
               id="author"
               type="text"
               value={post.writerName || "사용자"}
               disabled
+              className="w-full h-[44px] px-3.5 bg-[#f4f7f3] border border-[#dce4da] rounded-[7px] text-[14px] text-[#667065]"
             />
 
-            <small>
+            <small className="text-[12px] text-[#8a9388]">
               {isAdmin
                 ? "관리자는 작성자를 변경할 수 없습니다."
                 : "작성자는 변경할 수 없습니다."}
@@ -1037,9 +787,9 @@ function QnaEditPage() {
           </div>
 
           {/* 제목 */}
-          <div className={styles.formGroup}>
-            <label htmlFor="title">
-              제목 <span>*</span>
+          <div className="space-y-1.5">
+            <label htmlFor="title" className="block text-[14px] font-bold text-[#343c33]">
+              제목 <span className="text-rose-500">*</span>
             </label>
 
             <input
@@ -1051,15 +801,16 @@ function QnaEditPage() {
               placeholder="문의 제목을 입력해주세요."
               maxLength={200}
               disabled={loading}
+              className="w-full h-[44px] px-3.5 bg-white border border-[#dce4da] rounded-[7px] text-[14px] text-[#242b23] focus:outline-none focus:border-[#4c9b55]"
             />
 
-            <small>최대 200자까지 입력할 수 있습니다.</small>
+            <small className="text-[12px] text-[#8a9388]">최대 200자까지 입력할 수 있습니다.</small>
           </div>
 
           {/* 내용 */}
-          <div className={styles.formGroup}>
-            <label htmlFor="content">
-              내용 <span>*</span>
+          <div className="space-y-1.5">
+            <label htmlFor="content" className="block text-[14px] font-bold text-[#343c33]">
+              내용 <span className="text-rose-500">*</span>
             </label>
 
             <textarea
@@ -1070,70 +821,72 @@ function QnaEditPage() {
               placeholder="문의 내용을 입력해주세요."
               rows={12}
               disabled={loading}
+              className="w-full p-3.5 bg-white border border-[#dce4da] rounded-[7px] text-[14px] text-[#242b23] focus:outline-none focus:border-[#4c9b55] resize-y"
             />
-
-            <small>질문 내용을 입력해주세요.</small>
           </div>
 
           {/* 공개 여부 */}
-          <div className={styles.formGroup}>
-            <label htmlFor="publicQuestion">공개 여부</label>
+          <div className="space-y-1.5">
+            <label htmlFor="publicQuestion" className="block text-[14px] font-bold text-[#343c33]">공개 여부</label>
 
-            <label>
+            <label className="inline-flex items-center gap-2 text-[14px] text-[#242b23] cursor-pointer">
               <input
                 id="publicQuestion"
                 type="checkbox"
                 checked={form.publicQuestion}
                 onChange={handlePublicQuestionChange}
                 disabled={loading}
+                className="w-4 h-4 accent-[#4c9b55]"
               />
               공개 질문
             </label>
 
-            <small>공개된 질문은 비로그인 사용자도 조회할 수 있습니다.</small>
+            <small className="block text-[12px] text-[#8a9388]">공개된 질문은 비로그인 사용자도 조회할 수 있습니다.</small>
           </div>
 
           {/* 첨부파일 */}
-          <div className={styles.formGroup}>
-            <label htmlFor="attachment">첨부파일</label>
+          <div className="space-y-2">
+            <label htmlFor="attachment" className="block text-[14px] font-bold text-[#343c33]">첨부파일</label>
 
             <input
               ref={fileInputRef}
               id="attachment"
               type="file"
-              className={styles.fileInput}
+              className="hidden"
               onChange={handleFileChange}
               disabled={loading}
             />
 
             {/* 기존 첨부파일 */}
             {currentAttachment && !attachmentDeleted && !newAttachment && (
-              <div className={styles.attachmentBox}>
-                <div className={styles.attachmentInfo}>
-                  <span className={styles.attachmentIcon}>📎</span>
+              <div className="flex items-center justify-between p-3.5 bg-[#f8faf7] border border-[#dce4da] rounded-[8px]">
+                <div className="flex items-center gap-2">
+                  <span className="text-[16px]">📎</span>
 
-                  <div className={styles.attachmentText}>
-                    <strong>{currentAttachment.name}</strong>
+                  <div>
+                    <strong className="block text-[14px] text-[#242b23] font-bold">{currentAttachment.name}</strong>
 
-                    <span>기존 첨부파일</span>
+                    <span className="text-[12px] text-[#8a9388]">기존 첨부파일</span>
                   </div>
                 </div>
 
-                <div className={styles.attachmentActions}>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    className={styles.changeFileButton}
+                    className="px-3 py-1.5 bg-white border border-[#dce4da] text-[#4c9b55] text-[12px] font-bold rounded-[6px] hover:bg-[#eef5ee] cursor-pointer no-underline"
                     onClick={handleFileSelect}
                     disabled={loading}
+                    style={{ textDecoration: "none" }}
                   >
                     변경
                   </button>
 
                   <button
                     type="button"
-                    className={styles.removeFileButton}
+                    className="px-3 py-1.5 bg-white border border-rose-200 text-rose-600 text-[12px] font-bold rounded-[6px] hover:bg-rose-50 cursor-pointer no-underline"
                     onClick={handleCurrentAttachmentDelete}
                     disabled={loading}
+                    style={{ textDecoration: "none" }}
                   >
                     삭제
                   </button>
@@ -1143,14 +896,15 @@ function QnaEditPage() {
 
             {/* 기존 파일 삭제 상태 */}
             {attachmentDeleted && !newAttachment && (
-              <div className={styles.attachmentEmpty}>
+              <div className="flex items-center justify-between p-3.5 bg-rose-50 border border-rose-200 rounded-[8px] text-[13px] text-rose-700 font-medium">
                 <span>첨부파일이 삭제됩니다.</span>
 
                 <button
                   type="button"
-                  className={styles.changeFileButton}
+                  className="px-3 py-1.5 bg-white border border-[#dce4da] text-[#4c9b55] text-[12px] font-bold rounded-[6px] hover:bg-[#eef5ee] cursor-pointer no-underline"
                   onClick={handleFileSelect}
                   disabled={loading}
+                  style={{ textDecoration: "none" }}
                 >
                   새 파일 선택
                 </button>
@@ -1159,35 +913,36 @@ function QnaEditPage() {
 
             {/* 새 파일 */}
             {newAttachment && (
-              <div className={styles.attachmentBox}>
-                <div className={styles.attachmentInfo}>
-                  <span className={styles.attachmentIcon}>📎</span>
+              <div className="flex items-center justify-between p-3.5 bg-[#e8f4e9] border border-[#c3e2c6] rounded-[8px]">
+                <div className="flex items-center gap-2">
+                  <span className="text-[16px]">📎</span>
 
-                  <div className={styles.attachmentText}>
-                    <strong>{newAttachment.name}</strong>
+                  <div>
+                    <strong className="block text-[14px] text-[#242b23] font-bold">{newAttachment.name}</strong>
 
-                    <span>
-                      {formatFileSize(newAttachment.size)}
-                      {" · "}새 첨부파일
+                    <span className="text-[12px] text-[#3f8a47]">
+                      {formatFileSize(newAttachment.size)} · 새 첨부파일
                     </span>
                   </div>
                 </div>
 
-                <div className={styles.attachmentActions}>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    className={styles.changeFileButton}
+                    className="px-3 py-1.5 bg-white border border-[#dce4da] text-[#4c9b55] text-[12px] font-bold rounded-[6px] hover:bg-[#eef5ee] cursor-pointer no-underline"
                     onClick={handleFileSelect}
                     disabled={loading}
+                    style={{ textDecoration: "none" }}
                   >
                     다시 변경
                   </button>
 
                   <button
                     type="button"
-                    className={styles.removeFileButton}
+                    className="px-3 py-1.5 bg-white border border-rose-200 text-rose-600 text-[12px] font-bold rounded-[6px] hover:bg-rose-50 cursor-pointer no-underline"
                     onClick={handleNewAttachmentDelete}
                     disabled={loading}
+                    style={{ textDecoration: "none" }}
                   >
                     삭제
                   </button>
@@ -1197,47 +952,41 @@ function QnaEditPage() {
 
             {/* 첨부파일이 없는 경우 */}
             {!currentAttachment && !newAttachment && !attachmentDeleted && (
-              <div className={styles.attachmentEmpty}>
-                <span>첨부된 파일이 없습니다.</span>
+              <div className="flex items-center justify-between p-3.5 bg-[#f8faf7] border border-[#dce4da] rounded-[8px]">
+                <span className="text-[13px] text-[#8a9388]">첨부된 파일이 없습니다.</span>
 
                 <button
                   type="button"
-                  className={styles.changeFileButton}
+                  className="px-3 py-1.5 bg-white border border-[#dce4da] text-[#4c9b55] text-[12px] font-bold rounded-[6px] hover:bg-[#eef5ee] cursor-pointer no-underline"
                   onClick={handleFileSelect}
                   disabled={loading}
+                  style={{ textDecoration: "none" }}
                 >
                   파일 선택
                 </button>
               </div>
             )}
 
-            <small>
-              최대 10MB까지 선택할 수 있습니다.
-              <br />
-              JPG, PNG, GIF, WEBP, PDF, DOC, DOCX, XLS, XLSX, HWP, HWPX, TXT
-              파일을 지원합니다.
+            <small className="block text-[12px] text-[#8a9388]">
+              최대 10MB까지 선택할 수 있습니다. (JPG, PNG, GIF, WEBP, PDF, DOC, DOCX, XLS, XLSX, HWP, HWPX, TXT)
             </small>
 
             {/* 새 파일 변경 취소 */}
             {newAttachment && currentAttachment && (
               <button
                 type="button"
-                className={styles.cancelFileChangeButton}
+                className="mt-1 text-[12px] text-[#4c9b55] font-bold hover:underline cursor-pointer bg-transparent border-none p-0 no-underline"
                 onClick={handleAttachmentChangeCancel}
                 disabled={loading}
+                style={{ textDecoration: "none" }}
               >
                 기존 첨부파일로 되돌리기
               </button>
             )}
-
-            <small>
-              현재 백엔드 수정 API는 첨부파일 자체를 업로드하는 Multipart 요청이
-              아니라 첨부파일 메타데이터만 수정하도록 구성되어 있습니다.
-            </small>
           </div>
 
           {/* 안내 문구 */}
-          <div className={styles.notice}>
+          <div className="flex items-center gap-2 p-3.5 bg-[#e8f4e9] rounded-[8px] text-[13px] text-[#385e3c]">
             <span>💡</span>
 
             <p>
@@ -1248,28 +997,31 @@ function QnaEditPage() {
           </div>
 
           {/* 버튼 */}
-          <div className={styles.buttonArea}>
+          <div className="flex justify-end gap-3 pt-4 border-t border-[#dce4da]">
             <button
               type="button"
-              className={styles.cancelButton}
+              className="px-6 py-2.5 bg-white border border-[#dce4da] text-[#5c665b] rounded-[7px] text-[14px] font-bold hover:bg-[#f0f5ef] cursor-pointer no-underline"
               onClick={() => navigate(`/qna/${post.id}`)}
               disabled={loading}
+              style={{ textDecoration: "none" }}
             >
               취소
             </button>
 
             <button
               type="submit"
-              className={styles.submitButton}
+              className="px-6 py-2.5 bg-[#4c9b55] text-white rounded-[7px] text-[14px] font-bold hover:bg-[#438b4b] cursor-pointer no-underline"
               disabled={loading}
+              style={{ textDecoration: "none" }}
             >
               {loading ? "수정 중..." : "수정하기"}
             </button>
           </div>
         </form>
-      </main>
+      </div>
     </div>
   );
 }
 
 export default QnaEditPage;
+
