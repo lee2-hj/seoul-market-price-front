@@ -145,7 +145,7 @@ const isPublicPost = (post: QnaDetailResponse): boolean => {
     return post.isPublic;
   }
 
-  return false;
+  return true;
 };
 
 /* 조회수 표시 */
@@ -284,12 +284,11 @@ function QnaDetailPage() {
 
         setIsMyPost(mine);
 
-        /*
-
-          백엔드에서 접근 가능한 게시글을
-          정상적으로 반환했으므로 그대로 저장한다.
-
-        */
+        const isSecret = !isPublicPost(detail);
+        if (isSecret && !mine && !isAdmin) {
+          setErrorMessage("작성자 본인과 관리자만 확인할 수 있는 비공개 글입니다.");
+          return;
+        }
 
         setPost(detail);
       } catch (error) {
@@ -315,7 +314,6 @@ function QnaDetailPage() {
           }
 
           /*
-
             백엔드의 findAccessibleById()에서
             접근할 수 없는 비공개 글도
             결과가 없으면 QnaNotFoundException이 발생한다.
@@ -338,6 +336,8 @@ function QnaDetailPage() {
                   date?: string;
                   views?: number;
                   answer?: string;
+                  publicQuestion?: boolean;
+                  isPublic?: boolean;
                 }>;
                 console.log("[QnaDetailPage] localStorage 폴백 시도, id:", id, "posts count:", localPosts.length);
                 const localPost = localPosts.find(
@@ -347,6 +347,24 @@ function QnaDetailPage() {
                   console.log("[QnaDetailPage] localStorage에서 게시글 발견:", localPost);
                   const localCurrentUser = getLoginUser();
                   const localCurrentUserId = getLoginUserId(localCurrentUser);
+                  const localMine =
+                    Boolean(localCurrentUserId) &&
+                    Boolean(localPost.authorId) &&
+                    localCurrentUserId === localPost.authorId;
+                  const localAdmin = Boolean(
+                    localCurrentUser?.role &&
+                      (localCurrentUser.role.toUpperCase() === "ADMIN" ||
+                        localCurrentUser.role.toUpperCase() === "ROLE_ADMIN"),
+                  );
+
+                  const isLocalSecret =
+                    localPost.publicQuestion === false || localPost.isPublic === false;
+
+                  if (isLocalSecret && !localMine && !localAdmin) {
+                    setErrorMessage("작성자 본인과 관리자만 확인할 수 있는 비공개 글입니다.");
+                    return;
+                  }
+
                   setPost({
                     id: localPost.id,
                     writerLoginId: localPost.authorId,
@@ -357,13 +375,9 @@ function QnaDetailPage() {
                     answer: localPost.answer,
                     views: localPost.views,
                     createdAt: localPost.date,
-                    publicQuestion: true,
+                    publicQuestion: !isLocalSecret,
                   });
-                  setIsMyPost(
-                    Boolean(localCurrentUserId) &&
-                      Boolean(localPost.authorId) &&
-                      localCurrentUserId === localPost.authorId,
-                  );
+                  setIsMyPost(localMine);
                   return;
                 }
               } catch {
@@ -508,17 +522,17 @@ function QnaDetailPage() {
 
   if (errorMessage || !post) {
     return (
-      <div className="min-h-screen bg-[#fafcf9] py-12 px-5 sm:px-8">
+      <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8">
         <div className="max-w-[800px] mx-auto text-center space-y-6">
-          <span className="inline-block px-3 py-1 bg-[#e8f3e9] text-[#3f8a47] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
+          <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
             CUSTOMER CENTER
           </span>
-          <h2 className="text-[28px] font-black text-[#242b23]">게시글을 확인할 수 없습니다.</h2>
-          <p className="text-[15px] text-[#667065]">{errorMessage || "게시글 정보가 존재하지 않습니다."}</p>
+          <h2 className="text-[28px] font-black text-[#13202B]">게시글을 확인할 수 없습니다.</h2>
+          <p className="text-[15px] text-[#6B7280]">{errorMessage || "게시글 정보가 존재하지 않습니다."}</p>
           <div className="pt-4">
             <button
               type="button"
-              className="px-5 py-2.5 bg-[#4c9b55] text-white rounded-[7px] text-[14px] font-bold hover:bg-[#438b4b] cursor-pointer no-underline"
+              className="px-5 py-2.5 bg-[#0F8AA8] text-white rounded-[7px] text-[14px] font-bold hover:bg-[#0B5E73] cursor-pointer no-underline"
               onClick={handleBack}
               style={{ textDecoration: "none" }}
             >
@@ -541,23 +555,24 @@ function QnaDetailPage() {
     attachmentUrl ||
     post.originalFileName ||
     post.fileName ||
-    post.attachName,
+    attachmentName,
   );
 
   /* 상세 화면 */
 
   return (
-    <div className="min-h-screen bg-[#fafcf9] py-12 px-5 sm:px-8">
+    <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8">
       <div className="max-w-[800px] mx-auto space-y-8">
         {/* 상단 서브 헤더 */}
 
-        <div className="flex items-center justify-between pb-4 border-b border-[#dce4da]">
+        <div className="flex items-center justify-between pb-4 border-b border-[#DCE8ED]">
           <div>
-            <span className="inline-block px-3 py-1 bg-[#e8f3e9] text-[#3f8a47] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
+            <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
               CUSTOMER CENTER
             </span>
+
             <div className="flex items-center gap-2">
-              <h1 className="text-[28px] font-black text-[#242b23] tracking-tight">질의응답 상세</h1>
+              <h1 className="text-[28px] font-black text-[#13202B] tracking-tight">질의응답 상세</h1>
 
               {!isPublicPost(post) && (
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
@@ -566,7 +581,13 @@ function QnaDetailPage() {
               )}
 
               {post.answerStatus && (
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#e8f4e9] text-[#4c8c53]">
+                <span
+                  className={
+                    post.answerStatus.includes("완료")
+                      ? "px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#EBF5F8] text-[#0F766E] border border-[#7CC9D8]"
+                      : "px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#F5FAFC] text-[#6B7280] border border-[#DCE8ED]"
+                  }
+                >
                   {post.answerStatus}
                 </span>
               )}
@@ -574,15 +595,15 @@ function QnaDetailPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {(isMyPost || isAdmin) && (
+            {isMyPost && (
               <>
                 <button
                   type="button"
                   onClick={handleEdit}
-                  className="px-3 py-1.5 bg-white border border-[#dce4da] text-[#4c9b55] text-[13px] font-bold rounded-[6px] hover:bg-[#eef5ee] cursor-pointer no-underline"
+                  className="px-3 py-1.5 bg-white border border-[#DCE8ED] text-[#0F8AA8] text-[13px] font-bold rounded-[6px] hover:bg-[#EBF5F8] cursor-pointer no-underline"
                   style={{ textDecoration: "none" }}
                 >
-                  {isAdmin ? "답변 작성 / 수정" : "수정"}
+                  수정
                 </button>
 
                 <button
@@ -599,7 +620,7 @@ function QnaDetailPage() {
             <button
               type="button"
               onClick={handleBack}
-              className="px-4 py-1.5 bg-white border border-[#dce4da] text-[#5c665b] text-[13px] font-bold rounded-[6px] hover:bg-[#f0f5ef] cursor-pointer no-underline"
+              className="px-4 py-1.5 bg-white border border-[#DCE8ED] text-[#6B7280] text-[13px] font-bold rounded-[6px] hover:bg-[#EBF5F8] cursor-pointer no-underline"
               style={{ textDecoration: "none" }}
             >
               목록
@@ -609,30 +630,30 @@ function QnaDetailPage() {
 
         {/* 게시글 본문 카드리뉴얼 */}
 
-        <div className="bg-white border border-[#dce4da] rounded-[12px] p-6 md:p-8 space-y-6 shadow-sm">
+        <div className="bg-white border border-[#DCE8ED] rounded-[12px] p-6 md:p-8 space-y-6 shadow-sm">
           {/* 제목 */}
 
-          <h2 className="text-[22px] font-bold text-[#242b23] border-b border-[#f0f4ef] pb-4">
+          <h2 className="text-[22px] font-bold text-[#13202B] border-b border-[#DCE8ED] pb-4">
             {post.title}
           </h2>
 
           {/* 메타 정보 */}
 
-          <div className="flex flex-wrap items-center gap-6 text-[13px] text-[#667065] bg-[#f8faf7] p-3.5 rounded-[8px]">
+          <div className="flex flex-wrap items-center gap-6 text-[13px] text-[#6B7280] bg-[#F5FAFC] p-3.5 rounded-[8px]">
             <div>
-              <span className="font-bold text-[#343c33] mr-2">작성자</span>
+              <span className="font-bold text-[#13202B] mr-2">작성자</span>
 
               <span>{post.writerName || post.writerLoginId || "-"}</span>
             </div>
 
             <div>
-              <span className="font-bold text-[#343c33] mr-2">작성일</span>
+              <span className="font-bold text-[#13202B] mr-2">작성일</span>
 
               <span>{formatDate(post.createdAt)}</span>
             </div>
 
             <div>
-              <span className="font-bold text-[#343c33] mr-2">조회수</span>
+              <span className="font-bold text-[#13202B] mr-2">조회수</span>
 
               <span>{getViewCount(post)}</span>
             </div>
@@ -640,53 +661,67 @@ function QnaDetailPage() {
 
           {/* 질문 본문 */}
 
-          <article className="min-h-[160px] text-[15px] text-[#242b23] leading-relaxed whitespace-pre-wrap py-2">
+          <article className="min-h-[160px] text-[15px] text-[#13202B] leading-relaxed whitespace-pre-wrap py-2">
             {getQuestionContent(post)}
           </article>
 
           {/* 첨부파일 */}
 
           {hasAttachment && (
-            <div className="pt-4 border-t border-[#f0f4ef] flex items-center gap-3 text-[14px]">
-              <span className="font-bold text-[#343c33]">📎 첨부파일</span>
+            <div className="pt-4 border-t border-[#DCE8ED] flex items-center gap-3 text-[14px]">
+              <span className="font-bold text-[#13202B]">📎 첨부파일</span>
 
               {attachmentUrl ? (
                 <a
                   href={attachmentUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#4c9b55] hover:underline font-medium no-underline"
+                  className="text-[#0F8AA8] hover:underline font-medium no-underline"
                   style={{ textDecoration: "none" }}
                 >
                   {attachmentName}
                 </a>
               ) : (
-                <span className="text-[#667065]">{attachmentName}</span>
+                <span className="text-[#6B7280]">{attachmentName}</span>
               )}
             </div>
           )}
 
           {/* 답변 */}
 
-          {(post.answer || post.answerContent) && (
-            <section className="mt-8 p-5 bg-[#f4f8f4] border border-[#cbe3ce] rounded-[10px] space-y-3">
-              <div className="flex items-center justify-between border-b border-[#d2e7d4] pb-2">
-                <h3 className="text-[16px] font-bold text-[#2d6834] flex items-center gap-2">
+          {post.answer || post.answerContent ? (
+            <section className="mt-8 p-5 bg-[#EBF5F8] border border-[#7CC9D8] rounded-[10px] space-y-3">
+              <div className="flex items-center justify-between border-b border-[#7CC9D8] pb-2">
+                <h3 className="text-[16px] font-bold text-[#0B5E73] flex items-center gap-2">
                   <span>↳</span> 답변
                 </h3>
 
                 {post.answeredAt && (
-                  <span className="text-[12px] text-[#5e8262]">
+                  <span className="text-[12px] text-[#6B7280]">
                     {formatDate(post.answeredAt)}
                   </span>
                 )}
               </div>
 
-              <div className="text-[14px] text-[#242b23] leading-relaxed whitespace-pre-wrap pt-1">
+              <div className="text-[14px] text-[#13202B] leading-relaxed whitespace-pre-wrap pt-1">
                 {post.answer || post.answerContent}
               </div>
             </section>
+          ) : (
+            <section className="mt-8 p-5 bg-[#F5FAFC] border border-[#DCE8ED] rounded-[10px] space-y-2">
+              <div className="flex items-center gap-2 text-[#0B5E73] font-bold text-[14px]">
+                <span className="text-[11px] text-[#6B7280] font-semibold">↳</span>
+                <span className="inline-block px-2 py-0.5 rounded bg-[#F5FAFC] border border-[#DCE8ED] text-[#6B7280] text-[11px] font-extrabold">
+                  답변 대기
+                </span>
+                <span>답변을 기다리는 중입니다.</span>
+              </div>
+              <p className="text-[13px] text-[#6B7280] pl-5">
+                관리자가 문의 내용을 확인한 후 답변을 등록할 예정입니다.
+              </p>
+            </section>
           )}
+
         </div>
 
         {/* 하단 버튼 */}
@@ -694,22 +729,23 @@ function QnaDetailPage() {
         <div className="flex justify-between items-center pt-2">
           <button
             type="button"
-            className="px-5 py-2.5 bg-white border border-[#dce4da] text-[#5c665b] text-[14px] font-bold rounded-[7px] hover:bg-[#f0f5ef] cursor-pointer no-underline"
+            className="px-5 py-2.5 bg-white border border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[7px] hover:bg-[#EBF5F8] cursor-pointer no-underline"
             onClick={handleBack}
             style={{ textDecoration: "none" }}
           >
             목록으로
           </button>
 
-          {(isMyPost || isAdmin) && (
+
+          {isMyPost && (
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handleEdit}
-                className="px-5 py-2.5 bg-[#4c9b55] text-white text-[14px] font-bold rounded-[7px] hover:bg-[#438b4b] cursor-pointer no-underline"
+                className="px-5 py-2.5 bg-[#0F8AA8] text-white text-[14px] font-bold rounded-[7px] hover:bg-[#0B5E73] cursor-pointer no-underline"
                 style={{ textDecoration: "none" }}
               >
-                {isAdmin ? "답변 작성 / 수정" : "수정"}
+                수정
               </button>
 
               <button
@@ -723,6 +759,7 @@ function QnaDetailPage() {
             </div>
           )}
         </div>
+
       </div>
     </div>
   );

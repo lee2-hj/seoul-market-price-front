@@ -39,6 +39,8 @@ interface QnaPost {
   views: number;
   answer?: string;
   attachments?: QnaAttachment[];
+  publicQuestion?: boolean;
+  isPublic?: boolean;
 }
 
 type SearchType = "title" | "author" | "content";
@@ -86,10 +88,21 @@ interface QnaRowProps {
   item: QnaPost;
   displayNo: number;
   onClick: (item: QnaPost) => void;
+  currentUserId?: string;
+  isAdmin?: boolean;
 }
 
-function QnaRow({ item, displayNo, onClick }: QnaRowProps) {
+function QnaRow({ item, displayNo, onClick, currentUserId, isAdmin }: QnaRowProps) {
   const answered = typeof item.answer === "string" && item.answer.trim().length > 0;
+  const isSecret = item.publicQuestion === false || item.isPublic === false;
+  const isMyPost = Boolean(currentUserId) && Boolean(item.authorId) && String(currentUserId) === String(item.authorId);
+  const canAccess = !isSecret || isMyPost || isAdmin;
+
+  const displayTitle = isSecret
+    ? canAccess
+      ? `🔒 ${item.title}`
+      : "🔒 비밀글입니다."
+    : item.title;
 
   return (
     <TableRow className="bg-white hover:bg-[#f8faf7]">
@@ -103,60 +116,55 @@ function QnaRow({ item, displayNo, onClick }: QnaRowProps) {
         <span
           className={
             answered
-              ? "inline-flex items-center justify-center min-w-[58px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#e8f4e9] text-[#4c8c53]"
-              : "inline-flex items-center justify-center min-w-[58px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#f0f4f8] text-[#55708c]"
+              ? "inline-flex items-center justify-center min-w-[58px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#EBF5F8] text-[#0F766E] border border-[#7CC9D8]"
+              : "inline-flex items-center justify-center min-w-[58px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#F5FAFC] text-[#6B7280] border border-[#DCE8ED]"
           }
         >
           {answered ? "답변완료" : "답변대기"}
         </span>
       </TableCell>
 
+
       {/* 3. 제목 + 하단 답변 상태 표시 (43%) */}
       <TableCell className="w-[43%] text-left max-w-0 align-middle py-3">
         <button
           type="button"
           onClick={() => onClick(item)}
-          className="block truncate w-full text-[14px] font-semibold text-[#384138] hover:text-[#4c9b55] text-left bg-transparent border-0 p-0 cursor-pointer"
-          title={item.title}
+          className="block truncate w-full text-[14px] font-semibold text-[#13202B] hover:text-[#0F8AA8] text-left bg-transparent border-0 p-0 cursor-pointer"
+          title={displayTitle}
         >
-          {item.title}
+          {displayTitle}
         </button>
 
-        {/* 제목 하단 답변 상태 서브 표시 */}
-        <div className="flex items-center gap-1.5 mt-1">
-          <span className="text-[11px] text-[#939c92] font-semibold">↳</span>
-          {answered ? (
-            <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#3f8a47]">
-              <span className="inline-block px-1.5 py-0.5 rounded bg-[#e8f3e9] text-[10px] font-extrabold">
+        {/* 답변 완료 시만 하단 답변 완료 표시 */}
+        {answered && (
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="text-[11px] text-[#6B7280] font-semibold">↳</span>
+            <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#0F766E]">
+              <span className="inline-block px-1.5 py-0.5 rounded bg-[#EBF5F8] text-[10px] font-extrabold text-[#0F766E]">
                 답변 완료
               </span>
               <span>관리자 답변이 등록되었습니다.</span>
             </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-[12px] font-medium text-[#737c72]">
-              <span className="inline-block px-1.5 py-0.5 rounded bg-[#f0f4f8] text-[#55708c] text-[10px] font-bold">
-                답변 대기
-              </span>
-              <span>답변을 기다리는 중입니다.</span>
-            </span>
-          )}
-        </div>
+          </div>
+        )}
       </TableCell>
 
       {/* 4. 작성자 (14%) */}
-      <TableCell className="w-[14%] text-center text-[#5a6459] align-middle">
+      <TableCell className="w-[14%] text-center text-[#6B7280] align-middle">
         {item.author}
       </TableCell>
 
       {/* 5. 작성일 (15%) */}
-      <TableCell className="w-[15%] text-center text-[#5a6459] align-middle">
+      <TableCell className="w-[15%] text-center text-[#6B7280] align-middle">
         {item.date || "-"}
       </TableCell>
 
       {/* 6. 조회수 (9%) */}
-      <TableCell className="w-[9%] text-center text-[#5a6459] align-middle">
+      <TableCell className="w-[9%] text-center text-[#6B7280] align-middle">
         {item.views}
       </TableCell>
+
     </TableRow>
   );
 }
@@ -171,6 +179,11 @@ export default function QnaPage() {
   }, [isLoggedIn]);
 
   const loginUserId = loginUser?.userId ?? "";
+  const isAdmin = useMemo(() => {
+    if (!loginUser?.role) return false;
+    const role = loginUser.role.toUpperCase();
+    return role === "ADMIN" || role === "ROLE_ADMIN";
+  }, [loginUser]);
 
   const [posts, setPosts] = useState<QnaPost[]>(getInitialPosts);
 
@@ -198,6 +211,7 @@ export default function QnaPage() {
             date: item.createdAt ? item.createdAt.split("T")[0].replace(/-/g, ".") : "-",
             views: item.viewCount || 0,
             answer: item.answerStatus === "ANSWERED" || item.answeredAt ? "네, 답변되었습니다." : undefined,
+            publicQuestion: item.publicQuestion,
           }));
 
           setPosts((prevPosts) => {
@@ -273,17 +287,28 @@ export default function QnaPage() {
   const handleWriteClick = () => {
     if (!isLoggedIn || !loginUserId) {
       alert("로그인 후 글쓰기가 가능합니다.");
+      sessionStorage.setItem("redirectUrl", "/qna/write");
       navigate("/login", { state: { from: "/qna/write" } });
       return;
     }
     navigate("/qna/write");
   };
 
-  /* 타인이 작성한 게시글도 자유롭게 조회 가능 */
+  /* 비공개 게시글인 경우 작성자 본인 및 관리자만 상세 이동 가능 */
   const handlePostClick = (post: QnaPost) => {
     if (!isLoggedIn || !loginUserId) {
       alert("로그인 후 게시글 내용을 확인할 수 있습니다.");
-      navigate("/login");
+      sessionStorage.setItem("redirectUrl", `/qna/${post.id}`);
+      navigate("/login", { state: { from: `/qna/${post.id}` } });
+      return;
+    }
+
+
+    const isSecret = post.publicQuestion === false || post.isPublic === false;
+    const isMyPost = Boolean(loginUserId) && Boolean(post.authorId) && String(loginUserId) === String(post.authorId);
+
+    if (isSecret && !isMyPost && !isAdmin) {
+      alert("작성자 본인과 관리자만 확인할 수 있는 비공개 글입니다.");
       return;
     }
 
@@ -301,6 +326,7 @@ export default function QnaPage() {
     localStorage.setItem("qnaPosts", JSON.stringify(updatedPosts));
     navigate(`/qna/${post.id}`);
   };
+
 
   const handlePageChange = (page: number) => {
     if (page < 1 || page > totalPages) return;
@@ -329,37 +355,38 @@ export default function QnaPage() {
         <div className="max-w-[1000px] mx-auto space-y-8">
           {/* 헤더 영역 */}
           <div className="text-center space-y-2 mb-8">
-            <span className="inline-block px-3 py-1 bg-[#e8f3e9] text-[#3f8a47] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
+            <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
               CUSTOMER CENTER
             </span>
-            <h1 className="text-[36px] font-black text-[#242b23] tracking-tight">
+            <h1 className="text-[36px] font-black text-[#0B5E73] tracking-tight">
               질의응답
             </h1>
-            <p className="text-[15px] text-[#667065]">
+            <p className="text-[15px] text-[#6B7280]">
               서울시 농수산물 가격 정보 서비스의 질의응답 게시판입니다.
             </p>
           </div>
 
+
           {/* 카테고리 탭 ([공지사항] [질의응답] [자주 묻는 질문]) */}
           <div className="flex justify-center mb-6">
-            <div className="flex items-center gap-2 p-1 bg-white rounded-[10px] border border-[#dce4da] shadow-sm">
+            <div className="flex items-center gap-2 p-1 bg-white rounded-[10px] border border-[#DCE8ED] shadow-sm">
               <button
                 type="button"
                 onClick={() => navigate("/board")}
-                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all cursor-pointer"
+                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#6B7280] hover:bg-[#EBF5F8] hover:text-[#0F8AA8] transition-all cursor-pointer"
               >
                 공지사항
               </button>
               <button
                 type="button"
-                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#4c9b55] text-white transition-all cursor-pointer"
+                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#0F8AA8] text-white transition-all cursor-pointer"
               >
                 질의응답
               </button>
               <button
                 type="button"
                 onClick={() => navigate("/faq")}
-                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all cursor-pointer"
+                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#6B7280] hover:bg-[#EBF5F8] hover:text-[#0F8AA8] transition-all cursor-pointer"
               >
                 자주 묻는 질문
               </button>
@@ -367,12 +394,12 @@ export default function QnaPage() {
           </div>
 
           {/* 검색 영역 */}
-          <div className="bg-[#f4f7f3] border border-[#dce4da] rounded-[12px] p-5 mb-6">
+          <div className="bg-[#F5FAFC] border border-[#DCE8ED] rounded-[12px] p-5 mb-6">
             <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row items-center gap-3">
               <select
                 value={searchType}
                 onChange={(e) => setSearchType(e.target.value as SearchType)}
-                className="h-[44px] w-full md:w-[130px] rounded-[7px] border border-[#dce4da] bg-white px-3 text-[14px] text-[#3e483d] focus:outline-none focus:border-[#4c9b55]"
+                className="h-[44px] w-full md:w-[130px] rounded-[7px] border border-[#DCE8ED] bg-white px-3 text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8]"
               >
                 <option value="title">제목</option>
                 <option value="author">작성자</option>
@@ -383,12 +410,12 @@ export default function QnaPage() {
                 placeholder="검색어를 입력하세요."
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
-                className="h-[44px] flex-1 bg-white border-[#dce4da] text-[14px] placeholder:text-[#939c92] focus-visible:ring-[#4c9b55]"
+                className="h-[44px] flex-1 bg-white border-[#DCE8ED] text-[14px] placeholder:text-[#6B7280] focus-visible:ring-[#0F8AA8]"
               />
               <div className="flex items-center gap-2 w-full md:w-auto">
                 <Button
                   type="submit"
-                  className="h-[44px] px-6 bg-[#343c33] hover:bg-[#252b24] text-white text-[14px] font-bold rounded-[7px] flex-1 md:flex-none"
+                  className="h-[44px] px-6 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[7px] flex-1 md:flex-none"
                 >
                   검색
                 </Button>
@@ -396,7 +423,7 @@ export default function QnaPage() {
                   type="button"
                   variant="outline"
                   onClick={handleResetSearch}
-                  className="h-[44px] px-5 bg-white border-[#dce4da] text-[#5a6459] hover:bg-[#eef3ed] text-[14px] font-bold rounded-[7px] flex-1 md:flex-none"
+                  className="h-[44px] px-5 bg-white border-[#DCE8ED] text-[#6B7280] hover:bg-[#EBF5F8] text-[14px] font-bold rounded-[7px] flex-1 md:flex-none"
                 >
                   초기화
                 </Button>
@@ -406,24 +433,25 @@ export default function QnaPage() {
 
           {/* 목록 건수 정보 & 글쓰기 버튼 영역 */}
           <div className="flex items-center justify-between mb-3 min-h-[44px]">
-            <p className="text-[14px] text-[#667065]">
-              전체 <strong className="text-[#4c9b55] font-extrabold">{filteredPosts.length}</strong>개의 게시글이 있습니다.
+            <p className="text-[14px] text-[#6B7280]">
+              전체 <strong className="text-[#0F8AA8] font-extrabold">{filteredPosts.length}</strong>개의 게시글이 있습니다.
             </p>
             <button
               type="button"
               onClick={handleWriteClick}
-              className="inline-flex items-center justify-center min-w-[94px] h-[42px] px-5 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[14px] font-bold rounded-[7px] transition-colors border border-[#4c9b55] cursor-pointer"
+              className="inline-flex items-center justify-center min-w-[94px] h-[42px] px-5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[7px] transition-colors border border-[#0F8AA8] cursor-pointer"
             >
               글쓰기
             </button>
           </div>
 
           {/* Table 영역 */}
-          <div className="w-full bg-white border border-[#dce4da] rounded-[12px] shadow-[0_7px_24px_rgba(45,70,45,0.05)] overflow-hidden">
+          <div className="w-full bg-white border border-[#DCE8ED] rounded-[12px] shadow-[0_7px_24px_rgba(15,138,168,0.08)] overflow-hidden">
             {paginatedPosts.length === 0 ? (
-              <div className="p-16 text-center text-[#8a9388] text-[14px]">
+              <div className="p-16 text-center text-[#6B7280] text-[14px]">
                 등록된 게시글이 없습니다.
               </div>
+
             ) : (
               <Table className="min-w-[820px]">
                 <TableHeader>
@@ -445,6 +473,8 @@ export default function QnaPage() {
                         item={item}
                         displayNo={displayNo > 0 ? displayNo : index + 1}
                         onClick={handlePostClick}
+                        currentUserId={loginUserId}
+                        isAdmin={isAdmin}
                       />
                     );
                   })}

@@ -298,6 +298,26 @@ function QnaWritePage() {
       console.log("응답 데이터:", response.data);
       console.log("=================================");
 
+      const newPostId = (response.data as { id?: number })?.id || Date.now();
+      const today = new Date().toISOString().split("T")[0].replace(/-/g, ".");
+      const newPostObj = {
+        id: newPostId,
+        authorId: loginUser.userId || "user",
+        author: loginUser.name || loginUser.userId || "작성자",
+        title: form.title.trim(),
+        content: form.content.trim(),
+        date: today,
+        views: 0,
+        publicQuestion: form.publicQuestion,
+      };
+      try {
+        const storedPosts = localStorage.getItem("qnaPosts");
+        const localPosts = storedPosts ? (JSON.parse(storedPosts) as any[]) : [];
+        localStorage.setItem("qnaPosts", JSON.stringify([newPostObj, ...localPosts]));
+      } catch {
+        /* 파싱 실패 무시 */
+      }
+
       alert("질의응답이 등록되었습니다.");
 
       /*
@@ -410,17 +430,17 @@ function QnaWritePage() {
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-[#fafcf9] py-12 px-5 sm:px-8">
+      <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8">
         <div className="max-w-[800px] mx-auto text-center space-y-6">
-          <span className="inline-block px-3 py-1 bg-[#e8f3e9] text-[#3f8a47] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
+          <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
             CUSTOMER CENTER
           </span>
-          <h1 className="text-[28px] font-black text-[#242b23]">로그인이 필요합니다.</h1>
-          <p className="text-[15px] text-[#667065]">질의응답 글쓰기는 로그인한 회원만 이용할 수 있습니다.</p>
+          <h1 className="text-[28px] font-black text-[#13202B]">로그인이 필요합니다.</h1>
+          <p className="text-[15px] text-[#6B7280]">질의응답 글쓰기는 로그인한 회원만 이용할 수 있습니다.</p>
           <div className="flex justify-center gap-3 pt-4">
             <button
               type="button"
-              className="px-5 py-2.5 bg-white border border-[#dce4da] text-[#5c665b] rounded-[7px] text-[14px] font-bold hover:bg-[#f0f5ef] cursor-pointer no-underline"
+              className="px-5 py-2.5 bg-white border border-[#DCE8ED] text-[#6B7280] rounded-[7px] text-[14px] font-bold hover:bg-[#EBF5F8] cursor-pointer no-underline"
               onClick={() => navigate("/qna")}
               style={{ textDecoration: "none" }}
             >
@@ -428,8 +448,12 @@ function QnaWritePage() {
             </button>
             <button
               type="button"
-              className="px-5 py-2.5 bg-[#4c9b55] text-white rounded-[7px] text-[14px] font-bold hover:bg-[#438b4b] cursor-pointer no-underline"
-              onClick={() => navigate("/login")}
+              className="px-5 py-2.5 bg-[#0F8AA8] text-white rounded-[7px] text-[14px] font-bold hover:bg-[#0B5E73] cursor-pointer no-underline"
+              onClick={() => {
+                sessionStorage.setItem("redirectUrl", "/qna/write");
+                navigate("/login", { state: { from: "/qna/write" } });
+              }}
+
               style={{ textDecoration: "none" }}
             >
               로그인하기
@@ -443,22 +467,23 @@ function QnaWritePage() {
   /* 로그인 상태 */
 
   return (
-    <div className="min-h-screen bg-[#fafcf9] py-12 px-5 sm:px-8">
+    <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8">
       <div className="max-w-[800px] mx-auto space-y-8">
         {/* 페이지 제목 */}
 
-        <div className="flex items-center justify-between pb-6 border-b border-[#dce4da]">
+        <div className="flex items-center justify-between pb-6 border-b border-[#DCE8ED]">
           <div>
-            <span className="inline-block px-3 py-1 bg-[#e8f3e9] text-[#3f8a47] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
+            <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
               CUSTOMER CENTER
             </span>
-            <h1 className="text-[32px] font-black text-[#242b23] tracking-tight">질의응답 작성</h1>
-            <p className="text-[14px] text-[#667065] mt-1">궁금한 내용을 입력해 문의를 남겨주세요.</p>
+            <h1 className="text-[32px] font-black text-[#13202B] tracking-tight">질의응답 작성</h1>
+            <p className="text-[14px] text-[#6B7280] mt-1">궁금한 내용을 입력해 문의를 남겨주세요.</p>
           </div>
+
 
           <button
             type="button"
-            className="px-4 py-2 bg-white border border-[#dce4da] text-[#5c665b] rounded-[7px] text-[14px] font-bold hover:bg-[#f0f5ef] transition-colors cursor-pointer no-underline"
+            className="px-4 py-2 bg-white border border-[#DCE8ED] text-[#6B7280] rounded-[7px] text-[14px] font-bold hover:bg-[#EBF5F8] transition-colors cursor-pointer no-underline"
             onClick={() => navigate("/qna")}
             disabled={loading}
             style={{ textDecoration: "none" }}
@@ -469,21 +494,21 @@ function QnaWritePage() {
 
         {/* 질의응답 작성 폼 */}
 
-        <form className="bg-white border border-[#dce4da] rounded-[12px] p-6 md:p-8 space-y-6 shadow-sm" onSubmit={handleSubmit}>
+        <form className="bg-white border border-[#DCE8ED] rounded-[12px] p-6 md:p-8 space-y-6 shadow-sm" onSubmit={handleSubmit}>
           {/* 작성자 */}
 
           <div className="space-y-1.5">
-            <label htmlFor="author" className="block text-[14px] font-bold text-[#343c33]">작성자</label>
+            <label htmlFor="author" className="block text-[14px] font-bold text-[#13202B]">작성자</label>
 
-            <input id="author" type="text" value={currentUserName} disabled className="w-full h-[44px] px-3.5 bg-[#f4f7f3] border border-[#dce4da] rounded-[7px] text-[14px] text-[#667065]" />
+            <input id="author" type="text" value={currentUserName} disabled className="w-full h-[44px] px-3.5 bg-[#F5FAFC] border border-[#DCE8ED] rounded-[7px] text-[14px] text-[#6B7280]" />
 
-            <small className="text-[12px] text-[#8a9388]">현재 로그인한 회원 정보로 자동 등록됩니다.</small>
+            <small className="text-[12px] text-[#6B7280]">현재 로그인한 회원 정보로 자동 등록됩니다.</small>
           </div>
 
           {/* 제목 */}
 
           <div className="space-y-1.5">
-            <label htmlFor="title" className="block text-[14px] font-bold text-[#343c33]">
+            <label htmlFor="title" className="block text-[14px] font-bold text-[#13202B]">
               제목 <span className="text-rose-500">*</span>
             </label>
 
@@ -497,10 +522,10 @@ function QnaWritePage() {
               maxLength={200}
               disabled={loading}
               autoFocus
-              className="w-full h-[44px] px-3.5 bg-white border border-[#dce4da] rounded-[7px] text-[14px] text-[#242b23] focus:outline-none focus:border-[#4c9b55]"
+              className="w-full h-[44px] px-3.5 bg-white border border-[#DCE8ED] rounded-[7px] text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8]"
             />
 
-            <div className="flex justify-between text-[12px] text-[#8a9388]">
+            <div className="flex justify-between text-[12px] text-[#6B7280]">
               <span>최대 200자까지 입력할 수 있습니다.</span>
 
               <span>{form.title.length} / 200</span>
@@ -510,31 +535,31 @@ function QnaWritePage() {
           {/* 공개 여부 */}
 
           <div className="space-y-1.5">
-            <label className="block text-[14px] font-bold text-[#343c33]">
+            <label className="block text-[14px] font-bold text-[#13202B]">
               공개 여부 <span className="text-rose-500">*</span>
             </label>
 
             <div className="flex items-center gap-6 pt-1">
-              <label className="flex items-center gap-2 text-[14px] text-[#242b23] cursor-pointer">
+              <label className="flex items-center gap-2 text-[14px] text-[#13202B] cursor-pointer">
                 <input
                   type="radio"
                   name="publicQuestion"
                   checked={form.publicQuestion === true}
                   onChange={() => setForm((prev) => ({ ...prev, publicQuestion: true }))}
                   disabled={loading}
-                  className="w-4 h-4 text-[#4c9b55] focus:ring-[#4c9b55]"
+                  className="w-4 h-4 text-[#0F8AA8] focus:ring-[#0F8AA8]"
                 />
                 <span>🌐 공개글 (누구나 답변 및 질문 확인 가능)</span>
               </label>
 
-              <label className="flex items-center gap-2 text-[14px] text-[#242b23] cursor-pointer">
+              <label className="flex items-center gap-2 text-[14px] text-[#13202B] cursor-pointer">
                 <input
                   type="radio"
                   name="publicQuestion"
                   checked={form.publicQuestion === false}
                   onChange={() => setForm((prev) => ({ ...prev, publicQuestion: false }))}
                   disabled={loading}
-                  className="w-4 h-4 text-[#4c9b55] focus:ring-[#4c9b55]"
+                  className="w-4 h-4 text-[#0F8AA8] focus:ring-[#0F8AA8]"
                 />
                 <span>🔒 비공개글 (작성자와 관리자만 확인 가능)</span>
               </label>
@@ -544,7 +569,7 @@ function QnaWritePage() {
           {/* 내용 */}
 
           <div className="space-y-1.5">
-            <label htmlFor="content" className="block text-[14px] font-bold text-[#343c33]">
+            <label htmlFor="content" className="block text-[14px] font-bold text-[#13202B]">
               내용 <span className="text-rose-500">*</span>
             </label>
 
@@ -557,10 +582,10 @@ function QnaWritePage() {
               rows={12}
               maxLength={5000}
               disabled={loading}
-              className="w-full p-3.5 bg-white border border-[#dce4da] rounded-[7px] text-[14px] text-[#242b23] focus:outline-none focus:border-[#4c9b55] resize-y"
+              className="w-full p-3.5 bg-white border border-[#DCE8ED] rounded-[7px] text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8] resize-y"
             />
 
-            <div className="flex justify-between text-[12px] text-[#8a9388]">
+            <div className="flex justify-between text-[12px] text-[#6B7280]">
               <span>최대 5,000자까지 입력할 수 있습니다.</span>
 
               <span>{form.content.length.toLocaleString()} / 5,000</span>
@@ -570,7 +595,7 @@ function QnaWritePage() {
           {/* 첨부파일 */}
 
           <div className="space-y-2">
-            <label htmlFor="file" className="block text-[14px] font-bold text-[#343c33]">첨부파일</label>
+            <label htmlFor="file" className="block text-[14px] font-bold text-[#13202B]">첨부파일</label>
 
             <input
               ref={fileInputRef}
@@ -583,10 +608,10 @@ function QnaWritePage() {
               disabled={loading || attachedFiles.length >= MAX_FILE_COUNT}
             />
 
-            <div className="flex items-center gap-4 p-4 bg-[#f8faf7] border border-[#dce4da] rounded-[8px]">
+            <div className="flex items-center gap-4 p-4 bg-[#F5FAFC] border border-[#DCE8ED] rounded-[8px]">
               <button
                 type="button"
-                className="px-4 py-2 bg-white border border-[#dce4da] text-[#4c9b55] font-bold text-[13px] rounded-[6px] hover:bg-[#eef5ee] cursor-pointer no-underline"
+                className="px-4 py-2 bg-white border border-[#DCE8ED] text-[#0F8AA8] font-bold text-[13px] rounded-[6px] hover:bg-[#EBF5F8] cursor-pointer no-underline"
                 onClick={handleFileButtonClick}
                 disabled={loading || attachedFiles.length >= MAX_FILE_COUNT}
                 style={{ textDecoration: "none" }}
@@ -594,7 +619,7 @@ function QnaWritePage() {
                 📎 파일 선택
               </button>
 
-              <div className="text-[12px] text-[#667065] space-x-2">
+              <div className="text-[12px] text-[#6B7280] space-x-2">
                 <span>최대 {MAX_FILE_COUNT}개 · 파일당 최대 10MB</span>
                 <span>(JPG, JPEG, PNG, GIF, PDF)</span>
               </div>
@@ -604,7 +629,7 @@ function QnaWritePage() {
 
             {attachedFiles.length > 0 && (
               <div className="pt-2 space-y-2">
-                <div className="flex justify-between text-[13px] font-bold text-[#343c33]">
+                <div className="flex justify-between text-[13px] font-bold text-[#13202B]">
                   <span>선택된 파일</span>
 
                   <span>
@@ -616,16 +641,16 @@ function QnaWritePage() {
                   {attachedFiles.map((file, index) => (
                     <li
                       key={`${file.name}-${file.lastModified}-${index}`}
-                      className="flex items-center justify-between p-2.5 bg-[#f4f7f3] rounded-[6px] text-[13px]"
+                      className="flex items-center justify-between p-2.5 bg-[#F5FAFC] rounded-[6px] text-[13px]"
                     >
                       <div className="flex items-center gap-2 truncate">
                         <span>📎</span>
 
-                        <span className="font-medium text-[#242b23] truncate" title={file.name}>
+                        <span className="font-medium text-[#13202B] truncate" title={file.name}>
                           {file.name}
                         </span>
 
-                        <span className="text-[#8a9388] text-[12px]">
+                        <span className="text-[#6B7280] text-[12px]">
                           ({formatFileSize(file.size)})
                         </span>
                       </div>
@@ -649,13 +674,13 @@ function QnaWritePage() {
 
           {/* 안내 문구 */}
 
-          <div className="flex items-start gap-3 p-4 bg-[#e8f4e9] rounded-[8px] text-[13px] text-[#385e3c]">
+          <div className="flex items-start gap-3 p-4 bg-[#EBF5F8] rounded-[8px] text-[13px] text-[#0F766E]">
             <span className="text-[16px]">💡</span>
 
             <div>
               <strong className="block font-bold mb-1">질의응답 이용 안내</strong>
 
-              <p className="leading-relaxed text-[#436b48]">
+              <p className="leading-relaxed text-[#0B5E73]">
                 작성한 질의응답은 작성자 본인이 확인할 수 있으며, 관리자는 모든 질의응답 게시글을 확인하고 답변할 수 있습니다.
               </p>
             </div>
@@ -663,10 +688,10 @@ function QnaWritePage() {
 
           {/* 버튼 */}
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-[#dce4da]">
+          <div className="flex justify-end gap-3 pt-4 border-t border-[#DCE8ED]">
             <button
               type="button"
-              className="px-6 py-2.5 bg-white border border-[#dce4da] text-[#5c665b] rounded-[7px] text-[14px] font-bold hover:bg-[#f0f5ef] cursor-pointer no-underline"
+              className="px-6 py-2.5 bg-white border border-[#DCE8ED] text-[#6B7280] rounded-[7px] text-[14px] font-bold hover:bg-[#EBF5F8] cursor-pointer no-underline"
               onClick={() => navigate("/qna")}
               disabled={loading}
               style={{ textDecoration: "none" }}
@@ -676,13 +701,14 @@ function QnaWritePage() {
 
             <button
               type="submit"
-              className="px-6 py-2.5 bg-[#4c9b55] text-white rounded-[7px] text-[14px] font-bold hover:bg-[#438b4b] cursor-pointer no-underline"
+              className="px-6 py-2.5 bg-[#0F8AA8] text-white rounded-[7px] text-[14px] font-bold hover:bg-[#0B5E73] cursor-pointer no-underline"
               disabled={loading}
               style={{ textDecoration: "none" }}
             >
               {loading ? "등록 중..." : "등록하기"}
             </button>
           </div>
+
         </form>
       </div>
     </div>
