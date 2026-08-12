@@ -325,6 +325,52 @@ function QnaDetailPage() {
           */
 
           if (status === 404) {
+            /* localStorage 폴백: 백엔드에 없는 로컬 게시글 조회 */
+            const stored = localStorage.getItem("qnaPosts");
+            if (stored) {
+              try {
+                const localPosts = JSON.parse(stored) as Array<{
+                  id: number;
+                  authorId?: string;
+                  author?: string;
+                  title?: string;
+                  content?: string;
+                  date?: string;
+                  views?: number;
+                  answer?: string;
+                }>;
+                console.log("[QnaDetailPage] localStorage 폴백 시도, id:", id, "posts count:", localPosts.length);
+                const localPost = localPosts.find(
+                  (p) => String(p.id) === String(id),
+                );
+                if (localPost) {
+                  console.log("[QnaDetailPage] localStorage에서 게시글 발견:", localPost);
+                  const localCurrentUser = getLoginUser();
+                  const localCurrentUserId = getLoginUserId(localCurrentUser);
+                  setPost({
+                    id: localPost.id,
+                    writerLoginId: localPost.authorId,
+                    writerName: localPost.author,
+                    title: localPost.title ?? "",
+                    content: localPost.content,
+                    questionContent: localPost.content,
+                    answer: localPost.answer,
+                    views: localPost.views,
+                    createdAt: localPost.date,
+                    publicQuestion: true,
+                  });
+                  setIsMyPost(
+                    Boolean(localCurrentUserId) &&
+                      Boolean(localPost.authorId) &&
+                      localCurrentUserId === localPost.authorId,
+                  );
+                  return;
+                }
+              } catch {
+                /* 파싱 실패 시 원래 에러 메시지 표시 */
+              }
+            }
+
             setErrorMessage("존재하지 않거나 확인할 수 없는 게시글입니다.");
 
             return;
@@ -413,6 +459,25 @@ function QnaDetailPage() {
         if (status === 403) {
           alert("삭제 권한이 없습니다.");
 
+          return;
+        }
+
+        /* localStorage 폴백: 백엔드에 없는 게시글 삭제 */
+        if (status === 404) {
+          const stored = localStorage.getItem("qnaPosts");
+          if (stored) {
+            try {
+              const localPosts = JSON.parse(stored) as Array<{ id: number }>;
+              const remaining = localPosts.filter(
+                (p) => String(p.id) !== String(post.id),
+              );
+              localStorage.setItem("qnaPosts", JSON.stringify(remaining));
+            } catch {
+              /* 파싱 실패 무시 */
+            }
+          }
+          alert("게시글이 삭제되었습니다.");
+          navigate("/qna");
           return;
         }
 

@@ -226,6 +226,57 @@ function QnaEditPage() {
         if (axios.isAxiosError(error)) {
           console.error("상태:", error.response?.status);
           console.error("응답:", error.response?.data);
+
+          /* localStorage 폴백: 백엔드에 없는 로컬 게시글 수정 */
+          if (error.response?.status === 404) {
+            const stored = localStorage.getItem("qnaPosts");
+            if (stored) {
+              try {
+                const localPosts = JSON.parse(stored) as Array<{
+                  id: number;
+                  authorId?: string;
+                  author?: string;
+                  title?: string;
+                  content?: string;
+                  date?: string;
+                  views?: number;
+                  answer?: string;
+                }>;
+                const localPost = localPosts.find(
+                  (p) => String(p.id) === String(id),
+                );
+                if (localPost) {
+                  const localWriterId = localPost.authorId ?? "";
+                  if (localWriterId !== currentUserId && !isAdmin) {
+                    alert("본인이 작성한 게시글만 수정할 수 있습니다.");
+                    navigate(`/qna/${localPost.id}`);
+                    return;
+                  }
+                  const localDetail = {
+                    id: localPost.id,
+                    writerLoginId: localPost.authorId,
+                    writerName: localPost.author,
+                    title: localPost.title ?? "",
+                    questionContent: localPost.content,
+                    publicQuestion: true,
+                  };
+                  setPost(localDetail);
+                  setForm({
+                    title: localDetail.title,
+                    content: localDetail.questionContent ?? "",
+                    publicQuestion: true,
+                  });
+                  setCurrentAttachment(null);
+                  setLoading(false);
+                  return;
+                }
+              } catch {
+                /* 파싱 실패 시 원래 에러 메시지 표시 */
+              }
+            }
+            setErrorMessage("게시글을 찾을 수 없습니다.");
+            return;
+          }
         }
 
         setErrorMessage("게시글 정보를 불러오는 중 오류가 발생했습니다.");
@@ -585,10 +636,40 @@ function QnaEditPage() {
         }
 
         if (error.response?.status === 404) {
+          /* localStorage 폴백: 백엔드에 없는 로컬 게시글 수정 */
+          const stored = localStorage.getItem("qnaPosts");
+          if (stored) {
+            try {
+              const localPosts = JSON.parse(stored) as Array<{
+                id: number;
+                authorId?: string;
+                author?: string;
+                title?: string;
+                content?: string;
+                date?: string;
+                views?: number;
+                answer?: string;
+              }>;
+              const idx = localPosts.findIndex(
+                (p) => String(p.id) === String(post.id),
+              );
+              if (idx >= 0) {
+                localPosts[idx] = {
+                  ...localPosts[idx],
+                  title: form.title.trim(),
+                  content: form.content.trim(),
+                };
+                localStorage.setItem("qnaPosts", JSON.stringify(localPosts));
+                alert("Q&A가 수정되었습니다.");
+                navigate(`/qna/${post.id}`);
+                return;
+              }
+            } catch {
+              /* 파싱 실패 시 원래 에러 메시지 표시 */
+            }
+          }
           alert("수정할 Q&A 게시글을 찾을 수 없습니다.");
-
           navigate("/qna");
-
           return;
         }
 
