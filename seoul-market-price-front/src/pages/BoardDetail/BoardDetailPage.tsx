@@ -100,25 +100,24 @@ export default function BoardDetailPage() {
   const deletePostMutation = useMutation({
     mutationFn: () => deleteBoardPostApi(boardId),
     onSuccess: () => {
-      alert("게시글이 성공적으로 삭제되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["boards"] });
+      alert("게시글이 삭제되었습니다.");
+      queryClient.invalidateQueries({ queryKey: ["boardPosts"] });
       navigate("/board");
     },
-    onError: (err: Error) => {
-      alert(`삭제 중 오류가 발생했습니다: ${err.message}`);
+    onError: (err: any) => {
+      alert(`삭제 실패: ${err.message || "삭제 권한이 없거나 오류가 발생했습니다."}`);
     },
   });
 
-  // 댓글 등록 Mutation
+  // 댓글 작성 Mutation
   const createCommentMutation = useMutation({
-    mutationFn: (content: string) =>
-      createBoardCommentApi(boardId, { content }),
+    mutationFn: (content: string) => createBoardCommentApi(boardId, { content }),
     onSuccess: () => {
       setCommentContent("");
       queryClient.invalidateQueries({ queryKey: ["boardComments", boardId] });
     },
-    onError: (err: Error) => {
-      alert(`댓글 등록 중 오류가 발생했습니다: ${err.message}`);
+    onError: (err: any) => {
+      alert(`댓글 등록 실패: ${err.message || "오류가 발생했습니다."}`);
     },
   });
 
@@ -131,8 +130,8 @@ export default function BoardDetailPage() {
       setEditingContent("");
       queryClient.invalidateQueries({ queryKey: ["boardComments", boardId] });
     },
-    onError: (err: Error) => {
-      alert(`댓글 수정 중 오류가 발생했습니다: ${err.message}`);
+    onError: (err: any) => {
+      alert(`댓글 수정 실패: ${err.message || "수정 권한이 없거나 오류가 발생했습니다."}`);
     },
   });
 
@@ -142,13 +141,13 @@ export default function BoardDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["boardComments", boardId] });
     },
-    onError: (err: Error) => {
-      alert(`댓글 삭제 중 오류가 발생했습니다: ${err.message}`);
+    onError: (err: any) => {
+      alert(`댓글 삭제 실패: ${err.message || "삭제 권한이 없거나 오류가 발생했습니다."}`);
     },
   });
 
   const handleDeletePost = () => {
-    if (window.confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
+    if (window.confirm("정말 이 게시글을 삭제하시겠습니까?")) {
       deletePostMutation.mutate();
     }
   };
@@ -156,47 +155,72 @@ export default function BoardDetailPage() {
   const handleCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isLoggedIn) {
-      alert("로그인 후 댓글을 작성할 수 있습니다.");
+      alert("로그인이 필요한 서비스입니다.");
+      navigate("/login");
       return;
     }
-    const trimmed = commentContent.trim();
-    if (!trimmed) {
-      alert("댓글 내용을 입력해주세요.");
+    if (!commentContent.trim()) {
+      alert("댓글 내용을 입력해 주세요.");
       return;
     }
-    createCommentMutation.mutate(trimmed);
+    createCommentMutation.mutate(commentContent.trim());
   };
 
-  const handleStartEditComment = (commentId: number, currentContent: string) => {
+  const handleStartEditComment = (commentId: number, currentText: string) => {
     setEditingCommentId(commentId);
-    setEditingContent(currentContent);
+    setEditingContent(currentText);
   };
 
   const handleSaveEditComment = (commentId: number) => {
-    const trimmed = editingContent.trim();
-    if (!trimmed) {
-      alert("수정할 댓글 내용을 입력해주세요.");
+    if (!editingContent.trim()) {
+      alert("수정할 댓글 내용을 입력해 주세요.");
       return;
     }
-    updateCommentMutation.mutate({ commentId, content: trimmed });
+    updateCommentMutation.mutate({ commentId, content: editingContent.trim() });
   };
 
   const handleDeleteComment = (commentId: number) => {
-    if (window.confirm("정말로 이 댓글을 삭제하시겠습니까?")) {
+    if (window.confirm("댓글을 삭제하시겠습니까?")) {
       deleteCommentMutation.mutate(commentId);
     }
   };
 
-  const canModifyComment = (commentAuthorId?: string, commentAuthorName?: string) => {
+  const getCommentAuthorName = (c: any): string => {
+    return (
+      c?.authorName ||
+      c?.writer ||
+      c?.author ||
+      c?.memberName ||
+      c?.userName ||
+      c?.nickname ||
+      c?.name ||
+      c?.userId ||
+      "익명 회원"
+    );
+  };
+
+  const getCommentAuthorId = (c: any): string => {
+    return (
+      c?.authorId ||
+      c?.userId ||
+      c?.writer ||
+      c?.author ||
+      c?.memberName ||
+      ""
+    );
+  };
+
+  // 작성자 본인 및 관리자 권한 확인
+  const canModifyComment = (c: any) => {
     if (!loginUser) return false;
     if (loginUser.role === "ADMIN") return true;
 
+    const targetId = String(getCommentAuthorId(c)).trim().toLowerCase();
     const curId = String(loginUser.userId || "").trim().toLowerCase();
-    const targetId = String(commentAuthorId || "").trim().toLowerCase();
     if (curId && targetId && (curId === targetId || curId.includes(targetId) || targetId.includes(curId))) return true;
 
+    const targetName = String(getCommentAuthorName(c)).trim();
     const curName = String(loginUser.name || "").trim();
-    const targetName = String(commentAuthorName || "").trim();
     if (curName && targetName && curName === targetName) return true;
 
     return false;
@@ -219,10 +243,10 @@ export default function BoardDetailPage() {
 
   if (isNaN(boardId) || boardId <= 0) {
     return (
-      <div className="min-h-screen bg-[#fafcf9]">
+      <div className="min-h-screen bg-[#F5FAFC]">
         <div className="py-12 px-4 text-center">
           <p className="text-rose-500 font-medium text-sm">유효하지 않은 게시글 번호입니다.</p>
-          <Link to="/board" className="mt-4 inline-block text-[#4c9b55] text-xs font-semibold no-underline">
+          <Link to="/board" className="mt-4 inline-block text-[#0F8AA8] text-xs font-semibold no-underline">
             목록으로 돌아가기
           </Link>
         </div>
@@ -233,32 +257,32 @@ export default function BoardDetailPage() {
   const safeComments = Array.isArray(comments) ? comments : [];
 
   return (
-    <div className="min-h-screen bg-[#fafcf9]">
+    <div className="min-h-screen bg-[#F5FAFC]">
       <div className="py-12 px-5 sm:px-8">
         <div className="max-w-[900px] mx-auto space-y-6">
           {/* 헤더 */}
           <div className="text-center space-y-2 mb-8">
-            <span className="inline-block px-3 py-1 bg-[#e8f3e9] text-[#3f8a47] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
-              BOARD DETAIL
+            <span className="inline-block px-3 py-1 bg-[#E6F4F2] text-[#0F766E] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
+              SSABU CUSTOMER CENTER
             </span>
-            <h1 className="text-[36px] font-black text-[#242b23] tracking-tight">
-              게시판
+            <h1 className="text-[36px] font-black text-[#123047] tracking-tight">
+              공지사항 상세
             </h1>
-            <p className="text-[15px] text-[#667065]">
-              서울시 농수산물 가격 정보 서비스의 주요 공지사항과 시민 소통 공간입니다.
+            <p className="text-[15px] text-[#6B7280]">
+              싸부(SSABU) 부동산 실거래 및 시세 분석 서비스의 주요 소식을 전해드립니다.
             </p>
           </div>
 
           {/* 상세 카드 박스 */}
-          <div className="bg-white border border-[#dce4da] rounded-[12px] p-6 md:p-8 space-y-6 shadow-[0_7px_24px_rgba(45,70,45,0.05)]">
+          <div className="bg-white border border-[#DCE8ED] rounded-[12px] p-6 md:p-8 space-y-6 shadow-xs">
             {isLoading ? (
-              <div className="py-20 text-center text-[#8a9388] text-[14px]">
+              <div className="py-20 text-center text-[#6B7280] text-[14px]">
                 게시글 정보를 불러오는 중입니다...
               </div>
             ) : isError ? (
               <div className="py-20 text-center space-y-4">
                 <div className="text-[36px]">🚫</div>
-                <h3 className="text-[18px] font-bold text-[#344037]">
+                <h3 className="text-[18px] font-bold text-[#123047]">
                   존재하지 않거나 삭제된 게시글입니다.
                 </h3>
                 <p className="text-rose-500 text-[14px]">
@@ -267,7 +291,7 @@ export default function BoardDetailPage() {
                 <Button
                   variant="outline"
                   onClick={() => navigate("/board")}
-                  className="h-[42px] px-6 border-[#dce4da] text-[#5a6459] text-[14px] font-bold rounded-[7px]"
+                  className="h-[42px] px-6 border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[7px]"
                 >
                   목록으로 돌아가기
                 </Button>
@@ -275,38 +299,38 @@ export default function BoardDetailPage() {
             ) : post ? (
               <>
                 {/* 제목 & 메타 정보 */}
-                <div className="space-y-3 pb-6 border-b border-[#edf1ec]">
+                <div className="space-y-3 pb-6 border-b border-[#DCE8ED]">
                   <div className="flex items-center gap-2">
                     <span
                       className={
                         post.postType === "NOTICE"
-                          ? "px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#fff0c7] text-[#bd7b00]"
-                          : "px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#e8f4e9] text-[#4c8c53]"
+                          ? "px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]"
+                          : "px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#E6F4F2] text-[#0F766E]"
                       }
                     >
                       {post.postType === "NOTICE" ? "공지" : "일반"}
                     </span>
                   </div>
-                  <h2 className="text-[22px] font-bold text-[#242b23] leading-snug">
+                  <h2 className="text-[22px] font-bold text-[#123047] leading-snug">
                     {post.title}
                   </h2>
-                  <div className="flex items-center gap-4 text-[13px] text-[#667065]">
-                    <span>작성자: <strong className="text-[#343c33] font-bold">{post.authorName}</strong></span>
+                  <div className="flex items-center gap-4 text-[13px] text-[#6B7280]">
+                    <span>작성자: <strong className="text-[#13202B] font-bold">{post.authorName}</strong></span>
                     <span>작성일: {formatBoardDate(post.createdAt)}</span>
                     <span>조회수: {post.viewCount}</span>
                   </div>
                 </div>
 
                 {/* 본문 */}
-                <div className="py-4 text-[15px] text-[#384138] leading-relaxed whitespace-pre-wrap min-h-[160px]">
+                <div className="py-4 text-[15px] text-[#13202B] leading-relaxed whitespace-pre-wrap min-h-[160px]">
                   {post.content}
                 </div>
 
                 {/* 첨부파일 영역 */}
                 {attachments.length > 0 && (
-                  <div className="p-4 bg-[#f6f9f6] border border-[#dce8dc] rounded-[10px] space-y-2">
-                    <div className="flex items-center gap-1.5 text-[13px] font-bold text-[#3d5340]">
-                      <Paperclip className="w-4 h-4 text-[#4c9b55]" />
+                  <div className="p-4 bg-[#F0F7FA] border border-[#DCE8ED] rounded-[10px] space-y-2">
+                    <div className="flex items-center gap-1.5 text-[13px] font-bold text-[#0B5E73]">
+                      <Paperclip className="w-4 h-4 text-[#0F8AA8]" />
                       <span>첨부파일 ({attachments.length}개)</span>
                     </div>
                     <div className="space-y-1.5">
@@ -317,18 +341,18 @@ export default function BoardDetailPage() {
                         return (
                           <div
                             key={fileId}
-                            className="flex items-center justify-between p-2.5 bg-white border border-[#e2ece2] rounded-[8px] text-[13px] gap-2"
+                            className="flex items-center justify-between p-2.5 bg-white border border-[#DCE8ED] rounded-[8px] text-[13px] gap-2"
                           >
-                            <span className="font-medium text-[#2d3a2f] truncate">
+                            <span className="font-medium text-[#13202B] truncate">
                               {fileName}
-                              <span className="text-[11px] text-[#78887a] ml-2 font-normal">
+                              <span className="text-[11px] text-[#6B7280] ml-2 font-normal">
                                 ({(fileSize / 1024).toFixed(1)} KB)
                               </span>
                             </span>
                             <button
                               type="button"
                               onClick={() => handleDownload(Number(fileId), fileName)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[12px] font-bold rounded-[6px] transition-colors cursor-pointer shrink-0 shadow-xs border-none"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[12px] font-bold rounded-[6px] transition-colors cursor-pointer shrink-0 shadow-xs border-none"
                             >
                               <Download className="w-3.5 h-3.5" /> 다운로드
                             </button>
@@ -340,11 +364,11 @@ export default function BoardDetailPage() {
                 )}
 
                 {/* 하단 버튼 */}
-                <div className="flex items-center justify-between pt-6 border-t border-[#edf1ec]">
+                <div className="flex items-center justify-between pt-6 border-t border-[#DCE8ED]">
                   <div className="flex items-center gap-2">
                     {canModifyPost(post.authorId, post.authorName) && (
                       <Link to={`/board/${boardId}/edit`}>
-                        <Button className="h-[42px] px-6 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[14px] font-bold rounded-[7px]">
+                        <Button className="h-[42px] px-6 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[7px] cursor-pointer">
                           수정
                         </Button>
                       </Link>
@@ -352,7 +376,7 @@ export default function BoardDetailPage() {
                     <Button
                       variant="outline"
                       onClick={() => navigate("/board")}
-                      className="h-[42px] px-6 border-[#dce4da] text-[#5a6459] hover:bg-[#f0f6ef] text-[14px] font-bold rounded-[7px]"
+                      className="h-[42px] px-6 border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA] text-[14px] font-bold rounded-[7px] cursor-pointer"
                     >
                       목록으로
                     </Button>
@@ -363,7 +387,7 @@ export default function BoardDetailPage() {
                       variant="outline"
                       onClick={handleDeletePost}
                       disabled={deletePostMutation.isPending}
-                      className="h-[42px] px-6 border-rose-200 text-rose-600 hover:bg-rose-50 text-[14px] font-bold rounded-[7px]"
+                      className="h-[42px] px-6 border-rose-200 text-rose-600 hover:bg-rose-50 text-[14px] font-bold rounded-[7px] cursor-pointer"
                     >
                       {deletePostMutation.isPending ? "삭제 중..." : "삭제"}
                     </Button>
@@ -372,11 +396,11 @@ export default function BoardDetailPage() {
               </>
             ) : (
               <div className="py-20 text-center space-y-4">
-                <p className="text-[#8a9388] text-[14px]">게시글을 찾을 수 없습니다.</p>
+                <p className="text-[#6B7280] text-[14px]">게시글을 찾을 수 없습니다.</p>
                 <Button
                   variant="outline"
                   onClick={() => navigate("/board")}
-                  className="h-[42px] px-6 border-[#dce4da] text-[#5a6459] text-[14px] font-bold rounded-[7px]"
+                  className="h-[42px] px-6 border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[7px] cursor-pointer"
                 >
                   목록으로 돌아가기
                 </Button>
@@ -386,19 +410,19 @@ export default function BoardDetailPage() {
 
           {/* 댓글 영역 */}
           {post && (
-            <div className="bg-white border border-[#dce4da] rounded-[12px] p-6 md:p-8 space-y-6 shadow-[0_7px_24px_rgba(45,70,45,0.05)]">
-              <div className="flex items-center gap-2 pb-4 border-b border-[#edf1ec]">
-                <MessageSquare className="w-5 h-5 text-[#4c9b55]" />
-                <h3 className="text-[18px] font-bold text-[#242b23]">
-                  댓글 <span className="text-[#4c9b55] font-extrabold">{safeComments.length}</span>
+            <div className="bg-white border border-[#DCE8ED] rounded-[12px] p-6 md:p-8 space-y-6 shadow-xs">
+              <div className="flex items-center gap-2 pb-4 border-b border-[#DCE8ED]">
+                <MessageSquare className="w-5 h-5 text-[#0F8AA8]" />
+                <h3 className="text-[18px] font-bold text-[#123047]">
+                  댓글 <span className="text-[#0F8AA8] font-extrabold">{safeComments.length}</span>
                 </h3>
               </div>
 
               {/* 댓글 작성 폼 */}
               {isLoggedIn ? (
                 <form onSubmit={handleCommentSubmit} className="space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-[#5a6459]">
-                    <span>작성자: <strong className="text-[#384138]">{loginUser?.name || "로그인 회원"}</strong></span>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-[#6B7280]">
+                    <span>작성자: <strong className="text-[#13202B]">{loginUser?.name || "로그인 회원"}</strong></span>
                   </div>
                   <div className="flex gap-2">
                     <textarea
@@ -406,12 +430,12 @@ export default function BoardDetailPage() {
                       placeholder="댓글을 작성해 주세요. (타인에 대한 비방이나 불법적인 내용은 제재될 수 있습니다.)"
                       value={commentContent}
                       onChange={(e) => setCommentContent(e.target.value)}
-                      className="flex-1 rounded-[8px] border border-[#d5dfd6] bg-white p-3 text-[14px] text-[#384138] placeholder:text-[#939c92] focus:outline-none focus:border-[#4c9b55]"
+                      className="flex-1 rounded-[8px] border border-[#DCE8ED] bg-[#F5FAFC] p-3 text-[14px] text-[#13202B] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#0F8AA8]"
                     />
                     <Button
                       type="submit"
                       disabled={createCommentMutation.isPending}
-                      className="h-full px-5 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[14px] font-bold rounded-[8px] flex flex-col items-center justify-center gap-1 cursor-pointer min-w-[80px]"
+                      className="h-full px-5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[8px] flex flex-col items-center justify-center gap-1 cursor-pointer min-w-[80px]"
                     >
                       <Send className="w-4 h-4" />
                       {createCommentMutation.isPending ? "등록중" : "등록"}
@@ -419,31 +443,32 @@ export default function BoardDetailPage() {
                   </div>
                 </form>
               ) : (
-                <div className="p-4 bg-[#f8faf7] border border-[#e1e8e2] rounded-[8px] text-center space-y-2">
-                  <p className="text-[14px] text-[#667065]">로그인 후 댓글을 작성하실 수 있습니다.</p>
+                <div className="p-4 bg-[#F0F7FA] border border-[#DCE8ED] rounded-[8px] text-center space-y-2">
+                  <p className="text-[14px] text-[#6B7280]">로그인 후 댓글을 작성하실 수 있습니다.</p>
                 </div>
               )}
 
               {/* 댓글 리스트 */}
               <div className="space-y-4 pt-2">
                 {isCommentsLoading ? (
-                  <div className="py-8 text-center text-[13px] text-[#8a9388]">댓글을 불러오는 중입니다...</div>
+                  <div className="py-8 text-center text-[13px] text-[#6B7280]">댓글을 불러오는 중입니다...</div>
                 ) : safeComments.length === 0 ? (
-                  <div className="py-8 text-center text-[13px] text-[#8a9388]">등록된 댓글이 없습니다. 첫 댓글을 남겨보세요!</div>
+                  <div className="py-8 text-center text-[13px] text-[#6B7280]">등록된 댓글이 없습니다. 첫 댓글을 남겨보세요!</div>
                 ) : (
                   safeComments.map((comment: BoardComment) => {
-                    const canModify = canModifyComment(comment.authorId, comment.authorName);
+                    const authorName = getCommentAuthorName(comment);
+                    const canModify = canModifyComment(comment);
                     const isEditing = editingCommentId === comment.commentId;
 
                     return (
                       <div
                         key={comment.commentId}
-                        className="p-4 bg-[#fafcf9] border border-[#edf1ec] rounded-[10px] space-y-2 transition-colors"
+                        className="p-4 bg-[#F5FAFC] border border-[#DCE8ED] rounded-[10px] space-y-2 transition-colors"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <strong className="text-[14px] font-bold text-[#344037]">{comment.authorName}</strong>
-                            <span className="text-[12px] text-[#939c92]">{formatBoardDate(comment.createdAt)}</span>
+                            <strong className="text-[14px] font-bold text-[#123047]">{authorName}</strong>
+                            <span className="text-[12px] text-[#6B7280]">{formatBoardDate(comment.createdAt)}</span>
                           </div>
 
                           {/* 본인 또는 관리자만 수정/삭제 버튼 노출 */}
@@ -452,7 +477,7 @@ export default function BoardDetailPage() {
                               <button
                                 type="button"
                                 onClick={() => handleStartEditComment(comment.commentId, comment.content)}
-                                className="text-[12px] text-[#6a7469] hover:text-[#4c9b55] font-semibold inline-flex items-center gap-1 cursor-pointer"
+                                className="text-[12px] text-[#6B7280] hover:text-[#0F8AA8] font-semibold inline-flex items-center gap-1 cursor-pointer"
                               >
                                 <Edit2 className="w-3 h-3" />
                                 수정
@@ -475,14 +500,14 @@ export default function BoardDetailPage() {
                               rows={2}
                               value={editingContent}
                               onChange={(e) => setEditingContent(e.target.value)}
-                              className="w-full rounded-[6px] border border-[#4c9b55] bg-white p-2.5 text-[14px] text-[#384138] focus:outline-none"
+                              className="w-full rounded-[6px] border border-[#0F8AA8] bg-white p-2.5 text-[14px] text-[#13202B] focus:outline-none"
                             />
                             <div className="flex justify-end gap-2">
                               <Button
                                 size="sm"
                                 onClick={() => handleSaveEditComment(comment.commentId)}
                                 disabled={updateCommentMutation.isPending}
-                                className="h-8 px-3 bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[12px] font-bold rounded-[6px]"
+                                className="h-8 px-3 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[12px] font-bold rounded-[6px] cursor-pointer"
                               >
                                 저장
                               </Button>
@@ -490,14 +515,14 @@ export default function BoardDetailPage() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => setEditingCommentId(null)}
-                                className="h-8 px-3 border-[#dce4da] text-[#5a6459] text-[12px] font-bold rounded-[6px]"
+                                className="h-8 px-3 border-[#DCE8ED] text-[#6B7280] text-[12px] font-bold rounded-[6px] cursor-pointer"
                               >
                                 취소
                               </Button>
                             </div>
                           </div>
                         ) : (
-                          <p className="text-[14px] text-[#384138] leading-relaxed whitespace-pre-wrap">
+                          <p className="text-[14px] text-[#13202B] leading-relaxed whitespace-pre-wrap">
                             {comment.content}
                           </p>
                         )}

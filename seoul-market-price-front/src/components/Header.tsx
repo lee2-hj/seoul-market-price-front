@@ -19,6 +19,7 @@ const NAV_ITEMS: Array<{ label: string; to?: string; icon: typeof Search; links?
       { to: "/board", label: "공지사항" },
       { to: "/qna", label: "질의응답" },
       { to: "/faq", label: "자주 묻는 질문" },
+      { to: "/report", label: "싸부 신고센터" },
     ],
   },
 ];
@@ -56,8 +57,7 @@ function getSavedRegion(userId?: string): string {
 }
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
-  `group relative flex h-[68px] items-center gap-2 whitespace-nowrap px-1 text-[13px] font-extrabold tracking-[-0.025em] transition-colors no-underline after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:rounded-t-full after:transition-colors ${
-    isActive ? "text-[#0F8AA8] after:bg-[#0F8AA8]" : "text-[#13202B] after:bg-transparent hover:text-[#0F8AA8]"
+  `group relative flex h-[68px] items-center gap-2 whitespace-nowrap px-1 text-[13px] font-extrabold tracking-[-0.025em] transition-colors no-underline after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:rounded-t-full after:transition-colors ${isActive ? "text-[#0F8AA8] after:bg-[#0F8AA8]" : "text-[#13202B] after:bg-transparent hover:text-[#0F8AA8]"
   }`;
 
 function DesktopDropdown({ label, links, icon: Icon }: { label: string; links: MenuLink[]; icon: typeof Search }) {
