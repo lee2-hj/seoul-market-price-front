@@ -1,32 +1,22 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { isLogin } from "@/features/auth/utils/auth";
 import {
   getStoredReports,
-  REPORT_CATEGORY_MAP,
   REPORT_STATUS_MAP,
   canUserViewReport,
 } from "@/features/report/services/reportService";
-import type {
-  ReportItem,
-  ReportCategory,
-} from "@/features/report/types/report.types";
+import type { ReportItem } from "@/features/report/types/report.types";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 
 export default function ReportPage() {
   const navigate = useNavigate();
   const loginUser = useAuthStore((state) => state.user);
-  const [reports, setReports] = useState<ReportItem[]>([]);
-  const [selectedCategory, setSelectedCategory] =
-    useState<ReportCategory>("ALL");
+  const [reports] = useState<ReportItem[]>(getStoredReports);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [activeKeyword, setActiveKeyword] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
-
-  useEffect(() => {
-    setReports(getStoredReports());
-  }, []);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,22 +27,22 @@ export default function ReportPage() {
   const handleReset = () => {
     setSearchKeyword("");
     setActiveKeyword("");
-    setSelectedCategory("ALL");
     setCurrentPage(1);
   };
 
-  // 필터링된 신고 목록
+  // 필터링된 문의 목록 (제목 전용 검색)
   const filteredReports = useMemo(() => {
     return reports.filter((item) => {
-      const matchCategory =
-        selectedCategory === "ALL" || item.category === selectedCategory;
+      const isAccessible = canUserViewReport(item, loginUser);
+      const searchableTitle = isAccessible
+        ? item.title
+        : "작성자와 관리자만 열람할 수 있는 비공개 문의글입니다.";
       const matchKeyword =
         !activeKeyword ||
-        item.title.toLowerCase().includes(activeKeyword.toLowerCase()) ||
-        item.targetProperty.toLowerCase().includes(activeKeyword.toLowerCase());
-      return matchCategory && matchKeyword;
+        searchableTitle.toLowerCase().includes(activeKeyword.toLowerCase());
+      return matchKeyword;
     });
-  }, [reports, selectedCategory, activeKeyword]);
+  }, [reports, activeKeyword, loginUser]);
 
   // 페이지네이션 계산
   const totalPages = Math.ceil(filteredReports.length / itemsPerPage) || 1;
@@ -63,7 +53,7 @@ export default function ReportPage() {
 
   const handleWriteClick = () => {
     if (!isLogin()) {
-      alert("로그인 후 신고를 접수할 수 있습니다.");
+      alert("로그인 후 문의를 접수할 수 있습니다.");
       navigate("/login");
       return;
     }
@@ -78,14 +68,13 @@ export default function ReportPage() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <span className="text-[13px] font-extrabold text-[#0F8AA8] uppercase tracking-wider block mb-1">
-                SSABU CLEAN REAL ESTATE
+                SSABU CUSTOMER CENTER
               </span>
               <h1 className="text-[22px] sm:text-[26px] font-extrabold text-[#123047] tracking-tight">
-                허위 매물 및 불공정 거래 신고 센터
+                문의사항
               </h1>
               <p className="text-[14px] text-[#6B7280] mt-1.5 leading-relaxed">
-                싸부(SSABU)는 허위 가격, 미존재 매물, 시세 왜곡 없는 투명한
-                서울 부동산 거래 환경을 만들어갑니다.
+                싸부(SSABU) 서비스 이용 중 궁금하신 점이나 건의사항을 문의해 주시면 신속하게 답변해 드립니다.
               </p>
             </div>
             <button
@@ -93,41 +82,8 @@ export default function ReportPage() {
               onClick={handleWriteClick}
               className="inline-flex items-center justify-center h-[46px] px-6 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[8px] transition-colors shadow-xs cursor-pointer border-none shrink-0"
             >
-              신고 접수하기
+              문의 접수하기
             </button>
-          </div>
-
-          {/* 카테고리 필터 탭 */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pt-6 mt-6 border-t border-[#DCE8ED] pb-1">
-            {(
-              [
-                "ALL",
-                "FAKE_LISTING",
-                "PRICE_DISTORTION",
-                "DUPLICATE",
-                "UNFAIR_BROKERAGE",
-                "OTHER",
-              ] as ReportCategory[]
-            ).map((cat) => {
-              const isActive = selectedCategory === cat;
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => {
-                    setSelectedCategory(cat);
-                    setCurrentPage(1);
-                  }}
-                  className={`px-3.5 py-2 rounded-[8px] text-[13px] font-semibold transition-colors shrink-0 cursor-pointer border ${
-                    isActive
-                      ? "bg-[#123047] text-white border-[#123047] shadow-xs"
-                      : "bg-[#F0F7FA] text-[#13202B] border-[#DCE8ED] hover:bg-[#E1EFF5]"
-                  }`}
-                >
-                  {REPORT_CATEGORY_MAP[cat]}
-                </button>
-              );
-            })}
           </div>
         </div>
 
@@ -138,7 +94,7 @@ export default function ReportPage() {
             <strong className="text-[#0F8AA8] font-extrabold">
               {filteredReports.length}
             </strong>
-            건의 신고 접수 내역이 있습니다.
+            건의 문의 접수 내역이 있습니다.
           </p>
 
           <form
@@ -147,7 +103,7 @@ export default function ReportPage() {
           >
             <input
               type="text"
-              placeholder="단지명 또는 신고 제목 검색"
+              placeholder="문의 제목 검색"
               value={searchKeyword}
               onChange={(e) => setSearchKeyword(e.target.value)}
               className="h-[38px] px-3.5 rounded-[7px] border border-[#DCE8ED] text-[13px] text-[#13202B] bg-[#F5FAFC] focus:outline-none focus:border-[#0F8AA8] w-full sm:w-[240px]"
@@ -170,11 +126,11 @@ export default function ReportPage() {
           </form>
         </div>
 
-        {/* 신고 목록 테이블 */}
+        {/* 문의 목록 테이블 */}
         <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[14px] overflow-hidden shadow-xs">
           {paginatedReports.length === 0 ? (
             <div className="py-20 text-center text-[#6B7280] text-[14px]">
-              접수된 신고 내역이 없습니다.
+              접수된 문의 내역이 없습니다.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -182,9 +138,6 @@ export default function ReportPage() {
                 <thead>
                   <tr className="bg-[#F0F7FA] border-b border-[#DCE8ED] text-[13px] text-[#123047] font-bold">
                     <th className="py-3.5 px-4 text-center w-[70px]">번호</th>
-                    <th className="py-3.5 px-4 text-center w-[130px]">
-                      신고 유형
-                    </th>
                     <th className="py-3.5 px-4">제목 및 대상 단지</th>
                     <th className="py-3.5 px-4 text-center w-[90px]">작성자</th>
                     <th className="py-3.5 px-4 text-center w-[110px]">
@@ -208,11 +161,6 @@ export default function ReportPage() {
                         <td className="py-4 px-4 text-center text-[#6B7280] font-medium">
                           {item.id}
                         </td>
-                        <td className="py-4 px-4 text-center">
-                          <span className="inline-block px-2.5 py-1 rounded-[5px] bg-[#E1EFF5] text-[#0B5E73] text-[12px] font-semibold">
-                            {REPORT_CATEGORY_MAP[item.category]}
-                          </span>
-                        </td>
                         <td className="py-4 px-4">
                           <Link
                             to={`/report/${item.id}`}
@@ -227,13 +175,13 @@ export default function ReportPage() {
                               )}
                               <span className="font-bold text-[#13202B] group-hover:text-[#0F8AA8] transition-colors truncate max-w-[480px]">
                                 {item.isSecret && !canView
-                                  ? "작성자와 관리자만 열람할 수 있는 비공개 신고글입니다."
+                                  ? "작성자와 관리자만 열람할 수 있는 비공개 문의글입니다."
                                   : item.title}
                               </span>
                             </div>
                             <span className="text-[12px] text-[#6B7280] block mt-0.5 font-normal truncate max-w-[500px]">
                               {item.isSecret && !canView
-                                ? "신고 대상 정보 비공개"
+                                ? "문의 대상 정보 비공개"
                                 : `대상: ${item.targetProperty}`}
                             </span>
                           </Link>

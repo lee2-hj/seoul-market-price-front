@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import * as api from "@/api/api";
-import { createBoardPostApi } from "@/api/api";
+import { createBoardPostApi, uploadBoardAttachmentsApi } from "@/api/api";
 import { isLogin } from "@/features/auth/utils/auth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -49,18 +48,15 @@ export default function BoardWritePage() {
         content: data.content,
       });
 
-      const newBoardId = (postRes as any)?.id || (postRes as any)?.boardId;
+      const newBoardId = postRes.boardId;
 
-      // 2. 첨부파일이 있고 api.ts에 업로드 함수가 구현되어 있으면 즉시 호출
+      // 2. 첨부파일이 있으면 게시글 등록 후 업로드
       if (data.file && newBoardId) {
-        const uploadFn = (api as any).uploadBoardAttachmentsApi;
-        if (typeof uploadFn === "function") {
-          try {
-            await uploadFn(newBoardId, [data.file]);
-          } catch (uploadErr) {
-            console.error("첨부파일 업로드 실패:", uploadErr);
-            alert("게시글은 등록되었으나 첨부파일 업로드 중 오류가 발생했습니다.");
-          }
+        try {
+          await uploadBoardAttachmentsApi(newBoardId, [data.file]);
+        } catch (uploadErr) {
+          console.error("첨부파일 업로드 실패:", uploadErr);
+          alert("게시글은 등록되었으나 첨부파일 업로드 중 오류가 발생했습니다.");
         }
       }
 

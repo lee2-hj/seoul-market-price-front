@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
+import { useMutation } from "@tanstack/react-query";
 import { isLogin } from "@/features/auth/utils/auth";
 import {
   createReport,
-  REPORT_CATEGORY_MAP,
   validateFileSecurity,
   checkReportCooldown,
   ALLOWED_FILE_EXTENSIONS,
@@ -24,11 +24,10 @@ export default function ReportWritePage() {
   const navigate = useNavigate();
   const loginUser = useAuthStore((state) => state.user);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!isLogin()) {
-      alert("로그인 후 신고를 접수할 수 있습니다.");
+      alert("로그인 후 문의를 접수할 수 있습니다.");
       navigate("/login", { replace: true });
     }
   }, [navigate]);
@@ -39,8 +38,8 @@ export default function ReportWritePage() {
     formState: { errors },
   } = useForm<ReportFormData>({
     defaultValues: {
-      category: "FAKE_LISTING",
-      targetProperty: "",
+      category: "OTHER",
+      targetProperty: "일반 문의",
       title: "",
       content: "",
       isSecret: false,
@@ -72,40 +71,38 @@ export default function ReportWritePage() {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const onSubmit = async (data: ReportFormData) => {
-    try {
-      // 🛡️ 보안: 연속 신고 도배 방지 쿨다운 검사
-      const cooldown = checkReportCooldown();
-      if (!cooldown.canSubmit) {
-        alert(
-          `연속 접수 방지를 위해 ${cooldown.remainingSeconds}초 후에 다시 접수할 수 있습니다.`,
-        );
-        return;
-      }
-
-      setIsSubmitting(true);
-
-      const authorName = loginUser?.name || "익명제보자";
-
-      const newReport = createReport({
-        category: data.category,
-        targetProperty: data.targetProperty,
+  const createMutation = useMutation({
+    mutationFn: async (data: ReportFormData) =>
+      createReport({
+        category: "OTHER",
+        targetProperty: data.targetProperty || "일반 문의",
         title: data.title,
         content: data.content,
         isSecret: data.isSecret,
-        authorName,
+        authorName: loginUser?.name || "-",
         authorUserId: loginUser?.userId,
         files: selectedFiles,
-      });
-
-      alert("신고가 안전하게 접수되었습니다. 신속히 사실 확인하겠습니다.");
+      }),
+    onSuccess: (newReport) => {
+      alert("문의사항이 안전하게 접수되었습니다. 신속히 확인하여 답변드리겠습니다.");
       navigate(`/report/${newReport.id}`);
-    } catch (err) {
-      console.error("신고 접수 오류:", err);
-      alert("신고 접수 중 오류가 발생했습니다. 다시 시도해 주세요.");
-    } finally {
-      setIsSubmitting(false);
+    },
+    onError: (err) => {
+      console.error("문의 접수 오류:", err);
+      alert("문의 접수 중 오류가 발생했습니다. 다시 시도해 주세요.");
+    },
+  });
+
+  const onSubmit = (data: ReportFormData) => {
+    const cooldown = checkReportCooldown();
+    if (!cooldown.canSubmit) {
+      alert(
+        `연속 접수 방지를 위해 ${cooldown.remainingSeconds}초 후에 다시 접수할 수 있습니다.`,
+      );
+      return;
     }
+
+    createMutation.mutate(data);
   };
 
   return (
@@ -114,77 +111,31 @@ export default function ReportWritePage() {
         {/* 상단 헤더 */}
         <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[16px] p-6 sm:p-8 shadow-xs">
           <span className="text-[13px] font-extrabold text-[#0F8AA8] uppercase tracking-wider block mb-1">
-            REPORT SUBMISSION
+            CUSTOMER INQUIRY
           </span>
           <h1 className="text-[22px] sm:text-[26px] font-extrabold text-[#123047] tracking-tight">
-            허위 매물 및 불공정 거래 신고 접수
+            문의사항 접수
           </h1>
           <p className="text-[14px] text-[#6B7280] mt-1.5 leading-relaxed">
-            허위 호가, 계약 완료 후 미삭제 매물, 담합 등 의심되는 상황을 제보해
-            주시면 신속하게 사실 확인 및 시정 조치합니다.
+            서비스 이용 중 궁금하신 점이나 건의사항을 문의해 주시면 신속하게 답변해 드립니다.
           </p>
         </div>
 
-        {/* 신고 접수 폼 */}
+        {/* 문의 접수 폼 */}
         <form
           onSubmit={handleSubmit(onSubmit)}
           className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[16px] p-6 sm:p-8 space-y-6 shadow-xs"
         >
-          {/* 1. 신고 유형 선택 */}
+          {/* 1. 문의 제목 */}
           <div className="space-y-2">
             <label className="block text-[14px] font-bold text-[#13202B]">
-              신고 유형 <span className="text-rose-500">*</span>
-            </label>
-            <select
-              {...register("category", { required: true })}
-              className="w-full h-[44px] px-3.5 rounded-[8px] border border-[#DCE8ED] bg-[#F5FAFC] text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8]"
-            >
-              {(
-                [
-                  "FAKE_LISTING",
-                  "PRICE_DISTORTION",
-                  "DUPLICATE",
-                  "UNFAIR_BROKERAGE",
-                  "OTHER",
-                ] as ReportCategory[]
-              ).map((cat) => (
-                <option key={cat} value={cat}>
-                  {REPORT_CATEGORY_MAP[cat]}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* 2. 대상 단지 및 매물 정보 */}
-          <div className="space-y-2">
-            <label className="block text-[14px] font-bold text-[#13202B]">
-              신고 대상 단지 / 매물명 <span className="text-rose-500">*</span>
+              문의 제목 <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
-              placeholder="예: 송파구 가락동 헬리오시티 105동 84㎡ (또는 중개업소명)"
-              {...register("targetProperty", {
-                required: "신고 대상 단지 또는 매물명을 입력해 주세요.",
-              })}
-              className="w-full h-[44px] px-3.5 rounded-[8px] border border-[#DCE8ED] bg-[#F5FAFC] text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8]"
-            />
-            {errors.targetProperty && (
-              <p className="text-[12px] text-rose-500 font-medium mt-1">
-                {errors.targetProperty.message}
-              </p>
-            )}
-          </div>
-
-          {/* 3. 신고 제목 */}
-          <div className="space-y-2">
-            <label className="block text-[14px] font-bold text-[#13202B]">
-              신고 제목 <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="신고 핵심 요약을 한 줄로 작성해 주세요"
+              placeholder="문의 핵심 요약을 한 줄로 작성해 주세요"
               {...register("title", {
-                required: "신고 제목을 입력해 주세요.",
+                required: "문의 제목을 입력해 주세요.",
               })}
               className="w-full h-[44px] px-3.5 rounded-[8px] border border-[#DCE8ED] bg-[#F5FAFC] text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8]"
             />
@@ -195,16 +146,16 @@ export default function ReportWritePage() {
             )}
           </div>
 
-          {/* 4. 상세 신고 내용 */}
+          {/* 2. 상세 문의 내용 */}
           <div className="space-y-2">
             <label className="block text-[14px] font-bold text-[#13202B]">
-              상세 신고 사유 <span className="text-rose-500">*</span>
+              상세 문의 내용 <span className="text-rose-500">*</span>
             </label>
             <textarea
               rows={7}
-              placeholder="방문 또는 문의 시 확인된 구체적인 허위 매물 정황, 포털 등록 가격과 실제 제시 가격의 차이, 중개사 대응 내용 등을 상세히 적어주세요."
+              placeholder="문의하실 구체적인 내용이나 요청 사항을 상세히 작성해 주세요."
               {...register("content", {
-                required: "상세 신고 내용을 입력해 주세요.",
+                required: "상세 문의 내용을 입력해 주세요.",
               })}
               className="w-full p-3.5 rounded-[8px] border border-[#DCE8ED] bg-[#F5FAFC] text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8] leading-relaxed resize-y"
             />
@@ -302,10 +253,10 @@ export default function ReportWritePage() {
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={createMutation.isPending}
               className="h-[44px] px-7 rounded-[8px] bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold border-none cursor-pointer transition-colors shadow-xs disabled:opacity-50"
             >
-              {isSubmitting ? "접수 처리 중..." : "신고 접수하기"}
+              {createMutation.isPending ? "접수 처리 중..." : "문의 접수하기"}
             </button>
           </div>
         </form>

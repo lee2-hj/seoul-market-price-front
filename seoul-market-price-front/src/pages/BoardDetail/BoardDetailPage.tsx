@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MessageSquare, Edit2, Trash2, Send, Paperclip, Download } from "lucide-react";
@@ -6,10 +6,10 @@ import type {
   BoardComment,
   AttachmentResponse,
 } from "@/features/board/types/board.types";
-import * as api from "@/api/api";
-
 import {
+  downloadBoardAttachmentApi,
   getBoardPostApi,
+  getBoardAttachmentsApi,
   deleteBoardPostApi,
   getBoardCommentsApi,
   createBoardCommentApi,
@@ -36,6 +36,10 @@ export default function BoardDetailPage() {
 
   const boardId = Number(postId);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [boardId]);
+
   // 로그인 상태 및 유저 정보 반응형 구독
   const loginUser = useAuthStore((state) => state.user);
   const isLoggedIn = isLogin();
@@ -59,37 +63,27 @@ export default function BoardDetailPage() {
     enabled: !isNaN(boardId) && boardId > 0,
   });
 
-  // 첨부파일 목록 Query (api.ts에 getBoardAttachmentsApi 구현 시 자동 로드)
+  // 첨부파일 목록 Query
   const { data: attachments = [] } = useQuery<AttachmentResponse[]>({
     queryKey: ["boardAttachments", boardId],
-    queryFn: async () => {
-      const getAttachmentsFn = (api as any).getBoardAttachmentsApi;
-      if (typeof getAttachmentsFn === "function") {
-        return await getAttachmentsFn(boardId);
-      }
-      return [];
-    },
+    queryFn: () => getBoardAttachmentsApi(boardId),
     enabled: !isNaN(boardId) && boardId > 0,
   });
 
   // 첨부파일 다운로드 핸들러
   const handleDownload = async (attachmentId: number, originalFilename: string) => {
     try {
-      const downloadFn = (api as any).downloadBoardAttachmentApi;
-      if (typeof downloadFn === "function") {
-        const res = await downloadFn(boardId, attachmentId);
-        if (res?.downloadUrl) {
-          const a = document.createElement("a");
-          a.href = res.downloadUrl;
-          a.download = res.originalFilename || originalFilename || "download";
-          a.target = "_blank";
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          return;
-        }
+      const res = await downloadBoardAttachmentApi(boardId, attachmentId);
+      if (res.downloadUrl) {
+        const a = document.createElement("a");
+        a.href = res.downloadUrl;
+        a.download = res.originalFilename || originalFilename || "download";
+        a.target = "_blank";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return;
       }
-      alert("다운로드 링크를 생성 중이거나 API 연동 준비 중입니다.");
     } catch (err) {
       console.error("다운로드 실패:", err);
       alert("파일 다운로드 중 오류가 발생했습니다.");
@@ -186,17 +180,25 @@ export default function BoardDetailPage() {
   };
 
   const getCommentAuthorName = (c: any): string => {
-    return (
-      c?.authorName ||
-      c?.writer ||
-      c?.author ||
-      c?.memberName ||
-      c?.userName ||
-      c?.nickname ||
-      c?.name ||
-      c?.userId ||
-      "익명 회원"
+    const candidates = [
+      c?.authorName,
+      c?.writerName,
+      c?.memberName,
+      c?.userName,
+      c?.nickname,
+      c?.name,
+      c?.writer,
+      c?.author,
+    ];
+
+    const displayName = candidates.find(
+      (value) =>
+        typeof value === "string" &&
+        value.trim() &&
+        !value.trim().startsWith("enc:v1:"),
     );
+
+    return displayName || "-";
   };
 
   const getCommentAuthorId = (c: any): string => {
@@ -241,14 +243,26 @@ export default function BoardDetailPage() {
     return false;
   };
 
+  const handleGoToList = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/board");
+    }
+  };
+
   if (isNaN(boardId) || boardId <= 0) {
     return (
       <div className="min-h-screen bg-[#F5FAFC]">
         <div className="py-12 px-4 text-center">
           <p className="text-rose-500 font-medium text-sm">유효하지 않은 게시글 번호입니다.</p>
-          <Link to="/board" className="mt-4 inline-block text-[#0F8AA8] text-xs font-semibold no-underline">
+          <button
+            type="button"
+            onClick={handleGoToList}
+            className="mt-4 inline-block text-[#0F8AA8] text-xs font-semibold no-underline bg-transparent border-none cursor-pointer hover:underline"
+          >
             목록으로 돌아가기
-          </Link>
+          </button>
         </div>
       </div>
     );
@@ -266,10 +280,12 @@ export default function BoardDetailPage() {
               SSABU CUSTOMER CENTER
             </span>
             <h1 className="text-[36px] font-black text-[#123047] tracking-tight">
-              공지사항 상세
+              {post?.postType === "NOTICE" ? "공지사항 상세" : "게시판 상세"}
             </h1>
             <p className="text-[15px] text-[#6B7280]">
-              싸부(SSABU) 부동산 실거래 및 시세 분석 서비스의 주요 소식을 전해드립니다.
+              {post?.postType === "NOTICE"
+                ? "싸부(SSABU) 부동산 실거래 및 시세 분석 서비스의 주요 소식을 전해드립니다."
+                : "싸부(SSABU) 이용자들과 부동산 관련 다양한 이야기를 나누는 공간입니다."}
             </p>
           </div>
 
@@ -315,7 +331,7 @@ export default function BoardDetailPage() {
                     {post.title}
                   </h2>
                   <div className="flex items-center gap-4 text-[13px] text-[#6B7280]">
-                    <span>작성자: <strong className="text-[#13202B] font-bold">{post.authorName}</strong></span>
+                    <span>작성자: <strong className="text-[#13202B] font-bold">{post.authorName || "-"}</strong></span>
                     <span>작성일: {formatBoardDate(post.createdAt)}</span>
                     <span>조회수: {post.viewCount}</span>
                   </div>
@@ -375,7 +391,7 @@ export default function BoardDetailPage() {
                     )}
                     <Button
                       variant="outline"
-                      onClick={() => navigate("/board")}
+                      onClick={handleGoToList}
                       className="h-[42px] px-6 border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA] text-[14px] font-bold rounded-[7px] cursor-pointer"
                     >
                       목록으로
@@ -399,7 +415,7 @@ export default function BoardDetailPage() {
                 <p className="text-[#6B7280] text-[14px]">게시글을 찾을 수 없습니다.</p>
                 <Button
                   variant="outline"
-                  onClick={() => navigate("/board")}
+                  onClick={handleGoToList}
                   className="h-[42px] px-6 border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[7px] cursor-pointer"
                 >
                   목록으로 돌아가기
@@ -422,7 +438,7 @@ export default function BoardDetailPage() {
               {isLoggedIn ? (
                 <form onSubmit={handleCommentSubmit} className="space-y-3">
                   <div className="flex items-center gap-2 text-xs font-semibold text-[#6B7280]">
-                    <span>작성자: <strong className="text-[#13202B]">{loginUser?.name || "로그인 회원"}</strong></span>
+                    <span>작성자: <strong className="text-[#13202B]">{loginUser?.name || "-"}</strong></span>
                   </div>
                   <div className="flex gap-2">
                     <textarea
@@ -473,11 +489,11 @@ export default function BoardDetailPage() {
 
                           {/* 본인 또는 관리자만 수정/삭제 버튼 노출 */}
                           {canModify && !isEditing && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
                                 onClick={() => handleStartEditComment(comment.commentId, comment.content)}
-                                className="text-[12px] text-[#6B7280] hover:text-[#0F8AA8] font-semibold inline-flex items-center gap-1 cursor-pointer"
+                                className="px-2.5 py-1 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[12px] font-bold rounded-[6px] inline-flex items-center gap-1 transition-colors cursor-pointer shadow-2xs border-none"
                               >
                                 <Edit2 className="w-3 h-3" />
                                 수정
@@ -485,7 +501,7 @@ export default function BoardDetailPage() {
                               <button
                                 type="button"
                                 onClick={() => handleDeleteComment(comment.commentId)}
-                                className="text-[12px] text-rose-500 hover:text-rose-700 font-semibold inline-flex items-center gap-1 cursor-pointer"
+                                className="px-2.5 py-1 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 text-[12px] font-bold rounded-[6px] inline-flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
                               >
                                 <Trash2 className="w-3 h-3" />
                                 삭제

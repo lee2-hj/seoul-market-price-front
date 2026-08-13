@@ -47,3 +47,10 @@ export interface ReportCreateRequest {
   authorMemberId?: number | string;
   files?: File[];
 }
+
+export interface ReportUpdateRequest {
+  targetProperty: string;
+  title: string;
+  content: string;
+  isSecret: boolean;
+}

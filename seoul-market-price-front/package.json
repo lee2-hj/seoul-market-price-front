@@ -26,6 +26,7 @@
     "react-router-dom": "^7.18.2",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
+    "use-query-params": "^2.2.2",
     "zustand": "^5.0.14"
   },
   "devDependencies": {

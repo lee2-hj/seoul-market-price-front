@@ -1,13 +1,6 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import styles from "./FaqPage.module.css";
-
-// 임시 API 헬퍼 (팀원분이 새 API 및 FaqPage를 반영하기 전까지 빌드 오류 방지용)
-const getFaqsApi = async (_category?: string): Promise<FaqItem[]> => {
-  return [];
-};
-const getFaqDetailApi = async (_id: number): Promise<void> => {};
 
 interface FaqItem {
   id: number;
@@ -101,53 +94,83 @@ const FAQ_DATA: FaqItem[] = [
 
 function FaqPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [selectedCategory, setSelectedCategory] = useState<string>("전체");
-  const [searchTerm, setSearchTerm] = useState<string>("");
+  const pageParam = parseInt(searchParams.get("page") || "1", 10);
+  const currentPage = isNaN(pageParam) || pageParam < 1 ? 1 : pageParam;
+  const categoryParam = searchParams.get("category") || "전체";
+  const keywordParam = searchParams.get("keyword") || searchParams.get("search") || "";
+
+  const [selectedCategory, setSelectedCategory] = useState<string>(categoryParam);
+  const [inputSearchTerm, setInputSearchTerm] = useState<string>(keywordParam);
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState<string>(keywordParam);
   const [openIds, setOpenIds] = useState<number[]>([1]);
-  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  useEffect(() => {
+    setSelectedCategory(categoryParam);
+    setInputSearchTerm(keywordParam);
+    setAppliedSearchTerm(keywordParam);
+  }, [categoryParam, keywordParam]);
 
   const itemsPerPage = 5;
 
-  const { data: apiFaqs, isLoading } = useQuery({
-    queryKey: ["faqs", selectedCategory],
-    queryFn: () => getFaqsApi(selectedCategory),
-    staleTime: 1000 * 60 * 5,
-    retry: 1,
-  });
+  const faqsData: FaqItem[] = FAQ_DATA;
 
-  const faqsData: FaqItem[] = useMemo(() => {
-    if (apiFaqs && apiFaqs.length > 0) {
-      return apiFaqs.map((f: FaqItem) => ({
-        id: f.id,
-        category: f.category || "가격변동",
-        question: f.question,
-        answer: f.answer,
-      }));
-    }
-    return FAQ_DATA;
-  }, [apiFaqs]);
+  const handlePageChange = (newPage: number) => {
+    setSearchParams((prev) => {
+      const nextParams = new URLSearchParams(prev);
+      nextParams.set("page", String(newPage));
+      return nextParams;
+    });
+  };
 
   const handleCategoryChange = (cat: string) => {
     setSelectedCategory(cat);
-    setCurrentPage(1);
+    setSearchParams((prev) => {
+      const nextParams = new URLSearchParams(prev);
+      if (cat !== "전체") {
+        nextParams.set("category", cat);
+      } else {
+        nextParams.delete("category");
+      }
+      nextParams.set("page", "1");
+      return nextParams;
+    });
   };
 
-  const handleSearchChange = (value: string) => {
-    setSearchTerm(value);
-    setCurrentPage(1);
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = inputSearchTerm.trim();
+    setAppliedSearchTerm(trimmed);
+    setSearchParams((prev) => {
+      const nextParams = new URLSearchParams(prev);
+      if (trimmed) {
+        nextParams.set("keyword", trimmed);
+      } else {
+        nextParams.delete("keyword");
+      }
+      nextParams.set("page", "1");
+      return nextParams;
+    });
   };
 
   const toggleFaq = (id: number) => {
-    const isExpanding = !openIds.includes(id);
     setOpenIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
-
-    if (isExpanding) {
-      void getFaqDetailApi(id).catch(() => {});
-    }
   };
+
+  const filteredFaqs = useMemo(() => {
+    return faqsData.filter((item) => {
+      const matchesCategory =
+        selectedCategory === "전체" || item.category === selectedCategory;
+      const matchesSearch =
+        !appliedSearchTerm ||
+        item.question.includes(appliedSearchTerm) ||
+        item.answer.includes(appliedSearchTerm);
+      return matchesCategory && matchesSearch;
+    });
+  }, [faqsData, selectedCategory, appliedSearchTerm]);
 
   const handleExpandAll = () => {
     setOpenIds(filteredFaqs.map((item) => item.id));
@@ -157,18 +180,9 @@ function FaqPage() {
     setOpenIds([]);
   };
 
-  const filteredFaqs = useMemo(() => {
-    return faqsData.filter((item) => {
-      const matchesCategory =
-        selectedCategory === "전체" || item.category === selectedCategory;
-      const matchesSearch =
-        item.question.includes(searchTerm) || item.answer.includes(searchTerm);
-      return matchesCategory && matchesSearch;
-    });
-  }, [faqsData, selectedCategory, searchTerm]);
-
   const totalPages = Math.ceil(filteredFaqs.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
+  const validPage = Math.min(Math.max(currentPage, 1), Math.max(totalPages, 1));
+  const startIndex = (validPage - 1) * itemsPerPage;
   const paginatedFaqs = filteredFaqs.slice(
     startIndex,
     startIndex + itemsPerPage
@@ -179,37 +193,37 @@ function FaqPage() {
       <main className={styles.mainArea}>
         {/* 헤더 영역 */}
         <div className="text-center space-y-2 mb-8">
-          <span className="inline-block px-3 py-1 bg-[#e8f3e9] text-[#3f8a47] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
+          <span className="inline-block px-3 py-1 bg-[#EAF5F8] text-[#0F8AA8] border border-[#DCE8ED] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
             CUSTOMER CENTER
           </span>
-          <h1 className="text-[36px] font-black text-[#242b23] tracking-tight">
+          <h1 className="text-[36px] font-black text-[#13202B] tracking-tight">
             자주 묻는 질문
           </h1>
-          <p className="text-[15px] text-[#667065]">
+          <p className="text-[15px] text-[#6B7280]">
             서울시 농수산물 가격 정보 서비스의 자주 묻는 질문과 답변입니다.
           </p>
         </div>
 
         {/* 카테고리 탭 ([공지사항] [질의응답] [자주 묻는 질문]) */}
         <div className="flex justify-center mb-6">
-          <div className="flex items-center gap-2 p-1 bg-white rounded-[10px] border border-[#dce4da] shadow-sm">
+          <div className="flex items-center gap-2 p-1 bg-white rounded-[10px] border border-[#DCE8ED] shadow-sm">
             <button
               type="button"
               onClick={() => navigate("/board")}
-              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all cursor-pointer"
+              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#6B7280] hover:bg-[#F5FAFC] hover:text-[#13202B] transition-all cursor-pointer"
             >
               공지사항
             </button>
             <button
               type="button"
               onClick={() => navigate("/qna")}
-              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#5c665b] hover:bg-[#f0f5ef] transition-all cursor-pointer"
+              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#6B7280] hover:bg-[#F5FAFC] hover:text-[#13202B] transition-all cursor-pointer"
             >
               질의응답
             </button>
             <button
               type="button"
-              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#4c9b55] text-white transition-all cursor-pointer"
+              className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#0F8AA8] text-white transition-all cursor-pointer shadow-sm"
             >
               자주 묻는 질문
             </button>
@@ -233,12 +247,12 @@ function FaqPage() {
             )}
           </div>
 
-          <form className={styles.searchBox} onSubmit={(e) => e.preventDefault()}>
+          <form className={styles.searchBox} onSubmit={handleSearchSubmit}>
             <input
               type="text"
               placeholder="궁금한 단어나 키워드를 검색하세요..."
-              value={searchTerm}
-              onChange={(e) => handleSearchChange(e.target.value)}
+              value={inputSearchTerm}
+              onChange={(e) => setInputSearchTerm(e.target.value)}
             />
             <button type="submit" className={styles.searchBtn}>
               🔍 검색
@@ -260,11 +274,7 @@ function FaqPage() {
 
         {/* FAQ Accordion List */}
         <div className={styles.accordionList}>
-          {isLoading ? (
-            <div className={styles.emptyNotice}>
-              <p>⏳ 자주 묻는 질문을 불러오는 중입니다...</p>
-            </div>
-          ) : paginatedFaqs.map((faq) => {
+          {paginatedFaqs.map((faq) => {
             const isOpen = openIds.includes(faq.id);
             return (
               <div key={faq.id} className={styles.faqCard}>
@@ -298,7 +308,7 @@ function FaqPage() {
             );
           })}
 
-          {!isLoading && filteredFaqs.length === 0 && (
+          {filteredFaqs.length === 0 && (
             <div className={styles.emptyNotice}>
               <p>🔍 검색 결과에 일치하는 자주 묻는 질문이 없습니다.</p>
             </div>
@@ -311,10 +321,8 @@ function FaqPage() {
             <button
               type="button"
               className={styles.pageBtn}
-              onClick={() =>
-                setCurrentPage((prev) => Math.max(prev - 1, 1))
-              }
-              disabled={currentPage === 1}
+              onClick={() => handlePageChange(Math.max(validPage - 1, 1))}
+              disabled={validPage === 1}
             >
               ◀ 이전
             </button>
@@ -324,8 +332,8 @@ function FaqPage() {
                 <button
                   key={pageNum}
                   type="button"
-                  className={`${styles.pageBtn} ${styles.numBtn} ${currentPage === pageNum ? styles.activePage : ""}`}
-                  onClick={() => setCurrentPage(pageNum)}
+                  className={`${styles.pageBtn} ${styles.numBtn} ${validPage === pageNum ? styles.activePage : ""}`}
+                  onClick={() => handlePageChange(pageNum)}
                 >
                   {pageNum}
                 </button>
@@ -336,9 +344,9 @@ function FaqPage() {
               type="button"
               className={styles.pageBtn}
               onClick={() =>
-                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                handlePageChange(Math.min(validPage + 1, totalPages))
               }
-              disabled={currentPage === totalPages}
+              disabled={validPage === totalPages}
             >
               다음 ▶
             </button>

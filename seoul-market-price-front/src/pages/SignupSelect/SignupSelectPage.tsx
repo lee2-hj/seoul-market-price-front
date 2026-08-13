@@ -166,6 +166,10 @@ function SignupSelectPage() {
 
             <SignupOption
               onClick={() => {
+                try {
+                  localStorage.setItem("social_provider", "카카오");
+                  sessionStorage.setItem("social_provider", "카카오");
+                } catch {}
                 window.location.href = getKakaoLoginUrl("signup");
               }}
               className="hover:cursor-pointer"
@@ -177,6 +181,10 @@ function SignupSelectPage() {
 
             <SignupOption
               onClick={() => {
+                try {
+                  localStorage.setItem("social_provider", "구글");
+                  sessionStorage.setItem("social_provider", "구글");
+                } catch {}
                 window.location.href = getGoogleLoginUrl("signup");
               }}
               className="hover:cursor-pointer"
