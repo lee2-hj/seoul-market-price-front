@@ -1,48 +1,10 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
-import { getLoginUser, logout } from "@/features/auth/utils/auth";
-import styles from "./QnaWritePage.module.css";
+import apiMiddleware from "@/api/middleware";
+import { getLoginUser, isLogin, logout } from "@/features/auth/utils/auth";
 
-/* 질의응답 작성 폼 */
-
-interface QnaForm {
-  title: string;
-  content: string;
-}
-
-/* 첨부파일 정보 */
-
-interface QnaAttachment {
-  name: string;
-  size: number;
-}
-
-/* 질의응답 게시글 */
-
-interface QnaPost {
-  id: number;
-
-  /* 질문 정보 */
-
-  author: string;
-  authorId: string;
-  title: string;
-  content: string;
-  date: string;
-  views: number;
-
-  /* 첨부파일 */
-
-  attachments?: QnaAttachment[];
-
-  /* 답변 정보 */
-
-  answer: string;
-  answerAuthor?: string;
-  answerAuthorId?: string;
-  answerDate?: string;
-}
 
 /* 첨부파일 제한 */
 
@@ -52,41 +14,6 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 /* 허용 확장자 */
 
 const ALLOWED_FILE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "pdf"];
-
-/* 로그인 사용자 이름 */
-
-const getLoginUserName = (user: { name: string; userId: string } | null): string => {
-  if (!user) {
-    return "사용자";
-  }
-
-  return user.name || user.userId || "사용자";
-};
-
-/* 관리자 여부 (zustand 기준) */
-
-const isAdminUser = (user: { role: string } | null): boolean => {
-  if (!user?.role) {
-    return false;
-  }
-
-  const role = user.role.toUpperCase();
-
-  return role === "ADMIN" || role === "ROLE_ADMIN";
-};
-
-/* 현재 날짜 */
-
-const getCurrentDate = (): string => {
-  const now = new Date();
-
-  return [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0"),
-  ].join(".");
-};
-
 /* 파일 크기 표시 */
 
 const formatFileSize = (size: number): string => {
@@ -113,62 +40,7 @@ const getFileExtension = (fileName: string): string => {
   return fileName.slice(lastDotIndex + 1).toLowerCase();
 };
 
-/* 기존 질의응답 게시글 조회 */
-
-const getStoredPosts = (): QnaPost[] => {
-  const storedPosts = localStorage.getItem("qnaPosts");
-
-  if (!storedPosts) {
-    return [];
-  }
-
-  try {
-    const parsedPosts: unknown = JSON.parse(storedPosts);
-
-    if (!Array.isArray(parsedPosts)) {
-      return [];
-    }
-
-    return parsedPosts.map((post) => {
-      const item = post as Partial<QnaPost>;
-
-      return {
-        id: item.id ?? 0,
-
-        /* 기존 게시글의 정보를 그대로 유지 */
-
-        author: item.author ?? "사용자",
-        authorId: item.authorId ?? "",
-        title: item.title ?? "",
-        content: item.content ?? "",
-        date: item.date ?? "",
-        views: item.views ?? 0,
-
-        /* 기존 첨부파일 정보 유지 */
-
-        attachments: Array.isArray(item.attachments)
-          ? item.attachments.map((file) => ({
-              name: file.name ?? "",
-              size: file.size ?? 0,
-            }))
-          : [],
-
-        /* 기존 답변 정보 유지 */
-
-        answer: item.answer ?? "",
-        answerAuthor: item.answerAuthor,
-        answerAuthorId: item.answerAuthorId,
-        answerDate: item.answerDate,
-      };
-    });
-  } catch (error) {
-    console.error("질의응답 게시글 조회 실패:", error);
-
-    return [];
-  }
-};
-
-/* 질의응답 Write Page */
+/* Q&A Write Page */
 
 function QnaWritePage() {
   const navigate = useNavigate();
@@ -177,21 +49,20 @@ function QnaWritePage() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  /* 로그인 사용자 */
+  /* 로그인 사용자 (zustand 기반) */
 
   const currentUser = getLoginUser();
 
-  const currentUserId = currentUser?.userId ?? "";
-  const currentUserName = getLoginUserName(currentUser);
+  const currentUserName = currentUser?.name || currentUser?.userId || "사용자";
 
-  const isLoggedIn = Boolean(currentUser && currentUserId);
-  const isAdmin = isAdminUser(currentUser);
+  const isLoggedIn = isLogin();
 
   /* 작성 폼 */
 
-  const [form, setForm] = useState<QnaForm>({
+  const [form, setForm] = useState({
     title: "",
     content: "",
+    publicQuestion: true,
   });
 
   /* 첨부파일 */
@@ -205,7 +76,7 @@ function QnaWritePage() {
   /* 입력값 변경 */
 
   const handleChange = (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = event.target;
 
@@ -227,7 +98,7 @@ function QnaWritePage() {
 
   /* 파일 선택 */
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files ?? []);
 
     if (selectedFiles.length === 0) {
@@ -322,23 +193,31 @@ function QnaWritePage() {
     const title = form.title.trim();
     const content = form.content.trim();
 
+    /* 제목 검사 */
+
     if (!title) {
       alert("제목을 입력해주세요.");
 
       return false;
     }
 
-    if (title.length > 100) {
-      alert("제목은 100자 이내로 입력해주세요.");
+    /* 제목 길이 검사 */
+
+    if (title.length > 200) {
+      alert("제목은 200자 이내로 입력해주세요.");
 
       return false;
     }
+
+    /* 내용 검사 */
 
     if (!content) {
       alert("내용을 입력해주세요.");
 
       return false;
     }
+
+    /* 내용 길이 검사 */
 
     if (content.length > 5000) {
       alert("내용은 5,000자 이내로 입력해주세요.");
@@ -351,10 +230,10 @@ function QnaWritePage() {
 
   /* 질의응답 등록 */
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
-    /* 등록 시점의 로그인 사용자 다시 확인 */
+    /* 등록 시점의 로그인 사용자 다시 확인 (zustand 기반) */
 
     const loginUser = getLoginUser();
 
@@ -375,94 +254,171 @@ function QnaWritePage() {
     try {
       setLoading(true);
 
-      /* 기존 게시글 조회 */
-
-      const existingPosts = getStoredPosts();
-
       /*
-       * 현재 프론트 테스트 단계에서는
-       * 실제 File 객체를 localStorage에 저장하지 않는다.
-       *
-       * 대신 파일명과 파일 크기를 저장한다.
-       */
-
-      const attachments: QnaAttachment[] = attachedFiles.map((file) => ({
-        name: file.name,
-        size: file.size,
-      }));
-
-      /*
-       * 중요
-       *
-       * 아래 title / content는 현재 입력된 값을 그대로 저장한다.
-       * 다른 게시글의 내용으로 변경하지 않는다.
-       */
-
-      const newPost: QnaPost = {
-        id: Date.now(),
-
-        /* 질문 정보 */
-
-        author: getLoginUserName(loginUser),
-        authorId: loginUser.userId,
-
-        /* 입력한 제목 그대로 저장 */
-
-        title: form.title.trim(),
-
-        /* 입력한 내용 그대로 저장 */
-
-        content: form.content.trim(),
-
-        /* 작성 날짜 */
-
-        date: getCurrentDate(),
-
-        /* 새 글이므로 조회수 0 */
-
-        views: 0,
-
-        /* 첨부파일 이름 + 크기 */
-
-        attachments,
-
-        /* 새 글은 미답변 상태 */
-
-        answer: "",
-        answerAuthor: undefined,
-        answerAuthorId: undefined,
-        answerDate: undefined,
-      };
-
-      /*
-       * 기존 게시글을 유지하면서
-       * 새 게시글만 맨 앞에 추가한다.
-       */
-
-      const updatedPosts: QnaPost[] = [newPost, ...existingPosts];
-
-      /*
-       * localStorage 저장
+       * 백엔드 QnaCreateRequest와
+       * 필드명을 정확하게 맞춘다.
        *
        * title
-       * content
-       * attachments
-       * author
-       * date
-       * views
-       * answer
-       * 모두 함께 저장된다.
+       * questionContent
+       * publicQuestion
+       *
+       * 작성자 정보는 프론트에서 보내지 않는다.
+       *
+       * 백엔드에서
+       * @AuthenticationPrincipal
+       * CustomUserPrincipal을 통해
+       * 로그인 회원 정보를 가져온다.
        */
 
-      localStorage.setItem("qnaPosts", JSON.stringify(updatedPosts));
+      const requestData = {
+        title: form.title.trim(),
+        questionContent: form.content.trim(),
+        publicQuestion: form.publicQuestion,
+      };
+
+      console.log("=================================");
+      console.log("Q&A 등록 요청 시작");
+      console.log("요청 URL:", "/api/qnas");
+      console.log("요청 데이터:", requestData);
+      console.log("현재 로그인 사용자:", loginUser);
+      console.log("=================================");
+
+      /*
+       * api.ts를 수정하지 않고
+       * apiMiddleware를 직접 사용한다.
+       *
+       * POST /api/qnas
+       */
+
+      const response = await apiMiddleware.post("/api/qnas", requestData);
+
+      console.log("=================================");
+      console.log("Q&A 등록 성공");
+      console.log("응답 상태:", response.status);
+      console.log("응답 데이터:", response.data);
+      console.log("=================================");
+
+      const newPostId = (response.data as { id?: number })?.id || Date.now();
+      const today = new Date().toISOString().split("T")[0].replace(/-/g, ".");
+      const newPostObj = {
+        id: newPostId,
+        authorId: loginUser.userId || "user",
+        author: loginUser.name || loginUser.userId || "작성자",
+        title: form.title.trim(),
+        content: form.content.trim(),
+        date: today,
+        views: 0,
+        publicQuestion: form.publicQuestion,
+      };
+      try {
+        const storedPosts = localStorage.getItem("qnaPosts");
+        const localPosts = storedPosts ? (JSON.parse(storedPosts) as any[]) : [];
+        localStorage.setItem("qnaPosts", JSON.stringify([newPostObj, ...localPosts]));
+      } catch {
+        /* 파싱 실패 무시 */
+      }
 
       alert("질의응답이 등록되었습니다.");
 
-      /* Q&A 목록으로 이동 */
+      /*
+       * 등록 성공 후 Q&A 목록으로 이동한다.
+       *
+       * QnaPage에서 다시
+       * GET /api/qnas를 호출한다.
+       */
 
       navigate("/qna");
     } catch (error) {
-      console.error("질의응답 등록 실패:", error);
+      console.error("=================================");
+      console.error("Q&A 등록 실패");
+
+      if (axios.isAxiosError(error)) {
+        console.error("HTTP 상태:", error.response?.status);
+
+        console.error("백엔드 응답:", error.response?.data);
+
+        console.error("요청 URL:", error.config?.url);
+
+        console.error("요청 데이터:", error.config?.data);
+      } else {
+        console.error(error);
+      }
+
+      console.error("=================================");
+
+      /* Axios 오류 처리 */
+
+      if (axios.isAxiosError(error)) {
+        /* 400 Bad Request */
+
+        if (error.response?.status === 400) {
+          const responseData = error.response?.data;
+
+          console.error("400 상세 오류:", responseData);
+
+          /*
+           * Spring Validation 오류 메시지가
+           * 내려오는 경우 해당 메시지를 표시한다.
+           */
+
+          if (typeof responseData === "object" && responseData !== null) {
+            const errorMessage = (
+              responseData as {
+                message?: string;
+                error?: string;
+              }
+            ).message;
+
+            if (errorMessage) {
+              alert(`질의응답 등록 실패\n\n${errorMessage}`);
+
+              return;
+            }
+          }
+
+          alert("입력한 질의응답 내용을 확인해주세요.");
+
+          return;
+        }
+
+        /* 401 Unauthorized */
+
+        if (error.response?.status === 401) {
+          alert("로그인 정보가 만료되었습니다. 다시 로그인해주세요.");
+
+          await logout();
+
+          navigate("/login");
+
+          return;
+        }
+
+        /* 403 Forbidden */
+
+        if (error.response?.status === 403) {
+          alert("질의응답을 등록할 권한이 없습니다.");
+
+          return;
+        }
+
+        /* 404 Not Found */
+
+        if (error.response?.status === 404) {
+          alert(
+            "Q&A 등록 API를 찾을 수 없습니다. 백엔드의 /api/qnas 경로를 확인해주세요.",
+          );
+
+          return;
+        }
+
+        /* 500 Internal Server Error */
+
+        if (error.response?.status === 500) {
+          alert("서버에서 질의응답 등록 중 오류가 발생했습니다.");
+
+          return;
+        }
+      }
 
       alert("질의응답 등록에 실패했습니다. 다시 시도해주세요.");
     } finally {
@@ -470,47 +426,39 @@ function QnaWritePage() {
     }
   };
 
-  /* 로그아웃 */
-
-  const handleLogout = async () => {
-    await logout();
-
-    navigate("/");
-  };
-
   /* 로그인하지 않은 경우 */
 
   if (!isLoggedIn) {
     return (
-      <div className={styles.page}>
-        <div className={styles.container}>
-          <section className={styles.loginRequired}>
-            <div className={styles.loginIcon}>🔒</div>
+      <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8">
+        <div className="max-w-[800px] mx-auto text-center space-y-6">
+          <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
+            CUSTOMER CENTER
+          </span>
+          <h1 className="text-[28px] font-black text-[#13202B]">로그인이 필요합니다.</h1>
+          <p className="text-[15px] text-[#6B7280]">질의응답 글쓰기는 로그인한 회원만 이용할 수 있습니다.</p>
+          <div className="flex justify-center gap-3 pt-4">
+            <button
+              type="button"
+              className="px-5 py-2.5 bg-white border border-[#DCE8ED] text-[#6B7280] rounded-[7px] text-[14px] font-bold hover:bg-[#EBF5F8] cursor-pointer no-underline"
+              onClick={() => navigate("/qna")}
+              style={{ textDecoration: "none" }}
+            >
+              목록으로 돌아가기
+            </button>
+            <button
+              type="button"
+              className="px-5 py-2.5 bg-[#0F8AA8] text-white rounded-[7px] text-[14px] font-bold hover:bg-[#0B5E73] cursor-pointer no-underline"
+              onClick={() => {
+                sessionStorage.setItem("redirectUrl", "/qna/write");
+                navigate("/login", { state: { from: "/qna/write" } });
+              }}
 
-            <span className={styles.pageLabel}>질의응답</span>
-
-            <h1>로그인이 필요합니다.</h1>
-
-            <p>질의응답 글쓰기는 로그인한 회원만 이용할 수 있습니다.</p>
-
-            <div className={styles.loginButtonArea}>
-              <button
-                type="button"
-                className={styles.backButton}
-                onClick={() => navigate("/qna")}
-              >
-                목록으로 돌아가기
-              </button>
-
-              <button
-                type="button"
-                className={styles.loginButton}
-                onClick={() => navigate("/login")}
-              >
-                로그인하기
-              </button>
-            </div>
-          </section>
+              style={{ textDecoration: "none" }}
+            >
+              로그인하기
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -519,216 +467,49 @@ function QnaWritePage() {
   /* 로그인 상태 */
 
   return (
-    <div className={styles.page}>
-      {/* 사용자 영역 */}
-
-      <div className={styles.topUserBar}>
-        <div className={styles.topUserInner}>
-          <div className={styles.userArea}>
-            <span className={styles.userName}>
-              {currentUserName}
-
-              {isAdmin && <span className={styles.adminBadge}>관리자</span>}
-            </span>
-
-            <button
-              type="button"
-              className={styles.logoutButton}
-              onClick={handleLogout}
-            >
-              로그아웃
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Header */}
-
-      <header className={styles.mainHeader}>
-        <div className={styles.headerInner}>
-          {/* 로고 */}
-
-          <button
-            type="button"
-            className={styles.logo}
-            onClick={() => navigate("/")}
-            aria-label="싸농 홈으로 이동"
-          >
-            싸농
-          </button>
-
-          {/* 메인 메뉴 */}
-
-          <nav className={styles.mainNav} aria-label="주요 메뉴">
-            {/* 홈 */}
-
-            <button
-              type="button"
-              className={styles.navItem}
-              onClick={() => navigate("/")}
-            >
-              홈
-            </button>
-
-            {/* 가격 상세 정보 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                가격 상세 정보
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>가격정보</strong>
-
-                  <button type="button" onClick={() => navigate("/price")}>
-                    품목별 시세 조회
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/price/detail")}
-                  >
-                    가격 추이 그래프
-                  </button>
-
-                  <button type="button" onClick={() => navigate("/price")}>
-                    급상승 / 급락 품목
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 자치구별 가격정보 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                자치구별 가격정보
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>자치구별 지도 비교</strong>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/region-price")}
-                  >
-                    자치구간 1:1 비교
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/region-price")}
-                  >
-                    시장 / 마트 유형별 비교
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 스마트 추천 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                스마트 추천
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>스마트 추천</strong>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/recommendation")}
-                  >
-                    오늘의 알뜰 장바구니
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/recommendation")}
-                  >
-                    가격 하락 품목 추천
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/recommendation")}
-                  >
-                    이달의 제철 농수산물
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 고객센터 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                고객센터
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>고객센터</strong>
-
-                  <button type="button" onClick={() => navigate("/qna")}>
-                    질의응답
-                  </button>
-
-                  <button type="button" onClick={() => navigate("/faq")}>
-                    자주 묻는 질문
-                  </button>
-                </div>
-              </div>
-            </div>
-          </nav>
-        </div>
-      </header>
-
-      {/* 본문 */}
-
-      <main className={styles.container}>
+    <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8">
+      <div className="max-w-[800px] mx-auto space-y-8">
         {/* 페이지 제목 */}
 
-        <section className={styles.pageHeader}>
-          <div className={styles.headerText}>
-            <span className={styles.pageLabel}>질의응답</span>
-
-            <h1>문의하기</h1>
-
-            <p>싸농 서비스 이용 중 궁금한 내용을 남겨주세요.</p>
+        <div className="flex items-center justify-between pb-6 border-b border-[#DCE8ED]">
+          <div>
+            <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
+              CUSTOMER CENTER
+            </span>
+            <h1 className="text-[32px] font-black text-[#13202B] tracking-tight">질의응답 작성</h1>
+            <p className="text-[14px] text-[#6B7280] mt-1">궁금한 내용을 입력해 문의를 남겨주세요.</p>
           </div>
+
 
           <button
             type="button"
-            className={styles.listButton}
+            className="px-4 py-2 bg-white border border-[#DCE8ED] text-[#6B7280] rounded-[7px] text-[14px] font-bold hover:bg-[#EBF5F8] transition-colors cursor-pointer no-underline"
             onClick={() => navigate("/qna")}
             disabled={loading}
+            style={{ textDecoration: "none" }}
           >
             목록으로
           </button>
-        </section>
+        </div>
 
         {/* 질의응답 작성 폼 */}
 
-        <form className={styles.form} onSubmit={handleSubmit}>
+        <form className="bg-white border border-[#DCE8ED] rounded-[12px] p-6 md:p-8 space-y-6 shadow-sm" onSubmit={handleSubmit}>
           {/* 작성자 */}
 
-          <div className={styles.formGroup}>
-            <label htmlFor="author">작성자</label>
+          <div className="space-y-1.5">
+            <label htmlFor="author" className="block text-[14px] font-bold text-[#13202B]">작성자</label>
 
-            <input id="author" type="text" value={currentUserName} disabled />
+            <input id="author" type="text" value={currentUserName} disabled className="w-full h-[44px] px-3.5 bg-[#F5FAFC] border border-[#DCE8ED] rounded-[7px] text-[14px] text-[#6B7280]" />
 
-            <small>현재 로그인한 회원 정보로 자동 등록됩니다.</small>
+            <small className="text-[12px] text-[#6B7280]">현재 로그인한 회원 정보로 자동 등록됩니다.</small>
           </div>
 
           {/* 제목 */}
 
-          <div className={styles.formGroup}>
-            <label htmlFor="title">
-              제목 <span>*</span>
+          <div className="space-y-1.5">
+            <label htmlFor="title" className="block text-[14px] font-bold text-[#13202B]">
+              제목 <span className="text-rose-500">*</span>
             </label>
 
             <input
@@ -738,23 +519,58 @@ function QnaWritePage() {
               value={form.title}
               onChange={handleChange}
               placeholder="문의 제목을 입력해주세요."
-              maxLength={100}
+              maxLength={200}
               disabled={loading}
               autoFocus
+              className="w-full h-[44px] px-3.5 bg-white border border-[#DCE8ED] rounded-[7px] text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8]"
             />
 
-            <div className={styles.fieldBottom}>
-              <small>최대 100자까지 입력할 수 있습니다.</small>
+            <div className="flex justify-between text-[12px] text-[#6B7280]">
+              <span>최대 200자까지 입력할 수 있습니다.</span>
 
-              <span>{form.title.length} / 100</span>
+              <span>{form.title.length} / 200</span>
+            </div>
+          </div>
+
+          {/* 공개 여부 */}
+
+          <div className="space-y-1.5">
+            <label className="block text-[14px] font-bold text-[#13202B]">
+              공개 여부 <span className="text-rose-500">*</span>
+            </label>
+
+            <div className="flex items-center gap-6 pt-1">
+              <label className="flex items-center gap-2 text-[14px] text-[#13202B] cursor-pointer">
+                <input
+                  type="radio"
+                  name="publicQuestion"
+                  checked={form.publicQuestion === true}
+                  onChange={() => setForm((prev) => ({ ...prev, publicQuestion: true }))}
+                  disabled={loading}
+                  className="w-4 h-4 text-[#0F8AA8] focus:ring-[#0F8AA8]"
+                />
+                <span>🌐 공개글 (누구나 답변 및 질문 확인 가능)</span>
+              </label>
+
+              <label className="flex items-center gap-2 text-[14px] text-[#13202B] cursor-pointer">
+                <input
+                  type="radio"
+                  name="publicQuestion"
+                  checked={form.publicQuestion === false}
+                  onChange={() => setForm((prev) => ({ ...prev, publicQuestion: false }))}
+                  disabled={loading}
+                  className="w-4 h-4 text-[#0F8AA8] focus:ring-[#0F8AA8]"
+                />
+                <span>🔒 비공개글 (작성자와 관리자만 확인 가능)</span>
+              </label>
             </div>
           </div>
 
           {/* 내용 */}
 
-          <div className={styles.formGroup}>
-            <label htmlFor="content">
-              내용 <span>*</span>
+          <div className="space-y-1.5">
+            <label htmlFor="content" className="block text-[14px] font-bold text-[#13202B]">
+              내용 <span className="text-rose-500">*</span>
             </label>
 
             <textarea
@@ -766,10 +582,11 @@ function QnaWritePage() {
               rows={12}
               maxLength={5000}
               disabled={loading}
+              className="w-full p-3.5 bg-white border border-[#DCE8ED] rounded-[7px] text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8] resize-y"
             />
 
-            <div className={styles.fieldBottom}>
-              <small>최대 5,000자까지 입력할 수 있습니다.</small>
+            <div className="flex justify-between text-[12px] text-[#6B7280]">
+              <span>최대 5,000자까지 입력할 수 있습니다.</span>
 
               <span>{form.content.length.toLocaleString()} / 5,000</span>
             </div>
@@ -777,79 +594,76 @@ function QnaWritePage() {
 
           {/* 첨부파일 */}
 
-          <div className={styles.formGroup}>
-            <label htmlFor="file">첨부파일</label>
+          <div className="space-y-2">
+            <label htmlFor="file" className="block text-[14px] font-bold text-[#13202B]">첨부파일</label>
 
             <input
               ref={fileInputRef}
               id="file"
               type="file"
-              className={styles.fileInput}
+              className="hidden"
               accept=".jpg,.jpeg,.png,.gif,.pdf"
               multiple
               onChange={handleFileChange}
               disabled={loading || attachedFiles.length >= MAX_FILE_COUNT}
             />
 
-            <div className={styles.fileUploadArea}>
+            <div className="flex items-center gap-4 p-4 bg-[#F5FAFC] border border-[#DCE8ED] rounded-[8px]">
               <button
                 type="button"
-                className={styles.fileSelectButton}
+                className="px-4 py-2 bg-white border border-[#DCE8ED] text-[#0F8AA8] font-bold text-[13px] rounded-[6px] hover:bg-[#EBF5F8] cursor-pointer no-underline"
                 onClick={handleFileButtonClick}
                 disabled={loading || attachedFiles.length >= MAX_FILE_COUNT}
+                style={{ textDecoration: "none" }}
               >
                 📎 파일 선택
               </button>
 
-              <div className={styles.fileGuide}>
-                <strong>파일을 첨부해주세요.</strong>
-
+              <div className="text-[12px] text-[#6B7280] space-x-2">
                 <span>최대 {MAX_FILE_COUNT}개 · 파일당 최대 10MB</span>
-
-                <span>JPG, JPEG, PNG, GIF, PDF</span>
+                <span>(JPG, JPEG, PNG, GIF, PDF)</span>
               </div>
             </div>
 
             {/* 선택된 파일 */}
 
             {attachedFiles.length > 0 && (
-              <div className={styles.fileList}>
-                <div className={styles.fileListHeader}>
-                  <strong>선택된 파일</strong>
+              <div className="pt-2 space-y-2">
+                <div className="flex justify-between text-[13px] font-bold text-[#13202B]">
+                  <span>선택된 파일</span>
 
                   <span>
                     {attachedFiles.length} / {MAX_FILE_COUNT}
                   </span>
                 </div>
 
-                <ul>
+                <ul className="space-y-1.5">
                   {attachedFiles.map((file, index) => (
                     <li
                       key={`${file.name}-${file.lastModified}-${index}`}
-                      className={styles.fileItem}
+                      className="flex items-center justify-between p-2.5 bg-[#F5FAFC] rounded-[6px] text-[13px]"
                     >
-                      <div className={styles.fileInformation}>
-                        <span className={styles.fileIcon}>📎</span>
+                      <div className="flex items-center gap-2 truncate">
+                        <span>📎</span>
 
-                        <div className={styles.fileText}>
-                          <span className={styles.fileName} title={file.name}>
-                            {file.name}
-                          </span>
+                        <span className="font-medium text-[#13202B] truncate" title={file.name}>
+                          {file.name}
+                        </span>
 
-                          <span className={styles.fileSize}>
-                            {formatFileSize(file.size)}
-                          </span>
-                        </div>
+                        <span className="text-[#6B7280] text-[12px]">
+                          ({formatFileSize(file.size)})
+                        </span>
                       </div>
 
                       <button
                         type="button"
-                        className={styles.fileRemoveButton}
+                        className="text-rose-500 font-bold hover:text-rose-700 px-2 cursor-pointer no-underline"
                         onClick={() => handleRemoveFile(index)}
                         disabled={loading}
                         aria-label={`${file.name} 첨부파일 삭제`}
+                        style={{ textDecoration: "none" }}
                       >
-                        ×
+                        ✕
                       </button>
                     </li>
                   ))}
@@ -860,48 +674,46 @@ function QnaWritePage() {
 
           {/* 안내 문구 */}
 
-          <div className={styles.notice}>
-            <span className={styles.noticeIcon}>💡</span>
+          <div className="flex items-start gap-3 p-4 bg-[#EBF5F8] rounded-[8px] text-[13px] text-[#0F766E]">
+            <span className="text-[16px]">💡</span>
 
             <div>
-              <strong>질의응답 이용 안내</strong>
+              <strong className="block font-bold mb-1">질의응답 이용 안내</strong>
 
-              <p>
-                작성한 질의응답은 작성자 본인이 확인할 수 있으며,
-                <br />
-                관리자는 모든 질의응답 게시글을 확인하고 답변할 수 있습니다.
-                <br />
-                답변이 등록되면 게시글 상세 화면에서 확인할 수 있습니다.
-                <br />
-                첨부파일은 최대 3개까지 등록할 수 있으며 파일당 최대 10MB입니다.
+              <p className="leading-relaxed text-[#0B5E73]">
+                작성한 질의응답은 작성자 본인이 확인할 수 있으며, 관리자는 모든 질의응답 게시글을 확인하고 답변할 수 있습니다.
               </p>
             </div>
           </div>
 
           {/* 버튼 */}
 
-          <div className={styles.buttonArea}>
+          <div className="flex justify-end gap-3 pt-4 border-t border-[#DCE8ED]">
             <button
               type="button"
-              className={styles.cancelButton}
+              className="px-6 py-2.5 bg-white border border-[#DCE8ED] text-[#6B7280] rounded-[7px] text-[14px] font-bold hover:bg-[#EBF5F8] cursor-pointer no-underline"
               onClick={() => navigate("/qna")}
               disabled={loading}
+              style={{ textDecoration: "none" }}
             >
               취소
             </button>
 
             <button
               type="submit"
-              className={styles.submitButton}
+              className="px-6 py-2.5 bg-[#0F8AA8] text-white rounded-[7px] text-[14px] font-bold hover:bg-[#0B5E73] cursor-pointer no-underline"
               disabled={loading}
+              style={{ textDecoration: "none" }}
             >
               {loading ? "등록 중..." : "등록하기"}
             </button>
           </div>
+
         </form>
-      </main>
+      </div>
     </div>
   );
 }
+
 
 export default QnaWritePage;

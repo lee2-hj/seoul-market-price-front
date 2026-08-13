@@ -56,8 +56,9 @@ function PaginationLink({
       className={cn(
         "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors h-9 px-3.5 min-w-9 border no-underline select-none cursor-pointer focus:outline-none",
         isActive
-          ? "bg-[#4c9b55] text-white border-[#4c9b55] font-bold"
-          : "bg-white text-[#5c665b] border-[#dce4da] hover:bg-[#f0f5ef]",
+          ? "bg-[#0F8AA8] text-white border-[#0F8AA8] font-bold hover:bg-[#0B5E73]"
+          : "bg-white text-[#6B7280] border-[#DCE8ED] hover:bg-[#EBF5F8] hover:text-[#0F8AA8]",
+
         disabled && "opacity-50 cursor-not-allowed pointer-events-none",
         className
       )}

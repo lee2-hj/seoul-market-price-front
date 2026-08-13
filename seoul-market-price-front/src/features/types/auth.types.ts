@@ -1,11 +1,8 @@
 export interface LoginUser {
-
     userId: string;
-
     name: string;
-
     role: string;
-
+    accessToken?: string;
 }
 
 

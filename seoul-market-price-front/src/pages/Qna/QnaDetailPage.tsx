@@ -1,631 +1,785 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState, useMemo } from "react";
+import axios from "axios";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 
-import { getLoginUser, logout } from "@/features/auth/utils/auth";
-import styles from "./QnaDetailPage.module.css";
 
-/* 첨부파일 정보 */
+import apiMiddleware from "@/api/middleware";
+import { getLoginUser } from "@/features/auth/utils/auth";
 
-interface QnaAttachment {
-  name: string;
-  size: number;
-}
+/* Q&A 상세 응답 타입 */
 
-/* 질의응답 게시글 */
 
-interface QnaPost {
+interface QnaDetailResponse {
   id: number;
 
-  /* 질문 정보 */
+  writerLoginId?: string | null;
+  writerName?: string | null;
 
-  author: string;
-  authorId: string;
   title: string;
-  content: string;
-  date: string;
-  views: number;
+
+  /* 백엔드 QnaDetailResponse의 질문 본문 */
+
+  questionContent?: string | null;
+
+  /* 기존 프론트와의 호환 */
+
+  content?: string | null;
+
+  /* 답변 */
+
+  answerContent?: string | null;
+  answerAdminName?: string | null;
+
+  answer?: string | null;
+
+  /* 답변 상태 */
+
+  answerStatus?: string | null;
 
   /* 첨부파일 */
 
-  attachments?: QnaAttachment[];
+  attachPath?: string | null;
+  attachName?: string | null;
 
-  /* 답변 정보 */
+  attachmentAvailable?: boolean;
 
-  answer: string;
-  answerAuthor?: string;
-  answerAuthorId?: string;
-  answerDate?: string;
+  attachmentUrl?: string | null;
+  fileUrl?: string | null;
+
+  originalFileName?: string | null;
+  fileName?: string | null;
+
+  /* 조회수 */
+
+  viewCount?: number;
+  views?: number;
+
+  /* 공개 여부 */
+
+  publicQuestion?: boolean;
+  isPublic?: boolean;
+
+  /* 날짜 */
+
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  answeredAt?: string | null;
 }
 
-/* 로그인 사용자 이름 */
+/* 로그인 사용자 타입 */
 
-const getLoginUserName = (user: { name: string; userId: string } | null): string => {
+interface LoginUser {
+  id?: number | string;
+  userId?: string;
+  loginId?: string;
+  memberId?: number | string;
+  name?: string;
+  username?: string;
+  role?: string;
+  authority?: string;
+  authorities?: string[];
+}
+
+/* 로그인 사용자 ID 추출 */
+
+const getLoginUserId = (user: LoginUser | null): string => {
   if (!user) {
-    return "사용자";
+    return "";
   }
 
-  return user.name || user.userId || "사용자";
+  if (user.loginId !== undefined && user.loginId !== null) {
+    return String(user.loginId);
+  }
+
+  if (user.userId !== undefined && user.userId !== null) {
+    return String(user.userId);
+  }
+
+  return "";
 };
 
-/* 관리자 여부 (zustand 기준) */
+/* 게시글 작성자 로그인 ID 추출 */
 
-const isAdminUser = (role: string | undefined): boolean => {
-  if (!role) {
-    return false;
+const getPostWriterId = (post: QnaDetailResponse | null): string => {
+  if (!post) {
+    return "";
   }
 
-  const normalizedRole = role.toUpperCase();
+  if (post.writerLoginId !== undefined && post.writerLoginId !== null) {
+    return String(post.writerLoginId);
+  }
 
-  return normalizedRole === "ADMIN" || normalizedRole === "ROLE_ADMIN";
+  return "";
 };
 
-/* 파일 크기 표시 */
+/* 날짜 표시 */
 
-const formatFileSize = (size: number): string => {
-  if (!size || size < 1024) {
-    return `${size || 0} B`;
+const formatDate = (dateString?: string | null): string => {
+  if (!dateString) {
+    return "-";
   }
 
-  if (size < 1024 * 1024) {
-    return `${(size / 1024).toFixed(1)} KB`;
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return dateString;
   }
 
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  return date.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
-/* 게시글 조회 */
+/* 공개 여부 확인 */
 
-const getStoredPosts = (): QnaPost[] => {
-  const storedPosts = localStorage.getItem("qnaPosts");
-
-  if (!storedPosts) {
-    return [];
+const isPublicPost = (post: QnaDetailResponse): boolean => {
+  if (typeof post.publicQuestion === "boolean") {
+    return post.publicQuestion;
   }
 
-  try {
-    const parsedPosts: unknown = JSON.parse(storedPosts);
-
-    if (!Array.isArray(parsedPosts)) {
-      return [];
-    }
-
-    return parsedPosts.map((post) => {
-      const item = post as Partial<QnaPost>;
-
-      return {
-        id: item.id ?? 0,
-        author: item.author ?? "사용자",
-        authorId: item.authorId ?? "",
-        title: item.title ?? "",
-        content: item.content ?? "",
-        date: item.date ?? "",
-        views: item.views ?? 0,
-
-        /* 기존 글에 첨부파일이 없는 경우 빈 배열 */
-
-        attachments: Array.isArray(item.attachments) ? item.attachments : [],
-
-        answer: item.answer ?? "",
-        answerAuthor: item.answerAuthor,
-        answerAuthorId: item.answerAuthorId,
-        answerDate: item.answerDate,
-      };
-    });
-  } catch (error) {
-    console.error("질의응답 게시글 조회 실패:", error);
-
-    return [];
+  if (typeof post.isPublic === "boolean") {
+    return post.isPublic;
   }
+
+  return true;
 };
 
-/* Q&A 상세 페이지 */
+/* 조회수 표시 */
+
+const getViewCount = (post: QnaDetailResponse): number => {
+  if (typeof post.viewCount === "number") {
+    return post.viewCount;
+  }
+
+  if (typeof post.views === "number") {
+    return post.views;
+  }
+
+  return 0;
+};
+
+/* 질문 본문 추출 */
+
+const getQuestionContent = (post: QnaDetailResponse): string => {
+  if (post.questionContent !== undefined && post.questionContent !== null) {
+    return post.questionContent;
+  }
+
+  if (post.content !== undefined && post.content !== null) {
+    return post.content;
+  }
+
+  return "";
+};
+
+/* 첨부파일 URL 추출 */
+
+const getAttachmentUrl = (post: QnaDetailResponse): string => {
+  return post.attachmentUrl || post.fileUrl || post.attachPath || "";
+};
+
+/* 첨부파일 이름 추출 */
+
+const getAttachmentName = (post: QnaDetailResponse): string => {
+  return (
+    post.originalFileName || post.fileName || post.attachName || "첨부파일"
+  );
+};
+
+/* QnaDetailPage */
 
 function QnaDetailPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
   const { id } = useParams<{ id: string }>();
 
-  /* 로그인 사용자 */
+  const [post, setPost] = useState<QnaDetailResponse | null>(null);
+
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const [isMyPost, setIsMyPost] = useState(false);
 
   const currentUser = getLoginUser();
+  const isAdmin = useMemo(() => {
+    if (!currentUser?.role) return false;
+    const role = currentUser.role.toUpperCase();
+    return role === "ADMIN" || role === "ROLE_ADMIN";
+  }, [currentUser]);
 
-  const currentUserId = currentUser?.userId ?? "";
-  const currentUserName = getLoginUserName(currentUser);
-  const isAdmin = isAdminUser(currentUser?.role);
-
-  const isLoggedIn = Boolean(currentUser && currentUserId);
-
-  /* 게시글 */
-
-  const [post, setPost] = useState<QnaPost | null>(null);
-
-  const [loading, setLoading] = useState(true);
-
-  /* 게시글 조회 */
+  /* 게시글 상세 조회 */
 
   useEffect(() => {
-    const loadPost = () => {
-      setLoading(true);
+    const fetchQnaDetail = async () => {
+      if (!id) {
+        setErrorMessage("잘못된 게시글 번호입니다.");
 
-      const posts = getStoredPosts();
-
-      const postId = Number(id);
-
-      const foundPost = posts.find((item) => item.id === postId);
-
-      if (!foundPost) {
-        setPost(null);
-        setLoading(false);
+        setIsLoading(false);
 
         return;
       }
 
-      /* 로그인 여부 확인 */
+      setIsLoading(true);
+      setErrorMessage("");
 
-      if (!isLoggedIn) {
-        alert("로그인 후 질의응답을 확인할 수 있습니다.");
+      try {
+        /* 현재 로그인 사용자 확인 */
 
-        navigate("/login");
+        const currentUser = getLoginUser();
 
-        return;
-      }
 
-      /* 본인 글 또는 관리자만 확인 가능 */
+        /*
 
-      const canView = isAdmin || foundPost.authorId === currentUserId;
+          상세 조회 권한은 백엔드에서 판단한다.
 
-      if (!canView) {
-        alert("작성자 본인 또는 관리자만 확인할 수 있습니다.");
+          GET /api/qnas/{id}
 
-        navigate("/qna");
+          QnaController
+          -> qnaService.getQna(id, principal.memberId())
 
-        return;
-      }
+          QnaService
+          -> qnaQueryRepository.incrementViewCount(id, userId)
+          -> qnaQueryRepository.findAccessibleById(id, userId)
 
-      /*
-       * 조회수 증가
-       *
-       * 현재 페이지 진입 시 한 번 증가시킨다.
-       */
+          따라서 프론트에서는
+          비공개 여부를 가지고 다시 접근을 차단하지 않는다.
 
-      const updatedPosts = posts.map((item) => {
-        if (item.id !== foundPost.id) {
-          return item;
+          백엔드가 200을 반환하면
+          해당 게시글을 정상적으로 표시한다.
+        */
+
+        const response = await apiMiddleware.get<QnaDetailResponse>(
+          `/api/qnas/${id}`,
+        );
+
+        const detail = response.data;
+
+        console.log("[QnaDetailPage] 상세 게시글:", detail);
+
+        /*
+
+          본인 여부는 접근 권한 판단이 아니라
+          수정 / 삭제 버튼 표시를 위해서만 사용한다.
+        */
+
+        const currentUserId = getLoginUserId(currentUser);
+
+        const writerId = getPostWriterId(detail);
+
+        const mine =
+          Boolean(currentUserId) &&
+          Boolean(writerId) &&
+          currentUserId === writerId;
+
+        console.log("[QnaDetailPage] 현재 사용자 ID:", currentUserId);
+
+        console.log("[QnaDetailPage] 게시글 작성자 ID:", writerId);
+
+        console.log("[QnaDetailPage] 내 글 여부:", mine);
+
+        setIsMyPost(mine);
+
+        const isSecret = !isPublicPost(detail);
+        if (isSecret && !mine && !isAdmin) {
+          setErrorMessage("작성자 본인과 관리자만 확인할 수 있는 비공개 글입니다.");
+          return;
         }
 
-        return {
-          ...item,
-          views: (item.views ?? 0) + 1,
-        };
-      });
+        setPost(detail);
+      } catch (error) {
+        console.error("[QnaDetailPage] 게시글 상세 조회 실패:", error);
 
-      localStorage.setItem("qnaPosts", JSON.stringify(updatedPosts));
+        if (axios.isAxiosError(error)) {
+          const status = error.response?.status;
 
-      setPost({
-        ...foundPost,
-        views: (foundPost.views ?? 0) + 1,
-      });
+          /* 로그인되지 않은 경우 */
 
-      setLoading(false);
+          if (status === 401) {
+            setErrorMessage("로그인이 필요합니다.");
+
+            return;
+          }
+
+          /* 권한 없음 */
+
+          if (status === 403) {
+            setErrorMessage("이 게시글을 확인할 권한이 없습니다.");
+
+            return;
+          }
+
+          /*
+            백엔드의 findAccessibleById()에서
+            접근할 수 없는 비공개 글도
+            결과가 없으면 QnaNotFoundException이 발생한다.
+
+            따라서 404는
+            존재하지 않거나 접근할 수 없는 글로 처리한다.
+          */
+
+          if (status === 404) {
+            /* localStorage 폴백: 백엔드에 없는 로컬 게시글 조회 */
+            const stored = localStorage.getItem("qnaPosts");
+            if (stored) {
+              try {
+                const localPosts = JSON.parse(stored) as Array<{
+                  id: number;
+                  authorId?: string;
+                  author?: string;
+                  title?: string;
+                  content?: string;
+                  date?: string;
+                  views?: number;
+                  answer?: string;
+                  publicQuestion?: boolean;
+                  isPublic?: boolean;
+                }>;
+                console.log("[QnaDetailPage] localStorage 폴백 시도, id:", id, "posts count:", localPosts.length);
+                const localPost = localPosts.find(
+                  (p) => String(p.id) === String(id),
+                );
+                if (localPost) {
+                  console.log("[QnaDetailPage] localStorage에서 게시글 발견:", localPost);
+                  const localCurrentUser = getLoginUser();
+                  const localCurrentUserId = getLoginUserId(localCurrentUser);
+                  const localMine =
+                    Boolean(localCurrentUserId) &&
+                    Boolean(localPost.authorId) &&
+                    localCurrentUserId === localPost.authorId;
+                  const localAdmin = Boolean(
+                    localCurrentUser?.role &&
+                      (localCurrentUser.role.toUpperCase() === "ADMIN" ||
+                        localCurrentUser.role.toUpperCase() === "ROLE_ADMIN"),
+                  );
+
+                  const isLocalSecret =
+                    localPost.publicQuestion === false || localPost.isPublic === false;
+
+                  if (isLocalSecret && !localMine && !localAdmin) {
+                    setErrorMessage("작성자 본인과 관리자만 확인할 수 있는 비공개 글입니다.");
+                    return;
+                  }
+
+                  setPost({
+                    id: localPost.id,
+                    writerLoginId: localPost.authorId,
+                    writerName: localPost.author,
+                    title: localPost.title ?? "",
+                    content: localPost.content,
+                    questionContent: localPost.content,
+                    answer: localPost.answer,
+                    views: localPost.views,
+                    createdAt: localPost.date,
+                    publicQuestion: !isLocalSecret,
+                  });
+                  setIsMyPost(localMine);
+                  return;
+                }
+              } catch {
+                /* 파싱 실패 시 원래 에러 메시지 표시 */
+              }
+            }
+
+            setErrorMessage("존재하지 않거나 확인할 수 없는 게시글입니다.");
+
+            return;
+          }
+
+          /* 기타 서버 오류 */
+
+          setErrorMessage(
+            error.response?.data?.message ||
+              "게시글을 불러오는 중 오류가 발생했습니다.",
+          );
+
+          return;
+        }
+
+        setErrorMessage("게시글을 불러오는 중 오류가 발생했습니다.");
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    loadPost();
-  }, [id, navigate, currentUserId, isAdmin, isLoggedIn]);
+    fetchQnaDetail();
+  }, [id, isAdmin]);
 
-  /* 로그아웃 */
+  /* 목록으로 이동 */
 
-  const handleLogout = async () => {
-    await logout();
+  const handleBack = () => {
+    // 1. sessionStorage에 저장된 최근 쿼리 스트링(검색어, 검색 조건, 페이지 번호)이 있으면 복원
+    const lastQuery = sessionStorage.getItem("qna_last_query");
+    if (lastQuery) {
+      navigate(`/qna?${lastQuery}`);
+      return;
+    }
 
-    navigate("/");
-  };
+    // 2. location.state에 전달된 이전 페이지 정보가 있는 경우
+    const fromPage = (location.state as { fromPage?: number })?.fromPage;
+    if (fromPage && fromPage > 1) {
+      navigate(`/qna?page=${fromPage}`);
+      return;
+    }
 
-  /* 목록으로 */
-
-  const handleGoList = () => {
+    // 3. 기본 Q&A 목록으로 이동
     navigate("/qna");
   };
 
-  /* 수정 페이지 이동 */
+  /* 수정 */
 
   const handleEdit = () => {
     if (!post) {
       return;
     }
 
+    if (!isMyPost) {
+      alert("수정 권한이 없습니다.");
+
+      return;
+    }
+
     navigate(`/qna/${post.id}/edit`);
   };
+
   /* 삭제 */
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!post) {
       return;
     }
 
-    const confirmed = window.confirm("이 질의응답 게시글을 삭제하시겠습니까?");
+    if (!isMyPost) {
+      alert("삭제 권한이 없습니다.");
+
+      return;
+    }
+
+    const confirmed = window.confirm("정말 삭제하시겠습니까?");
 
     if (!confirmed) {
       return;
     }
 
-    const posts = getStoredPosts();
+    try {
+      await apiMiddleware.delete(`/api/qnas/${post.id}`);
 
-    const updatedPosts = posts.filter((item) => item.id !== post.id);
+      alert("게시글이 삭제되었습니다.");
 
-    localStorage.setItem("qnaPosts", JSON.stringify(updatedPosts));
+      navigate("/qna");
+    } catch (error) {
+      console.error("[QnaDetailPage] 게시글 삭제 실패:", error);
 
-    alert("질의응답이 삭제되었습니다.");
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
 
-    navigate("/qna");
+        if (status === 401) {
+          alert("로그인이 필요합니다.");
+
+          navigate("/login");
+
+          return;
+        }
+
+        if (status === 403) {
+          alert("삭제 권한이 없습니다.");
+
+          return;
+        }
+
+        /* localStorage 폴백: 백엔드에 없는 게시글 삭제 */
+        if (status === 404) {
+          const stored = localStorage.getItem("qnaPosts");
+          if (stored) {
+            try {
+              const localPosts = JSON.parse(stored) as Array<{ id: number }>;
+              const remaining = localPosts.filter(
+                (p) => String(p.id) !== String(post.id),
+              );
+              localStorage.setItem("qnaPosts", JSON.stringify(remaining));
+            } catch {
+              /* 파싱 실패 무시 */
+            }
+          }
+          alert("게시글이 삭제되었습니다.");
+          navigate("/qna");
+          return;
+        }
+
+        alert(error.response?.data?.message || "게시글 삭제에 실패했습니다.");
+
+        return;
+      }
+
+      alert("게시글 삭제에 실패했습니다.");
+    }
   };
 
   /* 로딩 */
 
-  if (loading) {
+  /* 로딩 */
+
+  if (isLoading) {
     return (
-      <div className={styles.page}>
-        <main className={styles.container}>
-          <section className={styles.emptyState}>
-            <p>게시글을 불러오는 중입니다.</p>
-          </section>
-        </main>
+      <div className="min-h-screen bg-[#fafcf9] py-12 px-5 sm:px-8">
+        <div className="max-w-[800px] mx-auto text-center p-16 text-[#8a9388] text-[14px]">
+          게시글을 불러오는 중입니다...
+        </div>
       </div>
     );
   }
 
-  /* 게시글 없음 */
+  /* 오류 */
 
-  if (!post) {
+  if (errorMessage || !post) {
     return (
-      <div className={styles.page}>
-        <main className={styles.container}>
-          <section className={styles.emptyState}>
-            <div className={styles.emptyIcon}>📄</div>
-
-            <h1>게시글을 찾을 수 없습니다.</h1>
-
-            <p>요청하신 질의응답 게시글이 존재하지 않거나 삭제되었습니다.</p>
-
+      <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8">
+        <div className="max-w-[800px] mx-auto text-center space-y-6">
+          <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
+            CUSTOMER CENTER
+          </span>
+          <h2 className="text-[28px] font-black text-[#13202B]">게시글을 확인할 수 없습니다.</h2>
+          <p className="text-[15px] text-[#6B7280]">{errorMessage || "게시글 정보가 존재하지 않습니다."}</p>
+          <div className="pt-4">
             <button
               type="button"
-              className={styles.listButton}
-              onClick={handleGoList}
+              className="px-5 py-2.5 bg-[#0F8AA8] text-white rounded-[7px] text-[14px] font-bold hover:bg-[#0B5E73] cursor-pointer no-underline"
+              onClick={handleBack}
+              style={{ textDecoration: "none" }}
             >
-              목록으로
+              Q&A 목록으로
             </button>
-          </section>
-        </main>
+          </div>
+        </div>
       </div>
     );
   }
 
-  /* 로그인 상태 */
+  /* 첨부파일 */
+
+  const attachmentUrl = getAttachmentUrl(post);
+
+  const attachmentName = getAttachmentName(post);
+
+  const hasAttachment = Boolean(
+    post.attachmentAvailable ||
+    attachmentUrl ||
+    post.originalFileName ||
+    post.fileName ||
+    attachmentName,
+  );
+
+  /* 상세 화면 */
 
   return (
-    <div className={styles.page}>
-      {/* 사용자 영역 */}
+    <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8">
+      <div className="max-w-[800px] mx-auto space-y-8">
+        {/* 상단 서브 헤더 */}
 
-      <div className={styles.topUserBar}>
-        <div className={styles.topUserInner}>
-          <div className={styles.userArea}>
-            <span className={styles.userName}>
-              {currentUserName}
-
-              {isAdmin && <span className={styles.adminBadge}>관리자</span>}
+        <div className="flex items-center justify-between pb-4 border-b border-[#DCE8ED]">
+          <div>
+            <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
+              CUSTOMER CENTER
             </span>
 
-            <button
-              type="button"
-              className={styles.logoutButton}
-              onClick={handleLogout}
-            >
-              로그아웃
-            </button>
-          </div>
-        </div>
-      </div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-[28px] font-black text-[#13202B] tracking-tight">질의응답 상세</h1>
 
-      {/* Header */}
+              {!isPublicPost(post) && (
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                  비공개
+                </span>
+              )}
 
-      <header className={styles.mainHeader}>
-        <div className={styles.headerInner}>
-          {/* 로고 */}
-
-          <button
-            type="button"
-            className={styles.logo}
-            onClick={() => navigate("/")}
-            aria-label="싸농 홈으로 이동"
-          >
-            싸농
-          </button>
-
-          {/* 메인 메뉴 */}
-
-          <nav className={styles.mainNav} aria-label="주요 메뉴">
-            {/* 홈 */}
-
-            <button
-              type="button"
-              className={styles.navItem}
-              onClick={() => navigate("/")}
-            >
-              홈
-            </button>
-
-            {/* 가격 상세 정보 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                가격 상세 정보
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>가격정보</strong>
-
-                  <button type="button" onClick={() => navigate("/price")}>
-                    품목별 시세 조회
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/price/detail")}
-                  >
-                    가격 추이 그래프
-                  </button>
-
-                  <button type="button" onClick={() => navigate("/price")}>
-                    급상승 / 급락 품목
-                  </button>
-                </div>
-              </div>
+              {post.answerStatus && (
+                <span
+                  className={
+                    post.answerStatus.includes("완료")
+                      ? "px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#EBF5F8] text-[#0F766E] border border-[#7CC9D8]"
+                      : "px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#F5FAFC] text-[#6B7280] border border-[#DCE8ED]"
+                  }
+                >
+                  {post.answerStatus}
+                </span>
+              )}
             </div>
-
-            {/* 자치구별 가격정보 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                자치구별 가격정보
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>자치구별 지도 비교</strong>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/region-price")}
-                  >
-                    자치구간 1:1 비교
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/region-price")}
-                  >
-                    시장 / 마트 유형별 비교
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 스마트 추천 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                스마트 추천
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>스마트 추천</strong>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/recommendation")}
-                  >
-                    오늘의 알뜰 장바구니
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/recommendation")}
-                  >
-                    가격 하락 품목 추천
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/recommendation")}
-                  >
-                    이달의 제철 농수산물
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 고객센터 */}
-
-            <div className={styles.navMenu}>
-              <button type="button" className={styles.navItem}>
-                고객센터
-              </button>
-
-              <div className={styles.megaMenu}>
-                <div className={styles.megaColumn}>
-                  <strong>고객센터</strong>
-
-                  <button type="button" onClick={() => navigate("/qna")}>
-                    질의응답
-                  </button>
-
-                  <button type="button" onClick={() => navigate("/faq")}>
-                    자주 묻는 질문
-                  </button>
-                </div>
-              </div>
-            </div>
-          </nav>
-        </div>
-      </header>
-
-      {/* 본문 */}
-
-      <main className={styles.container}>
-        {/* 페이지 제목 */}
-
-        <section className={styles.pageHeader}>
-          <div className={styles.headerText}>
-            <span className={styles.pageLabel}>질의응답</span>
-
-            <h1>문의 내용</h1>
-
-            <p>싸농 서비스에 등록된 질의응답입니다.</p>
           </div>
 
-          <button
-            type="button"
-            className={styles.listButton}
-            onClick={handleGoList}
-          >
-            목록으로
-          </button>
-        </section>
-
-        {/* 게시글 */}
-
-        <article className={styles.detailCard}>
-          {/* 제목 */}
-
-          <header className={styles.detailHeader}>
-            <h2>{post.title}</h2>
-
-            <div className={styles.meta}>
-              <span>
-                작성자 <strong>{post.author}</strong>
-              </span>
-
-              <span>{post.date}</span>
-
-              <span>조회 {post.views}</span>
-            </div>
-          </header>
-
-          {/* 내용 */}
-
-          <div className={styles.content}>{post.content}</div>
-
-          {/* 첨부파일 */}
-
-          {post.attachments && post.attachments.length > 0 && (
-            <section className={styles.attachmentSection}>
-              <div className={styles.attachmentHeader}>
-                <strong>첨부파일</strong>
-
-                <span>{post.attachments.length}개</span>
-              </div>
-
-              <ul className={styles.attachmentList}>
-                {post.attachments.map((file, index) => (
-                  <li
-                    key={`${file.name}-${index}`}
-                    className={styles.attachmentItem}
-                  >
-                    <div className={styles.attachmentInformation}>
-                      <span className={styles.attachmentIcon}>📎</span>
-
-                      <div className={styles.attachmentText}>
-                        <span
-                          className={styles.attachmentName}
-                          title={file.name}
-                        >
-                          {file.name}
-                        </span>
-
-                        <span className={styles.attachmentSize}>
-                          {formatFileSize(file.size)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <span className={styles.attachmentStatus}>첨부됨</span>
-                  </li>
-                ))}
-              </ul>
-
-              <p className={styles.attachmentNotice}>
-                현재 테스트 단계에서는 첨부파일의 이름과 크기만 표시됩니다.
-              </p>
-            </section>
-          )}
-
-          {/* 답변 */}
-
-          {post.answer && post.answer.trim() !== "" && (
-            <section className={styles.answerSection}>
-              <div className={styles.answerHeader}>
-                <div>
-                  <span className={styles.answerLabel}>답변</span>
-
-                  <strong>{post.answerAuthor || "관리자"}</strong>
-                </div>
-
-                {post.answerDate && <span>{post.answerDate}</span>}
-              </div>
-
-              <div className={styles.answerContent}>{post.answer}</div>
-            </section>
-          )}
-
-          {/* 미답변 */}
-
-          {!post.answer && (
-            <section className={styles.waitingSection}>
-              <span className={styles.waitingIcon}>💬</span>
-
-              <div>
-                <strong>답변을 준비 중입니다.</strong>
-
-                <p>관리자가 문의 내용을 확인한 후 답변을 등록합니다.</p>
-              </div>
-            </section>
-          )}
-
-          {/* 버튼 */}
-
-          <div className={styles.buttonArea}>
-            <button
-              type="button"
-              className={styles.listButton}
-              onClick={handleGoList}
-            >
-              목록으로
-            </button>
-
-            {post.authorId === currentUserId && (
+          <div className="flex items-center gap-2">
+            {isMyPost && (
               <>
                 <button
                   type="button"
-                  className={styles.editButton}
                   onClick={handleEdit}
+                  className="px-3 py-1.5 bg-white border border-[#DCE8ED] text-[#0F8AA8] text-[13px] font-bold rounded-[6px] hover:bg-[#EBF5F8] cursor-pointer no-underline"
+                  style={{ textDecoration: "none" }}
                 >
                   수정
                 </button>
 
                 <button
                   type="button"
-                  className={styles.deleteButton}
                   onClick={handleDelete}
+                  className="px-3 py-1.5 bg-white border border-rose-200 text-rose-600 text-[13px] font-bold rounded-[6px] hover:bg-rose-50 cursor-pointer no-underline"
+                  style={{ textDecoration: "none" }}
                 >
                   삭제
                 </button>
               </>
             )}
+
+            <button
+              type="button"
+              onClick={handleBack}
+              className="px-4 py-1.5 bg-white border border-[#DCE8ED] text-[#6B7280] text-[13px] font-bold rounded-[6px] hover:bg-[#EBF5F8] cursor-pointer no-underline"
+              style={{ textDecoration: "none" }}
+            >
+              목록
+            </button>
           </div>
-        </article>
-      </main>
+        </div>
+
+        {/* 게시글 본문 카드리뉴얼 */}
+
+        <div className="bg-white border border-[#DCE8ED] rounded-[12px] p-6 md:p-8 space-y-6 shadow-sm">
+          {/* 제목 */}
+
+          <h2 className="text-[22px] font-bold text-[#13202B] border-b border-[#DCE8ED] pb-4">
+            {post.title}
+          </h2>
+
+          {/* 메타 정보 */}
+
+          <div className="flex flex-wrap items-center gap-6 text-[13px] text-[#6B7280] bg-[#F5FAFC] p-3.5 rounded-[8px]">
+            <div>
+              <span className="font-bold text-[#13202B] mr-2">작성자</span>
+
+              <span>{post.writerName || post.writerLoginId || "-"}</span>
+            </div>
+
+            <div>
+              <span className="font-bold text-[#13202B] mr-2">작성일</span>
+
+              <span>{formatDate(post.createdAt)}</span>
+            </div>
+
+            <div>
+              <span className="font-bold text-[#13202B] mr-2">조회수</span>
+
+              <span>{getViewCount(post)}</span>
+            </div>
+          </div>
+
+          {/* 질문 본문 */}
+
+          <article className="min-h-[160px] text-[15px] text-[#13202B] leading-relaxed whitespace-pre-wrap py-2">
+            {getQuestionContent(post)}
+          </article>
+
+          {/* 첨부파일 */}
+
+          {hasAttachment && (
+            <div className="pt-4 border-t border-[#DCE8ED] flex items-center gap-3 text-[14px]">
+              <span className="font-bold text-[#13202B]">📎 첨부파일</span>
+
+              {attachmentUrl ? (
+                <a
+                  href={attachmentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#0F8AA8] hover:underline font-medium no-underline"
+                  style={{ textDecoration: "none" }}
+                >
+                  {attachmentName}
+                </a>
+              ) : (
+                <span className="text-[#6B7280]">{attachmentName}</span>
+              )}
+            </div>
+          )}
+
+          {/* 답변 */}
+
+          {post.answer || post.answerContent ? (
+            <section className="mt-8 p-5 bg-[#EBF5F8] border border-[#7CC9D8] rounded-[10px] space-y-3">
+              <div className="flex items-center justify-between border-b border-[#7CC9D8] pb-2">
+                <h3 className="text-[16px] font-bold text-[#0B5E73] flex items-center gap-2">
+                  <span>↳</span> 답변
+                </h3>
+
+                {post.answeredAt && (
+                  <span className="text-[12px] text-[#6B7280]">
+                    {formatDate(post.answeredAt)}
+                  </span>
+                )}
+              </div>
+
+              <div className="text-[14px] text-[#13202B] leading-relaxed whitespace-pre-wrap pt-1">
+                {post.answer || post.answerContent}
+              </div>
+            </section>
+          ) : (
+            <section className="mt-8 p-5 bg-[#F5FAFC] border border-[#DCE8ED] rounded-[10px] space-y-2">
+              <div className="flex items-center gap-2 text-[#0B5E73] font-bold text-[14px]">
+                <span className="text-[11px] text-[#6B7280] font-semibold">↳</span>
+                <span className="inline-block px-2 py-0.5 rounded bg-[#F5FAFC] border border-[#DCE8ED] text-[#6B7280] text-[11px] font-extrabold">
+                  답변 대기
+                </span>
+                <span>답변을 기다리는 중입니다.</span>
+              </div>
+              <p className="text-[13px] text-[#6B7280] pl-5">
+                관리자가 문의 내용을 확인한 후 답변을 등록할 예정입니다.
+              </p>
+            </section>
+          )}
+
+        </div>
+
+        {/* 하단 버튼 */}
+
+        <div className="flex justify-between items-center pt-2">
+          <button
+            type="button"
+            className="px-5 py-2.5 bg-white border border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[7px] hover:bg-[#EBF5F8] cursor-pointer no-underline"
+            onClick={handleBack}
+            style={{ textDecoration: "none" }}
+          >
+            목록으로
+          </button>
+
+
+          {isMyPost && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleEdit}
+                className="px-5 py-2.5 bg-[#0F8AA8] text-white text-[14px] font-bold rounded-[7px] hover:bg-[#0B5E73] cursor-pointer no-underline"
+                style={{ textDecoration: "none" }}
+              >
+                수정
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="px-5 py-2.5 bg-white border border-rose-200 text-rose-600 text-[14px] font-bold rounded-[7px] hover:bg-rose-50 cursor-pointer no-underline"
+                style={{ textDecoration: "none" }}
+              >
+                삭제
+              </button>
+            </div>
+          )}
+        </div>
+
+      </div>
     </div>
   );
 }
 
 export default QnaDetailPage;
+

@@ -59,6 +59,9 @@ import ReportWritePage from "../pages/ReportWrite/ReportWritePage";
 import ReportDetailPage from "../pages/ReportDetail/ReportDetailPage";
 import FaqPage from "@/pages/Faq/FaqPage";
 
+import MarketTrendsPage from "@/pages/Trends/MarketTrendsPage";
+import ReportEditPage from "@/pages/ReportEdit/ReportEditPage";
+
 function Router() {
   /* =========================
      앱(문서)이 새로고침이 아닌 방식으로 새로 열릴 때마다
@@ -202,6 +205,13 @@ function Router() {
               모든 사용자 접근 가능
           ========================= */}
           <Route path="/faq" element={<FaqPage />} />
+
+          {/* =========================
+              부동산 거래동향 대시보드
+              모든 사용자 접근 가능
+          ========================= */}
+          <Route path="/trends" element={<MarketTrendsPage />} />
+
           {/* =========================
               마이페이지
               로그인 사용자만 접근
@@ -315,6 +325,8 @@ function Router() {
         <Route path="/pass/callback" element={<PassCallbackPage />} />
         {/* 정의되지 않은 경로(예: /main)로 직접 접근한 경우 "/" 로 리다이렉트한다. */}
         <Route path="*" element={<Navigate to="/" replace />} />
+        {/* 신고 게시판 */}
+        <Route path="/report/:reportId/edit" element={<ReportEditPage />} />
       </Routes>
     </BrowserRouter>
   );

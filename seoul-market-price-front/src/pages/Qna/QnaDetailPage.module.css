@@ -3,8 +3,8 @@
 .page {
   min-height: 100vh;
   padding: 0 0 100px;
-  background: #f7f9f6;
-  color: #202620;
+  background: #F5FAFC;
+  color: #13202B;
   font-family: "Pretendard", "Noto Sans KR", Arial, sans-serif;
   box-sizing: border-box;
 }
@@ -20,7 +20,7 @@
 .topUserBar {
   width: 100%;
   height: 38px;
-  border-bottom: 1px solid #edf0ec;
+  border-bottom: 1px solid #DCE8ED;
   background: #ffffff;
 }
 
@@ -37,7 +37,7 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  color: #6f776f;
+  color: #6B7280;
   font-size: 12px;
 }
 
@@ -45,7 +45,7 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: #4e564e;
+  color: #13202B;
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
@@ -57,8 +57,8 @@
   justify-content: center;
   padding: 3px 7px;
   border-radius: 999px;
-  background: #edf6e9;
-  color: #4e9557;
+  background: #EBF5F8;
+  color: #0F766E;
   font-size: 10px;
   font-weight: 700;
 }
@@ -67,14 +67,14 @@
   padding: 0;
   border: none;
   background: transparent;
-  color: #8a9189;
+  color: #6B7280;
   font-family: inherit;
   font-size: 11px;
   cursor: pointer;
 }
 
 .logoutButton:hover {
-  color: #4e9557;
+  color: #0F8AA8;
   text-decoration: underline;
 }
 
@@ -84,7 +84,7 @@
   position: relative;
   z-index: 100;
   width: 100%;
-  border-bottom: 1px solid #e2e8e0;
+  border-bottom: 1px solid #DCE8ED;
   background: #ffffff;
 }
 
@@ -110,7 +110,7 @@
   padding: 0;
   border: none;
   background: transparent;
-  color: #4e9557;
+  color: #0F8AA8;
   font-family: inherit;
   font-size: 28px;
   font-weight: 800;
@@ -136,7 +136,7 @@
   padding: 0 22px;
   border: none;
   background: transparent;
-  color: #3e463f;
+  color: #13202B;
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -146,7 +146,7 @@
 }
 
 .navItem:hover {
-  color: #4e9557;
+  color: #0F8AA8;
 }
 
 .navItem::after {
@@ -161,7 +161,7 @@
 }
 
 .navItem:hover::after {
-  background: #5ca665;
+  background: #0F8AA8;
 }
 
 /* 메가메뉴 */
@@ -181,10 +181,10 @@
   display: flex;
   min-width: 230px;
   padding: 24px 26px;
-  border: 1px solid #e1e7df;
-  border-top: 2px solid #5ca665;
+  border: 1px solid #DCE8ED;
+  border-top: 2px solid #0F8AA8;
   background: #ffffff;
-  box-shadow: 0 12px 30px rgba(40, 70, 40, 0.08);
+  box-shadow: 0 12px 30px rgba(15, 138, 168, 0.08);
   opacity: 0;
   visibility: hidden;
   transform: translate(-50%, 8px);
@@ -209,7 +209,7 @@
 .megaColumn strong {
   display: block;
   margin-bottom: 14px;
-  color: #3e463f;
+  color: #13202B;
   font-size: 13px;
   font-weight: 700;
 }
@@ -219,7 +219,7 @@
   padding: 8px 0;
   border: none;
   background: transparent;
-  color: #777f77;
+  color: #6B7280;
   font-family: inherit;
   font-size: 12px;
   text-align: left;
@@ -231,7 +231,7 @@
 
 .megaColumn button:hover {
   padding-left: 5px;
-  color: #4e9557;
+  color: #0F8AA8;
 }
 
 /* 본문 */
@@ -253,7 +253,7 @@
 
 .pageHeader h1 {
   margin: 0;
-  color: #252c26;
+  color: #123047;
   font-size: 32px;
   font-weight: 700;
   letter-spacing: -1.5px;
@@ -261,7 +261,7 @@
 
 .pageHeader p {
   margin: 10px 0 0;
-  color: #899087;
+  color: #6B7280;
   font-size: 13px;
   line-height: 1.5;
 }
@@ -271,10 +271,10 @@
 .adminNotice {
   margin-bottom: 16px;
   padding: 13px 16px;
-  border: 1px solid #e1e9de;
+  border: 1px solid #DCE8ED;
   border-radius: 8px;
-  background: #f3f6f2;
-  color: #657064;
+  background: #F5FAFC;
+  color: #6B7280;
   font-size: 13px;
   line-height: 1.5;
 }
@@ -283,8 +283,8 @@
 
 .post {
   overflow: hidden;
-  border-top: 2px solid #5b665b;
-  border-bottom: 1px solid #dfe5dc;
+  border-top: 2px solid #0B5E73;
+  border-bottom: 1px solid #DCE8ED;
   background: #ffffff;
 }
 
@@ -292,13 +292,13 @@
 
 .postHeader {
   padding: 26px 30px 22px;
-  border-bottom: 1px solid #e5e9e3;
+  border-bottom: 1px solid #DCE8ED;
   background: #ffffff;
 }
 
 .postHeader h2 {
   margin: 0;
-  color: #303730;
+  color: #123047;
   font-size: 20px;
   font-weight: 700;
   line-height: 1.5;
@@ -314,7 +314,7 @@
   flex-wrap: wrap;
   gap: 10px 20px;
   margin-top: 16px;
-  color: #8a9289;
+  color: #6B7280;
   font-size: 12px;
 }
 
@@ -330,12 +330,12 @@
   top: 50%;
   width: 1px;
   height: 11px;
-  background: #dfe4dd;
+  background: #DCE8ED;
   transform: translateY(-50%);
 }
 
 .postMeta strong {
-  color: #5e665e;
+  color: #13202B;
   font-weight: 600;
 }
 
@@ -344,7 +344,7 @@
 .postContent {
   min-height: 300px;
   padding: 35px 30px 50px;
-  color: #505850;
+  color: #13202B;
   font-size: 14px;
   line-height: 1.9;
   white-space: pre-wrap;
@@ -356,7 +356,7 @@
 
 .answerSection {
   margin-top: 28px;
-  border: 1px solid #dfe8dc;
+  border: 1px solid #DCE8ED;
   background: #ffffff;
 }
 
@@ -366,14 +366,14 @@
   justify-content: space-between;
   gap: 20px;
   padding: 20px 24px;
-  border-bottom: 1px solid #e8ede6;
-  background: #f8faf7;
+  border-bottom: 1px solid #DCE8ED;
+  background: #F0F8FA;
 }
 
 .answerLabel {
   display: block;
   margin-bottom: 5px;
-  color: #6d9a65;
+  color: #0F8AA8;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 1.5px;
@@ -381,7 +381,7 @@
 
 .answerHeader h3 {
   margin: 0;
-  color: #394239;
+  color: #123047;
   font-size: 16px;
   font-weight: 700;
 }
@@ -392,8 +392,8 @@
   justify-content: center;
   padding: 5px 9px;
   border-radius: 999px;
-  background: #eaf4e7;
-  color: #4e8a47;
+  background: #EBF5F8;
+  color: #0F766E;
   font-size: 11px;
   font-weight: 700;
 }
@@ -410,7 +410,7 @@
   justify-content: space-between;
   gap: 15px;
   padding-bottom: 14px;
-  color: #8a9289;
+  color: #6B7280;
   font-size: 11px;
 }
 
@@ -427,30 +427,30 @@
   width: 25px;
   height: 25px;
   border-radius: 50%;
-  background: #5ca665;
+  background: #0F8AA8;
   color: #ffffff;
   font-size: 11px;
   font-weight: 800;
 }
 
 .answerAuthor strong {
-  color: #4b554b;
+  color: #13202B;
   font-size: 12px;
 }
 
 .answerAdminBadge {
   padding: 3px 6px;
   border-radius: 4px;
-  background: #edf5eb;
-  color: #568750;
+  background: #EBF5F8;
+  color: #0F766E;
   font-size: 9px;
   font-weight: 700;
 }
 
 .answerContent {
   padding: 18px 0 5px;
-  border-top: 1px solid #edf0eb;
-  color: #505850;
+  border-top: 1px solid #DCE8ED;
+  color: #13202B;
   font-size: 13px;
   line-height: 1.8;
   white-space: pre-wrap;
@@ -479,24 +479,24 @@
 }
 
 .answerEditButton {
-  border: 1px solid #d7dfd4;
+  border: 1px solid #DCE8ED;
   background: #ffffff;
-  color: #657064;
+  color: #13202B;
 }
 
 .answerEditButton:hover {
-  background: #f5f8f3;
-  color: #4e8a47;
+  background: #F5FAFC;
+  color: #0F8AA8;
 }
 
 .answerDeleteButton {
-  border: 1px solid #ead8d5;
+  border: 1px solid #FCA5A5;
   background: #ffffff;
-  color: #bd6258;
+  color: #DC2626;
 }
 
 .answerDeleteButton:hover {
-  background: #fff7f5;
+  background: #FEF2F2;
 }
 
 /* 답변 없음 */
@@ -508,7 +508,7 @@
   justify-content: center;
   min-height: 130px;
   padding: 25px;
-  color: #999f98;
+  color: #6B7280;
   text-align: center;
 }
 
@@ -526,7 +526,7 @@
 
 .answerForm {
   padding: 22px 24px 24px;
-  background: #fbfcfa;
+  background: #F5FAFC;
 }
 
 .answerFormTop {
@@ -538,13 +538,13 @@
 }
 
 .answerFormTitle {
-  color: #485248;
+  color: #13202B;
   font-size: 13px;
   font-weight: 700;
 }
 
 .answerWriter {
-  color: #8a9289;
+  color: #6B7280;
   font-size: 11px;
 }
 
@@ -553,11 +553,11 @@
   width: 100%;
   min-height: 180px;
   padding: 14px;
-  border: 1px solid #dce3da;
+  border: 1px solid #DCE8ED;
   border-radius: 8px;
   outline: none;
   background: #ffffff;
-  color: #303730;
+  color: #13202B;
   font-family: inherit;
   font-size: 13px;
   line-height: 1.7;
@@ -568,12 +568,12 @@
 }
 
 .answerForm textarea:focus {
-  border-color: #6f9b66;
-  box-shadow: 0 0 0 3px rgba(111, 155, 102, 0.1);
+  border-color: #0F8AA8;
+  box-shadow: 0 0 0 3px rgba(15, 138, 168, 0.15);
 }
 
 .answerForm textarea:disabled {
-  background: #f3f5f2;
+  background: #EBF5F8;
   cursor: not-allowed;
 }
 
@@ -586,13 +586,13 @@
 
 .answerFieldBottom small {
   margin-top: 7px;
-  color: #919891;
+  color: #6B7280;
   font-size: 10px;
 }
 
 .answerFieldBottom span {
   flex-shrink: 0;
-  color: #919891;
+  color: #6B7280;
   font-size: 10px;
 }
 
@@ -615,24 +615,24 @@
 }
 
 .answerCancelButton {
-  border: 1px solid #d8ded5;
+  border: 1px solid #DCE8ED;
   background: #ffffff;
-  color: #626a62;
+  color: #13202B;
 }
 
 .answerCancelButton:hover {
-  background: #f5f7f4;
+  background: #F5FAFC;
 }
 
 .answerSubmitButton {
-  border: 1px solid #5ca665;
-  background: #5ca665;
+  border: 1px solid #0F8AA8;
+  background: #0F8AA8;
   color: #ffffff;
 }
 
 .answerSubmitButton:hover {
-  border-color: #4e9557;
-  background: #4e9557;
+  border-color: #0B5E73;
+  background: #0B5E73;
 }
 
 .answerCancelButton:disabled,
@@ -668,37 +668,37 @@
 }
 
 .listButton {
-  border: 1px solid #5ca665;
-  background: #5ca665;
+  border: 1px solid #0F8AA8;
+  background: #0F8AA8;
   color: #ffffff;
 }
 
 .listButton:hover {
-  border-color: #4e9557;
-  background: #4e9557;
+  border-color: #0B5E73;
+  background: #0B5E73;
 }
 
 .editButton {
-  border: 1px solid #d8dfd5;
+  border: 1px solid #DCE8ED;
   background: #ffffff;
-  color: #596259;
+  color: #13202B;
 }
 
 .editButton:hover {
-  border-color: #aebbad;
-  background: #f5f8f3;
-  color: #4e8a47;
+  border-color: #7CC9D8;
+  background: #F5FAFC;
+  color: #0B5E73;
 }
 
 .deleteButton {
-  border: 1px solid #e5c9c5;
+  border: 1px solid #FCA5A5;
   background: #ffffff;
-  color: #bd6258;
+  color: #DC2626;
 }
 
 .deleteButton:hover {
-  border-color: #d99c95;
-  background: #fff7f5;
+  border-color: #F87171;
+  background: #FEF2F2;
 }
 
 .listButton:active,
@@ -727,20 +727,20 @@
   height: 58px;
   margin-bottom: 18px;
   border-radius: 50%;
-  background: #eef4eb;
+  background: #EBF5F8;
   font-size: 25px;
 }
 
 .empty h2 {
   margin: 0 0 10px;
-  color: #555d55;
+  color: #13202B;
   font-size: 18px;
   font-weight: 700;
 }
 
 .empty p {
   margin: 0 0 25px;
-  color: #9aa198;
+  color: #6B7280;
   font-size: 13px;
   line-height: 1.7;
 }
@@ -748,9 +748,9 @@
 .backButton {
   height: 40px;
   padding: 0 18px;
-  border: 1px solid #5ca665;
+  border: 1px solid #0F8AA8;
   border-radius: 7px;
-  background: #5ca665;
+  background: #0F8AA8;
   color: #ffffff;
   font-family: inherit;
   font-size: 12px;
@@ -759,9 +759,10 @@
 }
 
 .backButton:hover {
-  border-color: #4e9557;
-  background: #4e9557;
+  border-color: #0B5E73;
+  background: #0B5E73;
 }
+
 
 /* Tablet */
 

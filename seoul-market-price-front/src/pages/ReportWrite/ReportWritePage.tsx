@@ -109,17 +109,17 @@ export default function ReportWritePage() {
   };
 
   return (
-    <div className="w-full min-h-screen bg-[#f8faf8] text-[#2d3a2f] py-10 px-4 sm:px-6 lg:px-8">
+    <div className="w-full min-h-screen bg-[#F5FAFC] text-[#13202B] py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-[840px] mx-auto space-y-6">
         {/* 상단 헤더 */}
-        <div className="bg-white border border-[#e2ece2] rounded-[16px] p-6 sm:p-8 shadow-xs">
-          <span className="text-[13px] font-bold text-[#4c9b55] uppercase tracking-wider block mb-1">
+        <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[16px] p-6 sm:p-8 shadow-xs">
+          <span className="text-[13px] font-extrabold text-[#0F8AA8] uppercase tracking-wider block mb-1">
             REPORT SUBMISSION
           </span>
-          <h1 className="text-[22px] sm:text-[26px] font-extrabold text-[#222b23] tracking-tight">
+          <h1 className="text-[22px] sm:text-[26px] font-extrabold text-[#123047] tracking-tight">
             허위 매물 및 불공정 거래 신고 접수
           </h1>
-          <p className="text-[14px] text-[#6b7c6d] mt-1.5 leading-relaxed">
+          <p className="text-[14px] text-[#6B7280] mt-1.5 leading-relaxed">
             허위 호가, 계약 완료 후 미삭제 매물, 담합 등 의심되는 상황을 제보해
             주시면 신속하게 사실 확인 및 시정 조치합니다.
           </p>
@@ -128,16 +128,16 @@ export default function ReportWritePage() {
         {/* 신고 접수 폼 */}
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="bg-white border border-[#e2ece2] rounded-[16px] p-6 sm:p-8 space-y-6 shadow-xs"
+          className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[16px] p-6 sm:p-8 space-y-6 shadow-xs"
         >
           {/* 1. 신고 유형 선택 */}
           <div className="space-y-2">
-            <label className="block text-[14px] font-bold text-[#2d3a2f]">
+            <label className="block text-[14px] font-bold text-[#13202B]">
               신고 유형 <span className="text-rose-500">*</span>
             </label>
             <select
               {...register("category", { required: true })}
-              className="w-full h-[44px] px-3.5 rounded-[8px] border border-[#d3dfd3] bg-[#fafcfa] text-[14px] text-[#2d3a2f] focus:outline-none focus:border-[#4c9b55]"
+              className="w-full h-[44px] px-3.5 rounded-[8px] border border-[#DCE8ED] bg-[#F5FAFC] text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8]"
             >
               {(
                 [
@@ -157,7 +157,7 @@ export default function ReportWritePage() {
 
           {/* 2. 대상 단지 및 매물 정보 */}
           <div className="space-y-2">
-            <label className="block text-[14px] font-bold text-[#2d3a2f]">
+            <label className="block text-[14px] font-bold text-[#13202B]">
               신고 대상 단지 / 매물명 <span className="text-rose-500">*</span>
             </label>
             <input
@@ -166,7 +166,7 @@ export default function ReportWritePage() {
               {...register("targetProperty", {
                 required: "신고 대상 단지 또는 매물명을 입력해 주세요.",
               })}
-              className="w-full h-[44px] px-3.5 rounded-[8px] border border-[#d3dfd3] bg-[#fafcfa] text-[14px] text-[#2d3a2f] focus:outline-none focus:border-[#4c9b55]"
+              className="w-full h-[44px] px-3.5 rounded-[8px] border border-[#DCE8ED] bg-[#F5FAFC] text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8]"
             />
             {errors.targetProperty && (
               <p className="text-[12px] text-rose-500 font-medium mt-1">
@@ -177,7 +177,7 @@ export default function ReportWritePage() {
 
           {/* 3. 신고 제목 */}
           <div className="space-y-2">
-            <label className="block text-[14px] font-bold text-[#2d3a2f]">
+            <label className="block text-[14px] font-bold text-[#13202B]">
               신고 제목 <span className="text-rose-500">*</span>
             </label>
             <input
@@ -186,7 +186,7 @@ export default function ReportWritePage() {
               {...register("title", {
                 required: "신고 제목을 입력해 주세요.",
               })}
-              className="w-full h-[44px] px-3.5 rounded-[8px] border border-[#d3dfd3] bg-[#fafcfa] text-[14px] text-[#2d3a2f] focus:outline-none focus:border-[#4c9b55]"
+              className="w-full h-[44px] px-3.5 rounded-[8px] border border-[#DCE8ED] bg-[#F5FAFC] text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8]"
             />
             {errors.title && (
               <p className="text-[12px] text-rose-500 font-medium mt-1">
@@ -197,7 +197,7 @@ export default function ReportWritePage() {
 
           {/* 4. 상세 신고 내용 */}
           <div className="space-y-2">
-            <label className="block text-[14px] font-bold text-[#2d3a2f]">
+            <label className="block text-[14px] font-bold text-[#13202B]">
               상세 신고 사유 <span className="text-rose-500">*</span>
             </label>
             <textarea
@@ -206,7 +206,7 @@ export default function ReportWritePage() {
               {...register("content", {
                 required: "상세 신고 내용을 입력해 주세요.",
               })}
-              className="w-full p-3.5 rounded-[8px] border border-[#d3dfd3] bg-[#fafcfa] text-[14px] text-[#2d3a2f] focus:outline-none focus:border-[#4c9b55] leading-relaxed resize-y"
+              className="w-full p-3.5 rounded-[8px] border border-[#DCE8ED] bg-[#F5FAFC] text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8] leading-relaxed resize-y"
             />
             {errors.content && (
               <p className="text-[12px] text-rose-500 font-medium mt-1">
@@ -216,12 +216,12 @@ export default function ReportWritePage() {
           </div>
 
           {/* 5. 비공개 여부 (보안) */}
-          <div className="p-4 bg-[#f6f9f6] border border-[#e2ece2] rounded-[10px] flex items-center justify-between">
+          <div className="p-4 bg-[#F0F7FA] border border-[#DCE8ED] rounded-[10px] flex items-center justify-between">
             <div>
-              <span className="text-[14px] font-bold text-[#2d3a2f] block">
+              <span className="text-[14px] font-bold text-[#123047] block">
                 비공개로 접수하기 (보안 권장)
               </span>
-              <span className="text-[12px] text-[#68786a] block mt-0.5">
+              <span className="text-[12px] text-[#6B7280] block mt-0.5">
                 체크 시 신고자 본인과 관리자만 내용을 열람할 수 있도록 보호됩니다.
               </span>
             </div>
@@ -229,7 +229,7 @@ export default function ReportWritePage() {
               <input
                 type="checkbox"
                 {...register("isSecret")}
-                className="w-5 h-5 accent-[#4c9b55] cursor-pointer"
+                className="w-5 h-5 accent-[#0F8AA8] cursor-pointer"
               />
             </label>
           </div>
@@ -237,14 +237,14 @@ export default function ReportWritePage() {
           {/* 6. 증빙 자료 첨부파일 (보안 확장자 검증 적용) */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <label className="block text-[14px] font-bold text-[#2d3a2f]">
+              <label className="block text-[14px] font-bold text-[#13202B]">
                 증빙 자료 첨부 (최대 5개)
               </label>
-              <span className="text-[11px] text-[#78887a]">
+              <span className="text-[11px] text-[#6B7280]">
                 허용: {ALLOWED_FILE_EXTENSIONS.join(", ")} (파일당 10MB 이하)
               </span>
             </div>
-            <div className="p-4 border border-dashed border-[#c8d8c8] rounded-[10px] bg-[#fafcfa] text-center space-y-3">
+            <div className="p-4 border border-dashed border-[#B8D5E0] rounded-[10px] bg-[#F5FAFC] text-center space-y-3">
               <input
                 type="file"
                 id="report-file-input"
@@ -255,11 +255,11 @@ export default function ReportWritePage() {
               />
               <label
                 htmlFor="report-file-input"
-                className="inline-block px-4 py-2 bg-white border border-[#c2d4c2] hover:bg-[#f0f5f0] text-[#344036] text-[13px] font-bold rounded-[6px] cursor-pointer transition-colors"
+                className="inline-block px-4 py-2 bg-white border border-[#DCE8ED] hover:bg-[#F0F7FA] text-[#123047] text-[13px] font-bold rounded-[6px] cursor-pointer transition-colors"
               >
                 파일 선택하기
               </label>
-              <p className="text-[12px] text-[#78887a]">
+              <p className="text-[12px] text-[#6B7280]">
                 매물 캡처 사진, 문자 상담 내역, 녹취록 등 사실 증빙 파일을
                 등록해 주세요.
               </p>
@@ -270,11 +270,11 @@ export default function ReportWritePage() {
                 {selectedFiles.map((file, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between p-2.5 bg-[#f4f7f4] border border-[#e2ece2] rounded-[8px] text-[13px]"
+                    className="flex items-center justify-between p-2.5 bg-[#F0F7FA] border border-[#DCE8ED] rounded-[8px] text-[13px]"
                   >
-                    <span className="font-medium text-[#2d3a2f] truncate">
+                    <span className="font-medium text-[#13202B] truncate">
                       {file.name}{" "}
-                      <span className="text-[11px] text-[#78887a]">
+                      <span className="text-[11px] text-[#6B7280]">
                         ({(file.size / 1024).toFixed(1)} KB)
                       </span>
                     </span>
@@ -292,18 +292,18 @@ export default function ReportWritePage() {
           </div>
 
           {/* 하단 버튼 영역 */}
-          <div className="flex items-center justify-end gap-3 pt-6 border-t border-[#edf3ed]">
+          <div className="flex items-center justify-end gap-3 pt-6 border-t border-[#DCE8ED]">
             <button
               type="button"
               onClick={() => navigate("/report")}
-              className="h-[44px] px-5 rounded-[8px] bg-white border border-[#dce4da] hover:bg-[#f0f4f0] text-[#556457] text-[14px] font-bold cursor-pointer transition-colors"
+              className="h-[44px] px-5 rounded-[8px] bg-white border border-[#DCE8ED] hover:bg-[#F0F7FA] text-[#6B7280] text-[14px] font-bold cursor-pointer transition-colors"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="h-[44px] px-7 rounded-[8px] bg-[#4c9b55] hover:bg-[#438b4b] text-white text-[14px] font-bold border-none cursor-pointer transition-colors shadow-xs disabled:opacity-50"
+              className="h-[44px] px-7 rounded-[8px] bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold border-none cursor-pointer transition-colors shadow-xs disabled:opacity-50"
             >
               {isSubmitting ? "접수 처리 중..." : "신고 접수하기"}
             </button>

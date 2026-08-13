@@ -3,8 +3,8 @@
 .page {
   min-height: 100vh;
   padding: 0 0 100px;
-  background: #f7f9f6;
-  color: #202620;
+  background: #F5FAFC;
+  color: #13202B;
   font-family:
     "Pretendard",
     "Noto Sans KR",
@@ -42,7 +42,7 @@
 .pageLabel {
   display: block;
   margin-bottom: 9px;
-  color: #5c8752;
+  color: #0F8AA8;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 1.5px;
@@ -50,7 +50,7 @@
 
 .pageHeader h1 {
   margin: 0;
-  color: #202620;
+  color: #123047;
   font-size: 34px;
   font-weight: 800;
   letter-spacing: -1.5px;
@@ -58,7 +58,7 @@
 
 .pageHeader p {
   margin: 12px 0 0;
-  color: #707970;
+  color: #6B7280;
   font-size: 15px;
   line-height: 1.6;
 }
@@ -67,10 +67,10 @@
   flex-shrink: 0;
   height: 44px;
   padding: 0 18px;
-  border: 1px solid #dce3d9;
+  border: 1px solid #DCE8ED;
   border-radius: 8px;
   background: #ffffff;
-  color: #4c554c;
+  color: #13202B;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -81,18 +81,18 @@
 }
 
 .listButton:hover:not(:disabled) {
-  border-color: #a9bca3;
-  background: #f5f8f3;
-  color: #315d2b;
+  border-color: #7CC9D8;
+  background: #F5FAFC;
+  color: #0B5E73;
 }
 
 /* 작성 폼 */
 .form {
   padding: 38px;
-  border: 1px solid #e4e9e1;
+  border: 1px solid #DCE8ED;
   border-radius: 16px;
   background: #ffffff;
-  box-shadow: 0 8px 25px rgba(39, 55, 39, 0.04);
+  box-shadow: 0 8px 25px rgba(15, 138, 168, 0.04);
 }
 
 .formGroup {
@@ -102,22 +102,22 @@
 .formGroup > label {
   display: block;
   margin-bottom: 10px;
-  color: #303730;
+  color: #13202B;
   font-size: 14px;
   font-weight: 700;
 }
 
 .formGroup > label span {
-  color: #d95b4b;
+  color: #DC2626;
 }
 
 .formGroup input,
 .formGroup textarea {
   width: 100%;
-  border: 1px solid #dce3da;
+  border: 1px solid #DCE8ED;
   border-radius: 9px;
   background: #ffffff;
-  color: #202620;
+  color: #13202B;
   font-family: inherit;
   font-size: 14px;
   outline: none;
@@ -140,8 +140,8 @@
 
 .formGroup input:focus,
 .formGroup textarea:focus {
-  border-color: #6f9b66;
-  box-shadow: 0 0 0 3px rgba(111, 155, 102, 0.1);
+  border-color: #0F8AA8;
+  box-shadow: 0 0 0 3px rgba(15, 138, 168, 0.15);
 }
 
 .buttonArea {
@@ -150,7 +150,7 @@
   gap: 10px;
   margin-top: 34px;
   padding-top: 28px;
-  border-top: 1px solid #edf0eb;
+  border-top: 1px solid #DCE8ED;
 }
 
 .cancelButton,
@@ -170,13 +170,18 @@
 }
 
 .cancelButton {
-  border: 1px solid #d9dfd7;
+  border: 1px solid #DCE8ED;
   background: #ffffff;
-  color: #626a62;
+  color: #13202B;
 }
 
 .submitButton {
-  border: 1px solid #4f7d47;
-  background: #4f7d47;
+  border: 1px solid #0F8AA8;
+  background: #0F8AA8;
   color: #ffffff;
+}
+
+.submitButton:hover:not(:disabled) {
+  border-color: #0B5E73;
+  background: #0B5E73;
 }
