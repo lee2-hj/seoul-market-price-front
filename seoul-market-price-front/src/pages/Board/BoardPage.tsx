@@ -156,7 +156,7 @@ export default function BoardPage() {
                 defaultValue={query.searchType}
                 className="h-[44px] w-full md:w-[130px] rounded-[7px] border border-[#DCE8ED] bg-[#F5FAFC] px-3 text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8]"
               >
-                <option value="TITLE">제목</option>
+                <option value="TITLE_CONTENT">제목</option>
                 <option value="WRITER">작성자</option>
               </select>
 
