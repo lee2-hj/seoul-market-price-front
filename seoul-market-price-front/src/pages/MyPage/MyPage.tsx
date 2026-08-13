@@ -4,30 +4,73 @@ import { useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
-import { CheckCircle2, HelpCircle, Search } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import PassAuth from "@/features/auth/components/PassAuth";
 import { getBoardPostsApi, getBoardCommentsApi } from "@/api/api";
 import apiMiddleware from "@/api/middleware";
 import * as api from "@/api/api";
+import { getStoredReports, REPORT_STATUS_MAP } from "@/features/report/services/reportService";
 
 /**
  * 마이페이지 상단 선택 탭
  */
-type MyPageTab = "PROFILE" | "NOTIFICATION" | "ACTIVITY";
+type MyPageTab = "PROFILE" | "ACTIVITY";
 
 /**
  * 내 활동 서브 탭
  */
-type ActivityType = "POST" | "COMMENT";
+type ActivityType = "POST" | "COMMENT" | "INQUIRY";
 
 /**
  * 로그인 방식
  */
 type LoginType = "LOCAL" | "SOCIAL";
 
-function isMyPageTab(value: string | null): value is MyPageTab {
-  return value === "PROFILE" || value === "NOTIFICATION" || value === "ACTIVITY";
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 48 48" className={className} aria-hidden="true">
+      <path
+        fill="#FFC107"
+        d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
+      />
+      <path
+        fill="#FF3D00"
+        d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
+      />
+      <path
+        fill="#4CAF50"
+        d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
+      />
+      <path
+        fill="#1976D2"
+        d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"
+      />
+    </svg>
+  );
 }
+
+function KakaoIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
+      <rect width="32" height="32" rx="8" fill="#FEE500" />
+      <path
+        fill="#191919"
+        d="M16 7c-5.523 0-10 3.582-10 8 0 2.864 1.896 5.378 4.757 6.753l-1.213 4.453c-.114.418.35.748.706.505l5.35-3.56c.131.01.264.016.4.016 5.523 0 10-3.582 10-8s-4.477-8-10-8z"
+      />
+    </svg>
+  );
+}
+
+function isMyPageTab(value: string | null): value is MyPageTab {
+  return value === "PROFILE" || value === "ACTIVITY";
+}
+
+const sanitizePlainText = (val?: string | null): string => {
+  if (!val || typeof val !== "string") return "";
+  const trimmed = val.trim();
+  if (trimmed.startsWith("enc:v1:")) return "";
+  return trimmed;
+};
 
 const INITIAL_FAVORITE_ITEMS = ["래미안 원베일리", "마포래미안푸르지오", "잠실엘스"];
 
@@ -45,49 +88,7 @@ export const formatPhoneNumber = (value: string): string => {
   return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
 };
 
-/**
- * 서울시 주요 아파트 단지 데이터베이스 (검색 및 자동완성용)
- */
-const AVAILABLE_APARTMENTS = [
-  { name: "래미안 원베일리", district: "서초구" },
-  { name: "아크로리버파크", district: "서초구" },
-  { name: "반포자이", district: "서초구" },
-  { name: "래미안퍼스티지", district: "서초구" },
-  { name: "마포래미안푸르지오", district: "마포구" },
-  { name: "신촌그랑자이", district: "마포구" },
-  { name: "마포프레스티지자이", district: "마포구" },
-  { name: "잠실엘스", district: "송파구" },
-  { name: "리센츠", district: "송파구" },
-  { name: "헬리오시티", district: "송파구" },
-  { name: "올림픽선수기자촌", district: "송파구" },
-  { name: "고덕그라시움", district: "강동구" },
-  { name: "고덕아르테온", district: "강동구" },
-  { name: "올림픽파크포레온", district: "강동구" },
-  { name: "DMC파크뷰자이", district: "서대문구" },
-  { name: "e편한세상신촌", district: "서대문구" },
-  { name: "래미안대치팰리스", district: "강남구" },
-  { name: "은마아파트", district: "강남구" },
-  { name: "도곡렉슬", district: "강남구" },
-  { name: "디에이치아너힐즈", district: "강남구" },
-  { name: "압구정현대", district: "강남구" },
-  { name: "개포자이프레지던스", district: "강남구" },
-  { name: "옥수리버젠", district: "성동구" },
-  { name: "트리마제", district: "성동구" },
-  { name: "아크로서울포레스트", district: "성동구" },
-  { name: "목동신시가지7단지", district: "양천구" },
-  { name: "목동하이페리온", district: "양천구" },
-  { name: "경희궁자이", district: "종로구" },
-  { name: "래미안위브", district: "동대문구" },
-  { name: "청량리역롯데캐슬SKY-L65", district: "동대문구" },
-  { name: "보라매SK뷰", district: "영등포구" },
-  { name: "여의도시범", district: "영등포구" },
-  { name: "아크로리버하임", district: "동작구" },
-  { name: "흑석한강센트레빌", district: "동작구" },
-  { name: "상계주공7단지", district: "노원구" },
-  { name: "중계그린", district: "노원구" },
-  { name: "센트라스", district: "성동구" },
-  { name: "텐즈힐", district: "성동구" },
-];
+
 
 type Profile = {
   loginType: LoginType;
@@ -126,12 +127,12 @@ type MyPageSettings = {
 
 const DEFAULT_PROFILE: Profile = {
   loginType: "LOCAL",
-  name: "홍길동",
-  userId: "hong123",
-  phone: "010-1234-5678",
-  email: "hong@example.com",
-  address: "서울특별시 마포구",
-  detailAddress: "싸부아파트 101동 1001호",
+  name: "",
+  userId: "",
+  phone: "",
+  email: "",
+  address: "",
+  detailAddress: "",
 };
 
 const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
@@ -141,12 +142,7 @@ const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   favoriteOnly: true,
 };
 
-const PRICE_ALERT_CONDITION_LABELS: Record<PriceAlertCondition, string> = {
-  PRICE_BELOW: "원 이하",
-  PRICE_ABOVE: "원 이상",
-  RATE_UP: "% 이상 상승",
-  RATE_DOWN: "% 이상 하락",
-};
+
 
 const DEFAULT_PRICE_ALERTS: PriceAlert[] = [
   { id: 1, itemName: "마포래미안푸르지오", condition: "PRICE_BELOW", threshold: 180000, enabled: true },
@@ -199,21 +195,29 @@ export default function MyPage() {
   const [profile, setProfile] = useState<Profile>(() => {
     const saved = getStoredMyPageSettings();
     if (authUser) {
+      const storedProvider =
+        (typeof sessionStorage !== "undefined" && sessionStorage.getItem("social_provider")) ||
+        (typeof localStorage !== "undefined" && localStorage.getItem("social_provider"));
       const isSocial =
+        Boolean(storedProvider) ||
         authUser.userId?.toLowerCase().startsWith("kakao_") ||
         authUser.userId?.toLowerCase().includes("kakao") ||
         authUser.userId?.toLowerCase().startsWith("google_") ||
         authUser.userId?.toLowerCase().includes("google") ||
         authUser.userId?.toLowerCase().startsWith("naver_") ||
-        authUser.userId?.toLowerCase().includes("naver");
+        authUser.userId?.toLowerCase().includes("naver") ||
+        authUser.userId?.startsWith("enc:v1:");
       const savedProfile: Partial<Profile> = saved?.profile || {};
+      const resolvedName = sanitizePlainText(authUser.name) || sanitizePlainText(savedProfile.name);
+      const resolvedUserId = sanitizePlainText(authUser.userId) || sanitizePlainText(savedProfile.userId);
+
       return {
         ...DEFAULT_PROFILE,
         ...savedProfile,
         phone: formatPhoneNumber(savedProfile.phone || DEFAULT_PROFILE.phone),
         loginType: isSocial ? "SOCIAL" : "LOCAL",
-        name: authUser.name || savedProfile.name || DEFAULT_PROFILE.name,
-        userId: authUser.userId || savedProfile.userId || DEFAULT_PROFILE.userId,
+        name: resolvedName,
+        userId: resolvedUserId,
       };
     }
     if (saved?.profile) {
@@ -221,6 +225,8 @@ export default function MyPage() {
         ...DEFAULT_PROFILE,
         ...saved.profile,
         phone: formatPhoneNumber(saved.profile.phone || DEFAULT_PROFILE.phone),
+        name: sanitizePlainText(saved.profile.name),
+        userId: sanitizePlainText(saved.profile.userId),
       };
     }
     return DEFAULT_PROFILE;
@@ -231,11 +237,10 @@ export default function MyPage() {
     return saved?.favoriteItems ?? INITIAL_FAVORITE_ITEMS;
   });
 
-  const [newFavoriteItem, setNewFavoriteItem] = useState("");
 
   const [preferredDistrict, setPreferredDistrict] = useState(() => {
     const saved = getStoredMyPageSettings();
-    return saved?.preferredDistrict ?? "마포구";
+    return saved?.preferredDistrict ?? "";
   });
 
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(() => {
@@ -279,7 +284,7 @@ export default function MyPage() {
       return;
     }
     if (!phoneVerified) {
-      alert("안전한 비밀번호 변경을 위해 아래 [PASS 본인인증]을 먼저 완료해 주세요.");
+      alert("안전한 비밀번호 변경을 위해 아래 [본인인증]을 먼저 완료해 주세요.");
       return;
     }
     setPasswordError("");
@@ -379,52 +384,70 @@ export default function MyPage() {
   });
 
   const formValues = watch();
+  const emailValue = watch("email") || "";
+  const isEmailValid = useMemo(() => {
+    return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(emailValue.trim());
+  }, [emailValue]);
 
   // 소셜 로그인 감지 및 공급자명 판별
-  const currentUserId = authUser?.userId || profile.userId || "";
+  const rawUserId = authUser?.userId || profile.userId || "";
   const getSocialProviderName = (id: string, type: string) => {
-    const lower = id.toLowerCase();
+    const fromStorage =
+      (typeof sessionStorage !== "undefined" && sessionStorage.getItem("social_provider")) ||
+      (typeof localStorage !== "undefined" && localStorage.getItem("social_provider"));
+    if (fromStorage) return fromStorage;
+
+    const lower = (id || "").toLowerCase();
     if (lower.startsWith("google_") || lower.includes("google")) return "구글";
     if (lower.startsWith("kakao_") || lower.includes("kakao")) return "카카오";
     if (lower.startsWith("naver_") || lower.includes("naver")) return "네이버";
-    if (type === "SOCIAL") return "소셜";
+    if (type === "SOCIAL") return "구글";
+    if (rawUserId.startsWith("enc:v1:")) return "구글";
     return "";
   };
 
-  const socialProvider = getSocialProviderName(currentUserId, profile.loginType);
+  const socialProvider = getSocialProviderName(rawUserId, profile.loginType);
   const isSocialUser =
     Boolean(socialProvider) ||
     profile.loginType === "SOCIAL" ||
-    currentUserId.toLowerCase().startsWith("kakao_") ||
-    currentUserId.toLowerCase().startsWith("google_") ||
-    currentUserId.toLowerCase().startsWith("naver_") ||
-    currentUserId.toLowerCase().includes("kakao") ||
-    currentUserId.toLowerCase().includes("google") ||
-    currentUserId.toLowerCase().includes("naver");
+    rawUserId.toLowerCase().startsWith("kakao_") ||
+    rawUserId.toLowerCase().startsWith("google_") ||
+    rawUserId.toLowerCase().startsWith("naver_") ||
+    rawUserId.toLowerCase().includes("kakao") ||
+    rawUserId.toLowerCase().includes("google") ||
+    rawUserId.toLowerCase().includes("naver") ||
+    rawUserId.startsWith("enc:v1:");
 
   // authUser 변경 시 해당 사용자 고유의 프로필 및 설정 동기화
   useEffect(() => {
     if (authUser?.userId) {
+      const storedProvider =
+        (typeof sessionStorage !== "undefined" && sessionStorage.getItem("social_provider")) ||
+        (typeof localStorage !== "undefined" && localStorage.getItem("social_provider"));
       const isSocial =
+        Boolean(storedProvider) ||
         authUser.userId?.toLowerCase().startsWith("kakao_") ||
         authUser.userId?.toLowerCase().includes("kakao") ||
         authUser.userId?.toLowerCase().startsWith("google_") ||
         authUser.userId?.toLowerCase().includes("google") ||
         authUser.userId?.toLowerCase().startsWith("naver_") ||
-        authUser.userId?.toLowerCase().includes("naver");
+        authUser.userId?.toLowerCase().includes("naver") ||
+        authUser.userId?.startsWith("enc:v1:");
 
       const saved = getStoredMyPageSettings(authUser.userId);
+      const resolvedName = sanitizePlainText(authUser.name) || sanitizePlainText(saved?.profile?.name);
+      const resolvedUserId = sanitizePlainText(authUser.userId) || sanitizePlainText(saved?.profile?.userId);
 
       const nextProfile: Profile = {
         ...DEFAULT_PROFILE,
         ...(saved?.profile || {}),
-        name: authUser.name || saved?.profile?.name || DEFAULT_PROFILE.name,
-        userId: authUser.userId,
+        name: resolvedName,
+        userId: resolvedUserId,
         loginType: isSocial ? "SOCIAL" : "LOCAL",
       };
 
       const nextFavorites = saved?.favoriteItems ?? INITIAL_FAVORITE_ITEMS;
-      const nextDistrict = saved?.preferredDistrict ?? "마포구";
+      const nextDistrict = saved?.preferredDistrict ?? "";
       const nextNotifications = saved?.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
       const nextAlerts = saved?.priceAlerts ?? DEFAULT_PRICE_ALERTS;
 
@@ -544,6 +567,23 @@ export default function MyPage() {
     };
   }, [isLoggedIn, authUser, boardData]);
 
+  // 내가 작성한 문의사항 조회 & 필터링
+  const myInquiries = (() => {
+    if (!isLoggedIn || !authUser) return [];
+    const allReports = getStoredReports();
+    const currentName = (authUser.name || "").trim().toLowerCase();
+    const currentId = (authUser.userId || "").trim().toLowerCase();
+
+    return allReports.filter((r) => {
+      const authorUserId = (r.authorUserId || "").trim().toLowerCase();
+      const authorName = (r.authorName || "").trim().toLowerCase();
+      return (
+        (currentId && authorUserId === currentId) ||
+        (currentName && (authorName === currentName || authorName.startsWith(currentName.slice(0, 1))))
+      );
+    });
+  })();
+
   // 폼이 수정되었는지 여부 계산 (Dirty check)
   const isFormDirty = useMemo(() => {
     const isProfileChanged =
@@ -599,6 +639,13 @@ export default function MyPage() {
     setOriginalFavorites(favoriteItems);
     setOriginalAlerts(priceAlerts);
 
+    if (authUser && updatedProfile.name && !updatedProfile.name.startsWith("enc:v1:")) {
+      useAuthStore.getState().setUser({
+        ...authUser,
+        name: updatedProfile.name,
+      });
+    }
+
     const settingsToSave: MyPageSettings = {
       profile: updatedProfile,
       favoriteItems,
@@ -612,32 +659,9 @@ export default function MyPage() {
     alert("회원 정보 및 설정이 성공적으로 저장되었습니다!");
   };
 
-  // 알림 설정 탭 전용 저장 핸들러 (수동 저장)
-  const handleSaveNotificationSettings = () => {
-    if (!isLoggedIn) {
-      alert("로그인 후 설정을 저장하실 수 있습니다.");
-      return;
-    }
 
-    const userKey = getStorageKey(authUser?.userId || profile.userId);
-    const currentSaved = getStoredMyPageSettings(authUser?.userId || profile.userId) || {
-      profile,
-      favoriteItems,
-      preferredDistrict,
-      notificationSettings,
-      priceAlerts,
-    };
 
-    const settingsToSave: MyPageSettings = {
-      ...currentSaved,
-      notificationSettings,
-    };
-    localStorage.setItem(userKey, JSON.stringify(settingsToSave));
-
-    alert("알림 수신 설정이 성공적으로 저장되었습니다!");
-  };
-
-  // PASS 본인인증 성공 핸들러
+  // 본인인증 성공 핸들러
   const handlePassSuccess = (result: {
     identityVerificationId: string;
     name: string;
@@ -646,8 +670,15 @@ export default function MyPage() {
     const formatted = formatPhoneNumber(result.phoneNumber);
 
     setValue("phone", formatted);
-    if (result.name) {
-      setValue("name", result.name);
+    const verifiedName = sanitizePlainText(result.name);
+    if (verifiedName) {
+      setValue("name", verifiedName);
+      if (authUser) {
+        useAuthStore.getState().setUser({
+          ...authUser,
+          name: verifiedName,
+        });
+      }
     }
     setPhoneVerified(true);
   };
@@ -655,6 +686,16 @@ export default function MyPage() {
   // 이메일 인증 발송 및 검증
   const handleSendEmailCert = () => {
     if (!isLoggedIn) return alert("로그인 후 인증이 가능합니다.");
+    const emailVal = (watch("email") || "").trim();
+    if (!emailVal) {
+      alert("이메일 주소를 먼저 입력해 주세요.");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailVal)) {
+      alert("올바른 이메일 형식(예: user@example.com)으로 입력해 주세요.");
+      return;
+    }
     setEmailCertSent(true);
     alert("인증번호가 이메일로 전송되었습니다. (테스트 인증번호: 654321)");
   };
@@ -669,71 +710,6 @@ export default function MyPage() {
     }
   };
 
-  const [isAptDropdownOpen, setIsAptDropdownOpen] = useState(false);
-
-  // 실시간 아파트 자동완성 필터링
-  const aptSuggestions = useMemo(() => {
-    const query = newFavoriteItem.trim().toLowerCase();
-    if (!query) return [];
-    return AVAILABLE_APARTMENTS.filter(
-      (apt) =>
-        apt.name.toLowerCase().includes(query) ||
-        apt.district.toLowerCase().includes(query)
-    ).slice(0, 8);
-  }, [newFavoriteItem]);
-
-  const handleSelectApartment = (aptName: string) => {
-    if (!isLoggedIn) return alert("로그인 후 관심 단지를 등록할 수 있습니다.");
-    if (favoriteItems.includes(aptName)) {
-      alert("이미 등록된 관심 단지입니다.");
-      setIsAptDropdownOpen(false);
-      return;
-    }
-    setFavoriteItems((prev) => [...prev, aptName]);
-    setNewFavoriteItem("");
-    setIsAptDropdownOpen(false);
-  };
-
-  const handleFavoriteAdd = () => {
-    if (!isLoggedIn) return alert("로그인 후 관심 단지를 등록할 수 있습니다.");
-    const query = newFavoriteItem.trim();
-    if (!query) return alert("관심 아파트 단지명을 입력해 주세요.");
-
-    // 입력된 텍스트와 정확히 일치하거나 추천 목록이 1개일 때만 허용
-    const match =
-      AVAILABLE_APARTMENTS.find(
-        (apt) => apt.name.toLowerCase() === query.toLowerCase()
-      ) || (aptSuggestions.length === 1 ? aptSuggestions[0] : undefined);
-
-    if (!match) {
-      alert("목록에 존재하는 서울시 아파트 단지만 등록할 수 있습니다.\n검색창에 아파트명을 입력한 뒤 추천 드롭다운 목록에서 단지를 선택해 주세요.");
-      return;
-    }
-
-    if (favoriteItems.includes(match.name)) {
-      alert("이미 등록된 관심 단지입니다.");
-      return;
-    }
-
-    setFavoriteItems((prev) => [...prev, match.name]);
-    setNewFavoriteItem("");
-    setIsAptDropdownOpen(false);
-  };
-
-  const handleFavoriteRemove = (target: string) => {
-    if (!isLoggedIn) return alert("로그인 후 관리 가능합니다.");
-    setFavoriteItems((prev) => prev.filter((i) => i !== target));
-  };
-
-  const handlePriceAlertToggle = (id: number) => {
-    if (!isLoggedIn) return alert("로그인 후 변경할 수 있습니다.");
-    setPriceAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, enabled: !a.enabled } : a)));
-  };
-
-  const handlePriceAlertRemove = (id: number) => {
-    if (!isLoggedIn) return alert("로그인 후 삭제할 수 있습니다.");
-    setPriceAlerts((prev) => prev.filter((a) => a.id !== id));
-  };
 
   return (
     <div className="min-h-screen bg-[#F5FAFC]">
@@ -748,7 +724,7 @@ export default function MyPage() {
               마이페이지
             </h1>
             <p className="text-[15px] text-[#667065]">
-              회원 정보 및 관심 아파트 단지, 가격 변동 알림 설정을 한곳에서 관리합니다.
+              회원 정보 및 내 활동 내역을 한곳에서 관리합니다.
             </p>
           </div>
 
@@ -765,17 +741,6 @@ export default function MyPage() {
                 }`}
               >
                 내 정보 관리
-              </button>
-              <button
-                type="button"
-                onClick={() => handleTabChange("NOTIFICATION")}
-                className={`py-2.5 px-6 text-[14px] font-bold rounded-[8px] transition-all cursor-pointer ${
-                  activeTab === "NOTIFICATION"
-                    ? "bg-[#123047] text-white shadow-xs"
-                    : "text-[#6B7280] hover:bg-[#F0F7FA]"
-                }`}
-              >
-                알림 설정
               </button>
               <button
                 type="button"
@@ -825,45 +790,20 @@ export default function MyPage() {
                       <div className="w-full bg-[#F0F7FA] border border-[#DCE8ED] rounded-[12px] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 box-border shadow-xs">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
+                            {socialProvider === "카카오" ? (
+                              <KakaoIcon className="w-5 h-5 shrink-0 rounded-[4px]" />
+                            ) : (
+                              <GoogleIcon className="w-5 h-5 shrink-0" />
+                            )}
                             <strong className="text-[15px] font-black text-[#123047]">
                               {socialProvider || "소셜"} 연동 계정으로 로그인 중입니다
                             </strong>
-
-                            {/* ? 모양 툴팁 버튼 (마우스 오버 시 안내 표시) */}
-                            <div className="relative group inline-flex items-center">
-                              <button
-                                type="button"
-                                aria-label="소셜 계정 안내 툴팁"
-                                className="w-5 h-5 rounded-full bg-[#E6F4F2] hover:bg-[#0F8AA8] text-[#0F766E] hover:text-white font-black text-[11px] flex items-center justify-center cursor-pointer transition-all shadow-xs"
-                              >
-                                ?
-                              </button>
-
-                              {/* 툴팁 팝오버 */}
-                              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2.5 hidden group-hover:flex flex-col w-[290px] p-3.5 bg-[#123047] text-white text-[12px] rounded-[10px] shadow-2xl z-50 leading-relaxed text-center pointer-events-none transition-all">
-                                <div className="font-bold text-[#7CC9D8] mb-1 flex items-center justify-center gap-1">
-                                  <HelpCircle className="w-3.5 h-3.5" /> 소셜 계정 정보 변경 안내
-                                </div>
-                                <span>
-                                  소셜({socialProvider || "해당"}) 계정은 별도의 비밀번호가 없습니다.
-                                </span>
-                                <span className="text-[#DCE8ED] mt-1">
-                                  회원정보 및 비밀번호 변경은 <b>{socialProvider || "소셜"} 계정 관리 사이트</b>로 이동하여 변경해 주세요.
-                                </span>
-                                {/* 말풍선 꼬리 */}
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-[#123047]"></div>
-                              </div>
-                            </div>
                           </div>
 
                           <p className="text-[12px] text-[#6B7280]">
                             소셜 연동 계정은 아이디 및 비밀번호 수정이 제공되지 않습니다.
                           </p>
                         </div>
-
-                        <span className="text-[12px] font-bold px-3.5 py-1.5 bg-white border border-[#DCE8ED] text-[#0F8AA8] rounded-full shrink-0 text-center shadow-2xs self-start sm:self-auto">
-                          {socialProvider || "소셜"} 간편로그인
-                        </span>
                       </div>
                     ) : (
                       <div className="flex flex-col md:flex-row gap-4 w-full">
@@ -872,6 +812,7 @@ export default function MyPage() {
                           <input
                             {...register("userId")}
                             readOnly
+                            placeholder="아이디 정보가 없습니다"
                             className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-[#F0F7FA] px-3.5 text-[15px] text-[#6B7280] cursor-not-allowed outline-none box-border m-0 font-medium"
                           />
                         </div>
@@ -881,7 +822,7 @@ export default function MyPage() {
                             <label className="text-[14px] font-bold text-[#13202B] block">비밀번호 변경</label>
                             {phoneVerified ? (
                               <span className="text-[12px] font-extrabold text-[#0F766E]">
-                                ✔ PASS 인증 완료 (변경 가능)
+                                ✔ 본인인증 완료 (변경 가능)
                               </span>
                             ) : (
                               <span className="text-[12px] text-[#6B7280]">
@@ -905,7 +846,7 @@ export default function MyPage() {
                       </div>
                     )}
 
-                    {/* ROW 2: 이름 (PASS 본인인증 완료 시 자동 반영 및 수정 가능) */}
+                    {/* ROW 2: 이름 (본인인증 완료 시 자동 반영 및 수정 가능) */}
                     <div className="space-y-1.5 w-full">
                       <div className="flex items-center justify-between">
                         <label className="text-[14px] font-bold text-[#13202B] block">이름</label>
@@ -931,7 +872,7 @@ export default function MyPage() {
                         placeholder={
                           phoneVerified
                             ? "이름을 입력해주세요 (숫자, 공백 불가)"
-                            : "PASS 본인인증 시 실명이 자동 입력됩니다"
+                            : "본인인증 시 실명이 자동 입력됩니다"
                         }
                         className={`w-full h-[48px] rounded-[8px] border border-[#DCE8ED] px-3.5 text-[15px] outline-none box-border m-0 transition-colors ${
                           phoneVerified
@@ -941,18 +882,18 @@ export default function MyPage() {
                       />
                       <p className="text-[12px] text-[#6B7280]">
                         {phoneVerified
-                          ? "PASS 본인인증이 완료되어 실명이 적용되었습니다."
-                          : "회원 실명 보호를 위해 아래 PASS 본인인증 완료 시 자동으로 반영 및 수정이 활성화됩니다."}
+                          ? "본인인증이 완료되어 실명이 적용되었습니다."
+                          : "회원 실명 보호를 위해 아래 본인인증 완료 시 자동으로 반영 및 수정이 활성화됩니다."}
                       </p>
                     </div>
 
-                    {/* ROW 3: 휴대폰 번호 + PASS 본인인증 버튼 (직접 수정 불가, PASS 인증 시 자동 입력) */}
+                    {/* ROW 3: 휴대폰 번호 + 본인인증 버튼 (직접 수정 불가, 본인인증 시 자동 입력) */}
                     <div className="space-y-1.5 w-full">
                       <div className="flex items-center justify-between">
                         <label className="text-[14px] font-bold text-[#13202B] block">휴대폰 번호</label>
                         {phoneVerified && (
                           <span className="inline-flex items-center gap-1 text-[12px] font-extrabold text-[#0F766E]">
-                            <CheckCircle2 className="w-4 h-4" /> PASS 인증 완료
+                            <CheckCircle2 className="w-4 h-4" /> 본인인증 완료
                           </span>
                         )}
                       </div>
@@ -961,7 +902,7 @@ export default function MyPage() {
                           {...register("phone")}
                           readOnly
                           disabled={!isLoggedIn}
-                          placeholder="PASS 본인인증 시 번호가 자동 입력됩니다"
+                          placeholder="본인인증 시 번호가 자동 입력됩니다"
                           className="flex-1 h-[48px] rounded-[8px] border border-[#DCE8ED] bg-[#F0F7FA] px-3.5 text-[15px] text-[#13202B] outline-none cursor-not-allowed font-medium"
                         />
                         <PassAuth
@@ -971,7 +912,7 @@ export default function MyPage() {
                         />
                       </div>
                       <p className="text-[12px] text-[#6B7280]">
-                        휴대폰 번호는 직접 입력할 수 없으며, 우측 [PASS 본인인증]을 진행하면 실제 인증 번호가 자동 입력됩니다.
+                        휴대폰 번호는 직접 입력할 수 없으며, 우측 [인증하기]를 진행하면 실제 인증 번호가 자동 입력됩니다.
                       </p>
                     </div>
 
@@ -989,13 +930,14 @@ export default function MyPage() {
                         <input
                           {...register("email")}
                           disabled={!isLoggedIn}
+                          placeholder="이메일 주소를 입력해 주세요 (예: user@example.com)"
                           className="flex-1 h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
                         />
                         <button
                           type="button"
-                          disabled={!isLoggedIn || emailVerified}
+                          disabled={!isLoggedIn || emailVerified || !isEmailValid}
                           onClick={handleSendEmailCert}
-                          className="h-[48px] px-5 bg-[#123047] hover:bg-[#0B5E73] text-white font-bold text-[13px] rounded-[8px] cursor-pointer whitespace-nowrap transition-colors disabled:opacity-50"
+                          className="h-[48px] px-5 bg-[#123047] hover:bg-[#0B5E73] text-white font-bold text-[13px] rounded-[8px] whitespace-nowrap transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                         >
                           {emailVerified ? "인증됨" : "이메일 인증"}
                         </button>
@@ -1030,6 +972,7 @@ export default function MyPage() {
                         <input
                           {...register("address")}
                           disabled={!isLoggedIn}
+                          placeholder="기본 주소를 입력해 주세요"
                           className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA]"
                         />
                       </div>
@@ -1039,6 +982,7 @@ export default function MyPage() {
                         <input
                           {...register("detailAddress")}
                           disabled={!isLoggedIn}
+                          placeholder="상세 주소(동, 호수 등)를 입력해 주세요"
                           className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA]"
                         />
                       </div>
@@ -1051,176 +995,20 @@ export default function MyPage() {
                         value={preferredDistrict}
                         disabled={!isLoggedIn}
                         onChange={(e) => setPreferredDistrict(e.target.value)}
-                        className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA]"
+                        className={`w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA] ${
+                          !preferredDistrict ? "text-[#9CA3AF]" : "text-[#13202B]"
+                        }`}
                       >
+                        <option value="" disabled className="text-gray-400">
+                          선호지역을 설정해 주세요
+                        </option>
                         {SEOUL_DISTRICTS.map((district) => (
-                          <option key={district} value={district}>
+                          <option key={district} value={district} className="text-[#13202B]">
                             {district}
                           </option>
                         ))}
                       </select>
                     </div>
-                  </div>
-                </div>
-
-                {/* 2. 관심 품목 설정 */}
-                <div className="pt-8 border-t border-[#DCE8ED] space-y-4">
-                  <div className="text-center space-y-1">
-                    <h2 className="text-[20px] font-bold text-[#123047]">관심 아파트 단지</h2>
-                    <p className="text-[14px] text-[#6B7280]">
-                      관심 아파트 단지를 등록해 두면 실거래가 시세를 더 빠르게 찾아볼 수 있습니다.
-                    </p>
-                  </div>
-
-                  {/* 관심 품목 검색 및 입력 영역 */}
-                  <div className="relative max-w-[560px] mx-auto w-full">
-                    <div className="flex flex-col sm:flex-row justify-center items-center gap-3 w-full">
-                      <div className="relative flex-1 w-full">
-                        <input
-                          type="text"
-                          placeholder="관심 아파트 단지명을 검색하세요 (예: 래미안, 자이, 마포)"
-                          value={newFavoriteItem}
-                          disabled={!isLoggedIn}
-                          onFocus={() => setIsAptDropdownOpen(true)}
-                          onChange={(e) => {
-                            setNewFavoriteItem(e.target.value);
-                            setIsAptDropdownOpen(true);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              handleFavoriteAdd();
-                            }
-                          }}
-                          className="h-[48px] w-full rounded-[8px] border border-[#DCE8ED] bg-white pl-10 pr-4 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA]"
-                        />
-                        <Search className="w-4 h-4 text-[#6B7280] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      </div>
-                      <button
-                        type="button"
-                        disabled={!isLoggedIn}
-                        onClick={handleFavoriteAdd}
-                        className="h-[48px] px-6 w-full sm:w-auto bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[8px] border-none outline-none cursor-pointer transition-colors box-border m-0 shrink-0 disabled:opacity-50 shadow-xs"
-                      >
-                        추가
-                      </button>
-                    </div>
-
-                    {/* 실시간 아파트 검색 추천 드롭다운 */}
-                    {isAptDropdownOpen && newFavoriteItem.trim().length > 0 && (
-                      <div className="absolute top-full left-0 right-0 sm:right-[72px] mt-1.5 bg-white border border-[#DCE8ED] rounded-[10px] shadow-xl z-50 max-h-[240px] overflow-y-auto divide-y divide-[#F0F7FA]">
-                        {aptSuggestions.length > 0 ? (
-                          aptSuggestions.map((apt) => {
-                            const isAdded = favoriteItems.includes(apt.name);
-                            return (
-                              <button
-                                key={apt.name}
-                                type="button"
-                                onClick={() => handleSelectApartment(apt.name)}
-                                className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#F0F7FA] transition-colors cursor-pointer"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[11px] font-bold px-2 py-0.5 bg-[#E6F4F2] text-[#0F766E] rounded-md">
-                                    {apt.district}
-                                  </span>
-                                  <span className="text-[14px] font-bold text-[#123047]">
-                                    {apt.name}
-                                  </span>
-                                </div>
-                                {isAdded ? (
-                                  <span className="text-[12px] text-[#6B7280] font-medium">
-                                    등록됨
-                                  </span>
-                                ) : (
-                                  <span className="text-[12px] text-[#0F8AA8] font-bold">
-                                    + 선택
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })
-                        ) : (
-                          <div className="p-4 text-center text-[13px] text-[#6B7280]">
-                            일치하는 아파트 단지가 없습니다.
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 관심 품목 뱃지 */}
-                  <div className="flex flex-wrap justify-center gap-2.5 pt-3">
-                    {favoriteItems.map((item) => (
-                      <span
-                        key={item}
-                        className="inline-flex items-center gap-1.5 min-h-[36px] px-4 rounded-full bg-[#E6F4F2] text-[#0F766E] text-[14px] font-bold border border-[#7CC9D8]"
-                      >
-                        <span>🏢 {item}</span>
-                        <span
-                          onClick={() => handleFavoriteRemove(item)}
-                          className="cursor-pointer font-extrabold text-[15px] text-[#0F766E] hover:text-[#0B5E73] transition-colors leading-none select-none pl-0.5"
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`${item} 삭제`}
-                        >
-                          ✕
-                        </span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 3. 가격 변동 알림 설정 */}
-                <div className="pt-8 border-t border-[#DCE8ED] space-y-4">
-                  <div className="text-center space-y-1">
-                    <h3 className="text-[18px] font-bold text-[#123047]">실거래가 변동 알림</h3>
-                    <p className="text-[14px] text-[#6B7280]">
-                      설정된 아파트 단지의 실거래가 변동 알림을 켜거나 끌 수 있습니다.
-                    </p>
-                  </div>
-
-                  {/* 등록된 가격 알림 리스트 */}
-                  <div className="space-y-2.5 max-w-[820px] mx-auto pt-2">
-                    {priceAlerts.length === 0 ? (
-                      <p className="p-6 border border-dashed border-[#DCE8ED] rounded-[10px] text-center text-[14px] text-[#6B7280]">
-                        등록된 실거래가 변동 알림이 없습니다.
-                      </p>
-                    ) : (
-                      priceAlerts.map((alertItem) => (
-                        <div
-                          key={alertItem.id}
-                          className="flex items-center justify-between p-4 bg-white border border-[#DCE8ED] rounded-[10px]"
-                        >
-                          <div>
-                            <strong className="text-[15px] font-bold text-[#123047] block">
-                              🏢 {alertItem.itemName}
-                            </strong>
-                            <span className="text-[13px] text-[#6B7280] block mt-1">
-                              {alertItem.threshold.toLocaleString()}만원 {PRICE_ALERT_CONDITION_LABELS[alertItem.condition]}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-3">
-                            <label className="inline-flex items-center gap-1.5 text-[13px] font-extrabold text-[#123047] cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={alertItem.enabled}
-                                onChange={() => handlePriceAlertToggle(alertItem.id)}
-                                className="w-[18px] h-[18px] accent-[#0F8AA8] cursor-pointer"
-                              />
-                              {alertItem.enabled ? "알림 ON" : "알림 OFF"}
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => handlePriceAlertRemove(alertItem.id)}
-                              className="px-3 py-1.5 border border-[#e0bdbd] rounded-[7px] text-[#bd5555] hover:bg-[#fff5f5] text-[13px] font-bold transition-colors cursor-pointer"
-                            >
-                              삭제
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    )}
                   </div>
                 </div>
 
@@ -1243,11 +1031,11 @@ export default function MyPage() {
                       disabled={!isLoggedIn}
                       className="h-[52px] px-10 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[16px] font-bold rounded-[8px] border-none outline-none cursor-pointer transition-colors shadow-xs disabled:opacity-50"
                     >
-                      회원 정보 및 설정 저장
+                      회원 정보 저장
                     </button>
                   </div>
                   <p className="text-[13px] text-[#6B7280] mt-2">
-                    회원 인적사항, 관심 단지 및 알림 설정 변경사항이 일괄 저장됩니다.
+                    회원 인적사항 변경사항이 저장됩니다.
                   </p>
                 </div>
 
@@ -1271,81 +1059,25 @@ export default function MyPage() {
               </form>
             )}
 
-            {/* TAB 2: 알림 설정 */}
-            {activeTab === "NOTIFICATION" && (
-              <div className="space-y-8 max-w-[820px] mx-auto">
-                <div className="text-center space-y-1 mb-6">
-                  <h2 className="text-[20px] font-bold text-[#123047]">알림 수신 설정</h2>
-                  <p className="text-[14px] text-[#667065]">
-                    아파트 실거래가 변동 알림 및 관심 단지 관련 푸시 알림의 수신 여부를 선택할 수 있습니다.
-                  </p>
-                </div>
-
-                <div className="border border-[#DCE8ED] rounded-[10px] divide-y divide-[#DCE8ED] bg-white">
-                  {[
-                    { key: "priceChange", label: "전체 실거래가 변동 알림 받기", desc: "주요 서울 아파트 실거래가 변동 소식을 실시간으로 제공받습니다." },
-                    { key: "priceIncrease", label: "시세 상승 알림 받기", desc: "시세가 상승하는 단지의 동향을 빠르게 알림으로 받습니다." },
-                    { key: "priceDecrease", label: "급매/하락 알림 받기", desc: "시세가 하락하여 매수하기 좋은 시점의 알림을 받습니다." },
-                    { key: "favoriteOnly", label: "관심 단지만 알림 받기", desc: "등록한 관심 아파트 단지에 대해서만 알림을 받습니다." },
-                  ].map((item) => (
-                    <label
-                      key={item.key}
-                      className="flex items-center justify-between gap-6 p-5 cursor-pointer hover:bg-[#F0F7FA] transition-colors"
-                    >
-                      <div>
-                        <strong className="text-[15px] font-bold text-[#123047] block">
-                          {item.label}
-                        </strong>
-                        <span className="text-[13px] text-[#6B7280] block mt-1">
-                          {item.desc}
-                        </span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(notificationSettings[item.key as keyof NotificationSettings])}
-                        onChange={(e) =>
-                          setNotificationSettings((prev) => ({
-                            ...prev,
-                            [item.key]: e.target.checked,
-                          }))
-                        }
-                        className="w-[18px] h-[18px] accent-[#0F8AA8] cursor-pointer"
-                      />
-                    </label>
-                  ))}
-                </div>
-
-                <div className="text-center pt-4">
-                  <button
-                    type="button"
-                    onClick={handleSaveNotificationSettings}
-                    className="h-[48px] px-8 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[15px] font-bold rounded-[8px] border-none outline-none cursor-pointer transition-colors shadow-xs"
-                  >
-                    알림 설정 저장
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* TAB 3: 내 활동 */}
+            {/* TAB 2: 내 활동 */}
             {activeTab === "ACTIVITY" && (
               <div className="space-y-6">
                 <div className="text-center space-y-1 mb-6">
                   <h2 className="text-[20px] font-bold text-[#123047]">내 활동</h2>
                   <p className="text-[14px] text-[#6B7280]">
-                    내가 실제로 작성한 게시글과 댓글을 확인하고 해당 글로 바로 이동할 수 있습니다.
+                    내가 실제로 작성한 게시글, 댓글 및 문의사항 현황을 확인하고 바로 이동할 수 있습니다.
                   </p>
                 </div>
 
                 {/* 내 활동 서브 탭 */}
-                <div className="flex items-center gap-2 pb-3 border-b border-[#DCE8ED]">
+                <div className="flex items-center gap-2 pb-3 border-b border-[#DCE8ED] overflow-x-auto">
                   <button
                     type="button"
                     onClick={() => setActivityType("POST")}
                     className={
                       activityType === "POST"
-                        ? "h-[38px] px-4 rounded-[8px] bg-[#0F8AA8] border border-[#0F8AA8] text-white font-bold text-[14px] cursor-pointer"
-                        : "h-[38px] px-4 rounded-[8px] bg-white border border-[#DCE8ED] text-[#6B7280] font-bold text-[14px] hover:bg-[#F0F7FA] cursor-pointer"
+                        ? "h-[38px] px-4 rounded-[8px] bg-[#0F8AA8] border border-[#0F8AA8] text-white font-bold text-[14px] cursor-pointer shrink-0"
+                        : "h-[38px] px-4 rounded-[8px] bg-white border border-[#DCE8ED] text-[#6B7280] font-bold text-[14px] hover:bg-[#F0F7FA] cursor-pointer shrink-0"
                     }
                   >
                     작성한 게시글 {isLoggedIn && !isBoardLoading && `(${myPosts.length})`}
@@ -1355,11 +1087,22 @@ export default function MyPage() {
                     onClick={() => setActivityType("COMMENT")}
                     className={
                       activityType === "COMMENT"
-                        ? "h-[38px] px-4 rounded-[8px] bg-[#0F8AA8] border border-[#0F8AA8] text-white font-bold text-[14px] cursor-pointer"
-                        : "h-[38px] px-4 rounded-[8px] bg-white border border-[#DCE8ED] text-[#6B7280] font-bold text-[14px] hover:bg-[#F0F7FA] cursor-pointer"
+                        ? "h-[38px] px-4 rounded-[8px] bg-[#0F8AA8] border border-[#0F8AA8] text-white font-bold text-[14px] cursor-pointer shrink-0"
+                        : "h-[38px] px-4 rounded-[8px] bg-white border border-[#DCE8ED] text-[#6B7280] font-bold text-[14px] hover:bg-[#F0F7FA] cursor-pointer shrink-0"
                     }
                   >
                     작성한 댓글 {isLoggedIn && !isCommentsLoading && `(${myComments.length})`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivityType("INQUIRY")}
+                    className={
+                      activityType === "INQUIRY"
+                        ? "h-[38px] px-4 rounded-[8px] bg-[#0F8AA8] border border-[#0F8AA8] text-white font-bold text-[14px] cursor-pointer shrink-0"
+                        : "h-[38px] px-4 rounded-[8px] bg-white border border-[#DCE8ED] text-[#6B7280] font-bold text-[14px] hover:bg-[#F0F7FA] cursor-pointer shrink-0"
+                    }
+                  >
+                    문의사항 {isLoggedIn && `(${myInquiries.length})`}
                   </button>
                 </div>
 
@@ -1482,6 +1225,69 @@ export default function MyPage() {
                       )}
                     </>
                   )}
+
+                  {activityType === "INQUIRY" && (
+                    <>
+                      {myInquiries.length > 0 ? (
+                        myInquiries.map((inquiry) => {
+                          const statusMeta = REPORT_STATUS_MAP[inquiry.status] || {
+                            label: "접수대기",
+                            bg: "bg-[#fff8e6]",
+                            text: "text-[#b47500]",
+                            border: "border-[#fae3a8]",
+                          };
+
+                          return (
+                            <Link
+                              key={inquiry.id}
+                              to={`/report/${inquiry.id}`}
+                              className="flex items-center justify-between p-5 hover:bg-[#F0F7FA] transition-colors group no-underline text-inherit"
+                              style={{ textDecoration: "none", color: "inherit" }}
+                            >
+                              <div className="min-w-0 pr-4">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full border shrink-0 ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}
+                                  >
+                                    {statusMeta.label}
+                                  </span>
+                                  <strong className="text-[15px] font-bold text-[#123047] group-hover:text-[#0F8AA8] transition-colors block truncate no-underline">
+                                    {inquiry.title}
+                                  </strong>
+                                </div>
+                                <span className="text-[13px] text-[#6B7280] block mt-1.5 no-underline">
+                                  접수일 {inquiry.createdAt} · 대상: {inquiry.targetProperty}
+                                </span>
+                              </div>
+                              <b
+                                aria-hidden="true"
+                                className="text-[#0F8AA8] text-[24px] font-normal leading-none shrink-0 group-hover:translate-x-1 transition-transform no-underline"
+                              >
+                                ›
+                              </b>
+                            </Link>
+                          );
+                        })
+                      ) : (
+                        <div className="p-12 text-center space-y-3">
+                          <div className="text-[32px]">🙋</div>
+                          <p className="text-[15px] font-bold text-[#123047]">
+                            등록하신 문의사항이 없습니다.
+                          </p>
+                          <p className="text-[13px] text-[#6B7280]">
+                            궁금한 점이나 건의사항이 있으시면 언제든 문의를 남겨주세요!
+                          </p>
+                          <Link
+                            to="/report/write"
+                            className="inline-block px-5 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[13px] font-bold rounded-[8px] transition-colors shadow-xs no-underline"
+                            style={{ textDecoration: "none" }}
+                          >
+                            문의사항 작성하러 가기 →
+                          </Link>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -1499,7 +1305,7 @@ export default function MyPage() {
               </div>
               <h3 className="text-[20px] font-black text-[#123047]">새 비밀번호 설정</h3>
               <p className="text-[13px] text-[#6B7280]">
-                PASS 본인인증이 완료되었습니다. 새로운 비밀번호를 입력해 주세요.
+                본인인증이 완료되었습니다. 새로운 비밀번호를 입력해 주세요.
               </p>
             </div>
 

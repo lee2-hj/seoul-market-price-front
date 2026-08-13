@@ -186,17 +186,25 @@ export default function BoardDetailPage() {
   };
 
   const getCommentAuthorName = (c: any): string => {
-    return (
-      c?.authorName ||
-      c?.writer ||
-      c?.author ||
-      c?.memberName ||
-      c?.userName ||
-      c?.nickname ||
-      c?.name ||
-      c?.userId ||
-      "익명 회원"
+    const candidates = [
+      c?.authorName,
+      c?.writerName,
+      c?.memberName,
+      c?.userName,
+      c?.nickname,
+      c?.name,
+      c?.writer,
+      c?.author,
+    ];
+
+    const displayName = candidates.find(
+      (value) =>
+        typeof value === "string" &&
+        value.trim() &&
+        !value.trim().startsWith("enc:v1:"),
     );
+
+    return displayName || "-";
   };
 
   const getCommentAuthorId = (c: any): string => {
@@ -241,14 +249,26 @@ export default function BoardDetailPage() {
     return false;
   };
 
+  const handleGoToList = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/board");
+    }
+  };
+
   if (isNaN(boardId) || boardId <= 0) {
     return (
       <div className="min-h-screen bg-[#F5FAFC]">
         <div className="py-12 px-4 text-center">
           <p className="text-rose-500 font-medium text-sm">유효하지 않은 게시글 번호입니다.</p>
-          <Link to="/board" className="mt-4 inline-block text-[#0F8AA8] text-xs font-semibold no-underline">
+          <button
+            type="button"
+            onClick={handleGoToList}
+            className="mt-4 inline-block text-[#0F8AA8] text-xs font-semibold no-underline bg-transparent border-none cursor-pointer hover:underline"
+          >
             목록으로 돌아가기
-          </Link>
+          </button>
         </div>
       </div>
     );
@@ -315,7 +335,7 @@ export default function BoardDetailPage() {
                     {post.title}
                   </h2>
                   <div className="flex items-center gap-4 text-[13px] text-[#6B7280]">
-                    <span>작성자: <strong className="text-[#13202B] font-bold">{post.authorName}</strong></span>
+                    <span>작성자: <strong className="text-[#13202B] font-bold">{post.authorName || "-"}</strong></span>
                     <span>작성일: {formatBoardDate(post.createdAt)}</span>
                     <span>조회수: {post.viewCount}</span>
                   </div>
@@ -375,7 +395,7 @@ export default function BoardDetailPage() {
                     )}
                     <Button
                       variant="outline"
-                      onClick={() => navigate("/board")}
+                      onClick={handleGoToList}
                       className="h-[42px] px-6 border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA] text-[14px] font-bold rounded-[7px] cursor-pointer"
                     >
                       목록으로
@@ -399,7 +419,7 @@ export default function BoardDetailPage() {
                 <p className="text-[#6B7280] text-[14px]">게시글을 찾을 수 없습니다.</p>
                 <Button
                   variant="outline"
-                  onClick={() => navigate("/board")}
+                  onClick={handleGoToList}
                   className="h-[42px] px-6 border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[7px] cursor-pointer"
                 >
                   목록으로 돌아가기
@@ -422,7 +442,7 @@ export default function BoardDetailPage() {
               {isLoggedIn ? (
                 <form onSubmit={handleCommentSubmit} className="space-y-3">
                   <div className="flex items-center gap-2 text-xs font-semibold text-[#6B7280]">
-                    <span>작성자: <strong className="text-[#13202B]">{loginUser?.name || "로그인 회원"}</strong></span>
+                    <span>작성자: <strong className="text-[#13202B]">{loginUser?.name || "-"}</strong></span>
                   </div>
                   <div className="flex gap-2">
                     <textarea
@@ -473,11 +493,11 @@ export default function BoardDetailPage() {
 
                           {/* 본인 또는 관리자만 수정/삭제 버튼 노출 */}
                           {canModify && !isEditing && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
                                 onClick={() => handleStartEditComment(comment.commentId, comment.content)}
-                                className="text-[12px] text-[#6B7280] hover:text-[#0F8AA8] font-semibold inline-flex items-center gap-1 cursor-pointer"
+                                className="px-2.5 py-1 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[12px] font-bold rounded-[6px] inline-flex items-center gap-1 transition-colors cursor-pointer shadow-2xs border-none"
                               >
                                 <Edit2 className="w-3 h-3" />
                                 수정
@@ -485,7 +505,7 @@ export default function BoardDetailPage() {
                               <button
                                 type="button"
                                 onClick={() => handleDeleteComment(comment.commentId)}
-                                className="text-[12px] text-rose-500 hover:text-rose-700 font-semibold inline-flex items-center gap-1 cursor-pointer"
+                                className="px-2.5 py-1 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 text-[12px] font-bold rounded-[6px] inline-flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
                               >
                                 <Trash2 className="w-3 h-3" />
                                 삭제

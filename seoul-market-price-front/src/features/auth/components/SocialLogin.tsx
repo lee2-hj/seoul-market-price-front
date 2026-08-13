@@ -26,19 +26,17 @@ function SocialLogin({ mode = "login" }: SocialLoginProps) {
     }
 
     setLoading(true);
-
-    // 예전에 로그아웃했던 이력이 남아있으면 새로고침 시 로그인 여부를
-    // 서버에 다시 묻지 않도록 막아뒀는데, 지금은 새로 로그인을
-    // 시도하는 것이므로 그 표시를 지워야 OAuth 인증 후 돌아왔을 때
-    // 로그인 상태가 정상적으로 반영된다.
     clearJustLoggedOut();
+    try {
+      localStorage.setItem("social_provider", "카카오");
+      sessionStorage.setItem("social_provider", "카카오");
+    } catch {}
 
     window.location.href = getKakaoLoginUrl(mode);
   };
 
   /*
     구글 OAuth 이동
-
   */
 
   const handleGoogleLogin = () => {
@@ -47,10 +45,11 @@ function SocialLogin({ mode = "login" }: SocialLoginProps) {
     }
 
     setLoading(true);
-
-    // 카카오 로그인과 동일한 이유로, 새로 로그인을 시도하기 전에
-    // "방금 로그아웃했다" 표시를 지운다.
     clearJustLoggedOut();
+    try {
+      localStorage.setItem("social_provider", "구글");
+      sessionStorage.setItem("social_provider", "구글");
+    } catch {}
 
     window.location.href = getGoogleLoginUrl(mode);
   };
