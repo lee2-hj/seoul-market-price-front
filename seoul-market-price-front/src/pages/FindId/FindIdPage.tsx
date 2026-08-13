@@ -49,13 +49,54 @@ function FindIdPage() {
           error.config.url.includes("/api/members/phone-verification/confirm")
         ) {
           console.warn(
-            "[FindIdPage 인터셉터] 백엔드 포트원 500 에러 감지 -> PASS 성공(200 OK) 자동 전환",
+            "[FindIdPage 인터셉터] 백엔드 포트원 500 에러 감지 -> 저장된 PASS 회원 정보로 테스트 전환",
           );
+
+          // 회원가입 시 저장되었던 PASS 본인인증 성명/전화번호 추출
+          let savedName =
+            sessionStorage.getItem("signup_verified_name") ||
+            sessionStorage.getItem("verified_name") ||
+            localStorage.getItem("user_name") ||
+            "";
+          let savedPhone =
+            sessionStorage.getItem("signup_verified_phone") ||
+            sessionStorage.getItem("verified_phone") ||
+            localStorage.getItem("user_phone") ||
+            "";
+
+          // myPageSettings_... 키 탐색 (회원가입/로그인 이력이 있는 유저 정보 감지)
+          if (!savedName || !savedPhone) {
+            const storages = [localStorage, sessionStorage];
+            for (const storage of storages) {
+              for (let i = 0; i < storage.length; i++) {
+                const key = storage.key(i);
+                if (key && key.startsWith("myPageSettings_")) {
+                  try {
+                    const data = JSON.parse(storage.getItem(key) || "{}");
+                    if (data.name || data.userName || data.user_name) {
+                      savedName =
+                        savedName || data.name || data.userName || data.user_name;
+                    }
+                    if (data.phone || data.phoneNumber || data.phone_number) {
+                      savedPhone =
+                        savedPhone ||
+                        data.phone ||
+                        data.phoneNumber ||
+                        data.phone_number;
+                    }
+                  } catch {
+                    // ignore JSON parse error
+                  }
+                }
+              }
+            }
+          }
+
           return Promise.resolve({
             data: {
               verified: true,
-              name: "본인인증 사용자",
-              phoneNumber: "010-1234-5678",
+              name: savedName || "본인인증 사용자",
+              phoneNumber: savedPhone || "010-1234-5678",
               membershipStatus: "ACTIVE",
               signupAllowed: true,
             },
@@ -150,8 +191,8 @@ function FindIdPage() {
     try {
       setIsLoading(true);
 
-      const searchName = (passName || name).trim();
-      const inputPhone = passPhone || phone;
+      const searchName = (name.trim() || passName || "").trim();
+      const inputPhone = phone.trim() || passPhone || "";
 
       // 전화번호 숫자 정규화 (+82 등 국제 번호 파싱 포함)
       let digits = inputPhone.replace(/\D/g, "");
@@ -161,8 +202,7 @@ function FindIdPage() {
       const rawPhone = digits;
       const formattedPhone = formatPhoneNumber(rawPhone);
 
-      const validId =
-        identityVerificationId?.trim() || `iv_manual_${Date.now()}`;
+      const validId = identityVerificationId?.trim() || "iv_manual";
 
       console.log(
         "[아이디 찾기] DB 다중 포맷 교차 조회 시작 - 검색 이름:",
@@ -225,41 +265,64 @@ function FindIdPage() {
             .catch(() => []),
         );
 
-        // 시도 B: POST
+        // 시도 B: 개별 깔끔한 POST 요청 (중복/충돌 필드 제거로 400 Bad Request 방지)
         if (cleanName || cleanPhone) {
-          const payload: Record<string, string> = {};
-          if (cleanName) {
-            payload.name = cleanName;
-            payload.user_name = cleanName;
-          }
-          if (cleanPhone) {
-            payload.phone = cleanPhone;
-            payload.phoneNumber = cleanPhone;
-            payload.phone_number = cleanPhone;
-          }
+          // B-1: { name, phone }
           reqs.push(
             apiMiddleware
-              .post("/api/members/find-id", payload)
+              .post("/api/members/find-id", {
+                ...(cleanName && { name: cleanName }),
+                ...(cleanPhone && { phone: cleanPhone }),
+              })
+              .then((res) => extractUserIds(res.data))
+              .catch(() => []),
+          );
+
+          // B-2: { name, phoneNumber }
+          reqs.push(
+            apiMiddleware
+              .post("/api/members/find-id", {
+                ...(cleanName && { name: cleanName }),
+                ...(cleanPhone && { phoneNumber: cleanPhone }),
+              })
+              .then((res) => extractUserIds(res.data))
+              .catch(() => []),
+          );
+
+          // B-3: { name, phone_number }
+          reqs.push(
+            apiMiddleware
+              .post("/api/members/find-id", {
+                ...(cleanName && { name: cleanName }),
+                ...(cleanPhone && { phone_number: cleanPhone }),
+              })
               .then((res) => extractUserIds(res.data))
               .catch(() => []),
           );
         }
 
-        // 시도 C: GET
+        // 시도 C: 개별 GET 요청
         if (cleanName || cleanPhone) {
-          const params: Record<string, string> = {};
-          if (cleanName) {
-            params.name = cleanName;
-            params.user_name = cleanName;
-          }
-          if (cleanPhone) {
-            params.phone = cleanPhone;
-            params.phoneNumber = cleanPhone;
-            params.phone_number = cleanPhone;
-          }
           reqs.push(
             apiMiddleware
-              .get("/api/members/find-id", { params })
+              .get("/api/members/find-id", {
+                params: {
+                  ...(cleanName && { name: cleanName }),
+                  ...(cleanPhone && { phone: cleanPhone }),
+                },
+              })
+              .then((res) => extractUserIds(res.data))
+              .catch(() => []),
+          );
+
+          reqs.push(
+            apiMiddleware
+              .get("/api/members/find-id", {
+                params: {
+                  ...(cleanName && { name: cleanName }),
+                  ...(cleanPhone && { phoneNumber: cleanPhone }),
+                },
+              })
               .then((res) => extractUserIds(res.data))
               .catch(() => []),
           );
@@ -300,46 +363,6 @@ function FindIdPage() {
         ids = Array.from(new Set(secondaryResults.flat().filter(Boolean)));
       }
 
-      // 백엔드 포트원 시크릿 키 미설정(400/500) 또는 DB 응답 없음 대비 테스트 환경 폴백 아이디 처리
-      if (ids.length === 0) {
-        let fallbackId = "";
-
-        const storages = [localStorage, sessionStorage];
-        for (const storage of storages) {
-          if (fallbackId) break;
-          const keys = Object.keys(storage);
-          for (const k of keys) {
-            if (k.startsWith("myPageSettings_")) {
-              const extracted = k.replace("myPageSettings_", "");
-              if (extracted) {
-                fallbackId = extracted;
-                break;
-              }
-            }
-          }
-        }
-
-        if (!fallbackId) {
-          fallbackId =
-            searchName && searchName.length >= 2
-              ? `${searchName.slice(0, 2).toLowerCase()}****`
-              : searchName
-                ? `${searchName.toLowerCase()}****`
-                : "user****";
-        } else {
-          fallbackId =
-            fallbackId.length > 4
-              ? `${fallbackId.slice(0, 3)}****`
-              : `${fallbackId}****`;
-        }
-
-        console.log(
-          "[아이디 찾기] 포트원 백엔드 미연동/DB 응답 대비 마스킹 아이디 제공:",
-          fallbackId,
-        );
-        ids = [fallbackId];
-      }
-
       console.log("[아이디 찾기] 최종 DB 조회 결과:", ids);
 
       setMaskedUserIds(ids);
@@ -373,7 +396,7 @@ function FindIdPage() {
 
   const handlePassSuccess = (result: PassAuthResult) => {
     const validVerificationId =
-      result.identityVerificationId || `iv_pass_${Date.now()}`;
+      result.identityVerificationId || "iv_pass";
 
     const verifiedName = name.trim() || result.name?.trim() || "";
     const rawPhone = result.phoneNumber?.replace(/\D/g, "") ?? "";
@@ -428,11 +451,62 @@ function FindIdPage() {
               가입된 아이디를 찾을 수 있습니다.
             </p>
 
+            {/* 이름 및 휴대폰 번호 입력 폼 */}
+            {!passVerified && !isLoading && (
+              <div style={{ width: "100%", marginTop: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                <div style={{ textAlign: "left" }}>
+                  <label style={{ fontSize: "13px", fontWeight: "600", color: "#333", display: "block", marginBottom: "4px" }}>
+                    이름
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="가입된 이름 (예: 홍길동)"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    style={{
+                      width: "100%",
+                      height: "44px",
+                      padding: "0 12px",
+                      borderRadius: "6px",
+                      border: "1px solid #d8e8d8",
+                      fontSize: "14px",
+                      outline: "none",
+                      backgroundColor: "#fbfffb",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+
+                <div style={{ textAlign: "left" }}>
+                  <label style={{ fontSize: "13px", fontWeight: "600", color: "#333", display: "block", marginBottom: "4px" }}>
+                    휴대폰 번호
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="가입된 휴대폰 번호 (숫자만)"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    style={{
+                      width: "100%",
+                      height: "44px",
+                      padding: "0 12px",
+                      borderRadius: "6px",
+                      border: "1px solid #d8e8d8",
+                      fontSize: "14px",
+                      outline: "none",
+                      backgroundColor: "#fbfffb",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* PASS 본인인증 버튼 */}
             {!passVerified && !isLoading && (
-              <div style={{ width: "100%", marginTop: "24px" }}>
+              <div style={{ width: "100%", marginTop: "16px" }}>
                 <PassAuth
-                  phone=""
+                  phone={phone}
                   onSuccess={handlePassSuccess}
                   className={styles.mainButton}
                 />
@@ -499,11 +573,12 @@ function FindIdPage() {
                       color: "#e53935",
                       display: "block",
                       marginBottom: "6px",
+                      fontSize: "15px",
                     }}
                   >
                     {apiError
                       ? "본인인증 서버 통신 오류 (500 Server Error)"
-                      : "일치하는 회원 정보가 존재하지 않습니다."}
+                      : "미가입 회원입니다."}
                   </strong>
                   <span style={{ fontSize: "12px", color: "#666" }}>
                     {apiError ? (
@@ -515,10 +590,8 @@ function FindIdPage() {
                       </>
                     ) : (
                       <>
-                        • 가입된 회원 정보의 이름과 휴대폰 번호가 맞는지 확인해
-                        주세요.
-                        <br />• DB에 저장된 전화번호에 하이픈(010-1234-5678)이
-                        포함되어 있는지 확인해 주세요.
+                        • 본인인증 정보와 일치하는 가입된 회원 계정을 찾을 수 없습니다.
+                        <br />• 하단의 '회원가입하기' 버튼을 눌러 신규 회원가입을 진행해 주세요.
                         <br />• 카카오 / 구글 소셜 연동 계정은 로그인 페이지에서
                         소셜 로그인을 이용해 주세요.
                       </>

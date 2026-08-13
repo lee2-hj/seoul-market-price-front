@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import axios from "axios";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 
 
 import apiMiddleware from "@/api/middleware";
@@ -194,6 +194,7 @@ const getAttachmentName = (post: QnaDetailResponse): string => {
 
 function QnaDetailPage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { id } = useParams<{ id: string }>();
 
@@ -407,11 +408,26 @@ function QnaDetailPage() {
     };
 
     fetchQnaDetail();
-  }, [id]);
+  }, [id, isAdmin]);
 
   /* 목록으로 이동 */
 
   const handleBack = () => {
+    // 1. sessionStorage에 저장된 최근 쿼리 스트링(검색어, 검색 조건, 페이지 번호)이 있으면 복원
+    const lastQuery = sessionStorage.getItem("qna_last_query");
+    if (lastQuery) {
+      navigate(`/qna?${lastQuery}`);
+      return;
+    }
+
+    // 2. location.state에 전달된 이전 페이지 정보가 있는 경우
+    const fromPage = (location.state as { fromPage?: number })?.fromPage;
+    if (fromPage && fromPage > 1) {
+      navigate(`/qna?page=${fromPage}`);
+      return;
+    }
+
+    // 3. 기본 Q&A 목록으로 이동
     navigate("/qna");
   };
 

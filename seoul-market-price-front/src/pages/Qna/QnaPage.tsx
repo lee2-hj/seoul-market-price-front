@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { getLoginUser, isLogin } from "@/features/auth/utils/auth";
 import { getQnasApi } from "@/api/api";
@@ -187,15 +187,6 @@ export default function QnaPage() {
 
   const [posts, setPosts] = useState<QnaPost[]>(getInitialPosts);
 
-  /* 마운트 시 샘플 게시글 state에서 즉시 제거 */
-  useEffect(() => {
-    setPosts((prev) => {
-      const filtered = prev.filter((p) => !SAMPLE_POST_IDS.has(p.id));
-      localStorage.setItem("qnaPosts", JSON.stringify(filtered));
-      return filtered;
-    });
-  }, []);
-
   /* 백엔드 API 연동 (서버에 등록된 글도 병합하여 표시) */
   useEffect(() => {
     const fetchServerQnas = async () => {
@@ -237,20 +228,39 @@ export default function QnaPage() {
     void fetchServerQnas();
   }, []);
 
-  const [searchType, setSearchType] = useState<SearchType>("title");
-  const [searchKeyword, setSearchKeyword] = useState("");
-  const [appliedKeyword, setAppliedKeyword] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  /* URL searchParams에서 searchType, keyword, page 파라미터 추출 및 유지 */
+  const urlTypeParam = (searchParams.get("searchType") || searchParams.get("type") || "title") as SearchType;
+  const validSearchType: SearchType = ["title", "author", "content"].includes(urlTypeParam) ? urlTypeParam : "title";
+  const urlKeyword = searchParams.get("keyword") || searchParams.get("searchKeyword") || "";
+
+  const pageFromUrl = parseInt(searchParams.get("page") || "1", 10);
+  const rawPage = isNaN(pageFromUrl) || pageFromUrl < 1 ? 1 : pageFromUrl;
+
+  const [searchType, setSearchType] = useState<SearchType>(validSearchType);
+  const [searchKeyword, setSearchKeyword] = useState(urlKeyword);
+
+  const [prevUrlType, setPrevUrlType] = useState(validSearchType);
+  const [prevUrlKeyword, setPrevUrlKeyword] = useState(urlKeyword);
+
+  /* URL searchParams 변경 시 로컬 입력 폼 상태 동기화 (render 시점 동기화로 연쇄 리렌더링 방지) */
+  if (prevUrlType !== validSearchType || prevUrlKeyword !== urlKeyword) {
+    setPrevUrlType(validSearchType);
+    setPrevUrlKeyword(urlKeyword);
+    setSearchType(validSearchType);
+    setSearchKeyword(urlKeyword);
+  }
 
   /* 한 페이지에 게시글 5개씩 표기 */
   const POSTS_PER_PAGE = 5;
-  const [currentPage, setCurrentPage] = useState(1);
 
   const filteredPosts = useMemo(() => {
-    const keyword = appliedKeyword.trim().toLowerCase();
+    const keyword = urlKeyword.trim().toLowerCase();
     if (!keyword) return posts;
 
     return posts.filter((post) => {
-      switch (searchType) {
+      switch (validSearchType) {
         case "title":
           return post.title.toLowerCase().includes(keyword);
         case "author":
@@ -261,9 +271,20 @@ export default function QnaPage() {
           return true;
       }
     });
-  }, [posts, appliedKeyword, searchType]);
+  }, [posts, urlKeyword, validSearchType]);
 
   const totalPages = Math.max(1, Math.ceil(filteredPosts.length / POSTS_PER_PAGE));
+  const currentPage = Math.min(rawPage, totalPages);
+
+  /* 현재 URL 쿼리 전체를 sessionStorage에 저장하여 목록 복귀 시 활용 */
+  useEffect(() => {
+    const currentQuery = searchParams.toString();
+    if (currentQuery) {
+      sessionStorage.setItem("qna_last_query", currentQuery);
+    } else {
+      sessionStorage.removeItem("qna_last_query");
+    }
+  }, [searchParams]);
 
   const paginatedPosts = useMemo(() => {
     const startIndex = (currentPage - 1) * POSTS_PER_PAGE;
@@ -272,15 +293,27 @@ export default function QnaPage() {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setAppliedKeyword(searchKeyword.trim());
-    setCurrentPage(1);
+    const trimmed = searchKeyword.trim();
+    setSearchParams((prev) => {
+      const newParams = new URLSearchParams(prev);
+      if (trimmed) {
+        newParams.set("searchType", searchType);
+        newParams.set("keyword", trimmed);
+      } else {
+        newParams.delete("searchType");
+        newParams.delete("type");
+        newParams.delete("keyword");
+        newParams.delete("searchKeyword");
+      }
+      newParams.delete("page"); // 검색 시 1페이지로 이동
+      return newParams;
+    });
   };
 
   const handleResetSearch = () => {
     setSearchKeyword("");
-    setAppliedKeyword("");
     setSearchType("title");
-    setCurrentPage(1);
+    setSearchParams(new URLSearchParams());
   };
 
   /* 글쓰기는 로그인한 사용자만 가능 */
@@ -324,13 +357,21 @@ export default function QnaPage() {
 
     setPosts(updatedPosts);
     localStorage.setItem("qnaPosts", JSON.stringify(updatedPosts));
-    navigate(`/qna/${post.id}`);
+    navigate(`/qna/${post.id}`, { state: { fromPage: currentPage } });
   };
 
 
   const handlePageChange = (page: number) => {
     if (page < 1 || page > totalPages) return;
-    setCurrentPage(page);
+    setSearchParams((prev) => {
+      const newParams = new URLSearchParams(prev);
+      if (page === 1) {
+        newParams.delete("page");
+      } else {
+        newParams.set("page", String(page));
+      }
+      return newParams;
+    });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
