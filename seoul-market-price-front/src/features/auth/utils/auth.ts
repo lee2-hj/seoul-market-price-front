@@ -40,8 +40,9 @@ export function clearJustLoggedOut() {
    Authorization 헤더만 검사하므로 응답 바디의 accessToken 값을
    zustand 메모리에 저장해 요청마다 헤더로 실어보낸다. */
 
-export function saveLogin(user: AuthUser, accessToken: string) {
-  useAuthStore.getState().setSession(user, accessToken);
+export function saveLogin(user: AuthUser, accessToken?: string) {
+  const token = accessToken || user.accessToken || "";
+  useAuthStore.getState().setSession(user, token);
 
   // 로그아웃 이후 다시 로그인한 것이므로, 남아있을 수 있는
   // "방금 로그아웃했다" 표시를 지워 다음 새로고침에서

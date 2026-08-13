@@ -3,8 +3,8 @@
 .page {
   min-height: 100vh;
   padding: 0 0 100px;
-  background: #f7f9f6;
-  color: #202620;
+  background: #F5FAFC;
+  color: #13202B;
   font-family:
     "Pretendard",
     "Noto Sans KR",
@@ -23,7 +23,7 @@
 
 .topUserBar {
   width: 100%;
-  border-bottom: 1px solid #edf0eb;
+  border-bottom: 1px solid #DCE8ED;
   background: #ffffff;
 }
 
@@ -48,7 +48,7 @@
   gap: 7px;
   font-size: 13px;
   font-weight: 600;
-  color: #3f483f;
+  color: #13202B;
 }
 
 .adminBadge {
@@ -57,8 +57,8 @@
   justify-content: center;
   padding: 3px 7px;
   border-radius: 999px;
-  background: #edf6e9;
-  color: #4c7d3e;
+  background: #EBF5F8;
+  color: #0F766E;
   font-size: 11px;
   font-weight: 700;
 }
@@ -66,14 +66,14 @@
 .logoutButton {
   border: 0;
   background: transparent;
-  color: #737b73;
+  color: #6B7280;
   font-size: 13px;
   cursor: pointer;
   transition: color 0.2s ease;
 }
 
 .logoutButton:hover {
-  color: #315d2b;
+  color: #0F8AA8;
 }
 
 /* Header */
@@ -83,7 +83,7 @@
   z-index: 20;
   width: 100%;
   background: #ffffff;
-  border-bottom: 1px solid #e8ece6;
+  border-bottom: 1px solid #DCE8ED;
 }
 
 .headerInner {
@@ -99,7 +99,7 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: #315d2b;
+  color: #0F8AA8;
   font-size: 27px;
   font-weight: 900;
   letter-spacing: -1.5px;
@@ -123,7 +123,7 @@
   padding: 0 22px;
   border: 0;
   background: transparent;
-  color: #303730;
+  color: #13202B;
   font-size: 15px;
   font-weight: 600;
   white-space: nowrap;
@@ -134,8 +134,8 @@
 }
 
 .navItem:hover {
-  color: #3d7434;
-  background: #f6f9f4;
+  color: #0F8AA8;
+  background: #F5FAFC;
 }
 
 /* 메가 메뉴 */
@@ -146,10 +146,10 @@
   left: 50%;
   min-width: 230px;
   padding: 20px;
-  border: 1px solid #e5ebe2;
+  border: 1px solid #DCE8ED;
   border-radius: 0 0 12px 12px;
   background: #ffffff;
-  box-shadow: 0 12px 30px rgba(40, 55, 40, 0.1);
+  box-shadow: 0 12px 30px rgba(15, 138, 168, 0.1);
   opacity: 0;
   visibility: hidden;
   transform: translate(-50%, -8px);
@@ -173,7 +173,7 @@
 
 .megaColumn strong {
   margin-bottom: 8px;
-  color: #315d2b;
+  color: #0F8AA8;
   font-size: 14px;
 }
 
@@ -182,7 +182,7 @@
   border: 0;
   border-radius: 7px;
   background: transparent;
-  color: #535b53;
+  color: #6B7280;
   text-align: left;
   font-size: 13px;
   cursor: pointer;
@@ -192,8 +192,8 @@
 }
 
 .megaColumn button:hover {
-  background: #f3f7f1;
-  color: #315d2b;
+  background: #F5FAFC;
+  color: #0F8AA8;
 }
 
 /* 본문 */
@@ -221,7 +221,7 @@
 .pageLabel {
   display: block;
   margin-bottom: 9px;
-  color: #5c8752;
+  color: #0F8AA8;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 1.5px;
@@ -229,7 +229,7 @@
 
 .pageHeader h1 {
   margin: 0;
-  color: #202620;
+  color: #123047;
   font-size: 34px;
   font-weight: 800;
   letter-spacing: -1.5px;
@@ -237,7 +237,7 @@
 
 .pageHeader p {
   margin: 12px 0 0;
-  color: #707970;
+  color: #6B7280;
   font-size: 15px;
   line-height: 1.6;
 }
@@ -248,10 +248,10 @@
   flex-shrink: 0;
   height: 44px;
   padding: 0 18px;
-  border: 1px solid #dce3d9;
+  border: 1px solid #DCE8ED;
   border-radius: 8px;
   background: #ffffff;
-  color: #4c554c;
+  color: #13202B;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -262,19 +262,19 @@
 }
 
 .listButton:hover:not(:disabled) {
-  border-color: #a9bca3;
-  background: #f5f8f3;
-  color: #315d2b;
+  border-color: #7CC9D8;
+  background: #F5FAFC;
+  color: #0B5E73;
 }
 
 /* 작성 폼 */
 
 .form {
   padding: 38px;
-  border: 1px solid #e4e9e1;
+  border: 1px solid #DCE8ED;
   border-radius: 16px;
   background: #ffffff;
-  box-shadow: 0 8px 25px rgba(39, 55, 39, 0.04);
+  box-shadow: 0 8px 25px rgba(15, 138, 168, 0.04);
 }
 
 /* 입력 그룹 */
@@ -286,22 +286,22 @@
 .formGroup > label {
   display: block;
   margin-bottom: 10px;
-  color: #303730;
+  color: #13202B;
   font-size: 14px;
   font-weight: 700;
 }
 
 .formGroup > label span {
-  color: #d95b4b;
+  color: #DC2626;
 }
 
 .formGroup input,
 .formGroup textarea {
   width: 100%;
-  border: 1px solid #dce3da;
-  border-radius: 9px;
+  border: 1px solid #DCE8ED;
+  border-radius: 99px;
   background: #ffffff;
-  color: #202620;
+  color: #13202B;
   font-family: inherit;
   font-size: 14px;
   outline: none;
@@ -313,32 +313,34 @@
 .formGroup input {
   height: 50px;
   padding: 0 15px;
+  border-radius: 9px;
 }
 
 .formGroup textarea {
   min-height: 270px;
   padding: 15px;
+  border-radius: 9px;
   line-height: 1.7;
   resize: vertical;
 }
 
 .formGroup input:focus,
 .formGroup textarea:focus {
-  border-color: #6f9b66;
-  box-shadow: 0 0 0 3px rgba(111, 155, 102, 0.1);
+  border-color: #0F8AA8;
+  box-shadow: 0 0 0 3px rgba(15, 138, 168, 0.15);
 }
 
 .formGroup input:disabled,
 .formGroup textarea:disabled {
-  background: #f5f7f4;
-  color: #7a817a;
+  background: #EBF5F8;
+  color: #6B7280;
   cursor: not-allowed;
 }
 
 .formGroup small {
   display: block;
   margin-top: 8px;
-  color: #899089;
+  color: #6B7280;
   font-size: 12px;
   line-height: 1.5;
 }
@@ -358,7 +360,7 @@
 
 .fieldBottom > span {
   flex-shrink: 0;
-  color: #8a9289;
+  color: #6B7280;
   font-size: 12px;
 }
 
@@ -370,9 +372,9 @@
   gap: 13px;
   margin-top: 6px;
   padding: 17px 18px;
-  border: 1px solid #e4ebdf;
+  border: 1px solid #DCE8ED;
   border-radius: 10px;
-  background: #f7faf5;
+  background: #F0F8FA;
 }
 
 .noticeIcon {
@@ -384,13 +386,13 @@
 .notice strong {
   display: block;
   margin-bottom: 5px;
-  color: #466640;
+  color: #0B5E73;
   font-size: 13px;
 }
 
 .notice p {
   margin: 0;
-  color: #6e776d;
+  color: #6B7280;
   font-size: 12px;
   line-height: 1.7;
 }
@@ -403,7 +405,7 @@
   gap: 10px;
   margin-top: 34px;
   padding-top: 28px;
-  border-top: 1px solid #edf0eb;
+  border-top: 1px solid #DCE8ED;
 }
 
 .cancelButton,
@@ -424,25 +426,25 @@
 }
 
 .cancelButton {
-  border: 1px solid #d9dfd7;
+  border: 1px solid #DCE8ED;
   background: #ffffff;
-  color: #626a62;
+  color: #13202B;
 }
 
 .cancelButton:hover:not(:disabled) {
-  border-color: #bcc6b9;
-  background: #f7f8f6;
+  border-color: #7CC9D8;
+  background: #F5FAFC;
 }
 
 .submitButton {
-  border: 1px solid #4f7d47;
-  background: #4f7d47;
+  border: 1px solid #0F8AA8;
+  background: #0F8AA8;
   color: #ffffff;
 }
 
 .submitButton:hover:not(:disabled) {
-  border-color: #3f6939;
-  background: #3f6939;
+  border-color: #0B5E73;
+  background: #0B5E73;
 }
 
 .cancelButton:active:not(:disabled),
@@ -463,10 +465,10 @@
   width: min(620px, 100%);
   margin: 100px auto 0;
   padding: 58px 40px;
-  border: 1px solid #e4e9e1;
+  border: 1px solid #DCE8ED;
   border-radius: 18px;
   background: #ffffff;
-  box-shadow: 0 10px 30px rgba(39, 55, 39, 0.05);
+  box-shadow: 0 10px 30px rgba(15, 138, 168, 0.05);
   text-align: center;
 }
 
@@ -478,7 +480,7 @@
   height: 64px;
   margin: 0 auto 20px;
   border-radius: 50%;
-  background: #f0f5ed;
+  background: #EBF5F8;
   font-size: 27px;
 }
 
@@ -488,7 +490,7 @@
 
 .loginRequired h1 {
   margin: 0;
-  color: #252b25;
+  color: #123047;
   font-size: 26px;
   font-weight: 800;
   letter-spacing: -1px;
@@ -496,7 +498,7 @@
 
 .loginRequired p {
   margin: 12px 0 0;
-  color: #737b73;
+  color: #6B7280;
   font-size: 14px;
   line-height: 1.6;
 }
@@ -521,24 +523,25 @@
 }
 
 .backButton {
-  border: 1px solid #d9dfd7;
+  border: 1px solid #DCE8ED;
   background: #ffffff;
-  color: #626a62;
+  color: #13202B;
 }
 
 .backButton:hover {
-  background: #f7f8f6;
+  background: #F5FAFC;
 }
 
 .loginButton {
-  border: 1px solid #4f7d47;
-  background: #4f7d47;
+  border: 1px solid #0F8AA8;
+  background: #0F8AA8;
   color: #ffffff;
 }
 
 .loginButton:hover {
-  background: #3f6939;
+  background: #0B5E73;
 }
+
 
 /* 태블릿 */
 
