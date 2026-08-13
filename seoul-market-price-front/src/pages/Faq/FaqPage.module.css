@@ -1,8 +1,22 @@
 .faqPageContainer {
+  --teal-primary: #0F8AA8;
+  --teal-dark: #0B5E73;
+  --teal-light: #7CC9D8;
+  --slate-deep: #123047;
+  --bg-color: #F5FAFC;
+  --card-bg: #FFFFFF;
+  --border-color: #DCE8ED;
+  --text-primary: #13202B;
+  --text-secondary: #6B7280;
+  --status-drop: #0891B2;
+  --status-rise: #DC2626;
+  --status-positive: #0F766E;
+  --status-warning: #F59E0B;
+
   min-height: 100vh;
-  background-color: #ffffff;
+  background-color: var(--bg-color);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  color: #1e293b;
+  color: var(--text-primary);
   text-align: left;
 }
 
@@ -29,26 +43,27 @@
 }
 
 .catTab {
-  background-color: #ffffff;
-  border: 1px solid #cbd5e1;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
   padding: 8px 18px;
   border-radius: 20px;
   font-weight: 600;
   font-size: 0.9rem;
-  color: #64748b;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .catTab:hover {
-  background-color: #f1f5f9;
-  color: #1e293b;
+  background-color: #EAF5F8;
+  color: var(--text-primary);
+  border-color: var(--teal-light);
 }
 
 .activeCat {
-  background-color: #16a34a !important;
+  background-color: var(--teal-primary) !important;
   color: #ffffff !important;
-  border-color: #16a34a !important;
+  border-color: var(--teal-primary) !important;
 }
 
 .searchBox {
@@ -59,23 +74,25 @@
 
 .searchBox input {
   padding: 10px 16px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   width: 260px;
   font-size: 0.95rem;
   outline: none;
-  background-color: #ffffff;
-  transition: border-color 0.2s ease;
+  background-color: var(--card-bg);
+  color: var(--text-primary);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .searchBox input:focus {
-  border-color: #16a34a;
+  border-color: var(--teal-primary);
+  box-shadow: 0 0 0 3px rgba(15, 138, 168, 0.15);
 }
 
 .searchBtn {
-  background-color: #16a34a;
+  background-color: var(--teal-primary);
   color: #ffffff;
-  border: 1px solid #16a34a;
+  border: 1px solid var(--teal-primary);
   padding: 10px 18px;
   border-radius: 8px;
   font-size: 0.95rem;
@@ -89,8 +106,8 @@
 }
 
 .searchBtn:hover {
-  background-color: #15803d;
-  border-color: #15803d;
+  background-color: var(--teal-dark);
+  border-color: var(--teal-dark);
 }
 
 .actionControls {
@@ -109,7 +126,7 @@
 .btnGroup button {
   background: transparent;
   border: none;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -117,7 +134,7 @@
 }
 
 .btnGroup button:hover {
-  color: #1e293b;
+  color: var(--text-primary);
 }
 
 .accordionList {
@@ -127,17 +144,17 @@
 }
 
 .faqCard {
-  background: #ffffff;
+  background: var(--card-bg);
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 2px 6px rgba(15, 138, 168, 0.03);
   overflow: hidden;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .faqCard:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-color: var(--teal-light);
+  box-shadow: 0 4px 12px rgba(15, 138, 168, 0.08);
 }
 
 .questionBtn {
@@ -163,30 +180,30 @@
 .qIcon {
   font-size: 1.3rem;
   font-weight: 900;
-  color: #16a34a;
+  color: var(--teal-primary);
 }
 
 .catBadge {
-  background-color: #f0fdf4;
-  color: #15803d;
+  background-color: #EAF5F8;
+  color: var(--teal-dark);
   font-size: 0.75rem;
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 4px;
-  border: 1px solid #bbf7d0;
+  border: 1px solid #C5E5ED;
   white-space: nowrap;
 }
 
 .questionText {
   font-size: 1.05rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
   line-height: 1.4;
 }
 
 .arrowIcon {
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--text-secondary);
   transition: transform 0.25s ease;
 }
 
@@ -196,8 +213,8 @@
 
 .answerBox {
   padding: 1.25rem 1.5rem 1.5rem 3.5rem;
-  background-color: #f8fafc;
-  border-top: 1px solid #f1f5f9;
+  background-color: var(--bg-color);
+  border-top: 1px solid var(--border-color);
   display: flex;
   gap: 12px;
   align-items: flex-start;
@@ -207,14 +224,14 @@
 .aIcon {
   font-size: 1.2rem;
   font-weight: 900;
-  color: #ef4444;
+  color: var(--status-positive);
   line-height: 1.4;
 }
 
 .answerText {
   font-size: 0.98rem;
   line-height: 1.65;
-  color: #334155;
+  color: var(--text-primary);
   margin: 0;
   flex: 1;
   text-align: left;
@@ -223,11 +240,11 @@
 .emptyNotice {
   text-align: center;
   padding: 4rem 1rem;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 1.05rem;
-  background: #ffffff;
+  background: var(--card-bg);
   border-radius: 12px;
-  border: 1px dashed #cbd5e1;
+  border: 1px dashed var(--border-color);
 }
 
 /* Pagination Styles */
@@ -240,9 +257,9 @@
 }
 
 .pageBtn {
-  background-color: #ffffff;
-  border: 1px solid #cbd5e1;
-  color: #475569;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
   padding: 8px 14px;
   border-radius: 8px;
   font-weight: 600;
@@ -252,9 +269,9 @@
 }
 
 .pageBtn:hover:not(:disabled) {
-  background-color: #f1f5f9;
-  color: #0f172a;
-  border-color: #94a3b8;
+  background-color: #EAF5F8;
+  color: var(--text-primary);
+  border-color: var(--teal-light);
 }
 
 .pageBtn:disabled {
@@ -268,7 +285,7 @@
 }
 
 .activePage {
-  background-color: #16a34a !important;
+  background-color: var(--teal-primary) !important;
   color: #ffffff !important;
-  border-color: #16a34a !important;
+  border-color: var(--teal-primary) !important;
 }
