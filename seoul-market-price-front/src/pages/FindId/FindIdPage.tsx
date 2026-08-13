@@ -48,7 +48,9 @@ function FindIdPage() {
           error.config.url &&
           error.config.url.includes("/api/members/phone-verification/confirm")
         ) {
-          console.warn("[FindIdPage 인터셉터] 백엔드 포트원 500 에러 감지 -> PASS 성공(200 OK) 자동 전환");
+          console.warn(
+            "[FindIdPage 인터셉터] 백엔드 포트원 500 에러 감지 -> PASS 성공(200 OK) 자동 전환",
+          );
           return Promise.resolve({
             data: {
               verified: true,
@@ -64,14 +66,13 @@ function FindIdPage() {
           });
         }
         return Promise.reject(error);
-      }
+      },
     );
 
     return () => {
       axios.interceptors.response.eject(interceptor);
     };
   }, []);
-
 
   /* 조회 오류 메시지 */
 
@@ -99,29 +100,39 @@ function FindIdPage() {
 
     const checkAndPush = (obj: Record<string, unknown>) => {
       if (!obj) return;
-      if (Array.isArray(obj.maskedUserIds)) ids.push(...(obj.maskedUserIds as string[]));
+      if (Array.isArray(obj.maskedUserIds))
+        ids.push(...(obj.maskedUserIds as string[]));
       if (Array.isArray(obj.userIds)) ids.push(...(obj.userIds as string[]));
       if (Array.isArray(obj.loginIds)) ids.push(...(obj.loginIds as string[]));
-      if (Array.isArray(obj.masked_user_ids)) ids.push(...(obj.masked_user_ids as string[]));
+      if (Array.isArray(obj.masked_user_ids))
+        ids.push(...(obj.masked_user_ids as string[]));
       if (Array.isArray(obj.user_ids)) ids.push(...(obj.user_ids as string[]));
 
       if (typeof obj.user_id === "string" && obj.user_id) ids.push(obj.user_id);
-      if (typeof obj.masked_user_id === "string" && obj.masked_user_id) ids.push(obj.masked_user_id);
-      if (typeof obj.maskedUserId === "string" && obj.maskedUserId) ids.push(obj.maskedUserId);
+      if (typeof obj.masked_user_id === "string" && obj.masked_user_id)
+        ids.push(obj.masked_user_id);
+      if (typeof obj.maskedUserId === "string" && obj.maskedUserId)
+        ids.push(obj.maskedUserId);
       if (typeof obj.userId === "string" && obj.userId) ids.push(obj.userId);
-      if (typeof obj.maskedLoginId === "string" && obj.maskedLoginId) ids.push(obj.maskedLoginId);
+      if (typeof obj.maskedLoginId === "string" && obj.maskedLoginId)
+        ids.push(obj.maskedLoginId);
       if (typeof obj.loginId === "string" && obj.loginId) ids.push(obj.loginId);
-      if (typeof obj.login_id === "string" && obj.login_id) ids.push(obj.login_id);
-      if (typeof obj.id === "string" && obj.id && !ids.includes(obj.id)) ids.push(obj.id);
+      if (typeof obj.login_id === "string" && obj.login_id)
+        ids.push(obj.login_id);
+      if (typeof obj.id === "string" && obj.id && !ids.includes(obj.id))
+        ids.push(obj.id);
     };
 
     checkAndPush(res);
-    if (res.data && typeof res.data === "object") checkAndPush(res.data as Record<string, unknown>);
-    if (res.result && typeof res.result === "object") checkAndPush(res.result as Record<string, unknown>);
+    if (res.data && typeof res.data === "object")
+      checkAndPush(res.data as Record<string, unknown>);
+    if (res.result && typeof res.result === "object")
+      checkAndPush(res.result as Record<string, unknown>);
     if (res.content && typeof res.content === "object") {
       if (Array.isArray(res.content)) {
         res.content.forEach((item) => {
-          if (item && typeof item === "object") checkAndPush(item as Record<string, unknown>);
+          if (item && typeof item === "object")
+            checkAndPush(item as Record<string, unknown>);
         });
       } else {
         checkAndPush(res.content as Record<string, unknown>);
@@ -140,7 +151,6 @@ function FindIdPage() {
       setIsLoading(true);
 
       const searchName = (passName || name).trim();
-      const searchNameNoSpace = searchName.replace(/\s+/g, "");
       const inputPhone = passPhone || phone;
 
       // 전화번호 숫자 정규화 (+82 등 국제 번호 파싱 포함)
@@ -151,9 +161,15 @@ function FindIdPage() {
       const rawPhone = digits;
       const formattedPhone = formatPhoneNumber(rawPhone);
 
-      const validId = identityVerificationId?.trim() || `iv_manual_${Date.now()}`;
+      const validId =
+        identityVerificationId?.trim() || `iv_manual_${Date.now()}`;
 
-      console.log("[아이디 찾기] DB 다중 포맷 교차 조회 시작 - 검색 이름:", searchName, "입력 전화번호:", rawPhone);
+      console.log(
+        "[아이디 찾기] DB 다중 포맷 교차 조회 시작 - 검색 이름:",
+        searchName,
+        "입력 전화번호:",
+        rawPhone,
+      );
 
       let ids: string[] = [];
 
@@ -165,18 +181,34 @@ function FindIdPage() {
             rawPhone,
             inputPhone,
             rawPhone ? `+82${rawPhone.slice(1)}` : "",
-            rawPhone ? `+82-${rawPhone.slice(1, 3)}-${rawPhone.slice(3, 7)}-${rawPhone.slice(7)}` : "",
-            rawPhone ? `+82 ${rawPhone.slice(1, 3)}-${rawPhone.slice(3, 7)}-${rawPhone.slice(7)}` : "",
-            rawPhone ? `+82 10 ${rawPhone.slice(3, 7)} ${rawPhone.slice(7)}` : "",
+            rawPhone
+              ? `+82-${rawPhone.slice(1, 3)}-${rawPhone.slice(3, 7)}-${rawPhone.slice(7)}`
+              : "",
+            rawPhone
+              ? `+82 ${rawPhone.slice(1, 3)}-${rawPhone.slice(3, 7)}-${rawPhone.slice(7)}`
+              : "",
+            rawPhone
+              ? `+82 10 ${rawPhone.slice(3, 7)} ${rawPhone.slice(7)}`
+              : "",
             rawPhone ? `+82010${rawPhone.slice(3)}` : "",
-            rawPhone ? `+82-010-${rawPhone.slice(3, 7)}-${rawPhone.slice(7)}` : "",
-            rawPhone ? `(${rawPhone.slice(0, 3)})${rawPhone.slice(3, 7)}-${rawPhone.slice(7)}` : "",
-            rawPhone ? `(${rawPhone.slice(0, 3)}) ${rawPhone.slice(3, 7)}-${rawPhone.slice(7)}` : "",
+            rawPhone
+              ? `+82-010-${rawPhone.slice(3, 7)}-${rawPhone.slice(7)}`
+              : "",
+            rawPhone
+              ? `(${rawPhone.slice(0, 3)})${rawPhone.slice(3, 7)}-${rawPhone.slice(7)}`
+              : "",
+            rawPhone
+              ? `(${rawPhone.slice(0, 3)}) ${rawPhone.slice(3, 7)}-${rawPhone.slice(7)}`
+              : "",
             rawPhone ? `(${rawPhone.slice(0, 3)})${rawPhone.slice(3)}` : "",
-            rawPhone ? `${rawPhone.slice(0, 3)} ${rawPhone.slice(3, 7)} ${rawPhone.slice(7)}` : "",
-            rawPhone ? `${rawPhone.slice(0, 3)}.${rawPhone.slice(3, 7)}.${rawPhone.slice(7)}` : "",
-          ].filter((v): v is string => Boolean(v && v.trim()))
-        )
+            rawPhone
+              ? `${rawPhone.slice(0, 3)} ${rawPhone.slice(3, 7)} ${rawPhone.slice(7)}`
+              : "",
+            rawPhone
+              ? `${rawPhone.slice(0, 3)}.${rawPhone.slice(3, 7)}.${rawPhone.slice(7)}`
+              : "",
+          ].filter((v): v is string => Boolean(v && v.trim())),
+        ),
       );
 
       // 단일 조합에 대해 API A, B, C를 동시 병렬 발사하는 헬퍼 함수
@@ -190,7 +222,7 @@ function FindIdPage() {
         reqs.push(
           findIdApi(validId, cleanName, cleanPhone)
             .then((res) => extractUserIds(res))
-            .catch(() => [])
+            .catch(() => []),
         );
 
         // 시도 B: POST
@@ -209,7 +241,7 @@ function FindIdPage() {
             apiMiddleware
               .post("/api/members/find-id", payload)
               .then((res) => extractUserIds(res.data))
-              .catch(() => [])
+              .catch(() => []),
           );
         }
 
@@ -229,7 +261,7 @@ function FindIdPage() {
             apiMiddleware
               .get("/api/members/find-id", { params })
               .then((res) => extractUserIds(res.data))
-              .catch(() => [])
+              .catch(() => []),
           );
         }
 
@@ -241,11 +273,18 @@ function FindIdPage() {
       const primaryBatch = [
         { n: searchName || undefined, p: formattedPhone || undefined },
         { n: searchName || undefined, p: rawPhone || undefined },
-        { n: searchName || undefined, p: rawPhone ? `+82${rawPhone.slice(1)}` : undefined },
+        {
+          n: searchName || undefined,
+          p: rawPhone ? `+82${rawPhone.slice(1)}` : undefined,
+        },
       ];
 
-      const primaryResults = await Promise.all(primaryBatch.map((c) => queryCombo(c.n, c.p)));
-      const foundPrimary = Array.from(new Set(primaryResults.flat().filter(Boolean)));
+      const primaryResults = await Promise.all(
+        primaryBatch.map((c) => queryCombo(c.n, c.p)),
+      );
+      const foundPrimary = Array.from(
+        new Set(primaryResults.flat().filter(Boolean)),
+      );
 
       if (foundPrimary.length > 0) {
         ids = foundPrimary;
@@ -255,10 +294,11 @@ function FindIdPage() {
           n: searchName || undefined,
           p: pVar,
         }));
-        const secondaryResults = await Promise.all(secondaryBatch.map((c) => queryCombo(c.n, c.p)));
+        const secondaryResults = await Promise.all(
+          secondaryBatch.map((c) => queryCombo(c.n, c.p)),
+        );
         ids = Array.from(new Set(secondaryResults.flat().filter(Boolean)));
       }
-
 
       // 백엔드 포트원 시크릿 키 미설정(400/500) 또는 DB 응답 없음 대비 테스트 환경 폴백 아이디 처리
       if (ids.length === 0) {
@@ -280,21 +320,25 @@ function FindIdPage() {
         }
 
         if (!fallbackId) {
-          fallbackId = searchName && searchName.length >= 2 
-            ? `${searchName.slice(0, 2).toLowerCase()}****` 
-            : searchName 
-            ? `${searchName.toLowerCase()}****` 
-            : "user****";
+          fallbackId =
+            searchName && searchName.length >= 2
+              ? `${searchName.slice(0, 2).toLowerCase()}****`
+              : searchName
+                ? `${searchName.toLowerCase()}****`
+                : "user****";
         } else {
-          fallbackId = fallbackId.length > 4 
-            ? `${fallbackId.slice(0, 3)}****` 
-            : `${fallbackId}****`;
+          fallbackId =
+            fallbackId.length > 4
+              ? `${fallbackId.slice(0, 3)}****`
+              : `${fallbackId}****`;
         }
 
-        console.log("[아이디 찾기] 포트원 백엔드 미연동/DB 응답 대비 마스킹 아이디 제공:", fallbackId);
+        console.log(
+          "[아이디 찾기] 포트원 백엔드 미연동/DB 응답 대비 마스킹 아이디 제공:",
+          fallbackId,
+        );
         ids = [fallbackId];
       }
-
 
       console.log("[아이디 찾기] 최종 DB 조회 결과:", ids);
 
@@ -328,7 +372,8 @@ function FindIdPage() {
      아이디 찾기 API에 전달한다. */
 
   const handlePassSuccess = (result: PassAuthResult) => {
-    const validVerificationId = result.identityVerificationId || `iv_pass_${Date.now()}`;
+    const validVerificationId =
+      result.identityVerificationId || `iv_pass_${Date.now()}`;
 
     const verifiedName = name.trim() || result.name?.trim() || "";
     const rawPhone = result.phoneNumber?.replace(/\D/g, "") ?? "";
@@ -344,11 +389,7 @@ function FindIdPage() {
     setPassVerified(true);
 
     /* PASS 인증 완료 후 아이디 조회 (하이픈 처리된 전화번호 포함 전달) */
-    void handleFindId(
-      validVerificationId,
-      verifiedName,
-      formattedPhone,
-    );
+    void handleFindId(validVerificationId, verifiedName, formattedPhone);
   };
 
   /* 다시 아이디 찾기 */
@@ -367,12 +408,12 @@ function FindIdPage() {
       <div className={styles.box}>
         {/* 로고 */}
 
-        <Link to="/" aria-label="싸부 홈으로 이동" className={`${styles.logoLink} no-underline`}>
-          <img
-            src="/logo.png"
-            alt="싸부 로고"
-            className={styles.logo}
-          />
+        <Link
+          to="/"
+          aria-label="싸부 홈으로 이동"
+          className={`${styles.logoLink} no-underline`}
+        >
+          <img src="/logo-teal.png" alt="싸부 로고" className={styles.logo} />
         </Link>
 
         {/* STEP 1 */}
@@ -398,8 +439,6 @@ function FindIdPage() {
               </div>
             )}
 
-
-
             {/* PASS 인증 완료 */}
             {passVerified && (
               <p className={styles.success}>✔ PASS 휴대폰 인증 완료</p>
@@ -413,7 +452,6 @@ function FindIdPage() {
             )}
           </>
         )}
-
 
         {/* STEP 2 */}
 
@@ -463,19 +501,26 @@ function FindIdPage() {
                       marginBottom: "6px",
                     }}
                   >
-                    {apiError ? "본인인증 서버 통신 오류 (500 Server Error)" : "일치하는 회원 정보가 존재하지 않습니다."}
+                    {apiError
+                      ? "본인인증 서버 통신 오류 (500 Server Error)"
+                      : "일치하는 회원 정보가 존재하지 않습니다."}
                   </strong>
                   <span style={{ fontSize: "12px", color: "#666" }}>
                     {apiError ? (
                       <>
-                        • 백엔드의 PORTONE_API_SECRET 및 프론트엔드의 STORE_ID / CHANNEL_KEY 설정을 확인해 주세요.
-                        <br />• 백엔드 서버에서 포트원 본인인증 조회가 실패하였습니다.
+                        • 백엔드의 PORTONE_API_SECRET 및 프론트엔드의 STORE_ID /
+                        CHANNEL_KEY 설정을 확인해 주세요.
+                        <br />• 백엔드 서버에서 포트원 본인인증 조회가
+                        실패하였습니다.
                       </>
                     ) : (
                       <>
-                        • 가입된 회원 정보의 이름과 휴대폰 번호가 맞는지 확인해 주세요.
-                        <br />• DB에 저장된 전화번호에 하이픈(010-1234-5678)이 포함되어 있는지 확인해 주세요.
-                        <br />• 카카오 / 구글 소셜 연동 계정은 로그인 페이지에서 소셜 로그인을 이용해 주세요.
+                        • 가입된 회원 정보의 이름과 휴대폰 번호가 맞는지 확인해
+                        주세요.
+                        <br />• DB에 저장된 전화번호에 하이픈(010-1234-5678)이
+                        포함되어 있는지 확인해 주세요.
+                        <br />• 카카오 / 구글 소셜 연동 계정은 로그인 페이지에서
+                        소셜 로그인을 이용해 주세요.
                       </>
                     )}
                   </span>
