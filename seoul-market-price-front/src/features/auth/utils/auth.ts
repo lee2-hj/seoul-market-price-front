@@ -107,6 +107,7 @@ export async function ensureAuthLoaded(): Promise<void> {
       userId: me.userId,
       name: me.name,
       role: "",
+      preferredDistrict: me.preferredDistrict,
     });
   } catch {
     if (!useAuthStore.getState().user) {

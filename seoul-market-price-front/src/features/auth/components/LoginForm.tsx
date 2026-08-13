@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 import { saveLogin } from "../../auth/utils/auth";
-import { loginApi } from "@/api/api";
+import { getMemberMeApi, loginApi } from "@/api/api";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
 
 /* ===============================
    로그인 폼 입력값 타입
@@ -97,6 +98,15 @@ function LoginForm() {
         },
         data.accessToken,
       );
+
+      // 로그인 직후 회원 선호 자치구 우선순위를 헤더에 반영한다.
+      const me = await getMemberMeApi();
+      useAuthStore.getState().setUser({
+        userId: me.userId,
+        name: me.name,
+        role: "",
+        preferredDistrict: me.preferredDistrict,
+      });
 
       /*
         주소 유지

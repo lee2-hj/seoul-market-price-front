@@ -60,7 +60,7 @@ import ReportDetailPage from "../pages/ReportDetail/ReportDetailPage";
 import FaqPage from "@/pages/Faq/FaqPage";
 
 import MarketTrendsPage from "@/pages/Trends/MarketTrendsPage";
-import ReportEditPage from "@/pages/ReportEdit/ReportEditPage";
+// import ReportEditPage from "@/pages/ReportEdit/ReportEditPage";
 
 function Router() {
   /* =========================
@@ -326,7 +326,7 @@ function Router() {
         {/* 정의되지 않은 경로(예: /main)로 직접 접근한 경우 "/" 로 리다이렉트한다. */}
         <Route path="*" element={<Navigate to="/" replace />} />
         {/* 신고 게시판 */}
-        <Route path="/report/:reportId/edit" element={<ReportEditPage />} />
+        {/* <Route path="/report/:reportId/edit" element={<ReportEditPage />} /> */}
       </Routes>
     </BrowserRouter>
   );
