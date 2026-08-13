@@ -64,6 +64,8 @@ export interface MemberMeResponse {
   userId: string;
 
   name: string;
+
+  preferredDistrict: string;
 }
 
 export async function getMemberMeApi(): Promise<MemberMeResponse> {
@@ -95,6 +97,26 @@ export async function getMemberMeApi(): Promise<MemberMeResponse> {
 
 export async function logoutApi() {
   const response = await apiMiddleware.post("/api/auth/logout");
+
+  return response.data;
+}
+
+// ===============================
+// 현재 위치의 서울 자치구 조회
+// ===============================
+
+export interface CurrentDistrictResponse {
+  district: string;
+}
+
+export async function getCurrentDistrictApi(
+  latitude: number,
+  longitude: number,
+): Promise<CurrentDistrictResponse> {
+  const response = await apiMiddleware.get<CurrentDistrictResponse>(
+    "/api/location/current-district",
+    { params: { latitude, longitude } },
+  );
 
   return response.data;
 }
@@ -655,5 +677,45 @@ export async function getQnasApi(
     },
   });
 
+  return response.data;
+}
+
+/* ==========================================
+   자주 묻는 질문 (FAQ) API
+========================================== */
+
+export interface FaqPublicResponse {
+  id: number;
+  question: string;
+  answer: string;
+  category: string;
+  writerName?: string;
+  displayOrder?: number;
+  viewCount?: number;
+  createdAt?: string;
+}
+
+/**
+ * 공개 FAQ 목록 조회 API (GET /api/faqs)
+ */
+export async function getPublicFaqsApi(
+  category?: string,
+): Promise<FaqPublicResponse[]> {
+  const response = await apiMiddleware.get<FaqPublicResponse[]>("/api/faqs", {
+    params: {
+      category: category && category !== "전체" ? category : undefined,
+    },
+  });
+
+  return response.data || [];
+}
+
+/**
+ * 공개 FAQ 상세 조회 API (GET /api/faqs/:id)
+ */
+export async function getPublicFaqApi(id: number): Promise<FaqPublicResponse> {
+  const response = await apiMiddleware.get<FaqPublicResponse>(
+    `/api/faqs/${id}`,
+  );
   return response.data;
 }
