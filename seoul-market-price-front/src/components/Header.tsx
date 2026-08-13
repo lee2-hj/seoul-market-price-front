@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { BarChart3, Check, ChevronDown, Headphones, LogIn, Map, MapPin, Menu, Search, UserRound, X } from "lucide-react";
+import { BarChart3, ChevronDown, Headphones, LoaderCircle, LocateFixed, LogIn, Map, Menu, Search, UserRound, X } from "lucide-react";
 
+import axios from "axios";
+import { getCurrentDistrictApi } from "@/api/api";
 import { logout } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { Button } from "@/components/ui/button";
@@ -36,22 +38,12 @@ const SEOUL_DISTRICTS = [
 ];
 
 const REGION_STORAGE_KEY = "ssabu_selected_region";
+const TEST_LATITUDE_STORAGE_KEY = "latitude";
+const TEST_LONGITUDE_STORAGE_KEY = "longitude";
 
-function getSavedRegion(userId?: string): string {
-  if (userId) {
-    const settings = localStorage.getItem(`myPageSettings_${userId.trim().toLowerCase()}`);
-    if (settings) {
-      try {
-        const preferredDistrict = JSON.parse(settings)?.preferredDistrict;
-        if (SEOUL_DISTRICTS.includes(preferredDistrict)) return preferredDistrict;
-      } catch {
-        // 손상된 마이페이지 설정은 공통 지역값으로 대체한다.
-      }
-    }
-  }
-
+function getSavedRegion(): string {
   const saved = localStorage.getItem(REGION_STORAGE_KEY);
-  return saved && SEOUL_DISTRICTS.includes(saved) ? saved : "강남구";
+  return saved && SEOUL_DISTRICTS.includes(saved) ? saved : "중구";
 }
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -59,14 +51,27 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 function DesktopDropdown({ label, links, icon: Icon }: { label: string; links: MenuLink[]; icon: typeof Search }) {
+  const [dismissed, setDismissed] = useState(false);
+
   return (
-    <div className="group relative flex h-[68px] items-center">
+    <div
+      className={`${dismissed ? "" : "group"} relative flex h-[68px] items-center`}
+      onMouseLeave={() => setDismissed(false)}
+    >
       <button type="button" className="flex h-full items-center gap-2 border-0 bg-transparent px-1 text-[13px] font-extrabold tracking-[-0.025em] text-[#13202B] hover:text-[#0F8AA8]">
         <Icon className="size-[18px] stroke-[1.8]" />{label}<ChevronDown className="size-3.5" />
       </button>
       <div className="invisible absolute left-1/2 top-[64px] z-50 w-[190px] -translate-x-1/2 translate-y-1 rounded-[10px] border border-[#DCE8ED] bg-white p-2 opacity-0 shadow-[0_12px_30px_rgba(18,48,71,0.12)] transition-all group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
         {links.map((item) => (
-          <Link key={`${item.to}-${item.label}`} to={item.to} className="flex min-h-10 items-center rounded-[7px] px-3 text-[12px] font-semibold text-[#6B7280] no-underline hover:bg-[#E8F6F9] hover:text-[#0F8AA8]">
+          <Link
+            key={`${item.to}-${item.label}`}
+            to={item.to}
+            onClick={(event) => {
+              setDismissed(true);
+              event.currentTarget.blur();
+            }}
+            className="flex min-h-10 items-center rounded-[7px] px-3 text-[12px] font-semibold text-[#6B7280] no-underline hover:bg-[#E8F6F9] hover:text-[#0F8AA8]"
+          >
             {item.label}
           </Link>
         ))}
@@ -78,28 +83,129 @@ function DesktopDropdown({ label, links, icon: Icon }: { label: string; links: M
 export default function Header() {
   const user = useAuthStore((state) => state.user);
   const [open, setOpen] = useState(false);
-  const [regionOpen, setRegionOpen] = useState(false);
-  const [region, setRegion] = useState(() => getSavedRegion());
+  const [savedRegion, setSavedRegion] = useState(() => getSavedRegion());
+  const [locating, setLocating] = useState(false);
   const isAuthenticated = user !== null;
-
-  useEffect(() => {
-    setRegion(getSavedRegion(user?.userId));
-  }, [user?.userId]);
+  const region = user
+    ? user.preferredDistrict && SEOUL_DISTRICTS.includes(user.preferredDistrict)
+      ? user.preferredDistrict
+      : "중구"
+    : savedRegion;
 
   const handleRegionChange = (nextRegion: string) => {
-    setRegion(nextRegion);
-    setRegionOpen(false);
-    localStorage.setItem(REGION_STORAGE_KEY, nextRegion);
+    const normalizedRegion = nextRegion.trim();
+    setSavedRegion(normalizedRegion);
+    localStorage.setItem(REGION_STORAGE_KEY, normalizedRegion);
 
-    if (user?.userId) {
-      const key = `myPageSettings_${user.userId.trim().toLowerCase()}`;
-      try {
-        const current = JSON.parse(localStorage.getItem(key) ?? "{}");
-        localStorage.setItem(key, JSON.stringify({ ...current, preferredDistrict: nextRegion }));
-      } catch {
-        localStorage.setItem(key, JSON.stringify({ preferredDistrict: nextRegion }));
-      }
+    // 로그인 중 위치 조회 결과를 인증 사용자 상태에도 반영해야
+    // Header가 재렌더링/재마운트되어도 DB 초기값으로 되돌아가지 않는다.
+    if (user) {
+      useAuthStore.getState().setUser({
+        ...user,
+        preferredDistrict: normalizedRegion,
+      });
     }
+
+  };
+
+  const handleLocate = () => {
+    if (locating) return;
+
+    const updateDistrictFromCoordinates = async (
+      latitude: number,
+      longitude: number,
+      source: "localStorage" | "browser",
+      accuracyMeters?: number,
+    ) => {
+      console.info(`[현재 위치 조회] ${source} 좌표`, {
+        latitude,
+        longitude,
+        ...(accuracyMeters === undefined ? {} : { accuracyMeters }),
+      });
+
+      const { district } = await getCurrentDistrictApi(latitude, longitude);
+      console.info("[현재 위치 조회] 변환된 자치구", district);
+      if (!SEOUL_DISTRICTS.includes(district)) {
+        throw new Error("현재 위치가 서울 지역이 아닙니다.");
+      }
+      handleRegionChange(district);
+    };
+
+    // 개발 모드에서는 데스크톱 위치 정확도에 영향받지 않도록
+    // localStorage에 수동 입력한 테스트 좌표를 사용한다.
+    // 운영 빌드에서는 이 분기를 타지 않고 아래 브라우저 위치 조회를 사용한다.
+    if (import.meta.env.DEV) {
+      const latitudeValue = localStorage.getItem(TEST_LATITUDE_STORAGE_KEY);
+      const longitudeValue = localStorage.getItem(TEST_LONGITUDE_STORAGE_KEY);
+      const latitude = Number(latitudeValue);
+      const longitude = Number(longitudeValue);
+
+      if (
+        latitudeValue === null || longitudeValue === null ||
+        !Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+        !Number.isFinite(longitude) || longitude < -180 || longitude > 180
+      ) {
+        window.alert(
+          "개발자 도구에서 localStorage의 latitude와 longitude 값을 먼저 입력해 주세요.",
+        );
+        return;
+      }
+
+      setLocating(true);
+      void updateDistrictFromCoordinates(latitude, longitude, "localStorage")
+        .catch((error) => {
+          const message = axios.isAxiosError(error)
+            ? error.response?.data?.message
+            : error instanceof Error
+              ? error.message
+              : undefined;
+          window.alert(message || "테스트 좌표의 자치구를 확인할 수 없습니다.");
+        })
+        .finally(() => setLocating(false));
+      return;
+    }
+
+    // 운영 모드에서는 기존 방식대로 브라우저의 실제 현재 위치를 사용한다.
+    if (!navigator.geolocation) {
+      window.alert("현재 브라우저에서는 위치 정보를 사용할 수 없습니다.");
+      return;
+    }
+
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          await updateDistrictFromCoordinates(
+            coords.latitude,
+            coords.longitude,
+            "browser",
+            coords.accuracy,
+          );
+        } catch (error) {
+          const message = axios.isAxiosError(error)
+            ? error.response?.data?.message
+            : error instanceof Error
+              ? error.message
+              : undefined;
+          window.alert(message || "현재 위치의 자치구를 확인할 수 없습니다.");
+        } finally {
+          setLocating(false);
+        }
+      },
+      (error) => {
+        setLocating(false);
+        if (error.code === error.PERMISSION_DENIED) {
+          window.alert("현재 위치를 확인하려면 위치 권한을 허용해 주세요.");
+        } else if (error.code === error.TIMEOUT) {
+          window.alert("위치 정보 요청 시간이 초과되었습니다. 다시 시도해 주세요.");
+        } else {
+          window.alert("현재 위치 정보를 가져올 수 없습니다.");
+        }
+      },
+      // 이전 위치 캐시나 IP 기반의 대략적인 위치보다 현재 장치가 제공할 수
+      // 있는 가장 정확한 좌표를 요청한다.
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
   };
 
   const handleLogout = async () => {
@@ -126,38 +232,18 @@ export default function Header() {
         </nav>
 
         <div className="hidden shrink-0 items-center gap-2.5 lg:flex">
-          <div className="relative">
-            <button
+          <div className="flex h-[42px] items-center gap-1 text-[#123047]">
+            <span className="text-[20px] font-extrabold">{region}</span>
+            {isAuthenticated && <button
               type="button"
-              onClick={() => setRegionOpen((value) => !value)}
-              aria-haspopup="listbox"
-              aria-expanded={regionOpen}
-              className="flex h-[42px] items-center gap-1.5 rounded-[10px] border border-[#DCE8ED] bg-white px-3 text-[12px] font-extrabold text-[#123047] shadow-[0_2px_7px_rgba(18,48,71,0.05)] transition-colors hover:border-[#7CC9D8] hover:bg-[#F5FAFC]"
+              onClick={handleLocate}
+              disabled={locating}
+              aria-label="현재 위치로 자치구 찾기"
+              title="내 위치 보기"
+              className="flex size-8 items-center justify-center rounded-full border-0 bg-transparent text-[#69747C] transition-colors hover:bg-[#E8F6F9] hover:text-[#0F8AA8] disabled:cursor-wait disabled:opacity-60"
             >
-              <MapPin className="size-4 text-[#0F8AA8]" />
-              <span>{region}</span>
-              <ChevronDown className={`size-3.5 text-[#778077] transition-transform ${regionOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {regionOpen && (
-              <div className="absolute right-0 top-[49px] z-50 w-[250px] rounded-[12px] border border-[#e0e6df] bg-white p-3 shadow-[0_16px_36px_rgba(26,48,25,0.15)]" role="listbox" aria-label="내 지역 선택">
-                <div className="mb-2 px-1 text-[11px] font-extrabold text-[#748075]">내 지역 선택</div>
-                <div className="grid max-h-[260px] grid-cols-2 gap-1 overflow-y-auto pr-1">
-                  {SEOUL_DISTRICTS.map((district) => (
-                    <button
-                      key={district}
-                      type="button"
-                      role="option"
-                      aria-selected={region === district}
-                      onClick={() => handleRegionChange(district)}
-                      className={`flex min-h-9 items-center justify-between rounded-[7px] border-0 px-2.5 text-left text-[12px] font-semibold transition-colors ${region === district ? "bg-[#E8F6F9] text-[#0F8AA8]" : "bg-transparent text-[#6B7280] hover:bg-[#F5FAFC]"}`}
-                    >
-                      {district}{region === district && <Check className="size-3.5" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+              {locating ? <LoaderCircle className="size-[18px] animate-spin" /> : <LocateFixed className="size-[18px]" />}
+            </button>}
           </div>
           {isAuthenticated ? (
             <>
@@ -184,13 +270,13 @@ export default function Header() {
               <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>
             ))}
             {isAuthenticated && MYPAGE_LINKS.map((item) => <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>)}
-            <label className="mt-3 flex items-center gap-2 border-t border-[#e5e8e4] pt-3 text-[13px] font-extrabold text-[#344037]">
-              <MapPin className="size-4 text-[#0F8AA8]" />
-              <span className="shrink-0">내 지역</span>
-              <select value={region} onChange={(event) => handleRegionChange(event.target.value)} className="ml-auto h-10 min-w-0 flex-1 rounded-[8px] border border-[#dfe5dd] bg-white px-3 text-[13px] font-semibold text-[#344037] outline-none focus:border-[#6ca875]">
-                {SEOUL_DISTRICTS.map((district) => <option key={district} value={district}>{district}</option>)}
-              </select>
-            </label>
+            <div className="mt-3 flex items-center gap-2 border-t border-[#e5e8e4] pt-3 text-[13px] font-extrabold text-[#344037]">
+              <span>내 지역</span>
+              <span className="ml-auto text-[20px]">{region}</span>
+              {isAuthenticated && <button type="button" onClick={handleLocate} disabled={locating} aria-label="현재 위치로 자치구 찾기" title="내 위치 보기" className="flex size-9 items-center justify-center rounded-full border-0 bg-transparent text-[#69747C] hover:bg-[#E8F6F9] hover:text-[#0F8AA8] disabled:cursor-wait disabled:opacity-60">
+                {locating ? <LoaderCircle className="size-[18px] animate-spin" /> : <LocateFixed className="size-[18px]" />}
+              </button>}
+            </div>
             <div className="mt-3 border-t border-[#e5e8e4] pt-3">
               {isAuthenticated ? <Button type="button" variant="outline" onClick={handleLogout} className="h-11 w-full rounded-[8px]">{user?.name}님 · 로그아웃</Button> : <Button asChild className="h-11 w-full rounded-[8px] bg-[#0F8AA8] text-white"><Link to="/login" onClick={() => setOpen(false)} className="no-underline">로그인</Link></Button>}
             </div>
