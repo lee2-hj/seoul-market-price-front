@@ -62,6 +62,10 @@ import FaqPage from "@/pages/Faq/FaqPage";
 import MarketTrendsPage from "@/pages/Trends/MarketTrendsPage";
 import ReportEditPage from "@/pages/ReportEdit/ReportEditPage";
 
+import RegionMapPage from "@/pages/RegionMap/RegionMapPage";
+
+import PriceCompareListPage from "../pages/PriceCompareList/PriceCompareListPage";
+
 function Router() {
   /* =========================
      앱(문서)이 새로고침이 아닌 방식으로 새로 열릴 때마다
@@ -166,6 +170,7 @@ function Router() {
               모든 사용자 접근 가능
           ========================= */}
           <Route path="/price" element={<PricePage />} />
+          <Route path="/region-map" element={<RegionMapPage />} />
           {/* =========================
               Q&A 목록
               모든 사용자 접근 가능
@@ -235,8 +240,13 @@ function Router() {
               </PrivateRoute>
             }
           />
-        </Route>
 
+          {/* 지역별 비교 리스트 */}
+          <Route
+            path="/price/compare-list"
+            element={<PriceCompareListPage />}
+          />
+        </Route>
         {/* =========================
             로그인
             비로그인 사용자만 접근
