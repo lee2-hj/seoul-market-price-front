@@ -549,13 +549,13 @@ export async function createBoardCommentApi(
 }
 
 /**
- * 게시글 댓글 수정 API (PUT /api/boards/comments/:commentId)
+ * 게시글 댓글 수정 API (PATCH /api/boards/comments/:commentId)
  */
 export async function updateBoardCommentApi(
   commentId: number,
   data: CommentUpdateRequest,
 ): Promise<void> {
-  await apiMiddleware.put(`/api/boards/comments/${commentId}`, data);
+  await apiMiddleware.patch(`/api/boards/comments/${commentId}`, data);
 }
 
 /**

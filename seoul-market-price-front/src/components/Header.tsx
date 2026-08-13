@@ -40,6 +40,8 @@ const SEOUL_DISTRICTS = [
 ];
 
 const REGION_STORAGE_KEY = "ssabu_selected_region";
+const TEST_LATITUDE_STORAGE_KEY = "latitude";
+const TEST_LONGITUDE_STORAGE_KEY = "longitude";
 
 function getSavedRegion(): string {
   const saved = localStorage.getItem(REGION_STORAGE_KEY);
@@ -110,6 +112,62 @@ export default function Header() {
 
   const handleLocate = () => {
     if (locating) return;
+
+    const updateDistrictFromCoordinates = async (
+      latitude: number,
+      longitude: number,
+      source: "localStorage" | "browser",
+      accuracyMeters?: number,
+    ) => {
+      console.info(`[현재 위치 조회] ${source} 좌표`, {
+        latitude,
+        longitude,
+        ...(accuracyMeters === undefined ? {} : { accuracyMeters }),
+      });
+
+      const { district } = await getCurrentDistrictApi(latitude, longitude);
+      console.info("[현재 위치 조회] 변환된 자치구", district);
+      if (!SEOUL_DISTRICTS.includes(district)) {
+        throw new Error("현재 위치가 서울 지역이 아닙니다.");
+      }
+      handleRegionChange(district);
+    };
+
+    // 개발 모드에서는 데스크톱 위치 정확도에 영향받지 않도록
+    // localStorage에 수동 입력한 테스트 좌표를 사용한다.
+    // 운영 빌드에서는 이 분기를 타지 않고 아래 브라우저 위치 조회를 사용한다.
+    if (import.meta.env.DEV) {
+      const latitudeValue = localStorage.getItem(TEST_LATITUDE_STORAGE_KEY);
+      const longitudeValue = localStorage.getItem(TEST_LONGITUDE_STORAGE_KEY);
+      const latitude = Number(latitudeValue);
+      const longitude = Number(longitudeValue);
+
+      if (
+        latitudeValue === null || longitudeValue === null ||
+        !Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+        !Number.isFinite(longitude) || longitude < -180 || longitude > 180
+      ) {
+        window.alert(
+          "개발자 도구에서 localStorage의 latitude와 longitude 값을 먼저 입력해 주세요.",
+        );
+        return;
+      }
+
+      setLocating(true);
+      void updateDistrictFromCoordinates(latitude, longitude, "localStorage")
+        .catch((error) => {
+          const message = axios.isAxiosError(error)
+            ? error.response?.data?.message
+            : error instanceof Error
+              ? error.message
+              : undefined;
+          window.alert(message || "테스트 좌표의 자치구를 확인할 수 없습니다.");
+        })
+        .finally(() => setLocating(false));
+      return;
+    }
+
+    // 운영 모드에서는 기존 방식대로 브라우저의 실제 현재 위치를 사용한다.
     if (!navigator.geolocation) {
       window.alert("현재 브라우저에서는 위치 정보를 사용할 수 없습니다.");
       return;
@@ -119,21 +177,12 @@ export default function Header() {
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
         try {
-          console.info("[현재 위치 조회] 브라우저 좌표", {
-            latitude: coords.latitude,
-            longitude: coords.longitude,
-            accuracyMeters: coords.accuracy,
-          });
-
-          const { district } = await getCurrentDistrictApi(
+          await updateDistrictFromCoordinates(
             coords.latitude,
             coords.longitude,
+            "browser",
+            coords.accuracy,
           );
-          console.info("[현재 위치 조회] 변환된 자치구", district);
-          if (!SEOUL_DISTRICTS.includes(district)) {
-            throw new Error("현재 위치가 서울 지역이 아닙니다.");
-          }
-          handleRegionChange(district);
         } catch (error) {
           const message = axios.isAxiosError(error)
             ? error.response?.data?.message
