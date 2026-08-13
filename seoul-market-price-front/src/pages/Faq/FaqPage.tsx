@@ -184,7 +184,7 @@ function FaqPage() {
     );
 
     if (isExpanding) {
-      void getPublicFaqApi(id).catch(() => {});
+      void getPublicFaqApi(id).catch(() => { });
     }
   };
 
