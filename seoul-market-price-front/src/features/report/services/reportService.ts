@@ -3,9 +3,12 @@ import type {
   ReportCategory,
   ReportStatus,
   ReportCreateRequest,
+  ReportUpdateRequest,
 } from "../types/report.types";
 
 const REPORT_STORAGE_KEY = "ssabu_real_estate_reports_v1";
+const REPORT_DUMMY_VERSION_KEY = "ssabu_real_estate_reports_dummy_version";
+const REPORT_DUMMY_VERSION = "apartment-price-inquiry-v1";
 const REPORT_COOLDOWN_KEY = "ssabu_report_last_submitted_at";
 
 export const REPORT_CATEGORY_MAP: Record<ReportCategory, string> = {
@@ -206,49 +209,48 @@ export function canUserDeleteReport(
 const INITIAL_DUMMY_REPORTS: ReportItem[] = [
   {
     id: 15,
-    category: "FAKE_LISTING",
+    category: "PRICE_DISTORTION",
     status: "RESOLVED",
-    targetProperty: "송파구 가락동 헬리오시티 105동 84㎡",
-    title: "송파구 헬리오시티 84㎡ 전세 계약 완료 후 2주째 미삭제 허위 매물 신고",
+    targetProperty: "송파구 잠실동 · 강동구 고덕동 84㎡ 아파트",
+    title: "구별 평균 매매가격 비교 기준이 궁금합니다",
     content:
-      "포털 사이트에 전세 8억 5천만 원으로 올라와 있어 방문 문의하였으나, 이미 2주 전에 계약이 완료된 물건이라며 더 비싼 다른 매물을 유도했습니다. 의도적인 미끼 매물로 판단되어 신고합니다.",
+      "송파구와 강동구의 84㎡ 아파트 평균 매매가격을 비교하고 있습니다. 표시되는 평균가격이 선택한 전용면적 기준인지 궁금하며, 거래 건수가 적은 동의 평균값 계산 방식도 안내 부탁드립니다.",
     authorName: "김*수",
     authorUserId: "user_kims",
     createdAt: "2026.08.12",
     isSecret: false,
     attachments: [
-      { id: 1, fileName: "포털_매물_캡처화면.png", fileSize: 245100 },
-      { id: 2, fileName: "중개사_문자내역.jpg", fileSize: 184200 },
+      { id: 1, fileName: "구별_가격비교_화면.png", fileSize: 245100 },
     ],
     adminReply: {
-      adminName: "싸부 클린매물 모니터링팀",
+      adminName: "싸부 데이터 운영팀",
       repliedAt: "2026.08.12 11:30",
       replyContent:
-        "접수해 주신 내용을 바탕으로 해당 중개업소에 사실 확인을 진행하였습니다. 이미 거래가 체결된 매물임이 확인되어 즉시 매물 노출 차단 조치 및 1차 경고 처리를 완료하였습니다. 깨끗한 부동산 거래 환경 조성에 기여해 주셔서 감사드립니다.",
+        "구·동 평균가격은 선택한 거래유형과 전용면적 구간에 해당하는 국토교통부 실거래가를 기준으로 계산합니다. 거래가 적은 지역에는 참고 안내를 추가하겠습니다.",
     },
   },
   {
     id: 14,
-    category: "PRICE_DISTORTION",
+    category: "OTHER",
     status: "IN_PROGRESS",
     targetProperty: "마포구 아현동 마포래미안푸르지오 59㎡",
-    title: "마포래미안푸르지오 59㎡ 국토부 실거래가 표기 오류 및 호가 왜곡 건",
+    title: "동별 비교에서 아현동 거래내역이 일부 누락된 것 같습니다",
     content:
-      "실제 국토교통부 실거래가는 14억 2천만 원으로 신고되었으나, 특정 사이트에서 12억 5천만 원으로 시세가 잘못 표기되어 혼선을 빚고 있습니다. 빠른 데이터 검증 및 시정 조치 요청드립니다.",
+      "아현동을 선택하면 지난달에 조회되던 마포래미안푸르지오 59㎡ 거래 두 건이 현재 목록에서 보이지 않습니다. 계약 해제 거래가 제외된 것인지 데이터 갱신 과정에서 누락된 것인지 확인 부탁드립니다.",
     authorName: "이*진",
     authorUserId: "user_leej",
     createdAt: "2026.08.11",
     isSecret: true,
-    attachments: [{ id: 3, fileName: "실거래가_대조자료.pdf", fileSize: 520400 }],
+    attachments: [{ id: 3, fileName: "아현동_실거래가_조회화면.pdf", fileSize: 520400 }],
   },
   {
     id: 13,
-    category: "DUPLICATE",
+    category: "OTHER",
     status: "RECEIVED",
-    targetProperty: "강동구 고덕동 고덕그라시움 84㎡",
-    title: "고덕그라시움 84㎡ 동일 동호수 가격 상이 다중 도배 등록",
+    targetProperty: "강동구 고덕동 · 상일동",
+    title: "가격 추이 차트에 전세와 매매를 함께 비교할 수 있나요?",
     content:
-      "동일한 아파트 동호수로 추정되는 매물이 가격을 15억, 15억 5천, 16억 원으로 각각 다르게 10건 이상 도배 등록되어 있습니다. 허위 호가 조작 의심됩니다.",
+      "고덕동과 상일동의 최근 3년 가격 흐름을 보고 있습니다. 동일 기간의 매매가와 전세가를 한 차트에서 비교하고 전세가율도 함께 확인할 수 있는지 궁금합니다.",
     authorName: "박*우",
     authorUserId: "user_parkw",
     createdAt: "2026.08.11",
@@ -256,59 +258,59 @@ const INITIAL_DUMMY_REPORTS: ReportItem[] = [
   },
   {
     id: 12,
-    category: "UNFAIR_BROKERAGE",
+    category: "OTHER",
     status: "RESOLVED",
     targetProperty: "서초구 반포동 반포자이 84㎡",
-    title: "서초구 반포자이 84㎡ 단지 호가 담합 및 허위 매물 유도 의심",
+    title: "최신 실거래가는 언제 반영되나요?",
     content:
-      "특정 중개업소들이 연합하여 일정 가격 이하 매물을 고의로 노출하지 않고 허위 가격으로 등록하여 거래를 방해하고 있습니다.",
+      "국토교통부 실거래가 공개시스템에는 이번 주 거래가 확인되는데 싸부의 반포동 가격 비교 화면에는 아직 반영되지 않았습니다. 데이터 갱신 주기와 계약 해제 건의 반영 시점을 알려주세요.",
     authorName: "정*훈",
     authorUserId: "user_jungh",
     createdAt: "2026.08.10",
     isSecret: true,
     adminReply: {
-      adminName: "싸부 클린매물 모니터링팀",
+      adminName: "싸부 데이터 운영팀",
       repliedAt: "2026.08.11 09:40",
       replyContent:
-        "해당 단지 매물 등록 현황을 전수 점검하여 비정상적으로 등록된 매물 4건을 일괄 삭제 조치하였습니다. 지속적인 모니터링을 유지하겠습니다.",
+        "실거래가 데이터는 매일 새벽 갱신하며 공개 시점에 따라 최대 1~2일 정도 차이가 날 수 있습니다. 계약 해제 신고도 원천 데이터에 반영되는 즉시 표시합니다.",
     },
   },
   {
     id: 11,
-    category: "FAKE_LISTING",
+    category: "OTHER",
     status: "REJECTED",
-    targetProperty: "노원구 상계동 상계주공 5단지 37㎡",
-    title: "노원구 상계주공 5단지 37㎡ 초급매 시세 확인 요청 건",
+    targetProperty: "노원구 상계동 59㎡ 아파트",
+    title: "평형이 다른 아파트를 동일한 기준으로 비교하고 싶습니다",
     content:
-      "주변 시세보다 지나치게 저렴한 4억 원 급매물이 올라와 있어 미끼 매물이 아닌지 확인 부탁드립니다.",
+      "단지마다 전용면적이 58㎡, 59㎡, 60㎡처럼 조금씩 달라 비교 결과가 나뉩니다. 비슷한 면적을 구간으로 묶어 ㎡당 가격이나 평당 가격으로 비교할 수 있는지 문의드립니다.",
     authorName: "최*영",
     authorUserId: "user_choiy",
     createdAt: "2026.08.09",
     isSecret: false,
     adminReply: {
-      adminName: "싸부 클린매물 모니터링팀",
+      adminName: "싸부 서비스 운영팀",
       repliedAt: "2026.08.09 17:15",
       replyContent:
-        "해당 건은 집주인의 사정으로 인한 정상 급매물로 확인되어 허위 매물에 해당하지 않으므로 반려 처리되었습니다.",
+        "현재는 전용면적별 정확한 비교를 우선 제공하고 있습니다. 면적 구간 비교와 ㎡당 가격 기능은 개선 항목으로 검토하겠습니다.",
     },
   },
   {
     id: 10,
     category: "OTHER",
     status: "RESOLVED",
-    targetProperty: "영등포구 여의도동 시범아파트 79㎡",
-    title: "재건축 추진 현황 정보 및 동호수 정보 오기재 정정 요청",
+    targetProperty: "영등포구 여의도동 · 양천구 목동",
+    title: "관심 지역 여러 곳을 한 번에 비교하는 기능을 추가해 주세요",
     content:
-      "단지 상세 정보란에 재건축 단계가 이전 단계로 잘못 표기되어 있습니다. 최신 정비구역 변경 인가 내용으로 업데이트 바랍니다.",
+      "여의도동과 목동처럼 서로 다른 구·동을 저장하고 가격 변동률, 평균 매매가, 거래량을 한 화면에서 비교하고 싶습니다. 비교 결과를 이미지나 엑셀로 내려받는 기능도 있으면 좋겠습니다.",
     authorName: "강*민",
     authorUserId: "user_kangm",
     createdAt: "2026.08.08",
     isSecret: false,
     adminReply: {
-      adminName: "싸부 데이터 관리팀",
+      adminName: "싸부 서비스 운영팀",
       repliedAt: "2026.08.08 14:00",
       replyContent:
-        "최신 서울시 정비사업 정보와 대조하여 단지 재건축 정보 업데이트를 완료하였습니다. 소중한 제보 감사합니다.",
+        "관심 지역 다중 비교 기능을 개선 과제로 등록했습니다. 우선 구·동별 평균가격과 변동률을 함께 비교할 수 있도록 준비하겠습니다.",
     },
   },
 ];
@@ -321,9 +323,28 @@ export function getStoredReports(): ReportItem[] {
         REPORT_STORAGE_KEY,
         JSON.stringify(INITIAL_DUMMY_REPORTS),
       );
+      localStorage.setItem(REPORT_DUMMY_VERSION_KEY, REPORT_DUMMY_VERSION);
       return INITIAL_DUMMY_REPORTS;
     }
-    return JSON.parse(raw);
+
+    const storedReports = JSON.parse(raw) as ReportItem[];
+    const storedVersion = localStorage.getItem(REPORT_DUMMY_VERSION_KEY);
+
+    if (storedVersion !== REPORT_DUMMY_VERSION) {
+      const dummyIds = new Set(INITIAL_DUMMY_REPORTS.map((item) => item.id));
+      const userCreatedReports = storedReports.filter(
+        (item) => !dummyIds.has(item.id),
+      );
+      const migratedReports = [...userCreatedReports, ...INITIAL_DUMMY_REPORTS].sort(
+        (a, b) => b.id - a.id,
+      );
+
+      localStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(migratedReports));
+      localStorage.setItem(REPORT_DUMMY_VERSION_KEY, REPORT_DUMMY_VERSION);
+      return migratedReports;
+    }
+
+    return storedReports;
   } catch {
     return INITIAL_DUMMY_REPORTS;
   }
@@ -368,7 +389,7 @@ export function createReport(data: ReportCreateRequest): ReportItem {
     targetProperty: data.targetProperty.trim(),
     title: data.title.trim(),
     content: data.content.trim(),
-    authorName: maskName(data.authorName),
+    authorName: data.authorName.trim() || "-",
     authorUserId: data.authorUserId,
     authorMemberId: data.authorMemberId,
     createdAt,
@@ -390,4 +411,30 @@ export function deleteReport(id: number): boolean {
     return true;
   }
   return false;
+}
+
+export function updateReport(
+  id: number,
+  data: ReportUpdateRequest,
+  user?: UserAuthContext | null,
+): ReportItem | null {
+  const reports = getStoredReports();
+  const target = reports.find((report) => report.id === id);
+
+  if (!target || !canUserDeleteReport(target, user)) {
+    return null;
+  }
+
+  const updatedReport: ReportItem = {
+    ...target,
+    targetProperty: data.targetProperty.trim() || "일반 문의",
+    title: data.title.trim(),
+    content: data.content.trim(),
+    isSecret: data.isSecret,
+  };
+
+  saveReports(
+    reports.map((report) => (report.id === id ? updatedReport : report)),
+  );
+  return updatedReport;
 }

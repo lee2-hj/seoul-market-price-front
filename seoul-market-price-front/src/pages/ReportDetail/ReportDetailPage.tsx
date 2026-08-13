@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   getReportById,
   deleteReport,
-  REPORT_CATEGORY_MAP,
   REPORT_STATUS_MAP,
   canUserViewReport,
   canUserDeleteReport,
@@ -26,6 +25,14 @@ export default function ReportDetailPage() {
     }
   }, [reportId]);
 
+  const handleGoToList = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/report");
+    }
+  };
+
   if (!report) {
     return (
       <div className="w-full min-h-screen bg-[#F5FAFC] text-[#13202B] py-16 px-4 flex flex-col items-center justify-center">
@@ -38,7 +45,7 @@ export default function ReportDetailPage() {
           </p>
           <button
             type="button"
-            onClick={() => navigate("/report")}
+            onClick={handleGoToList}
             className="inline-block px-5 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[13px] font-bold rounded-[8px] border-none cursor-pointer"
           >
             신고 목록으로 이동
@@ -68,7 +75,7 @@ export default function ReportDetailPage() {
           <div className="flex items-center justify-center gap-3 pt-2">
             <button
               type="button"
-              onClick={() => navigate("/report")}
+              onClick={handleGoToList}
               className="px-4 py-2 bg-white border border-[#DCE8ED] hover:bg-[#F0F7FA] text-[#13202B] text-[13px] font-bold rounded-[7px] cursor-pointer"
             >
               목록으로
@@ -92,9 +99,9 @@ export default function ReportDetailPage() {
   const canDelete = canUserDeleteReport(report, loginUser);
 
   const handleDelete = () => {
-    if (window.confirm("이 신고 내역을 삭제하시겠습니까?")) {
+    if (window.confirm("이 문의 내역을 삭제하시겠습니까?")) {
       deleteReport(report.id);
-      alert("신고 내역이 삭제되었습니다.");
+      alert("문의 내역이 삭제되었습니다.");
       navigate("/report");
     }
   };
@@ -106,10 +113,10 @@ export default function ReportDetailPage() {
         <div className="flex items-center justify-between">
           <button
             type="button"
-            onClick={() => navigate("/report")}
+            onClick={handleGoToList}
             className="h-[38px] px-4 rounded-[7px] bg-white border border-[#DCE8ED] hover:bg-[#F0F7FA] text-[#13202B] text-[13px] font-bold cursor-pointer transition-colors"
           >
-            ← 신고 목록으로
+            ← 문의 목록으로
           </button>
           <div className="flex items-center gap-2">
             <span
@@ -120,14 +127,11 @@ export default function ReportDetailPage() {
           </div>
         </div>
 
-        {/* 신고 본문 카드 */}
+        {/* 문의 본문 카드 */}
         <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[16px] p-6 sm:p-8 space-y-6 shadow-xs">
           {/* 헤더 */}
           <div className="border-b border-[#DCE8ED] pb-5 space-y-2">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-[5px] bg-[#E1EFF5] text-[#0B5E73] text-[12px] font-bold">
-                {REPORT_CATEGORY_MAP[report.category]}
-              </span>
               {report.isSecret && (
                 <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]">
                   비공개 접수건
@@ -145,14 +149,14 @@ export default function ReportDetailPage() {
                 </strong>
               </span>
               <span>접수일자: {report.createdAt}</span>
-              <span>신고번호: #{report.id}</span>
+              <span>문의번호: #{report.id}</span>
             </div>
           </div>
 
-          {/* 신고 대상 단지/매물 박스 */}
+          {/* 문의 대상 단지/매물 박스 */}
           <div className="p-4 bg-[#F0F7FA] border border-[#DCE8ED] rounded-[10px] space-y-1">
             <span className="text-[12px] font-bold text-[#0F8AA8] block">
-              신고 대상 매물 / 중개업소
+              문의 대상 매물 / 단지
             </span>
             <p className="text-[14px] font-bold text-[#123047]">
               {report.targetProperty}
@@ -162,7 +166,7 @@ export default function ReportDetailPage() {
           {/* 상세 내용 */}
           <div className="space-y-2">
             <span className="text-[13px] font-bold text-[#6B7280] block">
-              상세 신고 사유
+              상세 문의 내용
             </span>
             <div className="p-4 bg-[#F5FAFC] border border-[#DCE8ED] rounded-[10px] text-[14px] text-[#13202B] leading-relaxed whitespace-pre-wrap min-h-[120px]">
               {report.content}
@@ -173,7 +177,7 @@ export default function ReportDetailPage() {
           {report.attachments && report.attachments.length > 0 && (
             <div className="space-y-2">
               <span className="text-[13px] font-bold text-[#6B7280] block">
-                제출된 증빙 자료 ({report.attachments.length}개)
+                제출된 첨부 자료 ({report.attachments.length}개)
               </span>
               <div className="space-y-1.5">
                 {report.attachments.map((file) => (
@@ -227,7 +231,7 @@ export default function ReportDetailPage() {
           </div>
         ) : (
           <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[14px] p-5 text-center text-[#6B7280] text-[13px]">
-            현재 담당자가 접수된 신고 내용을 사실 확인 및 검토 중입니다. 검토가
+            현재 담당자가 접수된 문의 내용을 확인 및 검토 중입니다. 검토가
             완료되면 조치 결과가 이곳에 등록됩니다.
           </div>
         )}
@@ -236,19 +240,28 @@ export default function ReportDetailPage() {
         <div className="flex items-center justify-between pt-2">
           <button
             type="button"
-            onClick={() => navigate("/report")}
+            onClick={handleGoToList}
             className="h-[42px] px-5 rounded-[8px] bg-white border border-[#DCE8ED] hover:bg-[#F0F7FA] text-[#13202B] text-[13px] font-bold cursor-pointer"
           >
             목록으로
           </button>
           {canDelete && (
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="h-[42px] px-4 rounded-[8px] bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 text-[13px] font-bold cursor-pointer transition-colors"
-            >
-              신고 삭제
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => navigate(`/report/${report.id}/edit`)}
+                className="h-[42px] px-4 rounded-[8px] bg-[#0F8AA8] border border-[#0F8AA8] text-white hover:bg-[#0B5E73] text-[13px] font-bold cursor-pointer transition-colors"
+              >
+                문의 수정
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="h-[42px] px-4 rounded-[8px] bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 text-[13px] font-bold cursor-pointer transition-colors"
+              >
+                문의 삭제
+              </button>
+            </div>
           )}
         </div>
       </div>

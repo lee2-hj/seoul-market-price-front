@@ -89,7 +89,7 @@ function BoardRow({ item, displayNo, isTopNotice = false }: BoardRowProps) {
 
       {/* 4. 작성자 (14%) */}
       <TableCell className="w-[14%] text-center text-[#6B7280]">
-        {item.authorName}
+        {item.authorName || "-"}
       </TableCell>
 
       {/* 5. 작성일 (15%) */}
@@ -117,7 +117,7 @@ export default function BoardPage() {
 
   const searchType = useMemo(() => {
     const t = searchParams.get("searchType");
-    return t === "WRITER" ? "WRITER" : "TITLE_CONTENT";
+    return t === "WRITER" ? "WRITER" : "TITLE";
   }, [searchParams]);
 
   const keyword = useMemo(() => {
@@ -163,7 +163,7 @@ export default function BoardPage() {
 
   // 5. 검색 초기화 핸들러
   const handleResetSearch = () => {
-    setInputSearchType("TITLE_CONTENT");
+    setInputSearchType("TITLE");
     setInputKeyword("");
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("page", "1");
@@ -269,12 +269,12 @@ export default function BoardPage() {
                 onChange={(e) => setInputSearchType(e.target.value as BoardSearchType)}
                 className="h-[44px] w-full md:w-[130px] rounded-[7px] border border-[#DCE8ED] bg-[#F5FAFC] px-3 text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8]"
               >
-                <option value="TITLE_CONTENT">제목</option>
+                <option value="TITLE">제목</option>
                 <option value="WRITER">작성자</option>
               </select>
               <Input
                 type="text"
-                placeholder="검색어를 입력하세요."
+                placeholder={inputSearchType === "WRITER" ? "작성자명을 입력하세요." : "게시글 제목을 입력하세요."}
                 value={inputKeyword}
                 onChange={(e) => setInputKeyword(e.target.value)}
                 className="h-[44px] flex-1 bg-[#F5FAFC] border-[#DCE8ED] text-[14px] text-[#13202B] placeholder:text-[#9CA3AF] focus-visible:ring-[#0F8AA8]"
