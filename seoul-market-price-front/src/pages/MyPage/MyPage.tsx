@@ -2,13 +2,13 @@ import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
 import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { CheckCircle2 } from "lucide-react";
 import PassAuth from "@/features/auth/components/PassAuth";
 import { getBoardPostsApi, getBoardCommentsApi } from "@/api/api";
 import apiMiddleware from "@/api/middleware";
-import * as api from "@/api/api";
 import { getStoredReports, REPORT_STATUS_MAP } from "@/features/report/services/reportService";
 
 /**
@@ -72,8 +72,6 @@ const sanitizePlainText = (val?: string | null): string => {
   return trimmed;
 };
 
-const INITIAL_FAVORITE_ITEMS = ["래미안 원베일리", "마포래미안푸르지오", "잠실엘스"];
-
 /**
  * 휴대폰 번호 정규식 자동 포맷터 (01012345678 -> 010-1234-5678)
  */
@@ -100,29 +98,12 @@ type Profile = {
   detailAddress: string;
 };
 
-type NotificationSettings = {
-  priceChange: boolean;
-  priceIncrease: boolean;
-  priceDecrease: boolean;
-  favoriteOnly: boolean;
-};
-
-type PriceAlertCondition = "PRICE_BELOW" | "PRICE_ABOVE" | "RATE_UP" | "RATE_DOWN";
-
-type PriceAlert = {
-  id: number;
-  itemName: string;
-  condition: PriceAlertCondition;
-  threshold: number;
-  enabled: boolean;
-};
-
 type MyPageSettings = {
   profile: Profile;
-  favoriteItems: string[];
   preferredDistrict: string;
-  notificationSettings: NotificationSettings;
-  priceAlerts: PriceAlert[];
+  favoriteItems?: string[];
+  notificationSettings?: Record<string, boolean>;
+  priceAlerts?: unknown[];
 };
 
 const DEFAULT_PROFILE: Profile = {
@@ -134,20 +115,6 @@ const DEFAULT_PROFILE: Profile = {
   address: "",
   detailAddress: "",
 };
-
-const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
-  priceChange: true,
-  priceIncrease: true,
-  priceDecrease: true,
-  favoriteOnly: true,
-};
-
-
-
-const DEFAULT_PRICE_ALERTS: PriceAlert[] = [
-  { id: 1, itemName: "마포래미안푸르지오", condition: "PRICE_BELOW", threshold: 180000, enabled: true },
-  { id: 2, itemName: "잠실엘스", condition: "RATE_DOWN", threshold: 5, enabled: true },
-];
 
 const SEOUL_DISTRICTS = [
   "강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구", "금천구",
@@ -232,32 +199,14 @@ export default function MyPage() {
     return DEFAULT_PROFILE;
   });
 
-  const [favoriteItems, setFavoriteItems] = useState<string[]>(() => {
-    const saved = getStoredMyPageSettings();
-    return saved?.favoriteItems ?? INITIAL_FAVORITE_ITEMS;
-  });
-
-
   const [preferredDistrict, setPreferredDistrict] = useState(() => {
     const saved = getStoredMyPageSettings();
     return saved?.preferredDistrict ?? "";
   });
 
-  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(() => {
-    const saved = getStoredMyPageSettings();
-    return saved?.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
-  });
-
-  const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>(() => {
-    const saved = getStoredMyPageSettings();
-    return saved?.priceAlerts ?? DEFAULT_PRICE_ALERTS;
-  });
-
   // 원본 스냅샷 (변경 취소 시 복구할 기준 데이터)
   const [originalProfile, setOriginalProfile] = useState<Profile>(profile);
   const [originalDistrict, setOriginalDistrict] = useState<string>(preferredDistrict);
-  const [originalFavorites, setOriginalFavorites] = useState<string[]>(favoriteItems);
-  const [originalAlerts, setOriginalAlerts] = useState<PriceAlert[]>(priceAlerts);
 
   // 인증 관련 State
   const [phoneVerified, setPhoneVerified] = useState(false);
@@ -315,17 +264,12 @@ export default function MyPage() {
     setWithdrawError("");
     try {
       const now = new Date().toISOString();
-      const withdrawFn = (api as any).withdrawMemberApi;
-      if (typeof withdrawFn === "function") {
-        await withdrawFn(password, now);
-      } else {
-        await apiMiddleware.delete("/api/members/me", {
-          data: {
-            password: password || "",
-            deletedAt: now,
-          },
-        });
-      }
+      await apiMiddleware.delete("/api/members/me", {
+        data: {
+          password: password || "",
+          deletedAt: now,
+        },
+      });
 
       // 로컬 스토리지 및 세션 초기화
       const userKey = getStorageKey(authUser?.userId || profile.userId);
@@ -333,13 +277,22 @@ export default function MyPage() {
       useAuthStore.getState().clearSession();
       alert("회원 탈퇴가 완료되었습니다. 그동안 서비스를 이용해 주셔서 감사합니다.");
       window.location.href = "/";
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("회원 탈퇴 실패:", error);
+      const serverMessage =
+        axios.isAxiosError(error) &&
+        (error.response?.data?.message || error.response?.data?.error);
       const errorMsg =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        "비밀번호가 일치하지 않거나 회원 탈퇴 처리에 실패했습니다.";
+        serverMessage || "비밀번호가 일치하지 않거나 회원 탈퇴 처리에 실패했습니다.";
       setWithdrawError(errorMsg);
+
+      if (isSocialUser) {
+        const socialWithdrawalMessage =
+          typeof serverMessage === "string" && serverMessage.includes("일반 로그인 회원만")
+            ? "현재 소셜 로그인 회원 탈퇴는 지원되지 않습니다.\n기능 준비 후 다시 시도해 주세요."
+            : "회원 탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+        alert(socialWithdrawalMessage);
+      }
     } finally {
       setIsWithdrawing(false);
     }
@@ -354,7 +307,7 @@ export default function MyPage() {
 
     if (isSocialUser) {
       // 소셜 로그인은 2차 컨펌 팝업
-      if (window.confirm("정말로 회원 탈퇴를 진행하시겠습니까?\n탈퇴 시 작성하신 모든 게시글과 댓글은 화면에서 즉시 숨김 처리됩니다.")) {
+      if (window.confirm("정말로 회원 탈퇴를 진행하시겠습니까?\n탈퇴 후에도 작성한 게시글과 댓글은 유지됩니다.")) {
         executeWithdrawal();
       }
     } else {
@@ -446,24 +399,14 @@ export default function MyPage() {
         loginType: isSocial ? "SOCIAL" : "LOCAL",
       };
 
-      const nextFavorites = saved?.favoriteItems ?? INITIAL_FAVORITE_ITEMS;
       const nextDistrict = saved?.preferredDistrict ?? "";
-      const nextNotifications = saved?.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
-      const nextAlerts = saved?.priceAlerts ?? DEFAULT_PRICE_ALERTS;
 
       setProfile(nextProfile);
       setOriginalProfile(nextProfile);
       reset(nextProfile);
 
-      setFavoriteItems(nextFavorites);
-      setOriginalFavorites(nextFavorites);
-
       setPreferredDistrict(nextDistrict);
       setOriginalDistrict(nextDistrict);
-
-      setNotificationSettings(nextNotifications);
-      setPriceAlerts(nextAlerts);
-      setOriginalAlerts(nextAlerts);
     }
   }, [authUser, reset]);
 
@@ -594,10 +537,7 @@ export default function MyPage() {
       (formValues.detailAddress ?? "") !== (originalProfile.detailAddress ?? "");
 
     const isDistrictChanged = preferredDistrict !== originalDistrict;
-    const isFavoritesChanged = JSON.stringify(favoriteItems) !== JSON.stringify(originalFavorites);
-    const isAlertsChanged = JSON.stringify(priceAlerts) !== JSON.stringify(originalAlerts);
-
-    return isProfileChanged || isDistrictChanged || isFavoritesChanged || isAlertsChanged;
+    return isProfileChanged || isDistrictChanged;
   }, [
     formValues.name,
     formValues.phone,
@@ -607,10 +547,6 @@ export default function MyPage() {
     originalProfile,
     preferredDistrict,
     originalDistrict,
-    favoriteItems,
-    originalFavorites,
-    priceAlerts,
-    originalAlerts,
   ]);
 
   // [변경 취소] 버튼 클릭 핸들러
@@ -618,8 +554,6 @@ export default function MyPage() {
     reset(originalProfile);
     setProfile(originalProfile);
     setPreferredDistrict(originalDistrict);
-    setFavoriteItems(originalFavorites);
-    setPriceAlerts(originalAlerts);
     setPhoneVerified(false);
     setEmailCertSent(false);
     setEmailVerified(false);
@@ -636,8 +570,6 @@ export default function MyPage() {
     setProfile(updatedProfile);
     setOriginalProfile(updatedProfile);
     setOriginalDistrict(preferredDistrict);
-    setOriginalFavorites(favoriteItems);
-    setOriginalAlerts(priceAlerts);
 
     if (authUser && updatedProfile.name && !updatedProfile.name.startsWith("enc:v1:")) {
       useAuthStore.getState().setUser({
@@ -646,12 +578,13 @@ export default function MyPage() {
       });
     }
 
+    const previousSettings = getStoredMyPageSettings(
+      authUser?.userId || profile.userId,
+    );
     const settingsToSave: MyPageSettings = {
+      ...previousSettings,
       profile: updatedProfile,
-      favoriteItems,
       preferredDistrict,
-      notificationSettings,
-      priceAlerts,
     };
     const userKey = getStorageKey(authUser?.userId || profile.userId);
     localStorage.setItem(userKey, JSON.stringify(settingsToSave));
@@ -1044,7 +977,7 @@ export default function MyPage() {
                   <div>
                     <h3 className="text-[17px] font-bold text-[#a44141]">회원 탈퇴</h3>
                     <p className="text-[14px] text-[#947474] mt-1">
-                      탈퇴 시 작성한 게시글 및 설정한 정보가 즉시 숨김(비공개) 처리됩니다.
+                      탈퇴 후에도 작성한 게시글과 댓글은 유지되며, 계정 정보는 복구할 수 없습니다.
                     </p>
                   </div>
                   <button
@@ -1403,7 +1336,7 @@ export default function MyPage() {
               </div>
 
               <div className="p-3 bg-[#fff8f8] border border-[#f1cccc] rounded-[8px] text-[12px] text-[#a44141] leading-relaxed">
-                탈퇴 시 계정 정보 및 작성하신 모든 게시글/댓글은 화면에서 즉시 숨김 처리됩니다.
+                탈퇴 후에도 작성한 게시글과 댓글은 유지되며, 탈퇴한 계정은 복구할 수 없습니다.
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-2">

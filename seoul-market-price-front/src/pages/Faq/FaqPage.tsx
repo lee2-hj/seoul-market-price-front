@@ -1,12 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import styles from "./FaqPage.module.css";
-import {
-  getPublicFaqsApi,
-  getPublicFaqApi,
-  type FaqPublicResponse,
-} from "@/api/api";
 
 interface FaqItem {
   id: number;
@@ -120,24 +114,7 @@ function FaqPage() {
 
   const itemsPerPage = 5;
 
-  const { data: apiFaqs, isLoading } = useQuery({
-    queryKey: ["faqs", selectedCategory],
-    queryFn: () => getPublicFaqsApi(selectedCategory),
-    staleTime: 1000 * 60 * 5,
-    retry: 1,
-  });
-
-  const faqsData: FaqItem[] = useMemo(() => {
-    if (apiFaqs && apiFaqs.length > 0) {
-      return apiFaqs.map((f: FaqPublicResponse) => ({
-        id: f.id,
-        category: f.category || "기타",
-        question: f.question,
-        answer: f.answer,
-      }));
-    }
-    return FAQ_DATA;
-  }, [apiFaqs]);
+  const faqsData: FaqItem[] = FAQ_DATA;
 
   const handlePageChange = (newPage: number) => {
     setSearchParams((prev) => {
@@ -178,14 +155,9 @@ function FaqPage() {
   };
 
   const toggleFaq = (id: number) => {
-    const isExpanding = !openIds.includes(id);
     setOpenIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
-
-    if (isExpanding) {
-      void getPublicFaqApi(id).catch(() => { });
-    }
   };
 
   const filteredFaqs = useMemo(() => {
@@ -302,11 +274,7 @@ function FaqPage() {
 
         {/* FAQ Accordion List */}
         <div className={styles.accordionList}>
-          {isLoading ? (
-            <div className={styles.emptyNotice}>
-              <p>⏳ 자주 묻는 질문을 불러오는 중입니다...</p>
-            </div>
-          ) : paginatedFaqs.map((faq) => {
+          {paginatedFaqs.map((faq) => {
             const isOpen = openIds.includes(faq.id);
             return (
               <div key={faq.id} className={styles.faqCard}>
@@ -340,7 +308,7 @@ function FaqPage() {
             );
           })}
 
-          {!isLoading && filteredFaqs.length === 0 && (
+          {filteredFaqs.length === 0 && (
             <div className={styles.emptyNotice}>
               <p>🔍 검색 결과에 일치하는 자주 묻는 질문이 없습니다.</p>
             </div>

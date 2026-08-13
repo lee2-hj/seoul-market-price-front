@@ -29,11 +29,6 @@ const MYPAGE_LINKS: MenuLink[] = [
   { to: "/mypage?tab=ACTIVITY", label: "활동 내역" },
 ];
 
-const getHeaderUserName = (name?: string | null) => {
-  const value = name?.trim();
-  return value && !value.startsWith("enc:v1:") ? value : "회원";
-};
-
 const SEOUL_DISTRICTS = [
   "강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구", "금천구",
   "노원구", "도봉구", "동대문구", "동작구", "마포구", "서대문구", "서초구", "성동구",
@@ -166,7 +161,7 @@ export default function Header() {
           </div>
           {isAuthenticated ? (
             <>
-              <span className="flex items-center gap-1.5 text-[13px] font-extrabold text-[#263329]"><UserRound className="size-4" />{getHeaderUserName(user?.name)}님</span>
+              <span className="flex items-center gap-1.5 text-[13px] font-extrabold text-[#263329]"><UserRound className="size-4" />{user?.name}님</span>
               <Button type="button" variant="outline" onClick={handleLogout} className="h-9 rounded-[8px] border-[#dfe5dd] px-3 text-[11px] font-bold text-[#596259] shadow-none hover:bg-[#f4f8f2]">로그아웃</Button>
             </>
           ) : (
@@ -197,7 +192,7 @@ export default function Header() {
               </select>
             </label>
             <div className="mt-3 border-t border-[#e5e8e4] pt-3">
-              {isAuthenticated ? <Button type="button" variant="outline" onClick={handleLogout} className="h-11 w-full rounded-[8px]">{getHeaderUserName(user?.name)}님 · 로그아웃</Button> : <Button asChild className="h-11 w-full rounded-[8px] bg-[#0F8AA8] text-white"><Link to="/login" onClick={() => setOpen(false)} className="no-underline">로그인</Link></Button>}
+              {isAuthenticated ? <Button type="button" variant="outline" onClick={handleLogout} className="h-11 w-full rounded-[8px]">{user?.name}님 · 로그아웃</Button> : <Button asChild className="h-11 w-full rounded-[8px] bg-[#0F8AA8] text-white"><Link to="/login" onClick={() => setOpen(false)} className="no-underline">로그인</Link></Button>}
             </div>
           </nav>
         </div>
