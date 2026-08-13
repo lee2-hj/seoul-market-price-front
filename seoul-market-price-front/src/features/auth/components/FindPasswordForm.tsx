@@ -1,6 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
 import {
   Eye,
   EyeOff,
@@ -48,7 +49,6 @@ export default function FindPasswordForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
   // 에러 메시지
   const [step1Error, setStep1Error] = useState("");
@@ -122,9 +122,7 @@ export default function FindPasswordForm() {
     phoneNumber: string;
   }) => {
     setPhone(result.phoneNumber);
-    setIsPassVerified(true);
     setStep1Error("");
-    setStep(2); // 본인인증 완료 즉시 2단계(새 비밀번호 입력)로 자동 전환!
 
     try {
       const response = await verifyPasswordResetApi(
@@ -134,9 +132,18 @@ export default function FindPasswordForm() {
 
       if (response?.resetToken) {
         setResetToken(response.resetToken);
+        setIsPassVerified(true);
+        setStep(2);
+        return;
       }
+      setStep1Error("비밀번호 재설정 정보를 발급받지 못했습니다. 다시 인증해 주세요.");
     } catch (error) {
-      console.warn("백엔드 비밀번호 재설정 토큰 발급 예외(PASS 인증 정보로 계속 진행):", error);
+      setStep1Error(
+        getApiErrorMessage(
+          error,
+          "본인인증 정보를 확인하지 못했습니다. 다시 인증해 주세요.",
+        ),
+      );
     }
   };
 
@@ -146,8 +153,21 @@ export default function FindPasswordForm() {
   const isPasswordMatch =
     newPassword.length > 0 && newPassword === confirmPassword;
 
+  const passwordResetMutation = useMutation({
+    mutationFn: () =>
+      completePasswordResetApi(resetToken, newPassword, confirmPassword),
+    onSuccess: () => setStep(3),
+    onError: (error) =>
+      setStep2Error(
+        getApiErrorMessage(
+          error,
+          "비밀번호 변경에 실패했습니다. 다시 시도해 주세요.",
+        ),
+      ),
+  });
+
   // 4. 새 비밀번호 변경 제출
-  const handleSubmitNewPassword = async (e: React.FormEvent) => {
+  const handleSubmitNewPassword = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isPasswordLengthValid) {
       setStep2Error("비밀번호는 8자 이상 16자 이하로 입력해 주세요.");
@@ -158,29 +178,14 @@ export default function FindPasswordForm() {
       return;
     }
 
-    try {
-      setSubmitting(true);
-      setStep2Error("");
-
-      if (!resetToken) {
-        setStep2Error("본인인증이 만료되었습니다. 다시 인증해 주세요.");
-        setStep(1);
-        return;
-      }
-
-      await completePasswordResetApi(resetToken, newPassword, confirmPassword);
-
-      setStep(3);
-    } catch (error) {
-      setStep2Error(
-        getApiErrorMessage(
-          error,
-          "비밀번호 변경에 실패했습니다. 다시 시도해 주세요.",
-        ),
-      );
-    } finally {
-      setSubmitting(false);
+    if (!resetToken) {
+      setStep2Error("본인인증이 만료되었습니다. 다시 인증해 주세요.");
+      setStep(1);
+      return;
     }
+
+    setStep2Error("");
+    passwordResetMutation.mutate();
   };
 
   return (
@@ -459,11 +464,11 @@ export default function FindPasswordForm() {
             <button
               type="submit"
               disabled={
-                submitting || !isPasswordLengthValid || !isPasswordMatch
+                passwordResetMutation.isPending || !isPasswordLengthValid || !isPasswordMatch
               }
               className="w-full h-[52px] mt-4 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white font-bold text-[16px] rounded-[10px] cursor-pointer transition-colors shadow-xs disabled:opacity-40 disabled:cursor-not-allowed box-border block"
             >
-              {submitting ? "비밀번호 변경 중..." : "비밀번호 변경하기"}
+              {passwordResetMutation.isPending ? "비밀번호 변경 중..." : "비밀번호 변경하기"}
             </button>
           </form>
         )}

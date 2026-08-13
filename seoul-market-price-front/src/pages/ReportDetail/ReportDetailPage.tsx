@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   getReportById,
@@ -7,30 +6,16 @@ import {
   canUserViewReport,
   canUserDeleteReport,
 } from "@/features/report/services/reportService";
-import type { ReportItem } from "@/features/report/types/report.types";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 
 export default function ReportDetailPage() {
   const { reportId } = useParams();
   const navigate = useNavigate();
   const loginUser = useAuthStore((state) => state.user);
-  const [report, setReport] = useState<ReportItem | null>(null);
-
-  useEffect(() => {
-    if (reportId) {
-      const data = getReportById(Number(reportId));
-      if (data) {
-        setReport(data);
-      }
-    }
-  }, [reportId]);
+  const report = reportId ? getReportById(Number(reportId)) : undefined;
 
   const handleGoToList = () => {
-    if (window.history.length > 1) {
-      navigate(-1);
-    } else {
-      navigate("/report");
-    }
+    navigate("/report");
   };
 
   if (!report) {
@@ -38,17 +23,17 @@ export default function ReportDetailPage() {
       <div className="w-full min-h-screen bg-[#F5FAFC] text-[#13202B] py-16 px-4 flex flex-col items-center justify-center">
         <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[16px] p-8 max-w-[460px] text-center space-y-4 shadow-xs">
           <p className="text-[16px] font-bold text-[#123047]">
-            해당 신고 내역을 찾을 수 없습니다.
+            해당 문의 내역을 찾을 수 없습니다.
           </p>
           <p className="text-[13px] text-[#6B7280]">
-            존재하지 않거나 삭제된 신고 게시글입니다.
+            존재하지 않거나 삭제된 문의입니다.
           </p>
           <button
             type="button"
             onClick={handleGoToList}
             className="inline-block px-5 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[13px] font-bold rounded-[8px] border-none cursor-pointer"
           >
-            신고 목록으로 이동
+            문의 목록으로 이동
           </button>
         </div>
       </div>
@@ -63,13 +48,13 @@ export default function ReportDetailPage() {
       <div className="w-full min-h-screen bg-[#F5FAFC] text-[#13202B] py-16 px-4 flex flex-col items-center justify-center">
         <div className="bg-[#FFFFFF] border border-rose-200 rounded-[16px] p-8 max-w-[480px] text-center space-y-4 shadow-xs">
           <span className="inline-block px-3 py-1 rounded-full text-[12px] font-extrabold bg-rose-100 text-rose-700">
-            비공개 신고글 보호
+            비공개 문의 보호
           </span>
           <h2 className="text-[18px] font-extrabold text-[#123047]">
             열람 권한이 없는 비공개 게시글입니다
           </h2>
           <p className="text-[13px] text-[#6B7280] leading-relaxed">
-            신고자의 개인정보 및 제보 내용 보호를 위해{" "}
+            문의자의 개인정보와 문의 내용 보호를 위해{" "}
             <strong>작성자 본인 및 관리자</strong>만 내용을 확인할 수 있습니다.
           </p>
           <div className="flex items-center justify-center gap-3 pt-2">

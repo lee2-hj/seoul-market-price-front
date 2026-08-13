@@ -3,8 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-import * as api from "@/api/api";
-import { getBoardPostApi, updateBoardPostApi, deleteBoardPostApi } from "@/api/api";
+import {
+  deleteBoardAttachmentApi,
+  deleteBoardPostApi,
+  getBoardAttachmentsApi,
+  getBoardPostApi,
+  updateBoardPostApi,
+  uploadBoardAttachmentsApi,
+} from "@/api/api";
 import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import type {
@@ -60,23 +66,13 @@ export default function BoardEditPage() {
 
   const { data: existingAttachments = [] } = useQuery<AttachmentResponse[]>({
     queryKey: ["boardAttachments", boardId],
-    queryFn: async () => {
-      const getAttachmentsFn = (api as any).getBoardAttachmentsApi;
-      if (typeof getAttachmentsFn === "function") {
-        return await getAttachmentsFn(boardId);
-      }
-      return [];
-    },
+    queryFn: () => getBoardAttachmentsApi(boardId),
     enabled: !isNaN(boardId) && boardId > 0,
   });
 
   const deleteAttachmentMutation = useMutation({
-    mutationFn: async (attachmentId: number) => {
-      const deleteFn = (api as any).deleteBoardAttachmentApi;
-      if (typeof deleteFn === "function") {
-        await deleteFn(boardId, attachmentId);
-      }
-    },
+    mutationFn: (attachmentId: number) =>
+      deleteBoardAttachmentApi(boardId, attachmentId),
     onSuccess: () => {
       alert("첨부파일이 삭제되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["boardAttachments", boardId] });
@@ -120,21 +116,18 @@ export default function BoardEditPage() {
       });
 
       if (data.file) {
-        const uploadFn = (api as any).uploadBoardAttachmentsApi;
-        if (typeof uploadFn === "function") {
-          try {
-            await uploadFn(boardId, [data.file]);
-          } catch (uploadErr) {
-            console.error("첨부파일 추가 업로드 실패:", uploadErr);
-            alert("게시글은 수정되었으나 첨부파일 업로드 중 오류가 발생했습니다.");
-          }
+        try {
+          await uploadBoardAttachmentsApi(boardId, [data.file]);
+        } catch (uploadErr) {
+          console.error("첨부파일 추가 업로드 실패:", uploadErr);
+          alert("게시글은 수정되었으나 첨부파일 업로드 중 오류가 발생했습니다.");
         }
       }
     },
     onSuccess: () => {
       alert("게시글이 성공적으로 수정되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["board", boardId] });
-      queryClient.invalidateQueries({ queryKey: ["boards"] });
+      queryClient.invalidateQueries({ queryKey: ["boardPosts"] });
       queryClient.invalidateQueries({ queryKey: ["boardAttachments", boardId] });
       navigate(`/board/${boardId}`);
     },
@@ -147,7 +140,7 @@ export default function BoardEditPage() {
     mutationFn: () => deleteBoardPostApi(boardId),
     onSuccess: () => {
       alert("게시글이 삭제되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["boards"] });
+      queryClient.invalidateQueries({ queryKey: ["boardPosts"] });
       navigate("/board");
     },
     onError: (err: Error) => {
