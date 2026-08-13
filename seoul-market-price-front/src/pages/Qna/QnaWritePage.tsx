@@ -312,7 +312,7 @@ function QnaWritePage() {
       };
       try {
         const storedPosts = localStorage.getItem("qnaPosts");
-        const localPosts = storedPosts ? (JSON.parse(storedPosts) as any[]) : [];
+        const localPosts = storedPosts ? (JSON.parse(storedPosts) as unknown[]) : [];
         localStorage.setItem("qnaPosts", JSON.stringify([newPostObj, ...localPosts]));
       } catch {
         /* 파싱 실패 무시 */
