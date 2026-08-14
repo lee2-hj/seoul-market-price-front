@@ -14,6 +14,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
+import { cn } from "../../lib/utils";
 import {
   Pagination,
   PaginationContent,
@@ -62,7 +63,9 @@ const getLocalPosts = (): QnaPost[] => {
       if (Array.isArray(parsed)) {
         return (parsed as QnaPost[]).filter((p) => !SAMPLE_POST_IDS.has(p.id));
       }
-    } catch { /* 무시 */ }
+    } catch {
+      /* 무시 */
+    }
   }
   return [];
 };
@@ -76,10 +79,20 @@ interface QnaRowProps {
   isAdmin?: boolean;
 }
 
-function QnaRow({ item, displayNo, onClick, currentUserId, isAdmin }: QnaRowProps) {
-  const answered = typeof item.answer === "string" && item.answer.trim().length > 0;
+function QnaRow({
+  item,
+  displayNo,
+  onClick,
+  currentUserId,
+  isAdmin,
+}: QnaRowProps) {
+  const answered =
+    typeof item.answer === "string" && item.answer.trim().length > 0;
   const isSecret = item.publicQuestion === false || item.isPublic === false;
-  const isMyPost = Boolean(currentUserId) && Boolean(item.authorId) && String(currentUserId) === String(item.authorId);
+  const isMyPost =
+    Boolean(currentUserId) &&
+    Boolean(item.authorId) &&
+    String(currentUserId) === String(item.authorId);
   const canAccess = !isSecret || isMyPost || isAdmin;
 
   const displayTitle = isSecret
@@ -89,12 +102,12 @@ function QnaRow({ item, displayNo, onClick, currentUserId, isAdmin }: QnaRowProp
     : item.title;
 
   return (
-    <TableRow className="bg-white hover:bg-[#f8faf7]">
-      <TableCell className="w-[9%] text-center text-[#5a6459] font-medium align-middle">
+    <TableRow className={cn('bg-white', 'hover:bg-[#F5FAFC]')}>
+      <TableCell className={cn('w-[9%]', 'text-center', 'text-[#6B7280]', 'font-medium', 'align-middle')}>
         {displayNo}
       </TableCell>
 
-      <TableCell className="w-[10%] text-center align-middle">
+      <TableCell className={cn('w-[10%]', 'text-center', 'align-middle')}>
         <span
           className={
             answered
@@ -106,21 +119,21 @@ function QnaRow({ item, displayNo, onClick, currentUserId, isAdmin }: QnaRowProp
         </span>
       </TableCell>
 
-      <TableCell className="w-[43%] text-left max-w-0 align-middle py-3">
+      <TableCell className={cn('w-[43%]', 'text-left', 'max-w-0', 'align-middle', 'py-3')}>
         <button
           type="button"
           onClick={() => onClick(item)}
-          className="block truncate w-full text-[14px] font-semibold text-[#13202B] hover:text-[#0F8AA8] text-left bg-transparent border-0 p-0 cursor-pointer"
+          className={cn('block', 'truncate', 'w-full', 'text-[14px]', 'font-semibold', 'text-[#13202B]', 'hover:text-[#0F8AA8]', 'text-left', 'bg-transparent', 'border-0', 'p-0', 'cursor-pointer')}
           title={displayTitle}
         >
           {displayTitle}
         </button>
 
         {answered && (
-          <div className="flex items-center gap-1.5 mt-1">
-            <span className="text-[11px] text-[#6B7280] font-semibold">↳</span>
-            <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#0F766E]">
-              <span className="inline-block px-1.5 py-0.5 rounded bg-[#EBF5F8] text-[10px] font-extrabold text-[#0F766E]">
+          <div className={cn('flex', 'items-center', 'gap-1.5', 'mt-1')}>
+            <span className={cn('text-[11px]', 'text-[#6B7280]', 'font-semibold')}>↳</span>
+            <span className={cn('inline-flex', 'items-center', 'gap-1', 'text-[12px]', 'font-semibold', 'text-[#0F766E]')}>
+              <span className={cn('inline-block', 'px-1.5', 'py-0.5', 'rounded', 'bg-[#EBF5F8]', 'text-[10px]', 'font-extrabold', 'text-[#0F766E]')}>
                 답변 완료
               </span>
               <span>관리자 답변이 등록되었습니다.</span>
@@ -129,19 +142,63 @@ function QnaRow({ item, displayNo, onClick, currentUserId, isAdmin }: QnaRowProp
         )}
       </TableCell>
 
-      <TableCell className="w-[14%] text-center text-[#6B7280] align-middle">
+      <TableCell className={cn('w-[14%]', 'text-center', 'text-[#6B7280]', 'align-middle')}>
         {item.author}
       </TableCell>
 
-      <TableCell className="w-[15%] text-center text-[#6B7280] align-middle">
+      <TableCell className={cn('w-[15%]', 'text-center', 'text-[#6B7280]', 'align-middle')}>
         {item.date || "-"}
       </TableCell>
 
-      <TableCell className="w-[9%] text-center text-[#6B7280] align-middle">
+      <TableCell className={cn('w-[9%]', 'text-center', 'text-[#6B7280]', 'align-middle')}>
         {item.views}
       </TableCell>
     </TableRow>
   );
+}
+
+/* --- 커스텀 훅 (데이터 페칭) --- */
+function useQnaData() {
+  const { data: serverQnas, isLoading } = useQuery({
+    queryKey: ["qnasList"],
+    queryFn: () => getQnasApi(0, 50),
+    staleTime: 1000 * 60 * 3,
+  });
+
+  const posts = useMemo(() => {
+    const local = getLocalPosts();
+    const serverItems = serverQnas?.content || [];
+
+    const apiPosts: QnaPost[] = serverItems.map((item) => ({
+      id: item.id,
+      authorId: item.writerLoginId || "user",
+      author: item.writerName || item.writerLoginId || "작성자",
+      title: item.title,
+      content: "",
+      date: item.createdAt
+        ? item.createdAt.split("T")[0].replace(/-/g, ".")
+        : "-",
+      views: item.viewCount || 0,
+      answer:
+        item.answerStatus === "ANSWERED" || item.answeredAt
+          ? "네, 답변되었습니다."
+          : undefined,
+      publicQuestion: item.publicQuestion,
+    }));
+
+    const combined = [...local];
+    apiPosts
+      .filter((apiItem) => !SAMPLE_POST_IDS.has(apiItem.id))
+      .forEach((apiItem) => {
+        const idx = combined.findIndex((p) => p.id === apiItem.id);
+        if (idx >= 0) combined[idx] = { ...combined[idx], ...apiItem };
+        else combined.push(apiItem);
+      });
+
+    return combined.sort(sortPosts);
+  }, [serverQnas]);
+
+  return { posts, isLoading };
 }
 
 /* 메인 컴포넌트 */
@@ -158,46 +215,20 @@ export default function QnaPage() {
     return role === "ADMIN" || role === "ROLE_ADMIN";
   }, [currentUser]);
 
-  /* React Query: Q&A 목록 조회 */
-  const { data: serverQnas } = useQuery({
-    queryKey: ["qnasList"],
-    queryFn: () => getQnasApi(0, 50),
-    staleTime: 1000 * 60 * 3,
-  });
-
-  /* 데이터 병합 */
-  const posts = useMemo(() => {
-    const local = getLocalPosts();
-    const serverItems = serverQnas?.content || [];
-
-    const apiPosts: QnaPost[] = serverItems.map((item) => ({
-      id: item.id,
-      authorId: item.writerLoginId || "user",
-      author: item.writerName || item.writerLoginId || "작성자",
-      title: item.title,
-      content: "",
-      date: item.createdAt ? item.createdAt.split("T")[0].replace(/-/g, ".") : "-",
-      views: item.viewCount || 0,
-      answer: item.answerStatus === "ANSWERED" || item.answeredAt ? "네, 답변되었습니다." : undefined,
-      publicQuestion: item.publicQuestion,
-    }));
-
-    const combined = [...local];
-    apiPosts
-      .filter((apiItem) => !SAMPLE_POST_IDS.has(apiItem.id))
-      .forEach((apiItem) => {
-        const idx = combined.findIndex((p) => p.id === apiItem.id);
-        if (idx >= 0) combined[idx] = { ...combined[idx], ...apiItem };
-        else combined.push(apiItem);
-      });
-
-    return combined.sort(sortPosts);
-  }, [serverQnas]);
+  /* 데이터 조회 */
+  const { posts } = useQnaData();
 
   /* 검색 및 페이지네이션 상태 */
-  const urlTypeParam = (searchParams.get("searchType") || searchParams.get("type") || "title") as SearchType;
-  const validSearchType: SearchType = ["title", "author", "content"].includes(urlTypeParam) ? urlTypeParam : "title";
-  const urlKeyword = searchParams.get("keyword") || searchParams.get("searchKeyword") || "";
+  const urlTypeParam = (searchParams.get("searchType") ||
+    searchParams.get("type") ||
+    "title") as SearchType;
+  const validSearchType: SearchType = ["title", "author", "content"].includes(
+    urlTypeParam,
+  )
+    ? urlTypeParam
+    : "title";
+  const urlKeyword =
+    searchParams.get("keyword") || searchParams.get("searchKeyword") || "";
   const rawPage = parseInt(searchParams.get("page") || "1", 10);
   const pageFromUrl = isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
 
@@ -224,7 +255,10 @@ export default function QnaPage() {
     });
   }, [posts, urlKeyword, validSearchType]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredPosts.length / POSTS_PER_PAGE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredPosts.length / POSTS_PER_PAGE),
+  );
   const currentPage = Math.min(pageFromUrl, totalPages);
 
   useEffect(() => {
@@ -259,7 +293,10 @@ export default function QnaPage() {
 
   const handleRowClick = (item: QnaPost) => {
     const isSecret = item.publicQuestion === false || item.isPublic === false;
-    const isMyPost = Boolean(currentUserId) && Boolean(item.authorId) && String(currentUserId) === String(item.authorId);
+    const isMyPost =
+      Boolean(currentUserId) &&
+      Boolean(item.authorId) &&
+      String(currentUserId) === String(item.authorId);
 
     if (isSecret && !isMyPost && !isAdmin) {
       return alert("작성자 본인과 관리자만 확인할 수 있는 비공개 글입니다.");
@@ -276,84 +313,164 @@ export default function QnaPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8">
-      <div className="max-w-[1000px] mx-auto space-y-8">
-        {/* 상단 헤더 */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[#DCE8ED]">
-          <div>
-            <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
-              CUSTOMER CENTER
-            </span>
-            <h1 className="text-[28px] font-black text-[#13202B] tracking-tight">질의응답 (Q&amp;A)</h1>
-            <p className="text-[14px] text-[#6B7280] mt-1 font-medium">
-              서비스 이용에 대한 궁금한 점을 질문해 주시면 성심성의껏 답변해 드립니다.
-            </p>
-          </div>
-          <div>
-            <Button
+    <div className={cn('min-h-screen', 'bg-[#F5FAFC]', 'py-12', 'px-5', 'sm:px-8')}>
+      <div className={cn('max-w-[1000px]', 'mx-auto', 'space-y-8')}>
+        {/* 헤더 */}
+        <div className={cn('text-center', 'space-y-2', 'mb-8')}>
+          <span className={cn('inline-block', 'px-3', 'py-1', 'bg-[#E6F4F2]', 'text-[#0F766E]', 'text-[11px]', 'font-extrabold', 'tracking-wider', 'rounded-full', 'uppercase')}>
+            SSABU CUSTOMER CENTER
+          </span>
+          <h1 className={cn('text-[36px]', 'font-black', 'text-[#123047]', 'tracking-tight')}>
+            질의응답 (Q&amp;A)
+          </h1>
+          <p className={cn('text-[15px]', 'text-[#6B7280]')}>
+            서비스 이용에 대한 궁금한 점을 질문해 주시면 성심성의껏 답변해
+            드립니다.
+          </p>
+        </div>
+
+        {/* 카테고리 탭 */}
+        <div className={cn('flex', 'justify-center', 'mb-6')}>
+          <div className={cn('flex', 'items-center', 'gap-2', 'p-1', 'bg-white', 'rounded-[10px]', 'border', 'border-[#DCE8ED]', 'shadow-sm')}>
+            <button
               type="button"
-              onClick={() => {
-                if (!isLoggedIn) {
-                  alert("로그인 후 질의응답을 작성할 수 있습니다.");
-                  return navigate("/login");
-                }
-                navigate("/qna/write");
-              }}
-              className="bg-[#0F8AA8] hover:bg-[#0B5E73] text-white font-bold h-11 px-5 rounded-[10px] shadow-sm flex items-center gap-2 cursor-pointer transition-all"
+              onClick={() => navigate("/board")}
+              className={cn('py-2.5', 'px-6', 'text-[14px]', 'font-bold', 'rounded-[8px]', 'text-[#6B7280]', 'hover:bg-[#F0F7FA]')}
             >
-              <span>질문 작성하기</span>
-            </Button>
+              게시판
+            </button>
+            <button
+              type="button"
+              className={cn('py-2.5', 'px-6', 'text-[14px]', 'font-bold', 'rounded-[8px]', 'bg-[#123047]', 'text-white')}
+            >
+              질의응답
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/faq")}
+              className={cn('py-2.5', 'px-6', 'text-[14px]', 'font-bold', 'rounded-[8px]', 'text-[#6B7280]', 'hover:bg-[#F0F7FA]')}
+            >
+              자주 묻는 질문
+            </button>
           </div>
         </div>
 
-        {/* 검색 폼 */}
-        <div className="flex justify-end">
-          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 max-w-[400px] w-full">
+        {/* 검색 영역 */}
+        <div className={cn('bg-[#FFFFFF]', 'border', 'border-[#DCE8ED]', 'rounded-[12px]', 'p-5', 'mb-6', 'shadow-xs')}>
+          <form
+            onSubmit={handleSearchSubmit}
+            className={cn('flex', 'flex-col', 'md:flex-row', 'items-center', 'gap-3')}
+          >
             <select
               value={searchType}
               onChange={(e) => setSearchType(e.target.value as SearchType)}
-              className="h-10 px-3 bg-white border border-[#DCE8ED] rounded-[8px] text-[13px] font-semibold text-[#13202B] outline-none focus:border-[#0F8AA8]"
+              className={cn('h-[44px]', 'w-full', 'md:w-[130px]', 'rounded-[7px]', 'border', 'border-[#DCE8ED]', 'bg-[#F5FAFC]', 'px-3', 'text-[14px]', 'text-[#13202B]', 'focus:outline-none', 'focus:border-[#0F8AA8]')}
             >
               <option value="title">제목</option>
               <option value="author">작성자</option>
-              <option value="content">내용</option>
             </select>
             <Input
               type="text"
               placeholder="검색어를 입력하세요"
               value={searchKeyword}
               onChange={(e) => setSearchKeyword(e.target.value)}
-              className="h-10 bg-white border-[#DCE8ED] text-[13px]"
+              className={cn('h-[44px]', 'flex-1', 'bg-[#F5FAFC]', 'border-[#DCE8ED]', 'text-[14px]', 'text-[#13202B]', 'placeholder:text-[#9CA3AF]', 'focus-visible:ring-[#0F8AA8]')}
             />
-            <Button type="submit" className="h-10 px-4 bg-[#13202B] hover:bg-[#0F172A] text-white font-bold rounded-[8px]">
-              검색
-            </Button>
+            <div className={cn('flex', 'items-center', 'gap-2', 'w-full', 'md:w-auto')}>
+              <Button
+                type="submit"
+                className={cn('h-[44px]', 'px-6', 'bg-[#0F8AA8]', 'hover:bg-[#0B5E73]', 'text-white', 'text-[14px]', 'font-bold', 'rounded-[7px]')}
+              >
+                검색
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setSearchKeyword("");
+                  setSearchType("title");
+                  setSearchParams((prev) => {
+                    const newParams = new URLSearchParams(prev);
+                    newParams.delete("searchType");
+                    newParams.delete("type");
+                    newParams.delete("keyword");
+                    newParams.delete("searchKeyword");
+                    newParams.set("page", "1");
+                    return newParams;
+                  });
+                }}
+                className={cn('h-[44px]', 'px-5', 'bg-white', 'border-[#DCE8ED]', 'text-[#6B7280]', 'hover:bg-[#F0F7FA]', 'text-[14px]', 'font-bold', 'rounded-[7px]')}
+              >
+                초기화
+              </Button>
+            </div>
           </form>
         </div>
 
-        {/* 목록 테이블 */}
-        <div className="border border-[#DCE8ED] rounded-[16px] overflow-hidden bg-white shadow-sm">
-          <Table>
-            <TableHeader className="bg-[#F5FAFC] border-b border-[#DCE8ED]">
-              <TableRow>
-                <TableHead className="w-[9%] text-center text-[#13202B] font-extrabold text-[13px]">번호</TableHead>
-                <TableHead className="w-[10%] text-center text-[#13202B] font-extrabold text-[13px]">상태</TableHead>
-                <TableHead className="w-[43%] text-left text-[#13202B] font-extrabold text-[13px]">제목</TableHead>
-                <TableHead className="w-[14%] text-center text-[#13202B] font-extrabold text-[13px]">작성자</TableHead>
-                <TableHead className="w-[15%] text-center text-[#13202B] font-extrabold text-[13px]">작성일</TableHead>
-                <TableHead className="w-[9%] text-center text-[#13202B] font-extrabold text-[13px]">조회수</TableHead>
+        {/* 건수 및 글쓰기 버튼 */}
+        <div className={cn('flex', 'items-center', 'justify-between', 'mb-3', 'min-h-[44px]')}>
+          <p className={cn('text-[14px]', 'text-[#6B7280]')}>
+            전체{" "}
+            <strong className={cn('text-[#0F8AA8]', 'font-extrabold')}>
+              {filteredPosts.length}
+            </strong>
+            개의 게시글이 있습니다.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (!isLoggedIn) {
+                alert("로그인 후 질의응답을 작성할 수 있습니다.");
+                return navigate("/login");
+              }
+              navigate("/qna/write");
+            }}
+            className={cn('inline-flex', 'items-center', 'justify-center', 'min-w-[94px]', 'h-[42px]', 'px-5', 'bg-[#0F8AA8]', 'hover:bg-[#0B5E73]', 'text-white', 'text-[14px]', 'font-bold', 'rounded-[7px]', 'border', 'border-[#0F8AA8]', 'cursor-pointer', 'shadow-xs')}
+          >
+            글쓰기
+          </button>
+        </div>
+
+        {/* 테이블 */}
+        <div className={cn('w-full', 'bg-white', 'border', 'border-[#DCE8ED]', 'rounded-[12px]', 'shadow-xs', 'overflow-hidden')}>
+          <Table className="min-w-[820px]">
+            <TableHeader>
+              <TableRow className={cn('bg-[#F0F7FA]', 'border-b', 'border-[#DCE8ED]')}>
+                <TableHead className={cn('w-[9%]', 'text-center', 'text-[#123047]', 'font-bold')}>
+                  번호
+                </TableHead>
+                <TableHead className={cn('w-[10%]', 'text-center', 'text-[#123047]', 'font-bold')}>
+                  상태
+                </TableHead>
+                <TableHead className={cn('w-[43%]', 'text-center', 'text-[#123047]', 'font-bold')}>
+                  제목
+                </TableHead>
+                <TableHead className={cn('w-[14%]', 'text-center', 'text-[#123047]', 'font-bold')}>
+                  작성자
+                </TableHead>
+                <TableHead className={cn('w-[15%]', 'text-center', 'text-[#123047]', 'font-bold')}>
+                  작성일
+                </TableHead>
+                <TableHead className={cn('w-[9%]', 'text-center', 'text-[#123047]', 'font-bold')}>
+                  조회수
+                </TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody className="divide-y divide-[#DCE8ED]">
+            <TableBody className={cn('divide-y', 'divide-[#DCE8ED]')}>
               {paginatedPosts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-40 text-center text-[#6B7280] font-medium">
+                  <TableCell
+                    colSpan={6}
+                    className={cn('h-40', 'text-center', 'text-[#6B7280]', 'font-medium')}
+                  >
                     등록된 질의응답이 없습니다.
                   </TableCell>
                 </TableRow>
               ) : (
                 paginatedPosts.map((post, idx) => {
-                  const displayNo = filteredPosts.length - ((currentPage - 1) * POSTS_PER_PAGE + idx);
+                  const displayNo =
+                    filteredPosts.length -
+                    ((currentPage - 1) * POSTS_PER_PAGE + idx);
                   return (
                     <QnaRow
                       key={post.id}
@@ -372,30 +489,44 @@ export default function QnaPage() {
 
         {/* 페이지네이션 */}
         {totalPages > 1 && (
-          <div className="flex justify-center pt-2">
+          <div className={cn('flex', 'justify-center', 'pt-2')}>
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
-                    onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                    className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    onClick={() =>
+                      handlePageChange(Math.max(1, currentPage - 1))
+                    }
+                    className={
+                      currentPage === 1
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
                   />
                 </PaginationItem>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                  <PaginationItem key={pageNum}>
-                    <PaginationLink
-                      isActive={pageNum === currentPage}
-                      onClick={() => handlePageChange(pageNum)}
-                      className="cursor-pointer"
-                    >
-                      {pageNum}
-                    </PaginationLink>
-                  </PaginationItem>
-                ))}
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  (pageNum) => (
+                    <PaginationItem key={pageNum}>
+                      <PaginationLink
+                        isActive={pageNum === currentPage}
+                        onClick={() => handlePageChange(pageNum)}
+                        className="cursor-pointer"
+                      >
+                        {pageNum}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ),
+                )}
                 <PaginationItem>
                   <PaginationNext
-                    onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    onClick={() =>
+                      handlePageChange(Math.min(totalPages, currentPage + 1))
+                    }
+                    className={
+                      currentPage === totalPages
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
                   />
                 </PaginationItem>
               </PaginationContent>
