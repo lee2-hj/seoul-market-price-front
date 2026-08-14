@@ -10,10 +10,10 @@ import { Button } from "@/components/ui/button";
 
 type MenuLink = { to: string; label: string };
 
-const NAV_ITEMS: Array<{ label: string; to?: string; icon: typeof Search; links?: MenuLink[] }> = [
-  { label: "매물 검색", to: "/price", icon: Search },
+const NAV_ITEMS: Array<{ label: string; to?: string; icon: typeof Search; links?: MenuLink[]; hidden?: boolean }> = [
+  { label: "매물 검색", to: "/price", icon: Search, hidden: true },
   {
-    label: "지역별 비교",
+    label: "가격정보",
     icon: Map,
     links: [
       { to: "/price/compare-list", label: "지역별 비교(리스트)" },
@@ -49,35 +49,21 @@ const REGION_STORAGE_KEY = "ssabu_selected_region";
 const TEST_LATITUDE_STORAGE_KEY = "latitude";
 const TEST_LONGITUDE_STORAGE_KEY = "longitude";
 
-function getSavedRegion(): string {
-  const saved = localStorage.getItem(REGION_STORAGE_KEY);
-  return saved && SEOUL_DISTRICTS.includes(saved) ? saved : "중구";
-}
-
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `group relative flex h-[68px] items-center gap-2 whitespace-nowrap px-1 text-[13px] font-extrabold tracking-[-0.025em] transition-colors no-underline after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:rounded-t-full after:transition-colors ${isActive ? "text-[#0F8AA8] after:bg-[#0F8AA8]" : "text-[#13202B] after:bg-transparent hover:text-[#0F8AA8]"
   }`;
 
 function DesktopDropdown({ label, links, icon: Icon }: { label: string; links: MenuLink[]; icon: typeof Search }) {
-  const [dismissed, setDismissed] = useState(false);
-
   return (
-    <div
-      className={`${dismissed ? "" : "group"} relative flex h-[68px] items-center`}
-      onMouseLeave={() => setDismissed(false)}
-    >
+    <div className="group relative flex h-[68px] items-center">
       <button type="button" className="flex h-full items-center gap-2 border-0 bg-transparent px-1 text-[13px] font-extrabold tracking-[-0.025em] text-[#13202B] hover:text-[#0F8AA8]">
         <Icon className="size-[18px] stroke-[1.8]" />{label}<ChevronDown className="size-3.5" />
       </button>
-      <div className="invisible absolute left-1/2 top-[64px] z-50 w-[190px] -translate-x-1/2 translate-y-1 rounded-[10px] border border-[#DCE8ED] bg-white p-2 opacity-0 shadow-[0_12px_30px_rgba(18,48,71,0.12)] transition-all group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
+      <div className="invisible absolute left-1/2 top-[64px] z-50 w-[190px] -translate-x-1/2 translate-y-1 rounded-[10px] border border-[#DCE8ED] bg-white p-2 opacity-0 shadow-[0_12px_30px_rgba(18,48,71,0.12)] transition-all group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
         {links.map((item) => (
           <Link
             key={`${item.to}-${item.label}`}
             to={item.to}
-            onClick={(event) => {
-              setDismissed(true);
-              event.currentTarget.blur();
-            }}
             className="flex min-h-10 items-center rounded-[7px] px-3 text-[12px] font-semibold text-[#6B7280] no-underline hover:bg-[#E8F6F9] hover:text-[#0F8AA8]"
           >
             {item.label}
@@ -91,18 +77,15 @@ function DesktopDropdown({ label, links, icon: Icon }: { label: string; links: M
 export default function Header() {
   const user = useAuthStore((state) => state.user);
   const [open, setOpen] = useState(false);
-  const [savedRegion, setSavedRegion] = useState(() => getSavedRegion());
   const [locating, setLocating] = useState(false);
   const isAuthenticated = user !== null;
-  const region = user
-    ? user.preferredDistrict && SEOUL_DISTRICTS.includes(user.preferredDistrict)
+  const region =
+    user?.preferredDistrict && SEOUL_DISTRICTS.includes(user.preferredDistrict)
       ? user.preferredDistrict
-      : "중구"
-    : savedRegion;
+      : "중구";
 
   const handleRegionChange = (nextRegion: string) => {
     const normalizedRegion = nextRegion.trim();
-    setSavedRegion(normalizedRegion);
     localStorage.setItem(REGION_STORAGE_KEY, normalizedRegion);
 
     // 로그인 중 위치 조회 결과를 인증 사용자 상태에도 반영해야
@@ -231,7 +214,7 @@ export default function Header() {
         </Link>
 
         <nav className="ml-auto hidden h-[68px] items-center gap-8 lg:flex" aria-label="주요 메뉴">
-          {NAV_ITEMS.map((item) => item.links ? (
+          {NAV_ITEMS.filter((item) => !item.hidden).map((item) => item.links ? (
             <DesktopDropdown key={item.label} label={item.label} links={item.links} icon={item.icon} />
           ) : (
             <NavLink key={item.label} to={item.to!} className={linkClass}><item.icon className="size-[18px] stroke-[1.8]" />{item.label}</NavLink>
@@ -240,9 +223,9 @@ export default function Header() {
         </nav>
 
         <div className="hidden shrink-0 items-center gap-2.5 lg:flex">
-          <div className="flex h-[42px] items-center gap-1 text-[#123047]">
+          {isAuthenticated && <div className="flex h-[42px] items-center gap-1 text-[#123047]">
             <span className="text-[20px] font-extrabold">{region}</span>
-            {isAuthenticated && <button
+            <button
               type="button"
               onClick={handleLocate}
               disabled={locating}
@@ -251,8 +234,8 @@ export default function Header() {
               className="flex size-8 items-center justify-center rounded-full border-0 bg-transparent text-[#69747C] transition-colors hover:bg-[#E8F6F9] hover:text-[#0F8AA8] disabled:cursor-wait disabled:opacity-60"
             >
               {locating ? <LoaderCircle className="size-[18px] animate-spin" /> : <LocateFixed className="size-[18px]" />}
-            </button>}
-          </div>
+            </button>
+          </div>}
           {isAuthenticated ? (
             <>
               <span className="flex items-center gap-1.5 text-[13px] font-extrabold text-[#263329]"><UserRound className="size-4" />{user?.name}님</span>
@@ -274,17 +257,17 @@ export default function Header() {
         <div className="absolute left-1/2 top-[72px] max-h-[calc(100vh-78px)] w-[min(980px,calc(100%-36px))] -translate-x-1/2 overflow-y-auto rounded-b-[12px] border border-[#e5e8e4] bg-white px-5 py-4 shadow-[0_18px_35px_rgba(26,48,25,0.12)] max-[760px]:w-[calc(100%-24px)] lg:hidden">
           <nav className="mx-auto flex max-w-[720px] flex-col" aria-label="모바일 메뉴">
             <Link to="/" onClick={() => setOpen(false)} className="flex min-h-11 items-center text-[14px] font-extrabold no-underline">홈</Link>
-            {NAV_ITEMS.flatMap((item) => item.links ?? [{ to: item.to!, label: item.label }]).map((item) => (
+            {NAV_ITEMS.filter((item) => !item.hidden).flatMap((item) => item.links ?? [{ to: item.to!, label: item.label }]).map((item) => (
               <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>
             ))}
             {isAuthenticated && MYPAGE_LINKS.map((item) => <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>)}
-            <div className="mt-3 flex items-center gap-2 border-t border-[#e5e8e4] pt-3 text-[13px] font-extrabold text-[#344037]">
+            {isAuthenticated && <div className="mt-3 flex items-center gap-2 border-t border-[#e5e8e4] pt-3 text-[13px] font-extrabold text-[#344037]">
               <span>내 지역</span>
               <span className="ml-auto text-[20px]">{region}</span>
-              {isAuthenticated && <button type="button" onClick={handleLocate} disabled={locating} aria-label="현재 위치로 자치구 찾기" title="내 위치 보기" className="flex size-9 items-center justify-center rounded-full border-0 bg-transparent text-[#69747C] hover:bg-[#E8F6F9] hover:text-[#0F8AA8] disabled:cursor-wait disabled:opacity-60">
+              <button type="button" onClick={handleLocate} disabled={locating} aria-label="현재 위치로 자치구 찾기" title="내 위치 보기" className="flex size-9 items-center justify-center rounded-full border-0 bg-transparent text-[#69747C] hover:bg-[#E8F6F9] hover:text-[#0F8AA8] disabled:cursor-wait disabled:opacity-60">
                 {locating ? <LoaderCircle className="size-[18px] animate-spin" /> : <LocateFixed className="size-[18px]" />}
-              </button>}
-            </div>
+              </button>
+            </div>}
             <div className="mt-3 border-t border-[#e5e8e4] pt-3">
               {isAuthenticated ? <Button type="button" variant="outline" onClick={handleLogout} className="h-11 w-full rounded-[8px]">{user?.name}님 · 로그아웃</Button> : <Button asChild className="h-11 w-full rounded-[8px] bg-[#0F8AA8] text-white"><Link to="/login" onClick={() => setOpen(false)} className="no-underline">로그인</Link></Button>}
             </div>

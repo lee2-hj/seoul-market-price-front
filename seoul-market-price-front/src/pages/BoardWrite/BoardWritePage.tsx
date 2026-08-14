@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { createBoardPostApi, uploadBoardAttachmentsApi } from "@/api/api";
@@ -29,7 +29,7 @@ export default function BoardWritePage() {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     formState: { errors },
   } = useForm<BoardWriteFormData>({
     defaultValues: {
@@ -38,7 +38,7 @@ export default function BoardWritePage() {
     },
   });
 
-  const titleValue = watch("title") || "";
+  const titleValue = useWatch({ control, name: "title" }) || "";
 
   const createMutation = useMutation({
     mutationFn: async (data: { title: string; content: string; file: File | null }) => {

@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BarChart3, Building2, ChevronDown, HelpCircle, Map, RotateCcw, TrendingUp } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 
 import {
   DISTRICT_PRICES,
@@ -9,6 +10,8 @@ import {
 import SeoulDistrictMap from "@/features/region-map/components/SeoulDistrictMap";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { getLocalPreferredDistrict } from "@/features/member/utils/preferredDistrictStorage";
+import { getDongs, getSggs } from "@/features/location/services/locationService";
+import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 
 const NAV_ITEMS = [
   { label: "지역별 비교(리스트)", to: "/price/compare-list", icon: BarChart3 },
@@ -22,12 +25,55 @@ export default function RegionMapPage() {
     authUser?.myGu || getLocalPreferredDistrict(authUser?.userId);
   const [searchParams, setSearchParams] = useSearchParams();
   const [districtExpanded, setDistrictExpanded] = useState(true);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, []);
+
+  const { data: sggs = [], isLoading: isSggsLoading } = useQuery({
+    queryKey: ["location", "sggs"],
+    queryFn: getSggs,
+    staleTime: Infinity,
+  });
+
   const selectedDistrict =
     DISTRICT_PRICES.find((item) => item.name === searchParams.get("district")) ??
     DISTRICT_PRICES[0];
-  const selectedDong = selectedDistrict.dongs.includes(searchParams.get("dong") ?? "")
-    ? searchParams.get("dong")!
-    : selectedDistrict.dongs[0];
+  const [districtInput, setDistrictInput] = useState(selectedDistrict.name);
+
+  useEffect(() => {
+    let isActive = true;
+    queueMicrotask(() => {
+      if (isActive) setDistrictInput(selectedDistrict.name);
+    });
+    return () => {
+      isActive = false;
+    };
+  }, [selectedDistrict.name]);
+  const selectedSggCode =
+    sggs.find((sgg) => sgg.sggNm === selectedDistrict.name)?.sggCd ?? "";
+  const { data: dongs = [], isLoading: isDongsLoading } = useQuery({
+    queryKey: ["location", "dongs", selectedSggCode],
+    queryFn: () => getDongs(selectedSggCode),
+    enabled: Boolean(selectedSggCode),
+    staleTime: Infinity,
+  });
+  const dongNames = dongs.map((dong) => dong.dongNm);
+  const requestedDong = searchParams.get("dong") ?? "";
+  const selectedDong = dongNames.includes(requestedDong)
+    ? requestedDong
+    : dongNames[0] ?? "";
+  const [dongInput, setDongInput] = useState(selectedDong);
+
+  useEffect(() => {
+    let isActive = true;
+    queueMicrotask(() => {
+      if (isActive) setDongInput(selectedDong);
+    });
+    return () => {
+      isActive = false;
+    };
+  }, [selectedDong]);
 
   const sortedApartments = useMemo(
     () => [...selectedDistrict.apartments].sort((a, b) => b.salePrice - a.salePrice),
@@ -35,20 +81,29 @@ export default function RegionMapPage() {
   );
 
   const setRegion = useCallback((district: string, dong?: string) => {
-    const nextDistrict = DISTRICT_PRICES.find((item) => item.name === district)!;
-    setSearchParams({ district, dong: dong ?? nextDistrict.dongs[0] });
+    setSearchParams(dong ? { district, dong } : { district });
     setDistrictExpanded(true);
   }, [setSearchParams]);
 
-  const reset = () => setSearchParams({ district: "강남구", dong: "대치동" });
+  const handleDistrictInput = (value: string) => {
+    setDistrictInput(value);
+    if (sggs.some((sgg) => sgg.sggNm === value)) setRegion(value);
+  };
+
+  const handleDongInput = (value: string) => {
+    setDongInput(value);
+    if (dongNames.includes(value)) setRegion(selectedDistrict.name, value);
+  };
+
+  const reset = () => setSearchParams({ district: "강남구" });
 
   const dongPrices = useMemo(
     () =>
-      selectedDistrict.dongs.map((dong, index) => ({
+      dongNames.map((dong, index) => ({
         name: dong,
         averagePrice: Math.round(selectedDistrict.averagePrice * (1 + (index - 1.5) * 0.045) / 100) * 100,
       })),
-    [selectedDistrict],
+    [dongNames, selectedDistrict.averagePrice],
   );
 
   return (
@@ -98,15 +153,27 @@ export default function RegionMapPage() {
           <div className="flex flex-wrap gap-3 rounded-[20px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
             <label className="flex min-w-[240px] flex-1 items-center gap-3 text-[12px] font-bold">
               자치구 선택
-              <select value={selectedDistrict.name} onChange={(event) => setRegion(event.target.value)} className="h-11 flex-1 rounded-[8px] border border-[#CBD5E1] bg-white px-3 outline-none focus:border-[#0F8AA8]">
-                {DISTRICT_PRICES.map((district) => <option key={district.name}>{district.name}</option>)}
-              </select>
+              <AutocompleteInput
+                value={districtInput}
+                options={sggs.map((sgg) => sgg.sggNm)}
+                disabled={isSggsLoading}
+                onChange={handleDistrictInput}
+                onInvalidBlur={() => setDistrictInput(selectedDistrict.name)}
+                placeholder="자치구를 검색해 주세요"
+                className="h-11 rounded-[8px] border border-[#CBD5E1] bg-white px-3 outline-none focus:border-[#0F8AA8] disabled:bg-[#F1F5F9]"
+              />
             </label>
             <label className="flex min-w-[240px] flex-1 items-center gap-3 text-[12px] font-bold">
-              자치동 선택
-              <select value={selectedDong} onChange={(event) => setRegion(selectedDistrict.name, event.target.value)} className="h-11 flex-1 rounded-[8px] border border-[#CBD5E1] bg-white px-3 outline-none focus:border-[#0F8AA8]">
-                {selectedDistrict.dongs.map((dong) => <option key={dong}>{dong}</option>)}
-              </select>
+              행정동 선택
+              <AutocompleteInput
+                value={dongInput}
+                options={dongNames}
+                disabled={isDongsLoading || dongNames.length === 0}
+                onChange={handleDongInput}
+                onInvalidBlur={() => setDongInput(selectedDong)}
+                placeholder="행정동을 검색해 주세요"
+                className="h-11 rounded-[8px] border border-[#CBD5E1] bg-white px-3 outline-none focus:border-[#0F8AA8] disabled:bg-[#F1F5F9]"
+              />
             </label>
           </div>
 

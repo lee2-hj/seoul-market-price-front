@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -19,7 +19,6 @@ export default function ReportEditPage() {
   const { reportId } = useParams();
   const navigate = useNavigate();
   const loginUser = useAuthStore((state) => state.user);
-  const [isReady, setIsReady] = useState(false);
 
   const {
     register,
@@ -29,17 +28,20 @@ export default function ReportEditPage() {
   } = useForm<ReportEditFormData>();
 
   const numericReportId = Number(reportId);
+  const report = useMemo(
+    () => getReportById(numericReportId),
+    [numericReportId],
+  );
+  const canEdit = Boolean(report && canUserDeleteReport(report, loginUser));
 
   useEffect(() => {
-    const report = getReportById(numericReportId);
-
     if (!report) {
       alert("수정할 문의를 찾을 수 없습니다.");
       navigate("/report", { replace: true });
       return;
     }
 
-    if (!canUserDeleteReport(report, loginUser)) {
+    if (!canEdit) {
       alert("문의 수정 권한이 없습니다.");
       navigate(`/report/${report.id}`, { replace: true });
       return;
@@ -50,8 +52,7 @@ export default function ReportEditPage() {
       content: report.content,
       isSecret: report.isSecret,
     });
-    setIsReady(true);
-  }, [loginUser, navigate, numericReportId, reset]);
+  }, [canEdit, navigate, report, reset]);
 
   const onSubmit = (data: ReportEditFormData) => {
     const currentReport = getReportById(numericReportId);
@@ -75,7 +76,7 @@ export default function ReportEditPage() {
     navigate(`/report/${updated.id}`, { replace: true });
   };
 
-  if (!isReady) return null;
+  if (!report || !canEdit) return null;
 
   return (
     <div className="w-full min-h-screen bg-[#F5FAFC] text-[#13202B] py-10 px-4 sm:px-6 lg:px-8">

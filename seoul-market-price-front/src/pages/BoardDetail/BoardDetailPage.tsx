@@ -20,17 +20,6 @@ import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 
-// api.ts 담당자가 백엔드 CommentController 명세에 맞춰 변경할 시그니처
-const updateCommentApi = updateBoardCommentApi as unknown as (
-  boardId: number,
-  commentId: number,
-  data: { content: string },
-) => Promise<unknown>;
-const deleteCommentApi = deleteBoardCommentApi as unknown as (
-  boardId: number,
-  commentId: number,
-) => Promise<void>;
-
 function formatBoardDate(dateStr?: string): string {
   if (!dateStr) return "-";
   if (dateStr.includes("T")) {
@@ -38,6 +27,10 @@ function formatBoardDate(dateStr?: string): string {
     return `${d.replace(/-/g, ".")} ${t ? t.slice(0, 5) : ""}`.trim();
   }
   return dateStr.replace(/-/g, ".");
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 export default function BoardDetailPage() {
@@ -109,8 +102,8 @@ export default function BoardDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["boardPosts"] });
       navigate("/board");
     },
-    onError: (err: any) => {
-      alert(`삭제 실패: ${err.message || "삭제 권한이 없거나 오류가 발생했습니다."}`);
+    onError: (err: unknown) => {
+      alert(`삭제 실패: ${getErrorMessage(err, "삭제 권한이 없거나 오류가 발생했습니다.")}`);
     },
   });
 
@@ -121,33 +114,33 @@ export default function BoardDetailPage() {
       setCommentContent("");
       queryClient.invalidateQueries({ queryKey: ["boardComments", boardId] });
     },
-    onError: (err: any) => {
-      alert(`댓글 등록 실패: ${err.message || "오류가 발생했습니다."}`);
+    onError: (err: unknown) => {
+      alert(`댓글 등록 실패: ${getErrorMessage(err, "오류가 발생했습니다.")}`);
     },
   });
 
   // 댓글 수정 Mutation
   const updateCommentMutation = useMutation({
     mutationFn: ({ commentId, content }: { commentId: number; content: string }) =>
-      updateCommentApi(boardId, commentId, { content }),
+      updateBoardCommentApi(boardId, commentId, { content }),
     onSuccess: () => {
       setEditingCommentId(null);
       setEditingContent("");
       queryClient.invalidateQueries({ queryKey: ["boardComments", boardId] });
     },
-    onError: (err: any) => {
-      alert(`댓글 수정 실패: ${err.message || "수정 권한이 없거나 오류가 발생했습니다."}`);
+    onError: (err: unknown) => {
+      alert(`댓글 수정 실패: ${getErrorMessage(err, "수정 권한이 없거나 오류가 발생했습니다.")}`);
     },
   });
 
   // 댓글 삭제 Mutation
   const deleteCommentMutation = useMutation({
-    mutationFn: (commentId: number) => deleteCommentApi(boardId, commentId),
+    mutationFn: (commentId: number) => deleteBoardCommentApi(boardId, commentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["boardComments", boardId] });
     },
-    onError: (err: any) => {
-      alert(`댓글 삭제 실패: ${err.message || "삭제 권한이 없거나 오류가 발생했습니다."}`);
+    onError: (err: unknown) => {
+      alert(`댓글 삭제 실패: ${getErrorMessage(err, "삭제 권한이 없거나 오류가 발생했습니다.")}`);
     },
   });
 
