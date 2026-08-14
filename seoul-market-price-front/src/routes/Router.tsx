@@ -62,7 +62,7 @@ import FaqPage from "@/pages/Faq/FaqPage";
 import MarketTrendsPage from "@/pages/Trends/MarketTrendsPage";
 import ReportEditPage from "@/pages/ReportEdit/ReportEditPage";
 
-import RegionMapPage from "@/pages/RegionMap/RegionMapPage";
+// import RegionMapPage from "@/pages/RegionMap/RegionMapPage";
 
 import PriceCompareListPage from "../pages/PriceCompareList/PriceCompareListPage";
 
@@ -170,7 +170,7 @@ function Router() {
               모든 사용자 접근 가능
           ========================= */}
           <Route path="/price" element={<PricePage />} />
-          <Route path="/region-map" element={<RegionMapPage />} />
+          {/* <Route path="/region-map" element={<RegionMapPage />} /> */}
 
           {/* =========================
               Q&A 목록
