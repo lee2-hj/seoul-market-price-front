@@ -4,15 +4,15 @@ import { isLogin } from "@/features/auth/utils/auth";
 import {
   getStoredReports,
   REPORT_STATUS_MAP,
-  canUserViewReport,
   maskName,
 } from "@/features/report/services/reportService";
 import type { ReportItem } from "@/features/report/types/report.types";
-import { useAuthStore } from "@/features/auth/store/useAuthStore";
+
+const SECRET_REPORT_TITLE = "작성자와 관리자만 열람할 수 있는 비공개 문의글입니다.";
+const SECRET_REPORT_TARGET = "문의 대상 정보 비공개";
 
 export default function ReportPage() {
   const navigate = useNavigate();
-  const loginUser = useAuthStore((state) => state.user);
   const [reports] = useState<ReportItem[]>(getStoredReports);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [activeKeyword, setActiveKeyword] = useState("");
@@ -34,16 +34,13 @@ export default function ReportPage() {
   // 필터링된 문의 목록 (제목 전용 검색)
   const filteredReports = useMemo(() => {
     return reports.filter((item) => {
-      const isAccessible = canUserViewReport(item, loginUser);
-      const searchableTitle = isAccessible
-        ? item.title
-        : "작성자와 관리자만 열람할 수 있는 비공개 문의글입니다.";
+      const searchableTitle = item.isSecret ? SECRET_REPORT_TITLE : item.title;
       const matchKeyword =
         !activeKeyword ||
         searchableTitle.toLowerCase().includes(activeKeyword.toLowerCase());
       return matchKeyword;
     });
-  }, [reports, activeKeyword, loginUser]);
+  }, [reports, activeKeyword]);
 
   // 페이지네이션 계산
   const totalPages = Math.ceil(filteredReports.length / itemsPerPage) || 1;
@@ -152,7 +149,6 @@ export default function ReportPage() {
                 <tbody className="divide-y divide-[#DCE8ED] text-[13px]">
                   {paginatedReports.map((item) => {
                     const statusMeta = REPORT_STATUS_MAP[item.status];
-                    const canView = canUserViewReport(item, loginUser);
 
                     return (
                       <tr
@@ -175,14 +171,14 @@ export default function ReportPage() {
                                 </span>
                               )}
                               <span className="font-bold text-[#13202B] group-hover:text-[#0F8AA8] transition-colors truncate max-w-[480px]">
-                                {item.isSecret && !canView
-                                  ? "작성자와 관리자만 열람할 수 있는 비공개 문의글입니다."
+                                {item.isSecret
+                                  ? SECRET_REPORT_TITLE
                                   : item.title}
                               </span>
                             </div>
                             <span className="text-[12px] text-[#6B7280] block mt-0.5 font-normal truncate max-w-[500px]">
-                              {item.isSecret && !canView
-                                ? "문의 대상 정보 비공개"
+                              {item.isSecret
+                                ? SECRET_REPORT_TARGET
                                 : `대상: ${item.targetProperty}`}
                             </span>
                           </Link>

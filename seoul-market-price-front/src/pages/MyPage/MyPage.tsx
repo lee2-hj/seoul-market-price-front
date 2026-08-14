@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { isLogin } from "@/features/auth/utils/auth";
@@ -8,8 +8,11 @@ import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { CheckCircle2 } from "lucide-react";
 import PassAuth from "@/features/auth/components/PassAuth";
 import { getBoardPostsApi, getBoardCommentsApi } from "@/api/api";
+import type { QnaPageResponse } from "@/api/api";
 import apiMiddleware from "@/api/middleware";
 import { getStoredReports, REPORT_STATUS_MAP } from "@/features/report/services/reportService";
+import { getSggs } from "@/features/location/services/locationService";
+import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 
 /**
  * 마이페이지 상단 선택 탭
@@ -19,7 +22,7 @@ type MyPageTab = "PROFILE" | "ACTIVITY";
 /**
  * 내 활동 서브 탭
  */
-type ActivityType = "POST" | "COMMENT" | "INQUIRY";
+type ActivityType = "POST" | "COMMENT" | "QNA" | "INQUIRY";
 
 /**
  * 로그인 방식
@@ -75,7 +78,7 @@ const sanitizePlainText = (val?: string | null): string => {
 /**
  * 휴대폰 번호 정규식 자동 포맷터 (01012345678 -> 010-1234-5678)
  */
-export const formatPhoneNumber = (value: string): string => {
+const formatPhoneNumber = (value: string): string => {
   if (!value) return "";
   const raw = value.replace(/[^0-9]/g, "");
   if (raw.length <= 3) return raw;
@@ -106,6 +109,35 @@ type MyPageSettings = {
   priceAlerts?: unknown[];
 };
 
+const normalizeIdentity = (value?: string | null): string =>
+  (value || "").trim().toLowerCase();
+
+function getStoredSocialProvider(): string {
+  return (
+    sessionStorage.getItem("social_provider") ||
+    localStorage.getItem("social_provider") ||
+    ""
+  );
+}
+
+function getSocialProviderName(userId: string, loginType: LoginType): string {
+  const storedProvider = normalizeIdentity(getStoredSocialProvider());
+  if (storedProvider.includes("kakao")) return "카카오";
+  if (storedProvider.includes("naver")) return "네이버";
+  if (storedProvider.includes("google")) return "구글";
+
+  const normalizedId = normalizeIdentity(userId);
+  if (normalizedId.includes("kakao")) return "카카오";
+  if (normalizedId.includes("naver")) return "네이버";
+  if (normalizedId.includes("google")) return "구글";
+  if (loginType === "SOCIAL" || userId.startsWith("enc:v1:")) return "구글";
+  return "";
+}
+
+function isSocialAccount(userId: string, loginType: LoginType): boolean {
+  return Boolean(getSocialProviderName(userId, loginType));
+}
+
 const DEFAULT_PROFILE: Profile = {
   loginType: "LOCAL",
   name: "",
@@ -116,14 +148,8 @@ const DEFAULT_PROFILE: Profile = {
   detailAddress: "",
 };
 
-const SEOUL_DISTRICTS = [
-  "강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구", "금천구",
-  "노원구", "도봉구", "동대문구", "동작구", "마포구", "서대문구", "서초구", "성동구",
-  "성북구", "송파구", "양천구", "영등포구", "용산구", "은평구", "종로구", "중구", "중랑구",
-];
-
 function getStorageKey(userId?: string): string {
-  const cleanId = (userId || "").trim().toLowerCase();
+  const cleanId = normalizeIdentity(userId);
   return cleanId ? `myPageSettings_${cleanId}` : "myPageSettings_guest";
 }
 
@@ -136,6 +162,13 @@ function getStoredMyPageSettings(userId?: string): MyPageSettings | null {
   } catch {
     return null;
   }
+}
+
+async function getMyQnas() {
+  const { data } = await apiMiddleware.get<QnaPageResponse>("/api/qnas/me", {
+    params: { page: 0, size: 100 },
+  });
+  return data;
 }
 
 export default function MyPage() {
@@ -157,23 +190,17 @@ export default function MyPage() {
   };
 
   const [activityType, setActivityType] = useState<ActivityType>("POST");
+  const { data: sggs = [], isLoading: isSggsLoading } = useQuery({
+    queryKey: ["location", "sggs"],
+    queryFn: getSggs,
+    staleTime: Infinity,
+  });
 
   // 초기 프로필 로드
   const [profile, setProfile] = useState<Profile>(() => {
-    const saved = getStoredMyPageSettings();
+    const saved = getStoredMyPageSettings(authUser?.userId);
     if (authUser) {
-      const storedProvider =
-        (typeof sessionStorage !== "undefined" && sessionStorage.getItem("social_provider")) ||
-        (typeof localStorage !== "undefined" && localStorage.getItem("social_provider"));
-      const isSocial =
-        Boolean(storedProvider) ||
-        authUser.userId?.toLowerCase().startsWith("kakao_") ||
-        authUser.userId?.toLowerCase().includes("kakao") ||
-        authUser.userId?.toLowerCase().startsWith("google_") ||
-        authUser.userId?.toLowerCase().includes("google") ||
-        authUser.userId?.toLowerCase().startsWith("naver_") ||
-        authUser.userId?.toLowerCase().includes("naver") ||
-        authUser.userId?.startsWith("enc:v1:");
+      const isSocial = isSocialAccount(authUser.userId || "", "LOCAL");
       const savedProfile: Partial<Profile> = saved?.profile || {};
       const resolvedName = sanitizePlainText(authUser.name) || sanitizePlainText(savedProfile.name);
       const resolvedUserId = sanitizePlainText(authUser.userId) || sanitizePlainText(savedProfile.userId);
@@ -200,7 +227,7 @@ export default function MyPage() {
   });
 
   const [preferredDistrict, setPreferredDistrict] = useState(() => {
-    const saved = getStoredMyPageSettings();
+    const saved = getStoredMyPageSettings(authUser?.userId);
     return saved?.preferredDistrict ?? "";
   });
 
@@ -330,60 +357,26 @@ export default function MyPage() {
     await executeWithdrawal(pwd);
   };
 
-  const { register, handleSubmit, setValue, reset, watch } = useForm<Profile>({
+  const { register, handleSubmit, setValue, reset, control } = useForm<Profile>({
     defaultValues: profile,
   });
 
-  const formValues = watch();
-  const emailValue = watch("email") || "";
+  const formValues = useWatch({ control });
+  const emailValue = useWatch({ control, name: "email" }) || "";
   const isEmailValid = useMemo(() => {
     return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(emailValue.trim());
   }, [emailValue]);
 
   // 소셜 로그인 감지 및 공급자명 판별
   const rawUserId = authUser?.userId || profile.userId || "";
-  const getSocialProviderName = (id: string, type: string) => {
-    const fromStorage =
-      (typeof sessionStorage !== "undefined" && sessionStorage.getItem("social_provider")) ||
-      (typeof localStorage !== "undefined" && localStorage.getItem("social_provider"));
-    if (fromStorage) return fromStorage;
-
-    const lower = (id || "").toLowerCase();
-    if (lower.startsWith("google_") || lower.includes("google")) return "구글";
-    if (lower.startsWith("kakao_") || lower.includes("kakao")) return "카카오";
-    if (lower.startsWith("naver_") || lower.includes("naver")) return "네이버";
-    if (type === "SOCIAL") return "구글";
-    if (rawUserId.startsWith("enc:v1:")) return "구글";
-    return "";
-  };
-
   const socialProvider = getSocialProviderName(rawUserId, profile.loginType);
-  const isSocialUser =
-    Boolean(socialProvider) ||
-    profile.loginType === "SOCIAL" ||
-    rawUserId.toLowerCase().startsWith("kakao_") ||
-    rawUserId.toLowerCase().startsWith("google_") ||
-    rawUserId.toLowerCase().startsWith("naver_") ||
-    rawUserId.toLowerCase().includes("kakao") ||
-    rawUserId.toLowerCase().includes("google") ||
-    rawUserId.toLowerCase().includes("naver") ||
-    rawUserId.startsWith("enc:v1:");
+  const isSocialUser = isSocialAccount(rawUserId, profile.loginType);
 
   // authUser 변경 시 해당 사용자 고유의 프로필 및 설정 동기화
   useEffect(() => {
     if (authUser?.userId) {
-      const storedProvider =
-        (typeof sessionStorage !== "undefined" && sessionStorage.getItem("social_provider")) ||
-        (typeof localStorage !== "undefined" && localStorage.getItem("social_provider"));
-      const isSocial =
-        Boolean(storedProvider) ||
-        authUser.userId?.toLowerCase().startsWith("kakao_") ||
-        authUser.userId?.toLowerCase().includes("kakao") ||
-        authUser.userId?.toLowerCase().startsWith("google_") ||
-        authUser.userId?.toLowerCase().includes("google") ||
-        authUser.userId?.toLowerCase().startsWith("naver_") ||
-        authUser.userId?.toLowerCase().includes("naver") ||
-        authUser.userId?.startsWith("enc:v1:");
+      let isActive = true;
+      const isSocial = isSocialAccount(authUser.userId, "LOCAL");
 
       const saved = getStoredMyPageSettings(authUser.userId);
       const resolvedName = sanitizePlainText(authUser.name) || sanitizePlainText(saved?.profile?.name);
@@ -399,12 +392,18 @@ export default function MyPage() {
 
       const nextDistrict = saved?.preferredDistrict ?? "";
 
-      setProfile(nextProfile);
-      setOriginalProfile(nextProfile);
-      reset(nextProfile);
+      queueMicrotask(() => {
+        if (!isActive) return;
+        setProfile(nextProfile);
+        setOriginalProfile(nextProfile);
+        reset(nextProfile);
+        setPreferredDistrict(nextDistrict);
+        setOriginalDistrict(nextDistrict);
+      });
 
-      setPreferredDistrict(nextDistrict);
-      setOriginalDistrict(nextDistrict);
+      return () => {
+        isActive = false;
+      };
     }
   }, [authUser, reset]);
 
@@ -418,14 +417,26 @@ export default function MyPage() {
   // 내가 작성한 게시글 필터링
   const myPosts = useMemo(() => {
     if (!boardData?.items || !authUser) return [];
-    const currentName = (authUser.name || "").trim().toLowerCase();
-    const currentId = (authUser.userId || "").trim().toLowerCase();
+    const currentName = normalizeIdentity(authUser.name);
+    const currentId = normalizeIdentity(authUser.userId);
 
-    return boardData.items.filter((item: any) => {
-      const author = (item.authorName || item.writer || item.author || "").trim().toLowerCase();
+    return boardData.items.filter((item) => {
+      const author = normalizeIdentity(item.authorName);
       return (currentName && author === currentName) || (currentId && author === currentId);
     });
   }, [boardData, authUser]);
+
+  const {
+    data: myQnaData,
+    isLoading: isMyQnasLoading,
+    isError: isMyQnasError,
+  } = useQuery({
+    queryKey: ["myQnas"],
+    queryFn: getMyQnas,
+    enabled: isLoggedIn,
+  });
+
+  const myQnas = myQnaData?.content ?? [];
 
   // 내가 작성한 댓글 조회 & 필터링
   const [myComments, setMyComments] = useState<
@@ -440,16 +451,23 @@ export default function MyPage() {
   const [isCommentsLoading, setIsCommentsLoading] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     if (!isLoggedIn || !authUser || !boardData?.items || boardData.items.length === 0) {
-      setMyComments([]);
-      return;
+      queueMicrotask(() => {
+        if (isMounted) setMyComments([]);
+      });
+      return () => {
+        isMounted = false;
+      };
     }
 
-    let isMounted = true;
-    setIsCommentsLoading(true);
+    queueMicrotask(() => {
+      if (isMounted) setIsCommentsLoading(true);
+    });
 
-    const currentName = (authUser.name || "").trim().toLowerCase();
-    const currentId = (authUser.userId || "").trim().toLowerCase();
+    const currentName = normalizeIdentity(authUser.name);
+    const currentId = normalizeIdentity(authUser.userId);
 
     // 상위 최근 게시글들에 대해 댓글을 병렬 조회하여 내가 작성한 댓글 추출
     Promise.all(
@@ -459,17 +477,9 @@ export default function MyPage() {
           if (!Array.isArray(comments)) return [];
 
           return comments
-            .filter((c: any) => {
-              const cAuthorName = (
-                c.writerName ||
-                c.name ||
-                ""
-              )
-                .trim()
-                .toLowerCase();
-              const cAuthorId = String(c.writerId || "")
-                .trim()
-                .toLowerCase();
+            .filter((c) => {
+              const cAuthorName = normalizeIdentity(c.writerName || c.name);
+              const cAuthorId = normalizeIdentity(String(c.writerId || ""));
 
               return (
                 (currentId && cAuthorId === currentId) ||
@@ -477,7 +487,7 @@ export default function MyPage() {
                 (currentId && cAuthorName === currentId)
               );
             })
-            .map((c: any) => ({
+            .map((c) => ({
               commentId: c.id || 0,
               boardId: post.boardId,
               boardTitle: post.title,
@@ -506,21 +516,21 @@ export default function MyPage() {
   }, [isLoggedIn, authUser, boardData]);
 
   // 내가 작성한 문의사항 조회 & 필터링
-  const myInquiries = (() => {
+  const myInquiries = useMemo(() => {
     if (!isLoggedIn || !authUser) return [];
     const allReports = getStoredReports();
-    const currentName = (authUser.name || "").trim().toLowerCase();
-    const currentId = (authUser.userId || "").trim().toLowerCase();
+    const currentName = normalizeIdentity(authUser.name);
+    const currentId = normalizeIdentity(authUser.userId);
 
     return allReports.filter((r) => {
-      const authorUserId = (r.authorUserId || "").trim().toLowerCase();
-      const authorName = (r.authorName || "").trim().toLowerCase();
+      const authorUserId = normalizeIdentity(r.authorUserId);
+      const authorName = normalizeIdentity(r.authorName);
       return (
         (currentId && authorUserId === currentId) ||
         (currentName && (authorName === currentName || authorName.startsWith(currentName.slice(0, 1))))
       );
     });
-  })();
+  }, [authUser, isLoggedIn]);
 
   // 폼이 수정되었는지 여부 계산 (Dirty check)
   const isFormDirty = useMemo(() => {
@@ -618,7 +628,7 @@ export default function MyPage() {
   // 이메일 인증 발송 및 검증
   const handleSendEmailCert = () => {
     if (!isLoggedIn) return alert("로그인 후 인증이 가능합니다.");
-    const emailVal = (watch("email") || "").trim();
+    const emailVal = emailValue.trim();
     if (!emailVal) {
       alert("이메일 주소를 먼저 입력해 주세요.");
       return;
@@ -838,7 +848,7 @@ export default function MyPage() {
                           className="flex-1 h-[48px] rounded-[8px] border border-[#DCE8ED] bg-[#F0F7FA] px-3.5 text-[15px] text-[#13202B] outline-none cursor-not-allowed font-medium"
                         />
                         <PassAuth
-                          phone={watch("phone")}
+                          phone={formValues.phone || ""}
                           onSuccess={handlePassSuccess}
                           className="h-[48px] px-5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white font-bold text-[14px] rounded-[8px] cursor-pointer whitespace-nowrap transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-xs shrink-0"
                         />
@@ -923,23 +933,17 @@ export default function MyPage() {
                     {/* ROW 6: 선호 지역 설정 */}
                     <div className="space-y-1.5 w-full">
                       <label className="text-[14px] font-bold text-[#13202B] block">선호 지역 설정</label>
-                      <select
+                      <AutocompleteInput
                         value={preferredDistrict}
-                        disabled={!isLoggedIn}
-                        onChange={(e) => setPreferredDistrict(e.target.value)}
-                        className={`w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA] ${
+                        options={sggs.map((sgg) => sgg.sggNm)}
+                        disabled={!isLoggedIn || isSggsLoading}
+                        onChange={setPreferredDistrict}
+                        onInvalidBlur={() => setPreferredDistrict(originalDistrict)}
+                        placeholder="선호 자치구를 검색해 주세요"
+                        className={`h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA] ${
                           !preferredDistrict ? "text-[#9CA3AF]" : "text-[#13202B]"
                         }`}
-                      >
-                        <option value="" disabled className="text-gray-400">
-                          선호지역을 설정해 주세요
-                        </option>
-                        {SEOUL_DISTRICTS.map((district) => (
-                          <option key={district} value={district} className="text-[#13202B]">
-                            {district}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
                   </div>
                 </div>
@@ -997,7 +1001,7 @@ export default function MyPage() {
                 <div className="text-center space-y-1 mb-6">
                   <h2 className="text-[20px] font-bold text-[#123047]">내 활동</h2>
                   <p className="text-[14px] text-[#6B7280]">
-                    내가 실제로 작성한 게시글, 댓글 및 문의사항 현황을 확인하고 바로 이동할 수 있습니다.
+                    내가 작성한 게시글, 댓글, 질의응답 및 문의사항 현황을 확인하고 바로 이동할 수 있습니다.
                   </p>
                 </div>
 
@@ -1024,6 +1028,17 @@ export default function MyPage() {
                     }
                   >
                     작성한 댓글 {isLoggedIn && !isCommentsLoading && `(${myComments.length})`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivityType("QNA")}
+                    className={
+                      activityType === "QNA"
+                        ? "h-[38px] px-4 rounded-[8px] bg-[#0F8AA8] border border-[#0F8AA8] text-white font-bold text-[14px] cursor-pointer shrink-0"
+                        : "h-[38px] px-4 rounded-[8px] bg-white border border-[#DCE8ED] text-[#6B7280] font-bold text-[14px] hover:bg-[#F0F7FA] cursor-pointer shrink-0"
+                    }
+                  >
+                    질의응답 {isLoggedIn && !isMyQnasLoading && `(${myQnas.length})`}
                   </button>
                   <button
                     type="button"
@@ -1152,6 +1167,87 @@ export default function MyPage() {
                             style={{ textDecoration: "none" }}
                           >
                             게시판 둘러보기 →
+                          </Link>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {activityType === "QNA" && (
+                    <>
+                      {isMyQnasLoading ? (
+                        <div className="p-12 text-center text-[#6B7280] text-[14px]">
+                          내가 작성한 질의응답을 불러오는 중입니다...
+                        </div>
+                      ) : isMyQnasError ? (
+                        <div className="p-12 text-center space-y-2">
+                          <p className="text-[15px] font-bold text-[#123047]">
+                            질의응답 내역을 불러오지 못했습니다.
+                          </p>
+                          <p className="text-[13px] text-[#6B7280]">
+                            잠시 후 다시 시도해 주세요.
+                          </p>
+                        </div>
+                      ) : myQnas.length > 0 ? (
+                        myQnas.map((qna) => {
+                          const isAnswered =
+                            qna.answerStatus === "ANSWERED" || Boolean(qna.answeredAt);
+                          const formattedDate = qna.createdAt?.includes("T")
+                            ? qna.createdAt.split("T")[0].replace(/-/g, ".")
+                            : qna.createdAt || "-";
+
+                          return (
+                            <Link
+                              key={qna.id}
+                              to={`/qna/${qna.id}`}
+                              className="flex items-center justify-between p-5 hover:bg-[#F0F7FA] transition-colors group no-underline text-inherit"
+                              style={{ textDecoration: "none", color: "inherit" }}
+                            >
+                              <div className="min-w-0 pr-4">
+                                <div className="flex items-center gap-2">
+                                  {!qna.publicQuestion && (
+                                    <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full border border-[#FECACA] bg-[#FEF2F2] text-[#DC2626] shrink-0">
+                                      비공개
+                                    </span>
+                                  )}
+                                  <span
+                                    className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full border shrink-0 ${
+                                      isAnswered
+                                        ? "border-[#BBE3C4] bg-[#EDF9F0] text-[#23813A]"
+                                        : "border-[#FAE3A8] bg-[#FFF8E6] text-[#B47500]"
+                                    }`}
+                                  >
+                                    {isAnswered ? "답변완료" : "답변대기"}
+                                  </span>
+                                  <strong className="text-[15px] font-bold text-[#123047] group-hover:text-[#0F8AA8] transition-colors block truncate no-underline">
+                                    {qna.title}
+                                  </strong>
+                                </div>
+                                <span className="text-[13px] text-[#6B7280] block mt-1.5 no-underline">
+                                  작성일 {formattedDate} · 조회수 {qna.viewCount}
+                                </span>
+                              </div>
+                              <b aria-hidden="true" className="text-[#0F8AA8] text-[24px] font-normal leading-none shrink-0 group-hover:translate-x-1 transition-transform no-underline">
+                                ›
+                              </b>
+                            </Link>
+                          );
+                        })
+                      ) : (
+                        <div className="p-12 text-center space-y-3">
+                          <div className="text-[32px]">❓</div>
+                          <p className="text-[15px] font-bold text-[#123047]">
+                            작성하신 질의응답이 없습니다.
+                          </p>
+                          <p className="text-[13px] text-[#6B7280]">
+                            서비스 이용 중 궁금한 점을 질문해보세요!
+                          </p>
+                          <Link
+                            to="/qna/write"
+                            className="inline-block px-5 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[13px] font-bold rounded-[8px] transition-colors shadow-xs no-underline"
+                            style={{ textDecoration: "none" }}
+                          >
+                            질의응답 작성하러 가기 →
                           </Link>
                         </div>
                       )}
