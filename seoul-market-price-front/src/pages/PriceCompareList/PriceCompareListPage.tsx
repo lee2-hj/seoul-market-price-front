@@ -164,9 +164,9 @@ async function fetchPriceCompareApi(payload: {
     {
       params: {
         r1Gu: payload.r1.district,
-        r1Dong: payload.r1.dong === "전체" ? "" : payload.r1.dong,
+        r1Dong: payload.r1.dong,
         r2Gu: payload.r2.district,
-        r2Dong: payload.r2.dong === "전체" ? "" : payload.r2.dong,
+        r2Dong: payload.r2.dong,
       },
     },
   );
@@ -227,37 +227,29 @@ function useLocationData(
     staleTime: 1000 * 60 * 30,
   });
 
-  /* 자치동 옵션 목록 가공 (useMemo) */
+  /* 자치동 옵션 목록 가공 (useMemo) - 필수 선택으로 '전체' 옵션 제외 */
   const r1DongOptions: AutocompleteOption[] = useMemo(() => {
-    const defaultOpt: AutocompleteOption = { label: "전체", value: "전체" };
-    if (!r1District || r1Dongs.length === 0) return [defaultOpt];
+    if (!r1District || r1Dongs.length === 0) return [];
     const sorted = [...r1Dongs].sort((a, b) =>
       a.dongNm.localeCompare(b.dongNm, "ko"),
     );
-    return [
-      defaultOpt,
-      ...sorted.map((d) => ({
-        label: d.dongNm,
-        value: d.dongNm,
-        code: d.dongCd,
-      })),
-    ];
+    return sorted.map((d) => ({
+      label: d.dongNm,
+      value: d.dongNm,
+      code: d.dongCd,
+    }));
   }, [r1District, r1Dongs]);
 
   const r2DongOptions: AutocompleteOption[] = useMemo(() => {
-    const defaultOpt: AutocompleteOption = { label: "전체", value: "전체" };
-    if (!r2District || r2Dongs.length === 0) return [defaultOpt];
+    if (!r2District || r2Dongs.length === 0) return [];
     const sorted = [...r2Dongs].sort((a, b) =>
       a.dongNm.localeCompare(b.dongNm, "ko"),
     );
-    return [
-      defaultOpt,
-      ...sorted.map((d) => ({
-        label: d.dongNm,
-        value: d.dongNm,
-        code: d.dongCd,
-      })),
-    ];
+    return sorted.map((d) => ({
+      label: d.dongNm,
+      value: d.dongNm,
+      code: d.dongCd,
+    }));
   }, [r2District, r2Dongs]);
 
   return {
@@ -297,12 +289,12 @@ function usePriceCompareMutation() {
   /* 지역 라벨 계산 (useMemo) */
   const r1Label = useMemo(() => {
     if (!appliedRegions) return "";
-    return `${appliedRegions.r1.district}${appliedRegions.r1.dong !== "전체" ? ` ${appliedRegions.r1.dong}` : ""}`;
+    return `${appliedRegions.r1.district} ${appliedRegions.r1.dong}`;
   }, [appliedRegions]);
 
   const r2Label = useMemo(() => {
     if (!appliedRegions) return "";
-    return `${appliedRegions.r2.district}${appliedRegions.r2.dong !== "전체" ? ` ${appliedRegions.r2.dong}` : ""}`;
+    return `${appliedRegions.r2.district} ${appliedRegions.r2.dong}`;
   }, [appliedRegions]);
 
   /* 가격 차이 텍스트 계산 */
@@ -389,40 +381,40 @@ function usePriceCompareMutation() {
 /* 사이드바 내비게이션 컴포넌트 */
 function SidebarNav() {
   return (
-    <aside className={cn('w-[240px]', 'shrink-0', 'max-[900px]:w-full')}>
-      <div className={cn('sticky', 'top-[96px]', 'rounded-[16px]', 'border', 'border-[#E2E8F0]', 'bg-white', 'p-5', 'shadow-[0_4px_20px_rgba(15,23,42,0.04)]')}>
-        <h2 className={cn('mb-4', 'text-[16px]', 'font-black', 'text-[#0F172A]')}>가격정보</h2>
+    <aside className="w-[240px] shrink-0 max-[900px]:w-full">
+      <div className="sticky top-[96px] rounded-[16px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_20px_rgba(15,23,42,0.04)]">
+        <h2 className="mb-4 text-[16px] font-black text-[#0F172A]">가격정보</h2>
 
-        <nav className={cn('flex', 'flex-col', 'gap-1')}>
+        <nav className="flex flex-col gap-1">
           <Link
             to="/price/compare-list"
-            className={cn('flex', 'items-center', 'gap-2.5', 'rounded-[10px]', 'bg-[#E8F6F9]', 'px-3.5', 'py-3', 'text-[13px]', 'font-extrabold', 'text-[#0F8AA8]', 'no-underline')}
+            className="flex items-center gap-2.5 rounded-[10px] bg-[#E8F6F9] px-3.5 py-3 text-[13px] font-extrabold text-[#0F8AA8] no-underline"
           >
             <BarChart3 className="size-4" />
             <span>지역별 비교(리스트)</span>
           </Link>
           <Link
             to="/region-map"
-            className={cn('flex', 'items-center', 'gap-2.5', 'rounded-[10px]', 'px-3.5', 'py-3', 'text-[13px]', 'font-semibold', 'text-[#64748B]', 'no-underline', 'hover:bg-[#F1F5F9]', 'hover:text-[#0F172A]')}
+            className="flex items-center gap-2.5 rounded-[10px] px-3.5 py-3 text-[13px] font-semibold text-[#64748B] no-underline hover:bg-[#F1F5F9] hover:text-[#0F172A]"
           >
             <Map className="size-4" />
             <span>지역별 비교(지도)</span>
           </Link>
           <Link
             to="/price/detail"
-            className={cn('flex', 'items-center', 'gap-2.5', 'rounded-[10px]', 'px-3.5', 'py-3', 'text-[13px]', 'font-semibold', 'text-[#64748B]', 'no-underline', 'hover:bg-[#F1F5F9]', 'hover:text-[#0F172A]')}
+            className="flex items-center gap-2.5 rounded-[10px] px-3.5 py-3 text-[13px] font-semibold text-[#64748B] no-underline hover:bg-[#F1F5F9] hover:text-[#0F172A]"
           >
             <Building2 className="size-4" />
             <span>단지별 시세</span>
           </Link>
         </nav>
 
-        <div className={cn('mt-6', 'rounded-[12px]', 'border', 'border-[#E2E8F0]', 'bg-[#F8FAFC]', 'p-4')}>
-          <div className={cn('mb-1.5', 'flex', 'items-center', 'gap-1.5', 'text-[12px]', 'font-bold', 'text-[#475569]')}>
-            <HelpCircle className={cn('size-3.5', 'text-[#0F8AA8]')} />
+        <div className="mt-6 rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+          <div className="mb-1.5 flex items-center gap-1.5 text-[12px] font-bold text-[#475569]">
+            <HelpCircle className="size-3.5 text-[#0F8AA8]" />
             <span>이용 가이드</span>
           </div>
-          <p className={cn('text-[11px]', 'leading-relaxed', 'text-[#64748B]')}>
+          <p className="text-[11px] leading-relaxed text-[#64748B]">
             비교할 두 지역의 자치구와 자치동을 검색하거나 선택하고
             &apos;비교하기&apos; 버튼을 눌러보세요. 매매 및 전세 시세 차이를
             한눈에 확인할 수 있습니다.
@@ -447,7 +439,7 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
   return (
     <span>
       {before}
-      <span className={cn('font-extrabold', 'text-inherit', 'underline', 'decoration-2', 'decoration-current', 'underline-offset-2')}>
+      <span className="font-extrabold text-inherit underline decoration-2 decoration-current underline-offset-2">
         {match}
       </span>
       {after}
@@ -606,9 +598,9 @@ function AutocompleteSelect({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
-          className={cn('w-full', 'bg-transparent', 'text-[13px]', 'font-semibold', 'text-[#0F172A]', 'outline-none', 'placeholder:text-[#94A3B8]')}
+          className="w-full bg-transparent text-[13px] font-semibold text-[#0F172A] outline-none placeholder:text-[#94A3B8]"
         />
-        <div className={cn('flex', 'items-center', 'gap-1.5', 'ml-1')}>
+        <div className="flex items-center gap-1.5 ml-1">
           {displayQuery && !disabled && (
             <button
               type="button"
@@ -618,7 +610,7 @@ function AutocompleteSelect({
                 setIsOpen(true);
                 inputRef.current?.focus();
               }}
-              className={cn('p-1', 'rounded-full', 'text-[#94A3B8]', 'hover:bg-[#F1F5F9]', 'hover:text-[#64748B]', 'transition-colors', 'cursor-pointer')}
+              className="p-1 rounded-full text-[#94A3B8] hover:bg-[#F1F5F9] hover:text-[#64748B] transition-colors cursor-pointer"
               title="초기화"
             >
               <X className="size-3.5" />
@@ -633,7 +625,7 @@ function AutocompleteSelect({
                 inputRef.current?.focus();
               }
             }}
-            className={cn('p-1', 'rounded-full', 'text-[#94A3B8]', 'hover:bg-[#F1F5F9]', 'hover:text-[#64748B]', 'transition-colors', 'cursor-pointer')}
+            className="p-1 rounded-full text-[#94A3B8] hover:bg-[#F1F5F9] hover:text-[#64748B] transition-colors cursor-pointer"
           >
             <ChevronDown
               className={cn(
@@ -649,10 +641,10 @@ function AutocompleteSelect({
       {isOpen && !disabled && (
         <div
           ref={listRef}
-          className={cn('absolute', 'left-0', 'top-[calc(100%+6px)]', 'z-50', 'max-h-60', 'w-full', 'overflow-y-auto', 'rounded-[12px]', 'border', 'border-[#CBD5E1]', 'bg-white', 'p-1.5', 'shadow-xl', 'animate-in', 'fade-in-0', 'zoom-in-95', 'duration-100')}
+          className="absolute left-0 top-[calc(100%+6px)] z-50 max-h-60 w-full overflow-y-auto rounded-[12px] border border-[#CBD5E1] bg-white p-1.5 shadow-xl animate-in fade-in-0 zoom-in-95 duration-100"
         >
           {filteredOptions.length === 0 ? (
-            <div className={cn('px-3', 'py-3', 'text-center', 'text-[12px]', 'font-semibold', 'text-[#94A3B8]')}>
+            <div className="px-3 py-3 text-center text-[12px] font-semibold text-[#94A3B8]">
               검색 결과가 없습니다.
             </div>
           ) : (
@@ -682,7 +674,7 @@ function AutocompleteSelect({
                       query={searchQuery !== null ? searchQuery : ""}
                     />
                   </span>
-                  {isSelected && <Check className={cn('size-4', 'shrink-0', 'ml-2')} />}
+                  {isSelected && <Check className="size-4 shrink-0 ml-2" />}
                 </button>
               );
             })
@@ -732,7 +724,7 @@ function RegionCard({
       )}
     >
       <div>
-        <div className={cn('mb-4', 'flex', 'items-center', 'justify-between')}>
+        <div className="mb-4 flex items-center justify-between">
           <span
             className={cn(
               "flex items-center gap-1.5 rounded-full px-3.5 py-1 text-[12px] font-black text-white shadow-sm",
@@ -751,15 +743,15 @@ function RegionCard({
                   : "bg-[#DCFCE7] text-[#15803D]",
               )}
             >
-              {district} {dong !== "전체" ? dong : ""}
+              {district} {dong ? dong : ""}
             </span>
           )}
         </div>
 
-        <div className={cn('flex', 'flex-col', 'gap-4')}>
+        <div className="flex flex-col gap-4">
           {/* 자치구 입력 */}
-          <div className={cn('flex', 'flex-col', 'gap-1.5')}>
-            <label className={cn('flex', 'items-center', 'gap-1.5', 'text-[13px]', 'font-bold', 'text-[#334155]')}>
+          <div className="flex flex-col gap-1.5">
+            <label className="flex items-center gap-1.5 text-[13px] font-bold text-[#334155]">
               <span>자치구</span>
               <span
                 className={cn(
@@ -789,11 +781,18 @@ function RegionCard({
           </div>
 
           {/* 자치동 입력 */}
-          <div className={cn('flex', 'flex-col', 'gap-1.5')}>
-            <label className={cn('flex', 'items-center', 'gap-1.5', 'text-[13px]', 'font-bold', 'text-[#334155]')}>
+          <div className="flex flex-col gap-1.5">
+            <label className="flex items-center gap-1.5 text-[13px] font-bold text-[#334155]">
               <span>자치동</span>
-              <span className={cn('rounded', 'bg-[#F1F5F9]', 'px-1.5', 'py-0.5', 'text-[10px]', 'font-bold', 'text-[#64748B]')}>
-                선택 (기본: 전체)
+              <span
+                className={cn(
+                  "rounded px-1.5 py-0.5 text-[10px] font-extrabold",
+                  isRegion1
+                    ? "bg-[#DBEAFE] text-[#1D4ED8]"
+                    : "bg-[#DCFCE7] text-[#15803D]",
+                )}
+              >
+                필수 선택
               </span>
             </label>
             <AutocompleteSelect
@@ -805,7 +804,9 @@ function RegionCard({
                   ? "자치구를 먼저 선택해 주세요"
                   : isDongLoading
                     ? "자치동 목록 로딩 중..."
-                    : "자치동 검색 또는 선택 (기본: 전체)"
+                    : isRegion1
+                      ? "자치동 검색 또는 선택 (예: 역삼동)"
+                      : "자치동 검색 또는 선택 (예: 서초동)"
               }
               disabled={!district || isDongLoading}
               accentColor={accentColor}
@@ -838,82 +839,82 @@ function CompareTable({
   recentDiffText,
 }: CompareTableProps) {
   return (
-    <div className={cn('flex', 'flex-col', 'justify-between', 'rounded-[20px]', 'border', 'border-[#E2E8F0]', 'bg-white', 'p-6', 'shadow-[0_4px_24px_rgba(15,23,42,0.04)]')}>
+    <div className="flex flex-col justify-between rounded-[20px] border border-[#E2E8F0] bg-white p-6 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
       <div>
-        <div className={cn('mb-5', 'flex', 'items-center', 'justify-between', 'border-b', 'border-[#F1F5F9]', 'pb-4')}>
-          <h2 className={cn('text-[18px]', 'font-black', 'text-[#0F172A]')}>비교 리포트</h2>
-          <span className={cn('flex', 'items-center', 'gap-1', 'rounded-full', 'bg-[#F1F5F9]', 'px-3', 'py-1', 'text-[11px]', 'font-bold', 'text-[#64748B]')}>
-            <Info className={cn('size-3', 'text-[#0F8AA8]')} />
+        <div className="mb-5 flex items-center justify-between border-b border-[#F1F5F9] pb-4">
+          <h2 className="text-[18px] font-black text-[#0F172A]">비교 리포트</h2>
+          <span className="flex items-center gap-1 rounded-full bg-[#F1F5F9] px-3 py-1 text-[11px] font-bold text-[#64748B]">
+            <Info className="size-3 text-[#0F8AA8]" />
             {baseDate} 기준 (최근 1개월)
           </span>
         </div>
 
-        <div className={cn('overflow-hidden', 'rounded-[14px]', 'border', 'border-[#E2E8F0]')}>
-          <table className={cn('w-full', 'text-left', 'text-[13px]')}>
+        <div className="overflow-hidden rounded-[14px] border border-[#E2E8F0]">
+          <table className="w-full text-left text-[13px]">
             <thead>
-              <tr className={cn('border-b', 'border-[#E2E8F0]', 'bg-[#F8FAFC]')}>
-                <th className={cn('w-[140px]', 'px-5', 'py-3.5', 'font-bold', 'text-[#475569]')}>
+              <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
+                <th className="w-[140px] px-5 py-3.5 font-bold text-[#475569]">
                   항목
                 </th>
-                <th className={cn('px-5', 'py-3.5', 'font-extrabold', 'text-[#2563EB]')}>
-                  <span className={cn('mr-2', 'inline-block', 'size-2', 'rounded-full', 'bg-[#2563EB]')} />
+                <th className="px-5 py-3.5 font-extrabold text-[#2563EB]">
+                  <span className="mr-2 inline-block size-2 rounded-full bg-[#2563EB]" />
                   지역 1{" "}
-                  <span className={cn('font-bold', 'text-[#475569]')}>{r1Label}</span>
+                  <span className="font-bold text-[#475569]">{r1Label}</span>
                 </th>
-                <th className={cn('px-5', 'py-3.5', 'font-extrabold', 'text-[#16A34A]')}>
-                  <span className={cn('mr-2', 'inline-block', 'size-2', 'rounded-full', 'bg-[#16A34A]')} />
+                <th className="px-5 py-3.5 font-extrabold text-[#16A34A]">
+                  <span className="mr-2 inline-block size-2 rounded-full bg-[#16A34A]" />
                   지역 2{" "}
-                  <span className={cn('font-bold', 'text-[#475569]')}>{r2Label}</span>
+                  <span className="font-bold text-[#475569]">{r2Label}</span>
                 </th>
-                <th className={cn('w-[160px]', 'px-5', 'py-3.5', 'font-bold', 'text-[#475569]')}>
+                <th className="w-[160px] px-5 py-3.5 font-bold text-[#475569]">
                   비교
                 </th>
               </tr>
             </thead>
-            <tbody className={cn('divide-y', 'divide-[#E2E8F0]', 'bg-white')}>
+            <tbody className="divide-y divide-[#E2E8F0] bg-white">
               <tr className="hover:bg-[#F8FAFC]">
-                <td className={cn('flex', 'items-center', 'gap-2', 'px-5', 'py-4', 'font-extrabold', 'text-[#0F172A]')}>
-                  <Building2 className={cn('size-4', 'text-[#0F8AA8]')} />
+                <td className="flex items-center gap-2 px-5 py-4 font-extrabold text-[#0F172A]">
+                  <Building2 className="size-4 text-[#0F8AA8]" />
                   평균 매매가
                 </td>
-                <td className={cn('px-5', 'py-4', 'font-black', 'text-[#2563EB]')}>
+                <td className="px-5 py-4 font-black text-[#2563EB]">
                   {r1Metrics.avgPrice}억 원
-                  <span className={cn('ml-1.5', 'text-[11px]', 'font-normal', 'text-[#64748B]')}>
+                  <span className="ml-1.5 text-[11px] font-normal text-[#64748B]">
                     ({formatPriceKRW(r1Metrics.avgPrice)})
                   </span>
                 </td>
-                <td className={cn('px-5', 'py-4', 'font-black', 'text-[#16A34A]')}>
+                <td className="px-5 py-4 font-black text-[#16A34A]">
                   {r2Metrics.avgPrice}억 원
-                  <span className={cn('ml-1.5', 'text-[11px]', 'font-normal', 'text-[#64748B]')}>
+                  <span className="ml-1.5 text-[11px] font-normal text-[#64748B]">
                     ({formatPriceKRW(r2Metrics.avgPrice)})
                   </span>
                 </td>
-                <td className={cn('px-5', 'py-4')}>
-                  <span className={cn('inline-block', 'rounded-full', 'bg-[#FEE2E2]', 'px-3', 'py-1', 'text-[12px]', 'font-extrabold', 'text-[#DC2626]')}>
+                <td className="px-5 py-4">
+                  <span className="inline-block rounded-full bg-[#FEE2E2] px-3 py-1 text-[12px] font-extrabold text-[#DC2626]">
                     {avgDiffText}
                   </span>
                 </td>
               </tr>
 
               <tr className="hover:bg-[#F8FAFC]">
-                <td className={cn('flex', 'items-center', 'gap-2', 'px-5', 'py-4', 'font-extrabold', 'text-[#0F172A]')}>
-                  <TrendingUp className={cn('size-4', 'text-[#0F8AA8]')} />
+                <td className="flex items-center gap-2 px-5 py-4 font-extrabold text-[#0F172A]">
+                  <TrendingUp className="size-4 text-[#0F8AA8]" />
                   최근 실거래가
                 </td>
-                <td className={cn('px-5', 'py-4', 'font-black', 'text-[#2563EB]')}>
+                <td className="px-5 py-4 font-black text-[#2563EB]">
                   {r1Metrics.recentPrice}억 원
-                  <span className={cn('ml-1.5', 'text-[11px]', 'font-normal', 'text-[#64748B]')}>
+                  <span className="ml-1.5 text-[11px] font-normal text-[#64748B]">
                     ({formatPriceKRW(r1Metrics.recentPrice)})
                   </span>
                 </td>
-                <td className={cn('px-5', 'py-4', 'font-black', 'text-[#16A34A]')}>
+                <td className="px-5 py-4 font-black text-[#16A34A]">
                   {r2Metrics.recentPrice}억 원
-                  <span className={cn('ml-1.5', 'text-[11px]', 'font-normal', 'text-[#64748B]')}>
+                  <span className="ml-1.5 text-[11px] font-normal text-[#64748B]">
                     ({formatPriceKRW(r2Metrics.recentPrice)})
                   </span>
                 </td>
-                <td className={cn('px-5', 'py-4')}>
-                  <span className={cn('inline-block', 'rounded-full', 'bg-[#FEE2E2]', 'px-3', 'py-1', 'text-[12px]', 'font-extrabold', 'text-[#DC2626]')}>
+                <td className="px-5 py-4">
+                  <span className="inline-block rounded-full bg-[#FEE2E2] px-3 py-1 text-[12px] font-extrabold text-[#DC2626]">
                     {recentDiffText}
                   </span>
                 </td>
@@ -943,41 +944,41 @@ function SummaryCard({
   r2Metrics,
 }: SummaryCardProps) {
   return (
-    <div className={cn('flex', 'flex-col', 'justify-between', 'rounded-[20px]', 'border', 'border-[#E2E8F0]', 'bg-white', 'p-6', 'shadow-[0_4px_24px_rgba(15,23,42,0.04)]')}>
+    <div className="flex flex-col justify-between rounded-[20px] border border-[#E2E8F0] bg-white p-6 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
       <div>
-        <h3 className={cn('mb-4', 'text-[16px]', 'font-black', 'text-[#0F172A]')}>
+        <h3 className="mb-4 text-[16px] font-black text-[#0F172A]">
           한눈에 보는 요약
         </h3>
-        <div className={cn('flex', 'flex-col', 'gap-3')}>
-          <div className={cn('rounded-[12px]', 'border', 'border-[#E2E8F0]', 'bg-[#F8FAFC]', 'p-3.5')}>
-            <div className={cn('mb-1', 'flex', 'items-center', 'gap-1.5', 'text-[12px]', 'font-bold', 'text-[#0F172A]')}>
-              <Building2 className={cn('size-4', 'text-[#0F8AA8]')} />
+        <div className="flex flex-col gap-3">
+          <div className="rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] p-3.5">
+            <div className="mb-1 flex items-center gap-1.5 text-[12px] font-bold text-[#0F172A]">
+              <Building2 className="size-4 text-[#0F8AA8]" />
               <span>평균 매매가</span>
             </div>
-            <p className={cn('text-[12px]', 'font-extrabold', 'text-[#DC2626]')}>
+            <p className="text-[12px] font-extrabold text-[#DC2626]">
               {avgDiffText}.
             </p>
           </div>
 
-          <div className={cn('rounded-[12px]', 'border', 'border-[#E2E8F0]', 'bg-[#F8FAFC]', 'p-3.5')}>
-            <div className={cn('mb-1', 'flex', 'items-center', 'gap-1.5', 'text-[12px]', 'font-bold', 'text-[#0F172A]')}>
-              <Home className={cn('size-4', 'text-[#0F8AA8]')} />
+          <div className="rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] p-3.5">
+            <div className="mb-1 flex items-center gap-1.5 text-[12px] font-bold text-[#0F172A]">
+              <Home className="size-4 text-[#0F8AA8]" />
               <span>평균 전세가</span>
             </div>
-            <p className={cn('text-[12px]', 'font-extrabold', 'text-[#0284C7]')}>
+            <p className="text-[12px] font-extrabold text-[#0284C7]">
               {avgJeonseDiffText}.
             </p>
           </div>
 
-          <div className={cn('rounded-[12px]', 'border', 'border-[#0F8AA8]/30', 'bg-[#E8F6F9]', 'p-3.5')}>
-            <div className={cn('mb-1', 'flex', 'items-center', 'gap-1.5', 'text-[12px]', 'font-black', 'text-[#0F8AA8]')}>
+          <div className="rounded-[12px] border border-[#0F8AA8]/30 bg-[#E8F6F9] p-3.5">
+            <div className="mb-1 flex items-center gap-1.5 text-[12px] font-black text-[#0F8AA8]">
               <Sparkles className="size-4" />
               <span>종합 의견</span>
             </div>
-            <p className={cn('text-[11px]', 'font-semibold', 'leading-relaxed', 'text-[#0F5C70]')}>
+            <p className="text-[11px] font-semibold leading-relaxed text-[#0F5C70]">
               {r1Metrics.avgPrice >= r2Metrics.avgPrice
-                ? appliedRegions.r1.district
-                : appliedRegions.r2.district}
+                ? `${appliedRegions.r1.district} ${appliedRegions.r1.dong}`
+                : `${appliedRegions.r2.district} ${appliedRegions.r2.dong}`}
               이(가) 매매가 및 전세가가 상대적으로 더 높게 형성되어 있으며, 두
               지역 모두 서울 주요 선호 주거 지역입니다.
             </p>
@@ -985,7 +986,7 @@ function SummaryCard({
         </div>
       </div>
 
-      <div className={cn('mt-4', 'flex', 'items-center', 'gap-1', 'text-[11px]', 'font-bold', 'text-[#16A34A]')}>
+      <div className="mt-4 flex items-center gap-1 text-[11px] font-bold text-[#16A34A]">
         <CheckCircle2 className="size-3.5" />
         <span>비교 분석이 반영되었습니다.</span>
       </div>
@@ -1014,49 +1015,49 @@ function CompareBarCharts({
   r2JeonseWidth,
 }: CompareBarChartsProps) {
   return (
-    <div className={cn('grid', 'grid-cols-2', 'gap-6', 'max-[900px]:grid-cols-1')}>
+    <div className="grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
       {/* 평균 매매가 비교 차트 */}
-      <div className={cn('rounded-[20px]', 'border', 'border-[#E2E8F0]', 'bg-white', 'p-6', 'shadow-[0_4px_24px_rgba(15,23,42,0.04)]')}>
-        <div className={cn('mb-5', 'flex', 'items-center', 'justify-between')}>
-          <h3 className={cn('flex', 'items-center', 'gap-2', 'text-[15px]', 'font-black', 'text-[#0F172A]')}>
-            <Building2 className={cn('size-4', 'text-[#0F8AA8]')} />
+      <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-6 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
+        <div className="mb-5 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-[15px] font-black text-[#0F172A]">
+            <Building2 className="size-4 text-[#0F8AA8]" />
             평균 매매가 비교
           </h3>
-          <span className={cn('text-[11px]', 'font-bold', 'text-[#94A3B8]')}>
+          <span className="text-[11px] font-bold text-[#94A3B8]">
             (단위: 억 원)
           </span>
         </div>
 
-        <div className={cn('flex', 'flex-col', 'gap-5')}>
+        <div className="flex flex-col gap-5">
           <div>
-            <div className={cn('mb-1.5', 'flex', 'justify-between', 'text-[12px]', 'font-bold')}>
+            <div className="mb-1.5 flex justify-between text-[12px] font-bold">
               <span className="text-[#2563EB]">
-                지역 1 ({appliedRegions.r1.district})
+                지역 1 ({appliedRegions.r1.district} {appliedRegions.r1.dong})
               </span>
-              <span className={cn('font-black', 'text-[#0F172A]')}>
+              <span className="font-black text-[#0F172A]">
                 {r1Metrics.avgPrice}억 원
               </span>
             </div>
-            <div className={cn('h-6', 'w-full', 'rounded-full', 'bg-[#F1F5F9]', 'p-1')}>
+            <div className="h-6 w-full rounded-full bg-[#F1F5F9] p-1">
               <div
-                className={cn('h-full', 'rounded-full', 'bg-[#2563EB]', 'transition-all', 'duration-500')}
+                className="h-full rounded-full bg-[#2563EB] transition-all duration-500"
                 style={{ width: r1AvgWidth }}
               />
             </div>
           </div>
 
           <div>
-            <div className={cn('mb-1.5', 'flex', 'justify-between', 'text-[12px]', 'font-bold')}>
+            <div className="mb-1.5 flex justify-between text-[12px] font-bold">
               <span className="text-[#16A34A]">
-                지역 2 ({appliedRegions.r2.district})
+                지역 2 ({appliedRegions.r2.district} {appliedRegions.r2.dong})
               </span>
-              <span className={cn('font-black', 'text-[#0F172A]')}>
+              <span className="font-black text-[#0F172A]">
                 {r2Metrics.avgPrice}억 원
               </span>
             </div>
-            <div className={cn('h-6', 'w-full', 'rounded-full', 'bg-[#F1F5F9]', 'p-1')}>
+            <div className="h-6 w-full rounded-full bg-[#F1F5F9] p-1">
               <div
-                className={cn('h-full', 'rounded-full', 'bg-[#16A34A]', 'transition-all', 'duration-500')}
+                className="h-full rounded-full bg-[#16A34A] transition-all duration-500"
                 style={{ width: r2AvgWidth }}
               />
             </div>
@@ -1065,47 +1066,47 @@ function CompareBarCharts({
       </div>
 
       {/* 평균 전세가 비교 차트 */}
-      <div className={cn('rounded-[20px]', 'border', 'border-[#E2E8F0]', 'bg-white', 'p-6', 'shadow-[0_4px_24px_rgba(15,23,42,0.04)]')}>
-        <div className={cn('mb-5', 'flex', 'items-center', 'justify-between')}>
-          <h3 className={cn('flex', 'items-center', 'gap-2', 'text-[15px]', 'font-black', 'text-[#0F172A]')}>
-            <Home className={cn('size-4', 'text-[#0F8AA8]')} />
+      <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-6 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
+        <div className="mb-5 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-[15px] font-black text-[#0F172A]">
+            <Home className="size-4 text-[#0F8AA8]" />
             평균 전세가 비교
           </h3>
-          <span className={cn('text-[11px]', 'font-bold', 'text-[#94A3B8]')}>
+          <span className="text-[11px] font-bold text-[#94A3B8]">
             (단위: 억 원)
           </span>
         </div>
 
-        <div className={cn('flex', 'flex-col', 'gap-5')}>
+        <div className="flex flex-col gap-5">
           <div>
-            <div className={cn('mb-1.5', 'flex', 'justify-between', 'text-[12px]', 'font-bold')}>
+            <div className="mb-1.5 flex justify-between text-[12px] font-bold">
               <span className="text-[#2563EB]">
-                지역 1 ({appliedRegions.r1.district})
+                지역 1 ({appliedRegions.r1.district} {appliedRegions.r1.dong})
               </span>
-              <span className={cn('font-black', 'text-[#0F172A]')}>
+              <span className="font-black text-[#0F172A]">
                 {r1Metrics.avgJeonsePrice}억 원
               </span>
             </div>
-            <div className={cn('h-6', 'w-full', 'rounded-full', 'bg-[#F1F5F9]', 'p-1')}>
+            <div className="h-6 w-full rounded-full bg-[#F1F5F9] p-1">
               <div
-                className={cn('h-full', 'rounded-full', 'bg-[#3B82F6]', 'transition-all', 'duration-500')}
+                className="h-full rounded-full bg-[#3B82F6] transition-all duration-500"
                 style={{ width: r1JeonseWidth }}
               />
             </div>
           </div>
 
           <div>
-            <div className={cn('mb-1.5', 'flex', 'justify-between', 'text-[12px]', 'font-bold')}>
+            <div className="mb-1.5 flex justify-between text-[12px] font-bold">
               <span className="text-[#16A34A]">
-                지역 2 ({appliedRegions.r2.district})
+                지역 2 ({appliedRegions.r2.district} {appliedRegions.r2.dong})
               </span>
-              <span className={cn('font-black', 'text-[#0F172A]')}>
+              <span className="font-black text-[#0F172A]">
                 {r2Metrics.avgJeonsePrice}억 원
               </span>
             </div>
-            <div className={cn('h-6', 'w-full', 'rounded-full', 'bg-[#F1F5F9]', 'p-1')}>
+            <div className="h-6 w-full rounded-full bg-[#F1F5F9] p-1">
               <div
-                className={cn('h-full', 'rounded-full', 'bg-[#22C55E]', 'transition-all', 'duration-500')}
+                className="h-full rounded-full bg-[#22C55E] transition-all duration-500"
                 style={{ width: r2JeonseWidth }}
               />
             </div>
@@ -1121,11 +1122,11 @@ export default function PriceCompareListPage() {
   /* 1. 지역 선택 폼 상태 관리 */
   const [r1District, setR1District] = useState("");
   const [r1SggCd, setR1SggCd] = useState("");
-  const [r1Dong, setR1Dong] = useState("전체");
+  const [r1Dong, setR1Dong] = useState("");
 
   const [r2District, setR2District] = useState("");
   const [r2SggCd, setR2SggCd] = useState("");
-  const [r2Dong, setR2Dong] = useState("전체");
+  const [r2Dong, setR2Dong] = useState("");
 
   /* 2. 행정구역 데이터 조회 훅 (useQuery, useMemo) */
   const {
@@ -1165,7 +1166,7 @@ export default function PriceCompareListPage() {
       setR1SggCd(
         opt?.code || sggList.find((s) => s.sggNm === name)?.sggCd || "",
       );
-      setR1Dong("전체");
+      setR1Dong("");
     },
     [sggList],
   );
@@ -1176,20 +1177,20 @@ export default function PriceCompareListPage() {
       setR2SggCd(
         opt?.code || sggList.find((s) => s.sggNm === name)?.sggCd || "",
       );
-      setR2Dong("전체");
+      setR2Dong("");
     },
     [sggList],
   );
 
   /* 시세 비교 실행 */
   const handleCompare = useCallback(() => {
-    if (!r1District || !r2District) {
-      alert("비교할 지역의 자치구를 모두 선택해 주세요.");
+    if (!r1District || !r1Dong || !r2District || !r2Dong) {
+      alert("비교할 두 지역의 자치구와 자치동을 모두 선택해 주세요.");
       return;
     }
     compareMutation.mutate({
-      r1: { district: r1District, dong: r1Dong || "전체" },
-      r2: { district: r2District, dong: r2Dong || "전체" },
+      r1: { district: r1District, dong: r1Dong },
+      r2: { district: r2District, dong: r2Dong },
     });
   }, [r1District, r1Dong, r2District, r2Dong, compareMutation]);
 
@@ -1197,10 +1198,10 @@ export default function PriceCompareListPage() {
   const handleReset = useCallback(() => {
     setR1District("");
     setR1SggCd("");
-    setR1Dong("전체");
+    setR1Dong("");
     setR2District("");
     setR2SggCd("");
-    setR2Dong("전체");
+    setR2Dong("");
     resetCompare();
   }, [resetCompare]);
 
@@ -1219,22 +1220,22 @@ export default function PriceCompareListPage() {
           <SidebarNav />
 
           {/* 메인 콘텐츠 영역 */}
-          <section className={cn('min-w-0', 'flex-1')}>
+          <section className="min-w-0 flex-1">
             {/* 타이틀 및 초기화 버튼 */}
-            <div className={cn('mb-6', 'flex', 'items-start', 'justify-between')}>
+            <div className="mb-6 flex items-start justify-between">
               <div>
-                <h1 className={cn('text-[24px]', 'font-black', 'text-[#0F172A]')}>
+                <h1 className="text-[24px] font-black text-[#0F172A]">
                   지역별 비교(리스트)
                 </h1>
-                <p className={cn('mt-1', 'text-[13px]', 'font-medium', 'text-[#64748B]')}>
-                  자치구와 자치동을 선택하여 두 지역의 시세를 비교해보세요.
+                <p className="mt-1 text-[13px] font-medium text-[#64748B]">
+                  자치구와 자치동을 선택하여 두 지역의 매매/전세 시세를 비교해보세요.
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={handleReset}
-                className={cn('flex', 'items-center', 'gap-1.5', 'rounded-[10px]', 'border', 'border-[#CBD5E1]', 'bg-white', 'px-3.5', 'py-2', 'text-[12px]', 'font-bold', 'text-[#475569]', 'shadow-sm', 'transition-all', 'hover:border-[#0F8AA8]', 'hover:bg-[#F8FAFC]', 'hover:text-[#0F8AA8]', 'cursor-pointer')}
+                className="flex items-center gap-1.5 rounded-[10px] border border-[#CBD5E1] bg-white px-3.5 py-2 text-[12px] font-bold text-[#475569] shadow-sm transition-all hover:border-[#0F8AA8] hover:bg-[#F8FAFC] hover:text-[#0F8AA8] cursor-pointer"
               >
                 <RotateCcw className="size-3.5" />
                 <span>초기화</span>
@@ -1242,8 +1243,8 @@ export default function PriceCompareListPage() {
             </div>
 
             {/* 지역 선택 카드 섹션 */}
-            <div className={cn('mb-8', 'rounded-[24px]', 'border', 'border-[#E2E8F0]', 'bg-white', 'p-6', 'shadow-[0_8px_30px_rgba(15,23,42,0.06)]')}>
-              <div className={cn('grid', 'grid-cols-[1fr_auto_1fr_auto]', 'items-stretch', 'gap-6', 'max-[1200px]:grid-cols-1')}>
+            <div className="mb-8 rounded-[24px] border border-[#E2E8F0] bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
+              <div className="grid grid-cols-[1fr_auto_1fr_auto] items-stretch gap-6 max-[1200px]:grid-cols-1">
                 {/* 지역 1 선택 카드 */}
                 <RegionCard
                   regionNum={1}
@@ -1259,8 +1260,8 @@ export default function PriceCompareListPage() {
                 />
 
                 {/* 중앙 VS 배지 */}
-                <div className={cn('flex', 'items-center', 'justify-center', 'max-[1200px]:py-2')}>
-                  <div className={cn('flex', 'size-12', 'items-center', 'justify-center', 'rounded-full', 'border-2', 'border-white', 'bg-gradient-to-br', 'from-[#0F8AA8]', 'to-[#0B5E73]', 'font-black', 'text-white', 'shadow-[0_4px_16px_rgba(15,138,168,0.3)]')}>
+                <div className="flex items-center justify-center max-[1200px]:py-2">
+                  <div className="flex size-12 items-center justify-center rounded-full border-2 border-white bg-gradient-to-br from-[#0F8AA8] to-[#0B5E73] font-black text-white shadow-[0_4px_16px_rgba(15,138,168,0.3)]">
                     VS
                   </div>
                 </div>
@@ -1280,25 +1281,25 @@ export default function PriceCompareListPage() {
                 />
 
                 {/* 비교하기 액션 영역 */}
-                <div className={cn('flex', 'flex-col', 'items-center', 'justify-center', 'rounded-[20px]', 'border', 'border-[#E2E8F0]', 'bg-[#F8FAFC]', 'p-5', 'text-center', 'max-[1200px]:py-6')}>
+                <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#E2E8F0] bg-[#F8FAFC] p-5 text-center max-[1200px]:py-6">
                   <button
                     type="button"
                     onClick={handleCompare}
                     disabled={compareMutation.isPending || isSggLoading}
-                    className={cn('flex', 'h-[115px]', 'w-full', 'min-w-[130px]', 'flex-col', 'items-center', 'justify-center', 'gap-2.5', 'rounded-[16px]', 'border', 'border-[#0B5E73]', 'bg-gradient-to-b', 'from-[#0F8AA8]', 'to-[#0B5E73]', 'p-4', 'text-white', 'shadow-[0_8px_20px_rgba(15,138,168,0.3)]', 'transition-all', 'hover:-translate-y-0.5', 'hover:shadow-[0_12px_28px_rgba(15,138,168,0.4)]', 'active:translate-y-0', 'disabled:opacity-75', 'cursor-pointer')}
+                    className="flex h-[115px] w-full min-w-[130px] flex-col items-center justify-center gap-2.5 rounded-[16px] border border-[#0B5E73] bg-gradient-to-b from-[#0F8AA8] to-[#0B5E73] p-4 text-white shadow-[0_8px_20px_rgba(15,138,168,0.3)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,138,168,0.4)] active:translate-y-0 disabled:opacity-75 cursor-pointer"
                   >
                     {compareMutation.isPending ? (
-                      <Loader2 className={cn('size-6', 'animate-spin')} />
+                      <Loader2 className="size-6 animate-spin" />
                     ) : (
-                      <BarChart3 className={cn('size-6', 'stroke-[2.2]')} />
+                      <BarChart3 className="size-6 stroke-[2.2]" />
                     )}
-                    <span className={cn('text-[15px]', 'font-black', 'tracking-tight')}>
+                    <span className="text-[15px] font-black tracking-tight">
                       {compareMutation.isPending
                         ? "분석 중..."
                         : "시세 비교하기"}
                     </span>
                   </button>
-                  <p className={cn('mt-3', 'text-[11px]', 'font-medium', 'leading-tight', 'text-[#64748B]')}>
+                  <p className="mt-3 text-[11px] font-medium leading-tight text-[#64748B]">
                     두 지역의 시세정보를
                     <br />
                     비교 분석합니다.
@@ -1309,47 +1310,47 @@ export default function PriceCompareListPage() {
 
             {/* 비교 리포트 출력 영역 */}
             {isSggError ? (
-              <div className={cn('rounded-[20px]', 'border', 'border-red-200', 'bg-red-50', 'p-8', 'text-center', 'text-red-600')}>
-                <AlertCircle className={cn('mx-auto', 'mb-2', 'size-8')} />
+              <div className="rounded-[20px] border border-red-200 bg-red-50 p-8 text-center text-red-600">
+                <AlertCircle className="mx-auto mb-2 size-8" />
                 <p className="font-bold">
                   서울시 행정구역 목록을 불러오지 못했습니다.
                 </p>
-                <p className={cn('mt-1', 'text-xs', 'text-red-400')}>
+                <p className="mt-1 text-xs text-red-400">
                   백엔드 서버(/api/location/sggs) 상태를 확인해 주세요.
                 </p>
               </div>
             ) : compareMutation.isPending ? (
-              <div className={cn('flex', 'flex-col', 'gap-6', 'animate-pulse')}>
-                <div className={cn('grid', 'grid-cols-[1fr_340px]', 'gap-6', 'max-[1100px]:grid-cols-1')}>
-                  <div className={cn('h-[260px]', 'rounded-[20px]', 'border', 'border-[#E2E8F0]', 'bg-white', 'p-6')} />
-                  <div className={cn('h-[260px]', 'rounded-[20px]', 'border', 'border-[#E2E8F0]', 'bg-white', 'p-6')} />
+              <div className="flex flex-col gap-6 animate-pulse">
+                <div className="grid grid-cols-[1fr_340px] gap-6 max-[1100px]:grid-cols-1">
+                  <div className="h-[260px] rounded-[20px] border border-[#E2E8F0] bg-white p-6" />
+                  <div className="h-[260px] rounded-[20px] border border-[#E2E8F0] bg-white p-6" />
                 </div>
-                <div className={cn('grid', 'grid-cols-2', 'gap-6', 'max-[900px]:grid-cols-1')}>
-                  <div className={cn('h-[180px]', 'rounded-[20px]', 'border', 'border-[#E2E8F0]', 'bg-white', 'p-6')} />
-                  <div className={cn('h-[180px]', 'rounded-[20px]', 'border', 'border-[#E2E8F0]', 'bg-white', 'p-6')} />
+                <div className="grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
+                  <div className="h-[180px] rounded-[20px] border border-[#E2E8F0] bg-white p-6" />
+                  <div className="h-[180px] rounded-[20px] border border-[#E2E8F0] bg-white p-6" />
                 </div>
               </div>
             ) : compareMutation.isError ? (
-              <div className={cn('rounded-[20px]', 'border', 'border-red-200', 'bg-red-50', 'p-8', 'text-center', 'text-red-600')}>
-                <AlertCircle className={cn('mx-auto', 'mb-2', 'size-8')} />
+              <div className="rounded-[20px] border border-red-200 bg-red-50 p-8 text-center text-red-600">
+                <AlertCircle className="mx-auto mb-2 size-8" />
                 <p className="font-bold">
                   시세 비교 데이터를 불러오는 데 실패했습니다.
                 </p>
-                <p className={cn('mt-1', 'text-xs', 'text-red-400')}>
+                <p className="mt-1 text-xs text-red-400">
                   백엔드 서버(/api/v1/price/compare) 상태를 확인해 주세요.
                 </p>
               </div>
             ) : !appliedRegions || !r1Metrics || !r2Metrics ? (
-              <div className={cn('rounded-[20px]', 'border', 'border-[#E2E8F0]', 'bg-white', 'p-12', 'text-center', 'shadow-[0_4px_24px_rgba(15,23,42,0.04)]')}>
-                <div className={cn('mx-auto', 'mb-4', 'flex', 'size-16', 'items-center', 'justify-center', 'rounded-full', 'bg-[#E8F6F9]', 'text-[#0F8AA8]')}>
+              <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-12 text-center shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
+                <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-[#E8F6F9] text-[#0F8AA8]">
                   <BarChart3 className="size-8" />
                 </div>
-                <h3 className={cn('text-[18px]', 'font-black', 'text-[#0F172A]')}>
+                <h3 className="text-[18px] font-black text-[#0F172A]">
                   비교할 지역을 선택하고 &apos;비교하기&apos; 버튼을 눌러주세요
                 </h3>
-                <p className={cn('mx-auto', 'mt-2', 'max-w-[420px]', 'text-[13px]', 'font-medium', 'leading-relaxed', 'text-[#64748B]')}>
+                <p className="mx-auto mt-2 max-w-[420px] text-[13px] font-medium leading-relaxed text-[#64748B]">
                   두 지역(자치구, 자치동)을 지정한 뒤{" "}
-                  <span className={cn('font-extrabold', 'text-[#0F8AA8]')}>
+                  <span className="font-extrabold text-[#0F8AA8]">
                     &apos;비교하기&apos;
                   </span>{" "}
                   버튼을 클릭하면 매매 및 전세 시세 비교 표와 그래프가
@@ -1357,8 +1358,8 @@ export default function PriceCompareListPage() {
                 </p>
               </div>
             ) : (
-              <div className={cn('flex', 'flex-col', 'gap-6')}>
-                <div className={cn('grid', 'grid-cols-[1fr_340px]', 'gap-6', 'max-[1100px]:grid-cols-1')}>
+              <div className="flex flex-col gap-6">
+                <div className="grid grid-cols-[1fr_340px] gap-6 max-[1100px]:grid-cols-1">
                   {/* 비교 표 */}
                   <CompareTable
                     baseDate={baseDate}
@@ -1392,9 +1393,9 @@ export default function PriceCompareListPage() {
                 />
 
                 {/* 출처 안내 */}
-                <div className={cn('flex', 'items-center', 'justify-between', 'rounded-[16px]', 'border', 'border-[#E2E8F0]', 'bg-white', 'px-6', 'py-4', 'text-[11px]', 'text-[#94A3B8]')}>
-                  <div className={cn('flex', 'items-center', 'gap-1.5')}>
-                    <Info className={cn('size-3.5', 'text-[#0F8AA8]')} />
+                <div className="flex items-center justify-between rounded-[16px] border border-[#E2E8F0] bg-white px-6 py-4 text-[11px] text-[#94A3B8]">
+                  <div className="flex items-center gap-1.5">
+                    <Info className="size-3.5 text-[#0F8AA8]" />
                     <span>
                       본 정보는 국토교통부 실거래가 공개시스템 데이터를 기반으로
                       제공되며, 실제 거래가와 차이가 있을 수 있습니다.
