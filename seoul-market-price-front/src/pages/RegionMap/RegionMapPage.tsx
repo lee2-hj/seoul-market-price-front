@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BarChart3, Building2, ChevronDown, HelpCircle, Map, RotateCcw, TrendingUp } from "lucide-react";
+import { BarChart3, Building2, ChevronDown, HelpCircle, Map, TrendingUp } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import {
   DISTRICT_PRICES,
+  PRICE_LEGEND,
   formatPrice,
 } from "@/features/region-map/data/regionMapData";
-import SeoulDistrictMap from "@/features/region-map/components/SeoulDistrictMap";
+import SeoulDistrictMap from "@/features/region-map/components/D3SeoulDistrictMap";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { getLocalPreferredDistrict } from "@/features/member/utils/preferredDistrictStorage";
 import { getDongs, getSggs } from "@/features/location/services/locationService";
-import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 
 const NAV_ITEMS = [
   { label: "지역별 비교(리스트)", to: "/price/compare-list", icon: BarChart3 },
@@ -30,29 +30,21 @@ export default function RegionMapPage() {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
 
-  const { data: sggs = [], isLoading: isSggsLoading } = useQuery({
+  const { data: sggs = [] } = useQuery({
     queryKey: ["location", "sggs"],
     queryFn: getSggs,
     staleTime: Infinity,
   });
 
-  const selectedDistrict =
-    DISTRICT_PRICES.find((item) => item.name === searchParams.get("district")) ??
-    DISTRICT_PRICES[0];
-  const [districtInput, setDistrictInput] = useState(selectedDistrict.name);
-
-  useEffect(() => {
-    let isActive = true;
-    queueMicrotask(() => {
-      if (isActive) setDistrictInput(selectedDistrict.name);
-    });
-    return () => {
-      isActive = false;
-    };
-  }, [selectedDistrict.name]);
+  const requestedDistrict = searchParams.get("district") ?? "";
+  const matchedDistrict = DISTRICT_PRICES.find((item) => item.name === requestedDistrict);
+  const hasSelectedDistrict = Boolean(matchedDistrict);
+  const selectedDistrict = matchedDistrict ?? DISTRICT_PRICES[0];
   const selectedSggCode =
-    sggs.find((sgg) => sgg.sggNm === selectedDistrict.name)?.sggCd ?? "";
-  const { data: dongs = [], isLoading: isDongsLoading } = useQuery({
+    hasSelectedDistrict
+      ? sggs.find((sgg) => sgg.sggNm === selectedDistrict.name)?.sggCd ?? ""
+      : "";
+  const { data: dongs = [] } = useQuery({
     queryKey: ["location", "dongs", selectedSggCode],
     queryFn: () => getDongs(selectedSggCode),
     enabled: Boolean(selectedSggCode),
@@ -60,42 +52,25 @@ export default function RegionMapPage() {
   });
   const dongNames = dongs.map((dong) => dong.dongNm);
   const requestedDong = searchParams.get("dong") ?? "";
-  const selectedDong = dongNames.includes(requestedDong)
-    ? requestedDong
-    : dongNames[0] ?? "";
-  const [dongInput, setDongInput] = useState(selectedDong);
-
-  useEffect(() => {
-    let isActive = true;
-    queueMicrotask(() => {
-      if (isActive) setDongInput(selectedDong);
-    });
-    return () => {
-      isActive = false;
-    };
-  }, [selectedDong]);
+  const selectedDong = hasSelectedDistrict ? requestedDong : "";
 
   const sortedApartments = useMemo(
-    () => [...selectedDistrict.apartments].sort((a, b) => b.salePrice - a.salePrice),
-    [selectedDistrict],
+    () =>
+      selectedDistrict.apartments
+        .map((apartment) => ({
+          ...apartment,
+          name: selectedDong
+            ? `${selectedDong} ${apartment.name.replace(/^\S+구\s+/, "")}`
+            : apartment.name,
+        }))
+        .sort((a, b) => b.salePrice - a.salePrice),
+    [selectedDistrict, selectedDong],
   );
 
   const setRegion = useCallback((district: string, dong?: string) => {
     setSearchParams(dong ? { district, dong } : { district });
     setDistrictExpanded(true);
   }, [setSearchParams]);
-
-  const handleDistrictInput = (value: string) => {
-    setDistrictInput(value);
-    if (sggs.some((sgg) => sgg.sggNm === value)) setRegion(value);
-  };
-
-  const handleDongInput = (value: string) => {
-    setDongInput(value);
-    if (dongNames.includes(value)) setRegion(selectedDistrict.name, value);
-  };
-
-  const reset = () => setSearchParams({ district: "강남구" });
 
   const dongPrices = useMemo(
     () =>
@@ -104,6 +79,10 @@ export default function RegionMapPage() {
         averagePrice: Math.round(selectedDistrict.averagePrice * (1 + (index - 1.5) * 0.045) / 100) * 100,
       })),
     [dongNames, selectedDistrict.averagePrice],
+  );
+  const dongAveragePrices = useMemo(
+    () => Object.fromEntries(dongPrices.map((dong) => [dong.name, dong.averagePrice])),
+    [dongPrices],
   );
 
   return (
@@ -136,6 +115,20 @@ export default function RegionMapPage() {
                 자치구와 자치동을 선택해 지역별 평균 매매가와 단지 시세를 지도에서 확인해보세요.
               </p>
             </div>
+            <div className="mt-4 rounded-[12px] border border-[#E2E8F0] bg-white p-4">
+              <strong className="mb-3 block text-[12px] font-black text-[#123047]">
+                {hasSelectedDistrict ? "동별" : "구별"} 평균 매매가
+                <small className="ml-1 font-semibold text-[#94A3B8]">(단위: 억 원)</small>
+              </strong>
+              <div className="space-y-2">
+                {PRICE_LEGEND.map((item) => (
+                  <div key={item.label} className="flex items-center gap-2 text-[11px] font-semibold text-[#64748B]">
+                    <span className="size-3 rounded-[3px]" style={{ backgroundColor: item.color }} />
+                    {item.label}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </aside>
 
@@ -145,53 +138,30 @@ export default function RegionMapPage() {
               <h1 className="text-[24px] font-black text-[#0F172A]">지역별 비교(지도)</h1>
               <p className="mt-1 text-[13px] font-medium text-[#64748B]">서울 구별 평균 매매가를 한눈에 확인하고, 관심 지역의 아파트를 분석해보세요.</p>
             </div>
-            <button type="button" onClick={reset} className="flex items-center gap-1.5 rounded-[10px] border border-[#CBD5E1] bg-white px-3.5 py-2 text-[12px] font-bold text-[#475569] shadow-sm transition-all hover:border-[#0F8AA8] hover:bg-[#F8FAFC] hover:text-[#0F8AA8]">
-              <RotateCcw className="size-4" />초기화
-            </button>
           </header>
-
-          <div className="flex flex-wrap gap-3 rounded-[20px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
-            <label className="flex min-w-[240px] flex-1 items-center gap-3 text-[12px] font-bold">
-              자치구 선택
-              <AutocompleteInput
-                value={districtInput}
-                options={sggs.map((sgg) => sgg.sggNm)}
-                disabled={isSggsLoading}
-                onChange={handleDistrictInput}
-                onInvalidBlur={() => setDistrictInput(selectedDistrict.name)}
-                placeholder="자치구를 검색해 주세요"
-                className="h-11 rounded-[8px] border border-[#CBD5E1] bg-white px-3 outline-none focus:border-[#0F8AA8] disabled:bg-[#F1F5F9]"
-              />
-            </label>
-            <label className="flex min-w-[240px] flex-1 items-center gap-3 text-[12px] font-bold">
-              행정동 선택
-              <AutocompleteInput
-                value={dongInput}
-                options={dongNames}
-                disabled={isDongsLoading || dongNames.length === 0}
-                onChange={handleDongInput}
-                onInvalidBlur={() => setDongInput(selectedDong)}
-                placeholder="행정동을 검색해 주세요"
-                className="h-11 rounded-[8px] border border-[#CBD5E1] bg-white px-3 outline-none focus:border-[#0F8AA8] disabled:bg-[#F1F5F9]"
-              />
-            </label>
-          </div>
 
           <div className="relative overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white p-3 shadow-[0_4px_24px_rgba(15,23,42,0.04)] sm:p-7">
             <div className="relative mx-auto max-w-[1120px] overflow-hidden rounded-[14px] border border-[#E2E8F0] bg-[#F8FAFC]">
               <SeoulDistrictMap
-                selectedDistrict={selectedDistrict.name}
+                selectedDistrict={hasSelectedDistrict ? selectedDistrict.name : ""}
+                selectedDistrictCode={selectedSggCode}
+                selectedDong={selectedDong}
+                availableDongs={dongs}
+                dongAveragePrices={dongAveragePrices}
+                districtAveragePrice={selectedDistrict.averagePrice}
                 preferredDistrict={preferredDistrict}
                 onSelect={setRegion}
+                onSelectDong={(dong) => setRegion(selectedDistrict.name, dong)}
+                onShowAll={() => setSearchParams({})}
               />
             </div>
-            <div className="absolute bottom-5 left-5 hidden items-center gap-3 rounded-[14px] border border-white/80 bg-white/90 px-4 py-3 shadow-[0_10px_25px_rgba(18,48,71,.12)] backdrop-blur md:flex">
+            {hasSelectedDistrict && <div className="absolute bottom-5 left-5 hidden items-center gap-3 rounded-[14px] border border-white/80 bg-white/90 px-4 py-3 shadow-[0_10px_25px_rgba(18,48,71,.12)] backdrop-blur md:flex">
               <span className="flex size-10 items-center justify-center rounded-full bg-[#E1F4F7] text-[#0F8AA8]"><TrendingUp className="size-5" /></span>
               <span><small className="block text-[10px] font-bold text-[#94A3B8]">선택 지역 평균 매매가</small><strong className="block text-[18px] font-black text-[#0F172A]">{selectedDistrict.name} · {formatPrice(selectedDistrict.averagePrice)}</strong></span>
-            </div>
+            </div>}
           </div>
 
-          <section className="overflow-hidden rounded-[16px] border border-[#E2E8F0] bg-white shadow-[0_4px_20px_rgba(15,23,42,0.04)]">
+          {hasSelectedDistrict && <><section className="overflow-hidden rounded-[16px] border border-[#E2E8F0] bg-white shadow-[0_4px_20px_rgba(15,23,42,0.04)]">
             <button
               type="button"
               onClick={() => setDistrictExpanded((value) => !value)}
@@ -199,8 +169,8 @@ export default function RegionMapPage() {
               aria-expanded={districtExpanded}
             >
               <span>
-                <strong className="block text-[17px] font-black">{selectedDistrict.name} 동별 평균가격</strong>
-                <small className="mt-1 block text-[12px] font-medium text-[#64748B]">지도에서 구를 선택하면 해당 구의 동 목록이 펼쳐집니다.</small>
+                <strong className="block text-[17px] font-black">{selectedDistrict.name} 법정동별 평균가격</strong>
+                <small className="mt-1 block text-[12px] font-medium text-[#64748B]">지도에서 법정동을 선택해 주세요.</small>
               </span>
               <ChevronDown className={`size-5 text-[#0F8AA8] transition-transform ${districtExpanded ? "rotate-180" : ""}`} />
             </button>
@@ -225,23 +195,23 @@ export default function RegionMapPage() {
             )}
           </section>
 
-          <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-6 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
+          {selectedDong && <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-6 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
             <h2 className="text-[18px] font-black">{selectedDistrict.name} {selectedDong} 아파트 시세 분석</h2>
-            <p className="mt-1 text-[12px] text-[#64748B]">선택한 지역의 평균 매매가 기준 상위·하위 5개 단지입니다.</p>
+            <p className="mt-1 text-[12px] text-[#64748B]">선택한 지역의 최근 매매가 기준 상위·하위 5개 단지입니다.</p>
             <div className="mt-5 grid gap-4 xl:grid-cols-2">
               {[{ title: "상위 5개 아파트 단지", items: sortedApartments.slice(0, 5), color: "text-rose-500" }, { title: "하위 5개 아파트 단지", items: sortedApartments.slice(-5).reverse(), color: "text-[#1677D2]" }].map((group) => (
                 <div key={group.title} className="overflow-hidden rounded-[10px] border border-[#E2E8F0]">
                   <h3 className={`px-4 py-3 text-[14px] font-black ${group.color}`}>{group.title}</h3>
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[500px] text-left text-[12px]">
-                      <thead className="bg-[#F8FAFC] text-[#64748B]"><tr><th className="px-3 py-2">순위</th><th className="px-3 py-2">아파트 단지</th><th className="px-3 py-2">평균 매매가</th><th className="px-3 py-2">평균 전세가</th><th className="px-3 py-2">전세가율</th></tr></thead>
-                      <tbody>{group.items.map((item, index) => <tr key={item.name} className="border-t border-[#EDF2F4]"><td className="px-3 py-2 font-bold">{index + 1}</td><td className="px-3 py-2 font-semibold">{item.name}</td><td className="px-3 py-2">{formatPrice(item.salePrice)}</td><td className="px-3 py-2">{formatPrice(item.rentPrice)}</td><td className="px-3 py-2">{((item.rentPrice / item.salePrice) * 100).toFixed(1)}%</td></tr>)}</tbody>
+                      <thead className="bg-[#F8FAFC] text-[#64748B]"><tr><th className="px-3 py-2">순위</th><th className="px-3 py-2">아파트 단지</th><th className="px-3 py-2">최근 매매가</th><th className="px-3 py-2">최근 거래일</th><th className="px-3 py-2">전용면적</th></tr></thead>
+                      <tbody>{group.items.map((item, index) => <tr key={item.name} className="border-t border-[#EDF2F4]"><td className="px-3 py-2 font-bold">{index + 1}</td><td className="px-3 py-2 font-semibold">{item.name}</td><td className="px-3 py-2">{formatPrice(item.salePrice)}</td><td className="px-3 py-2">{item.recentTradeDate}</td><td className="px-3 py-2">{item.exclusiveArea.toFixed(2)}㎡</td></tr>)}</tbody>
                     </table>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </div>}</>}
         </section>
       </div>
     </main>
