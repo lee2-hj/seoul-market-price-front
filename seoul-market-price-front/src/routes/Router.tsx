@@ -65,6 +65,7 @@ import ReportEditPage from "@/pages/ReportEdit/ReportEditPage";
 import RegionMapPage from "@/pages/RegionMap/RegionMapPage";
 
 import PriceCompareListPage from "../pages/PriceCompareList/PriceCompareListPage";
+import PriceCompareAptPage from "../pages/PriceCompareApt/PriceCompareAptPage";
 
 function Router() {
   /* =========================
@@ -345,6 +346,24 @@ function Router() {
         <Route path="/pass/callback" element={<PassCallbackPage />} />
         {/* 정의되지 않은 경로(예: /main)로 직접 접근한 경우 "/" 로 리다이렉트한다. */}
         <Route path="*" element={<Navigate to="/" replace />} />
+
+        {/* =========================
+              가격 정보 (시세 및 비교)
+          ========================= */}
+        <Route
+          path="/price"
+          element={<Navigate to="/price/compare-apartment" replace />}
+        />
+        <Route path="/price/compare-list" element={<PriceCompareListPage />} />
+        <Route path="/price/region-map" element={<RegionMapPage />} />
+        <Route
+          path="/price/compare-apartment"
+          element={<PriceCompareAptPage />}
+        />
+        <Route
+          path="/price/compare-apt"
+          element={<Navigate to="/price/compare-apartment" replace />}
+        />
       </Routes>
     </BrowserRouter>
   );
