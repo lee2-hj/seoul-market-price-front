@@ -60,12 +60,13 @@ export async function loginApi(
 // 이 API로 로그인 여부와 유저 정보를 다시 확인한다.
 export interface MemberMeResponse {
   memberId: number;
-
   userId: string;
-
   name: string;
-
   preferredDistrict: string;
+  myGu: string | null;
+  myDong: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export async function getMemberMeApi(): Promise<MemberMeResponse> {
@@ -76,7 +77,7 @@ export async function getMemberMeApi(): Promise<MemberMeResponse> {
   // 로그인 상태로 캐시해둔 응답을 재사용하지 않고, 새로고침 시에도
   // 항상 서버에 다시 물어보도록 강제한다. 그렇지 않으면 로그아웃 후
   // 새로고침해도 캐시된 "로그인됨" 응답이 그대로 재사용되어
-  // 헤더가 로그인 상태로 남는 문제가 생긴다.
+  // 헤더가 로그인 상태로 남는 문제가 생긴다..
   const response = await apiMiddleware.get<MemberMeResponse>(
     "/api/members/me",
     {
@@ -195,10 +196,16 @@ export interface FindIdResponse {
 
 export async function findIdApi(
   identityVerificationId: string,
+  name?: string,
+  phone?: string,
 ): Promise<FindIdResponse> {
   const response = await apiMiddleware.post<FindIdResponse>(
     "/api/members/find-id",
-    { identityVerificationId },
+    {
+      identityVerificationId,
+      ...(name && { name }),
+      ...(phone && { phone, phoneNumber: phone }),
+    },
   );
   return response.data;
 }
