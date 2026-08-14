@@ -227,14 +227,14 @@ export default function PriceCompareListPage() {
                   <span>지역별 비교(리스트)</span>
                 </Link>
                 <Link
-                  to="/price"
+                  to="/region-map"
                   className="flex items-center gap-2.5 rounded-[10px] px-3.5 py-3 text-[13px] font-semibold text-[#64748B] no-underline hover:bg-[#F1F5F9] hover:text-[#0F172A]"
                 >
                   <Map className="size-4" />
                   <span>지역별 비교(지도)</span>
                 </Link>
                 <Link
-                  to="/price"
+                  to="/price/detail"
                   className="flex items-center gap-2.5 rounded-[10px] px-3.5 py-3 text-[13px] font-semibold text-[#64748B] no-underline hover:bg-[#F1F5F9] hover:text-[#0F172A]"
                 >
                   <Building2 className="size-4" />
