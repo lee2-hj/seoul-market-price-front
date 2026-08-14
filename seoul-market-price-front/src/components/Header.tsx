@@ -12,7 +12,15 @@ type MenuLink = { to: string; label: string };
 
 const NAV_ITEMS: Array<{ label: string; to?: string; icon: typeof Search; links?: MenuLink[] }> = [
   { label: "매물 검색", to: "/price", icon: Search },
-  { label: "지역별 비교", to: "/price", icon: Map },
+  {
+    label: "지역별 비교",
+    icon: Map,
+    links: [
+      { to: "/price/compare-list", label: "지역별 비교(리스트)" },
+      { to: "/region-map", label: "지역별 비교(지도)" },
+      { to: "/price/detail", label: "단지별 시세" },
+    ],
+  },
   { label: "가격 추이", to: "/price", icon: BarChart3 },
   {
     label: "고객센터",

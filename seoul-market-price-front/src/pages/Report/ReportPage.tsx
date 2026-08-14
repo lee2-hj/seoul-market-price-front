@@ -5,6 +5,7 @@ import {
   getStoredReports,
   REPORT_STATUS_MAP,
   canUserViewReport,
+  maskName,
 } from "@/features/report/services/reportService";
 import type { ReportItem } from "@/features/report/types/report.types";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
@@ -187,7 +188,7 @@ export default function ReportPage() {
                           </Link>
                         </td>
                         <td className="py-4 px-4 text-center text-[#6B7280]">
-                          {item.authorName}
+                          {maskName(item.authorName)}
                         </td>
                         <td className="py-4 px-4 text-center text-[#6B7280]">
                           {item.createdAt}

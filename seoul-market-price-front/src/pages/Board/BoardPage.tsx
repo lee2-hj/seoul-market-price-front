@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { getBoardPostsApi } from '@/api/api';
 import { isLogin } from '@/features/auth/utils/auth';
 import type { BoardListItem, BoardSearchType } from '@/features/board/types/board.types';
@@ -49,7 +49,7 @@ export default function BoardPage() {
 
   const query: BoardQueryState = {
     page: Number(getParam('page')) || 1,
-    searchType: (getParam('searchType') as BoardSearchType) || 'TITLE_CONTENT',
+    searchType: (getParam('searchType') as BoardSearchType) || 'TITLE',
     keyword: getParam('keyword') || '',
   };
 
@@ -66,11 +66,8 @@ export default function BoardPage() {
     setSearchParams(params);
   };
 
-  // 페이지네이션 번호 배열 상태
-  const [pageNumbers, setPageNumbers] = useState<number[]>([]);
-
-  // 2. React Query 데이터 조회 (refetch 추출)
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  // 2. URL 검색 조건이 변경되면 React Query가 자동으로 다시 조회한다.
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['boardPosts', query.page, query.searchType, query.keyword],
     queryFn: () =>
       getBoardPostsApi({
@@ -87,25 +84,20 @@ export default function BoardPage() {
     }),
   });
 
-  // 3. React Query 데이터 수신 후 실행되는 useEffect
-  useEffect(() => {
-    if (!data?.totalPages) {
-      setPageNumbers([]);
-      return;
-    }
+  // 3. 현재 페이지 그룹에 표시할 페이지 번호 계산
+  const pageNumbers = useMemo(() => {
+    if (!data?.totalPages) return [];
 
-    const totalPages: number = data.totalPages;
+    const totalPages = data.totalPages;
     const currentGroup: number = Math.ceil(query.page / 5);
     const startPage: number = (currentGroup - 1) * 5 + 1;
     const endPage: number = Math.min(startPage + 4, totalPages);
 
-    const nums: number[] = Array.from(
+    return Array.from(
       { length: Math.max(0, endPage - startPage + 1) },
       (_: unknown, i: number): number => startPage + i
     );
-
-    setPageNumbers(nums);
-  }, [data, query.page]);
+  }, [data?.totalPages, query.page]);
 
   // 페이지 이동 처리 (상단 스크롤 포함)
   const changePage = (targetPage: number) => {
@@ -146,7 +138,6 @@ export default function BoardPage() {
                   searchType: formData.get('searchType') as BoardSearchType,
                   keyword: (formData.get('keyword') as string).trim(),
                 });
-                refetch(); // 명시적 재조회 호출
               }}
               className="flex flex-col md:flex-row items-center gap-3"
             >
@@ -156,7 +147,7 @@ export default function BoardPage() {
                 defaultValue={query.searchType}
                 className="h-[44px] w-full md:w-[130px] rounded-[7px] border border-[#DCE8ED] bg-[#F5FAFC] px-3 text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8]"
               >
-                <option value="TITLE_CONTENT">제목</option>
+                <option value="TITLE">제목</option>
                 <option value="WRITER">작성자</option>
               </select>
 
@@ -177,8 +168,7 @@ export default function BoardPage() {
                   type="button"
                   variant="outline"
                   onClick={() => {
-                    setQuery({ page: 1, searchType: 'TITLE_CONTENT', keyword: '' });
-                    refetch(); // 명시적 재조회 호출
+                    setQuery({ page: 1, searchType: 'TITLE', keyword: '' });
                   }}
                   className="h-[44px] px-5 bg-white border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA] text-[14px] font-bold rounded-[7px]"
                 >
