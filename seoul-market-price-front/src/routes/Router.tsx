@@ -35,6 +35,9 @@ import PriceCompareListPage from "@/pages/PriceCompareList/PriceCompareListPage"
 import RegionMapPage from "@/pages/RegionMap/RegionMapPage";
 import MarketTrendsPage from "@/pages/Trends/MarketTrendsPage";
 
+/* 가격정보 아파트별 정보*/
+import PriceCompareAptPage from "../pages/PriceCompareApt/PriceCompareAptPage";
+
 /* 일반 게시판 목록·작성·수정·상세 화면 */
 import BoardPage from "@/pages/Board/BoardPage";
 import BoardDetailPage from "@/pages/BoardDetail/BoardDetailPage";
@@ -109,6 +112,18 @@ function Router() {
           <Route path="/region-map" element={<RegionMapPage />} />
           {/* 부동산 거래 동향을 조회하는 화면 */}
           <Route path="/trends" element={<MarketTrendsPage />} />
+
+          {/* --------------------------------------------------------------
+              가격정보 아파트별 정보
+          -------------------------------------------------------------- */}
+          <Route
+            path="/price/compare-apartment"
+            element={<PriceCompareAptPage />}
+          />
+          <Route
+            path="/price/compare-apt"
+            element={<Navigate to="/price/compare-apartment" replace />}
+          />
 
           {/* --------------------------------------------------------------
               일반 게시판
