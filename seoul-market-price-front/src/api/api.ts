@@ -195,16 +195,10 @@ export interface FindIdResponse {
 
 export async function findIdApi(
   identityVerificationId: string,
-  name?: string,
-  phone?: string,
 ): Promise<FindIdResponse> {
   const response = await apiMiddleware.post<FindIdResponse>(
     "/api/members/find-id",
-    {
-      identityVerificationId,
-      ...(name && { name }),
-      ...(phone && { phone, phoneNumber: phone }),
-    },
+    { identityVerificationId },
   );
   return response.data;
 }
