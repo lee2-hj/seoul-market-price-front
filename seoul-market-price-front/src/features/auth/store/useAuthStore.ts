@@ -12,7 +12,9 @@ export interface AuthUser {
   name: string;
   role: string;
   accessToken?: string;
+  myGu?: string | null;
   preferredDistrict?: string;
+  myDong?: string | null;
 }
 
 interface AuthState {

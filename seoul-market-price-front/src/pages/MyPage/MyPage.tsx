@@ -287,11 +287,9 @@ export default function MyPage() {
       setWithdrawError(errorMsg);
 
       if (isSocialUser) {
-        const socialWithdrawalMessage =
-          typeof serverMessage === "string" && serverMessage.includes("일반 로그인 회원만")
-            ? "현재 소셜 로그인 회원 탈퇴는 지원되지 않습니다.\n기능 준비 후 다시 시도해 주세요."
-            : "회원 탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.";
-        alert(socialWithdrawalMessage);
+        alert(
+          "현재 소셜 로그인 회원 탈퇴는 지원되지 않습니다.\n기능 준비 후 다시 시도해 주세요.",
+        );
       }
     } finally {
       setIsWithdrawing(false);
@@ -463,16 +461,13 @@ export default function MyPage() {
           return comments
             .filter((c: any) => {
               const cAuthorName = (
-                c.authorName ||
-                c.writer ||
-                c.author ||
-                c.memberName ||
+                c.writerName ||
                 c.name ||
                 ""
               )
                 .trim()
                 .toLowerCase();
-              const cAuthorId = (c.authorId || c.userId || c.writer || "")
+              const cAuthorId = String(c.writerId || "")
                 .trim()
                 .toLowerCase();
 
@@ -483,7 +478,7 @@ export default function MyPage() {
               );
             })
             .map((c: any) => ({
-              commentId: c.commentId || c.id || 0,
+              commentId: c.id || 0,
               boardId: post.boardId,
               boardTitle: post.title,
               content: c.content || "",
@@ -571,10 +566,14 @@ export default function MyPage() {
     setOriginalProfile(updatedProfile);
     setOriginalDistrict(preferredDistrict);
 
-    if (authUser && updatedProfile.name && !updatedProfile.name.startsWith("enc:v1:")) {
+    if (authUser) {
       useAuthStore.getState().setUser({
         ...authUser,
-        name: updatedProfile.name,
+        name:
+          updatedProfile.name && !updatedProfile.name.startsWith("enc:v1:")
+            ? updatedProfile.name
+            : authUser.name,
+        myGu: preferredDistrict || null,
       });
     }
 
