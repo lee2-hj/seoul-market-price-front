@@ -553,17 +553,24 @@ export async function createBoardCommentApi(
  * 게시글 댓글 수정 API (PATCH /api/boards/comments/:commentId)
  */
 export async function updateBoardCommentApi(
+  boardId: number,
   commentId: number,
   data: CommentUpdateRequest,
 ): Promise<void> {
-  await apiMiddleware.patch(`/api/boards/comments/${commentId}`, data);
+  await apiMiddleware.patch(
+    `/api/boards/${boardId}/comments/${commentId}`,
+    data,
+  );
 }
 
 /**
  * 게시글 댓글 삭제 API (DELETE /api/boards/comments/:commentId)
  */
-export async function deleteBoardCommentApi(commentId: number): Promise<void> {
-  await apiMiddleware.delete(`/api/boards/comments/${commentId}`);
+export async function deleteBoardCommentApi(
+  boardId: number,
+  commentId: number,
+): Promise<void> {
+  await apiMiddleware.delete(`/api/boards/${boardId}/comments/${commentId}`);
 }
 
 /* ==========================================
