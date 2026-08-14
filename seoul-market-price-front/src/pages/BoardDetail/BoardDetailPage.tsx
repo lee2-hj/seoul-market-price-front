@@ -20,6 +20,17 @@ import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 
+// api.ts 담당자가 백엔드 CommentController 명세에 맞춰 변경할 시그니처
+const updateCommentApi = updateBoardCommentApi as unknown as (
+  boardId: number,
+  commentId: number,
+  data: { content: string },
+) => Promise<unknown>;
+const deleteCommentApi = deleteBoardCommentApi as unknown as (
+  boardId: number,
+  commentId: number,
+) => Promise<void>;
+
 function formatBoardDate(dateStr?: string): string {
   if (!dateStr) return "-";
   if (dateStr.includes("T")) {
@@ -118,7 +129,7 @@ export default function BoardDetailPage() {
   // 댓글 수정 Mutation
   const updateCommentMutation = useMutation({
     mutationFn: ({ commentId, content }: { commentId: number; content: string }) =>
-      updateBoardCommentApi(commentId, { content }),
+      updateCommentApi(boardId, commentId, { content }),
     onSuccess: () => {
       setEditingCommentId(null);
       setEditingContent("");
@@ -131,7 +142,7 @@ export default function BoardDetailPage() {
 
   // 댓글 삭제 Mutation
   const deleteCommentMutation = useMutation({
-    mutationFn: (commentId: number) => deleteBoardCommentApi(commentId),
+    mutationFn: (commentId: number) => deleteCommentApi(boardId, commentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["boardComments", boardId] });
     },
@@ -179,53 +190,17 @@ export default function BoardDetailPage() {
     }
   };
 
-  const getCommentAuthorName = (c: any): string => {
-    const candidates = [
-      c?.authorName,
-      c?.writerName,
-      c?.memberName,
-      c?.userName,
-      c?.nickname,
-      c?.name,
-      c?.writer,
-      c?.author,
-    ];
-
-    const displayName = candidates.find(
-      (value) =>
-        typeof value === "string" &&
-        value.trim() &&
-        !value.trim().startsWith("enc:v1:"),
-    );
-
-    return displayName || "-";
-  };
-
-  const getCommentAuthorId = (c: any): string => {
-    return (
-      c?.authorId ||
-      c?.userId ||
-      c?.writer ||
-      c?.author ||
-      c?.memberName ||
-      ""
-    );
-  };
+  const getCommentAuthorName = (comment: BoardComment): string =>
+    comment.writerName || comment.name || "-";
 
   // 작성자 본인 및 관리자 권한 확인
-  const canModifyComment = (c: any) => {
+  const canModifyComment = (comment: BoardComment) => {
     if (!loginUser) return false;
-    if (loginUser.role === "ADMIN") return true;
+    if (loginUser.role === "ADMIN" || loginUser.role === "ROLE_ADMIN") return true;
 
-    const targetId = String(getCommentAuthorId(c)).trim().toLowerCase();
-    const curId = String(loginUser.userId || "").trim().toLowerCase();
-    if (curId && targetId && (curId === targetId || curId.includes(targetId) || targetId.includes(curId))) return true;
-
-    const targetName = String(getCommentAuthorName(c)).trim();
+    const targetName = getCommentAuthorName(comment).trim();
     const curName = String(loginUser.name || "").trim();
-    if (curName && targetName && curName === targetName) return true;
-
-    return false;
+    return Boolean(curName && targetName && curName === targetName);
   };
 
   const canModifyPost = (postAuthorId?: string, postAuthorName?: string) => {
@@ -474,11 +449,11 @@ export default function BoardDetailPage() {
                   safeComments.map((comment: BoardComment) => {
                     const authorName = getCommentAuthorName(comment);
                     const canModify = canModifyComment(comment);
-                    const isEditing = editingCommentId === comment.commentId;
+                    const isEditing = editingCommentId === comment.id;
 
                     return (
                       <div
-                        key={comment.commentId}
+                        key={comment.id}
                         className="p-4 bg-[#F5FAFC] border border-[#DCE8ED] rounded-[10px] space-y-2 transition-colors"
                       >
                         <div className="flex items-center justify-between">
@@ -492,7 +467,7 @@ export default function BoardDetailPage() {
                             <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
-                                onClick={() => handleStartEditComment(comment.commentId, comment.content)}
+                                onClick={() => handleStartEditComment(comment.id, comment.content)}
                                 className="px-2.5 py-1 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[12px] font-bold rounded-[6px] inline-flex items-center gap-1 transition-colors cursor-pointer shadow-2xs border-none"
                               >
                                 <Edit2 className="w-3 h-3" />
@@ -500,7 +475,7 @@ export default function BoardDetailPage() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleDeleteComment(comment.commentId)}
+                                onClick={() => handleDeleteComment(comment.id)}
                                 className="px-2.5 py-1 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 text-[12px] font-bold rounded-[6px] inline-flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
                               >
                                 <Trash2 className="w-3 h-3" />
@@ -521,7 +496,7 @@ export default function BoardDetailPage() {
                             <div className="flex justify-end gap-2">
                               <Button
                                 size="sm"
-                                onClick={() => handleSaveEditComment(comment.commentId)}
+                                onClick={() => handleSaveEditComment(comment.id)}
                                 disabled={updateCommentMutation.isPending}
                                 className="h-8 px-3 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[12px] font-bold rounded-[6px] cursor-pointer"
                               >

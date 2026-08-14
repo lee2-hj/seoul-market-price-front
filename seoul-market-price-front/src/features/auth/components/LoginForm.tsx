@@ -105,7 +105,9 @@ function LoginForm() {
         userId: me.userId,
         name: me.name,
         role: "",
+        myGu: me.myGu,
         preferredDistrict: me.preferredDistrict,
+        myDong: me.myDong,
       });
 
       /*

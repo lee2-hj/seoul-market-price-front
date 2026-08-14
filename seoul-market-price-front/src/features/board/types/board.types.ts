@@ -11,7 +11,7 @@ export type NoticeLevel = "IMPORTANT" | "NORMAL";
 /**
  * 게시판 검색 타입 (title: 제목, author: 작성자)
  */
-export type BoardSearchType = "TITLE" | "TITLE_CONTENT" | "WRITER";
+export type BoardSearchType = "TITLE" | "WRITER";
 
 /**
  * 게시글 목록용 프론트엔드 모델
@@ -44,12 +44,18 @@ export interface BoardDetail {
  * 게시글 댓글 모델
  */
 export interface BoardComment {
-  commentId: number;
-  boardId: number;
-  authorName: string;
-  authorId: string;
+  id: number;
+  parentId: number | null;
+  writerType: "USER" | "ADMIN";
+  writerId: number;
+  writerName: string;
+  name?: string;
   content: string;
+  visible: boolean;
+  deleted: boolean;
   createdAt: string;
+  updatedAt: string;
+  replies: BoardComment[];
 }
 
 /**
