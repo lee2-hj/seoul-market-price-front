@@ -1,39 +1,9 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import * as PortOne from "@portone/browser-sdk/v2";
 
-import apiMiddleware from "@/api/middleware";
+import PassAuth, { type PassAuthResult } from "@/features/auth/components/PassAuth";
+import { findIdApi } from "@/api/api";
 import styles from "./FindIdPage.module.css";
-
-const PORTONE_STORE_ID = "store-80402af7-238f-44bf-8b5d-a4f3c415f38d";
-const PORTONE_CHANNEL_KEY = "channel-key-ca4c46cd-a367-4f7a-873f-c5aae5e73e27";
-
-interface FindIdParams {
-  identityVerificationId: string;
-  name?: string;
-  phone?: string;
-}
-
-/* API 연동 함수: 아이디 찾기 */
-async function findIdApi({ identityVerificationId, name, phone }: FindIdParams): Promise<string[]> {
-  const response = await apiMiddleware.post("/api/members/find-id", {
-    identityVerificationId,
-    name,
-    phone,
-  });
-
-  const data = response.data as Record<string, unknown>;
-  const ids: string[] = [];
-
-  if (Array.isArray(data?.maskedUserIds)) ids.push(...(data.maskedUserIds as string[]));
-  else if (Array.isArray(data?.userIds)) ids.push(...(data.userIds as string[]));
-  else if (Array.isArray(data?.loginIds)) ids.push(...(data.loginIds as string[]));
-  else if (typeof data?.maskedUserId === "string" && data.maskedUserId) ids.push(data.maskedUserId);
-  else if (typeof data?.maskedLoginId === "string" && data.maskedLoginId) ids.push(data.maskedLoginId);
-
-  return Array.from(new Set(ids.filter(Boolean)));
-}
 
 /* 메인 컴포넌트 */
 export default function FindIdPage() {
@@ -42,54 +12,24 @@ export default function FindIdPage() {
   const [maskedUserIds, setMaskedUserIds] = useState<string[]>([]);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  /* React Query: 아이디 찾기 뮤테이션 */
-  const findIdMutation = useMutation({
-    mutationFn: findIdApi,
-    onSuccess: (ids) => {
-      setMaskedUserIds(ids);
-      setStep(2);
-    },
-    onError: () => {
-      setMaskedUserIds([]);
-      setStep(2);
-    },
-  });
-
-  const isLoading = isVerifying || findIdMutation.isPending;
-
-  /* PASS 본인인증 실행 */
-  const handlePassAuth = async () => {
-    if (isLoading) return;
-
+  /* PASS 본인인증 성공 시 백엔드 조회 */
+  const handlePassSuccess = async (result: PassAuthResult) => {
     try {
       setIsVerifying(true);
-      const identityVerificationId = `iv${crypto.randomUUID().replace(/-/g, "")}`;
+      const data = await findIdApi(
+        result.identityVerificationId,
+        result.name,
+        result.phoneNumber,
+      );
 
-      const result = await PortOne.requestIdentityVerification({
-        storeId: PORTONE_STORE_ID,
-        identityVerificationId,
-        channelKey: PORTONE_CHANNEL_KEY,
-        windowType: { pc: "POPUP" },
-        popup: { center: true },
-      });
-
-      if (result?.code != null) {
-        setIsVerifying(false);
-        return;
-      }
-
+      setMaskedUserIds(data.maskedUserIds || []);
       setPassVerified(true);
-      setIsVerifying(false);
-
-      findIdMutation.mutate({
-        identityVerificationId,
-        name: (result as { name?: string })?.name,
-        phone: (result as { phoneNumber?: string })?.phoneNumber,
-      });
+      setStep(2);
     } catch {
-      setIsVerifying(false);
       setMaskedUserIds([]);
       setStep(2);
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -117,16 +57,17 @@ export default function FindIdPage() {
               가입된 아이디를 찾을 수 있습니다.
             </p>
 
-            {!passVerified && !isLoading && (
+            {!passVerified && !isVerifying && (
               <div style={{ width: "100%", marginTop: "24px" }}>
-                <button type="button" onClick={handlePassAuth} className={styles.mainButton}>
-                  인증하기
-                </button>
+                <PassAuth
+                  onSuccess={handlePassSuccess}
+                  className={styles.mainButton}
+                />
               </div>
             )}
 
             {passVerified && <p className={styles.success}>✔ PASS 휴대폰 인증 완료</p>}
-            {isLoading && <p className={styles.loading}>가입된 아이디를 조회하고 있습니다...</p>}
+            {isVerifying && <p className={styles.loading}>가입된 아이디를 조회하고 있습니다...</p>}
           </>
         )}
 
