@@ -60,12 +60,13 @@ export async function loginApi(
 // 이 API로 로그인 여부와 유저 정보를 다시 확인한다.
 export interface MemberMeResponse {
   memberId: number;
-
   userId: string;
-
   name: string;
-
   preferredDistrict: string;
+  myGu: string | null;
+  myDong: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export async function getMemberMeApi(): Promise<MemberMeResponse> {
@@ -195,10 +196,16 @@ export interface FindIdResponse {
 
 export async function findIdApi(
   identityVerificationId: string,
+  name?: string,
+  phone?: string,
 ): Promise<FindIdResponse> {
   const response = await apiMiddleware.post<FindIdResponse>(
     "/api/members/find-id",
-    { identityVerificationId },
+    {
+      identityVerificationId,
+      ...(name && { name }),
+      ...(phone && { phone, phoneNumber: phone }),
+    },
   );
   return response.data;
 }
