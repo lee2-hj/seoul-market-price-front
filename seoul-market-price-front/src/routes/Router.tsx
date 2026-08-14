@@ -1,203 +1,150 @@
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
+/* 공통 레이아웃 및 공개·인증 전용 라우트 접근 제어 */
+import Layout from "@/components/Layout";
+import PrivateRoute from "@/routes/PrivateRoute";
+import PublicRoute from "@/routes/PublicRoute";
+import SignupFlowLayout from "@/routes/SignupFlowLayout";
+
+/* 인증 상태 복원과 단계형 회원가입 임시 데이터 관리 */
+import FindPasswordForm from "@/features/auth/components/FindPasswordForm";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
+import { ensureAuthLoaded } from "@/features/auth/utils/auth";
 import {
   clearAllSignupStorage,
   isFlowPathMatch,
   isPageReload,
 } from "@/lib/signupFlow";
 
-import { ensureAuthLoaded } from "@/features/auth/utils/auth";
-import { useAuthStore } from "@/features/auth/store/useAuthStore";
-
-import LoginPage from "../pages/Login/LoginPage";
-import MainPage from "../pages/Main/MainPage";
-
-import SignupPage from "../pages/Signup/SignupPage";
-import SignupSelectPage from "../pages/SignupSelect/SignupSelectPage";
-import SignupTermsPage from "../pages/SignupTerms/SignupTermsPage";
-import SignupVerifyPage from "../pages/SignupVerify/SignupVerifyPage";
-import FindPasswordForm from "@/features/auth/components/FindPasswordForm";
-import FindIdPage from "../pages/FindId/FindIdPage";
-
-import PassCallbackPage from "../pages/PassCallback/PassCallbackPage";
-
-/*
- * 일반게시판 목록 화면
- */
-import BoardPage from "../pages/Board/BoardPage";
-
-/*
- * 일반게시판 상세 조회 화면
- */
-import BoardDetailPage from "../pages/BoardDetail/BoardDetailPage";
-
-/*
- * 일반게시판 글쓰기 화면
- */
-import BoardWritePage from "../pages/BoardWrite/BoardWritePage";
-
-/*
- * 일반게시판 수정 화면
- */
-import BoardEditPage from "../pages/BoardEdit/BoardEditPage";
+/* 메인·인증·회원가입·마이페이지 화면 */
+import AboutPage from "@/pages/About/AboutPage";
+import FindIdPage from "@/pages/FindId/FindIdPage";
+import LoginPage from "@/pages/Login/LoginPage";
+import MainPage from "@/pages/Main/MainPage";
 import MyPage from "@/pages/MyPage/MyPage";
+import PassCallbackPage from "@/pages/PassCallback/PassCallbackPage";
+import SignupPage from "@/pages/Signup/SignupPage";
+import SignupSelectPage from "@/pages/SignupSelect/SignupSelectPage";
+import SignupTermsPage from "@/pages/SignupTerms/SignupTermsPage";
+import SignupVerifyPage from "@/pages/SignupVerify/SignupVerifyPage";
 
-import PublicRoute from "./PublicRoute";
-import PrivateRoute from "./PrivateRoute";
-import SignupFlowLayout from "./SignupFlowLayout";
+/* 가격정보 메인·지역 비교·지도·거래 동향 화면 */
+import PricePage from "@/pages/Price/PricePage";
+import PriceCompareListPage from "@/pages/PriceCompareList/PriceCompareListPage";
+import RegionMapPage from "@/pages/RegionMap/RegionMapPage";
+import MarketTrendsPage from "@/pages/Trends/MarketTrendsPage";
+
+/* 일반 게시판 목록·작성·수정·상세 화면 */
+import BoardPage from "@/pages/Board/BoardPage";
+import BoardDetailPage from "@/pages/BoardDetail/BoardDetailPage";
+import BoardEditPage from "@/pages/BoardEdit/BoardEditPage";
+import BoardWritePage from "@/pages/BoardWrite/BoardWritePage";
+
+/* Q&A 목록·작성·수정·상세 및 FAQ 화면 */
+import FaqPage from "@/pages/Faq/FaqPage";
 import QnaPage from "@/pages/Qna/QnaPage";
-import QnaWritePage from "@/pages/Qna/QnaWritePage";
 import QnaDetailPage from "@/pages/Qna/QnaDetailPage";
 import QnaEditPage from "@/pages/Qna/QnaEditPage";
-import PricePage from "@/pages/Price/PricePage";
+import QnaWritePage from "@/pages/Qna/QnaWritePage";
 
-import Layout from "@/components/Layout";
-import AboutPage from "@/pages/About/AboutPage";
-import ReportPage from "../pages/Report/ReportPage";
-import ReportWritePage from "../pages/ReportWrite/ReportWritePage";
-import ReportDetailPage from "../pages/ReportDetail/ReportDetailPage";
-import FaqPage from "@/pages/Faq/FaqPage";
-
-import MarketTrendsPage from "@/pages/Trends/MarketTrendsPage";
+/* 신고 게시판 목록·작성·수정·상세 화면 */
+import ReportPage from "@/pages/Report/ReportPage";
+import ReportDetailPage from "@/pages/ReportDetail/ReportDetailPage";
 import ReportEditPage from "@/pages/ReportEdit/ReportEditPage";
-
-import RegionMapPage from "@/pages/RegionMap/RegionMapPage";
-
-import PriceCompareListPage from "../pages/PriceCompareList/PriceCompareListPage";
-import PriceCompareAptPage from "../pages/PriceCompareApt/PriceCompareAptPage";
+import ReportWritePage from "@/pages/ReportWrite/ReportWritePage";
 
 function Router() {
-  /* =========================
-     앱(문서)이 새로고침이 아닌 방식으로 새로 열릴 때마다
-     (주소창 직접 입력, 다른 링크로 이동, 새 진입 등)
-     이전에 남아있을 수 있는 회원가입 플로우 sessionStorage를
-     전부(흐름 메타데이터 + 약관 동의 + PASS 인증 결과) 정리한다.
+  const isAuthInitialized = useAuthStore((state) => state.isInitialized);
 
-     지금 머물러 있던 페이지와 다른 URL이 새 문서로 열렸다는 뜻이므로,
-     이전 플로우의 잔여값을 그대로 남겨두면 안 된다.
-     새로고침일 때는 값을 그대로 유지해야 하므로 건드리지 않는다.
-
-     주소창에 "마지막으로 머물렀던 페이지와 동일한 URL"을 직접
-     입력해 새 문서가 열린 경우도 마찬가지로 건드리지 않는다 —
-     SignupFlowLayout이 이를 새로고침과 동일하게 취급해 그대로
-     머무르게 하는데, 여기서 먼저 지워버리면 그 판단 근거가 되는
-     sessionStorage 값이 사라져버린다.
-  ========================= */
-
+  /**
+   * 새로고침이 아닌 새 문서 탐색으로 회원가입 경로를 벗어났을 때만
+   * 약관 동의, PASS 인증 결과 등 회원가입 임시 데이터를 정리한다.
+   * 새로고침과 회원가입 단계 간 이동에서는 기존 입력 상태를 유지한다.
+   */
   useEffect(() => {
     if (!isPageReload() && !isFlowPathMatch(window.location.pathname)) {
       clearAllSignupStorage();
     }
   }, []);
 
-  /* =========================
-     accessToken이 HttpOnly 쿠키라 프론트에서 로그인 여부를 직접
-     판별할 수 없다. 새로고침 등으로 zustand가 비어있는 상태로
-     앱이 열리면 /api/members/me로 로그인 여부를 먼저 확인한 뒤
-     라우트(PrivateRoute/PublicRoute)를 렌더링해야, 로그인된
-     사용자가 잠깐 비로그인으로 오판되는 것을 막을 수 있다.
-  ========================= */
-  const isAuthInitialized = useAuthStore((state) => state.isInitialized);
-
+  /**
+   * accessToken이 HttpOnly 쿠키에 있으므로 앱 시작 시 회원 API를 통해
+   * 로그인 상태를 복원한다. 복원이 끝나기 전에 보호 라우트가 사용자를
+   * 비로그인 상태로 잘못 판단하지 않도록 초기화를 먼저 완료한다.
+   */
   useEffect(() => {
     void ensureAuthLoaded();
   }, []);
 
   if (!isAuthInitialized) {
+    // 인증 상태 확인 중에는 라우트와 화면을 렌더링하지 않는다.
     return null;
   }
 
   return (
     <BrowserRouter>
       <Routes>
-        {/* =========================
-            공통 레이아웃 (Header + Outlet + Footer)
-            로그인/회원가입 등 독립 전체화면을 제외한
-            모든 화면이 이 레이아웃을 공유한다.
-        ========================= */}
+        {/* ==================================================================
+            공통 레이아웃 화면
+            Header, Outlet, Footer를 공유하며 별도 표기가 없으면 공개 화면이다.
+        ================================================================== */}
         <Route element={<Layout />}>
-          {/* =========================
-              메인 페이지
-              로그인 여부와 상관없이 누구나 접근 가능
-          ========================= */}
+          {/* 메인: 서비스 홈과 프로젝트 소개 */}
           <Route path="/" element={<MainPage />} />
-          {/* =========================
-              소개 페이지 (샘플)
-          ========================= */}
           <Route path="/about" element={<AboutPage />} />
-          {/* =========================
-              일반게시판 목록
 
-              주소:
-              /board
-          ========================= */}
-          <Route path="/board" element={<BoardPage />} />
-          {/* =========================
-              일반게시판 글쓰기
-
-              주소:
-              /board/write
-
-              현재는 화면 확인 단계이므로
-              로그인 권한 검사를 적용하지 않는다.
-          ========================= */}
-          <Route path="/board/write" element={<BoardWritePage />} />
-          {/* =========================
-              일반게시판 수정
-
-              주소:
-              /board/13/edit
-
-              일반 게시글의 기존 제목과 본문을
-              Mock Data에서 가져와 입력창에 표시한다.
-
-              현재는 화면 확인 단계이므로
-              작성자 권한 검사를 적용하지 않는다.
-          ========================= */}
-          <Route path="/board/:postId/edit" element={<BoardEditPage />} />
-          {/* =========================
-              일반게시판 상세 조회
-
-              주소:
-              /board/13
-
-              수정 주소인 /board/:postId/edit보다
-              아래에 배치한다.
-          ========================= */}
-          <Route path="/board/:postId" element={<BoardDetailPage />} />
-          {/* =========================
-              시세 조회
-              모든 사용자 접근 가능
-          ========================= */}
+          {/* --------------------------------------------------------------
+              가격정보
+              시세 메인, 지역별 목록 비교, 지도 비교, 거래 동향을 제공한다.
+          -------------------------------------------------------------- */}
+          {/* 가격정보 기본 화면 */}
           <Route path="/price" element={<PricePage />} />
+          {/* 두 지역의 가격정보를 목록으로 비교하는 화면 */}
+          <Route
+            path="/price/compare-list"
+            element={<PriceCompareListPage />}
+          />
+          {/* 지역 가격정보를 지도에서 조회하는 화면 */}
           <Route path="/region-map" element={<RegionMapPage />} />
+          {/* 부동산 거래 동향을 조회하는 화면 */}
+          <Route path="/trends" element={<MarketTrendsPage />} />
 
-          {/* =========================
-              Q&A 목록
-              모든 사용자 접근 가능
-          ========================= */}
+          {/* --------------------------------------------------------------
+              일반 게시판
+              목록·작성·상세·수정 화면이며 현재 별도 라우트 권한 제한은 없다.
+          -------------------------------------------------------------- */}
+          {/* 게시글 목록 */}
+          <Route path="/board" element={<BoardPage />} />
+          {/* 새 게시글 작성 */}
+          <Route path="/board/write" element={<BoardWritePage />} />
+          {/* 게시글 수정: 상세 동적 경로보다 먼저 선언해 구조를 명확히 한다. */}
+          <Route path="/board/:postId/edit" element={<BoardEditPage />} />
+          {/* 게시글 상세 조회 */}
+          <Route path="/board/:postId" element={<BoardDetailPage />} />
+
+          {/* --------------------------------------------------------------
+              Q&A 및 FAQ
+              Q&A의 목록·작성·상세·수정 화면과 FAQ 목록을 제공한다.
+          -------------------------------------------------------------- */}
+          {/* Q&A 목록 */}
           <Route path="/qna" element={<QnaPage />} />
-          {/* =========================
-              Q&A 작성
-              로그인 사용자만 접근
-          ========================= */}
+          {/* Q&A 작성 */}
           <Route path="/qna/write" element={<QnaWritePage />} />
-          {/* =========================
-              Q&A 상세
-              모든 사용자 접근 가능
-          ========================= */}
-          <Route path="/qna/:id" element={<QnaDetailPage />} />
-          {/* =========================
-              Q&A 수정
-              작성자 또는 관리자만 접근
-          ========================= */}
+          {/* Q&A 수정 */}
           <Route path="/qna/:id/edit" element={<QnaEditPage />} />
-          {/* =========================
-              신고 게시판 (URL 직접 접근 전용)
-              목록/상세: 누구나 열람 가능 (작성: 로그인 필수)
-          ========================= */}
+          {/* Q&A 상세 조회 */}
+          <Route path="/qna/:id" element={<QnaDetailPage />} />
+          {/* 자주 묻는 질문 목록 */}
+          <Route path="/faq" element={<FaqPage />} />
+
+          {/* --------------------------------------------------------------
+              신고 게시판
+              목록·상세는 공개하고 작성·수정은 로그인 사용자만 허용한다.
+          -------------------------------------------------------------- */}
+          {/* 신고 목록 */}
           <Route path="/report" element={<ReportPage />} />
+          {/* 신고 작성: 로그인 사용자 전용 */}
           <Route
             path="/report/write"
             element={
@@ -206,6 +153,7 @@ function Router() {
               </PrivateRoute>
             }
           />
+          {/* 신고 수정: 로그인 사용자 전용 */}
           <Route
             path="/report/:reportId/edit"
             element={
@@ -214,26 +162,13 @@ function Router() {
               </PrivateRoute>
             }
           />
-
+          {/* 신고 상세 조회 */}
           <Route path="/report/:reportId" element={<ReportDetailPage />} />
-          {/* =========================
-              자주 묻는 질문 (FAQ) 목록
-              모든 사용자 접근 가능
-          ========================= */}
-          <Route path="/faq" element={<FaqPage />} />
 
-          {/* =========================
-              부동산 거래동향 대시보드
-              모든 사용자 접근 가능
-          ========================= */}
-          <Route path="/trends" element={<MarketTrendsPage />} />
-
-          {/* =========================
+          {/* --------------------------------------------------------------
               마이페이지
-              로그인 사용자만 접근
-              (비로그인 상태로 주소창 직접 접근 시
-               알럿 후 로그인 페이지로 이동)
-          ========================= */}
+              회원 개인정보를 포함하므로 로그인 사용자만 접근할 수 있다.
+          -------------------------------------------------------------- */}
           <Route
             path="/mypage"
             element={
@@ -242,18 +177,13 @@ function Router() {
               </PrivateRoute>
             }
           />
-
-          {/* 지역별 비교 리스트 */}
-          <Route
-            path="/price/compare-list"
-            element={<PriceCompareListPage />}
-          />
         </Route>
-        {/* =========================
-            로그인
-            비로그인 사용자만 접근
-            (독립 전체화면 - Layout 미적용)
-        ========================= */}
+
+        {/* ==================================================================
+            비로그인 사용자 전용 화면
+            공통 Layout을 사용하지 않으며 로그인 사용자는 PublicRoute에서 차단한다.
+        ================================================================== */}
+        {/* 로그인 */}
         <Route
           path="/login"
           element={
@@ -262,10 +192,7 @@ function Router() {
             </PublicRoute>
           }
         />
-        {/* =========================
-            회원가입 방법 선택
-            비로그인 사용자만 접근
-        ========================= */}
+        {/* 회원가입 방식 선택 */}
         <Route
           path="/signup/select"
           element={
@@ -274,14 +201,32 @@ function Router() {
             </PublicRoute>
           }
         />
-        {/* =========================
-            회원가입 약관 동의 → 본인인증 → 회원가입
+        {/* 아이디 찾기 */}
+        <Route
+          path="/find-id"
+          element={
+            <PublicRoute>
+              <FindIdPage />
+            </PublicRoute>
+          }
+        />
+        {/* 비밀번호 찾기: PASS 본인인증을 포함한다. */}
+        <Route
+          path="/find-password"
+          element={
+            <PublicRoute>
+              <FindPasswordForm />
+            </PublicRoute>
+          }
+        />
 
-            /signup/select 를 거쳐 진입한 경우에만 접근 가능
-            (SignupFlowLayout 에서 sessionStorage 플래그로 검증)
-            비로그인 사용자만 접근
-        ========================= */}
+        {/* ==================================================================
+            단계형 회원가입 화면
+            SignupFlowLayout이 선택 → 약관 → 인증 → 가입 순서를 검증하고,
+            PublicRoute가 비로그인 사용자에게만 접근을 허용한다.
+        ================================================================== */}
         <Route element={<SignupFlowLayout />}>
+          {/* 1단계: 약관 동의 */}
           <Route
             path="/signup/terms"
             element={
@@ -290,7 +235,7 @@ function Router() {
               </PublicRoute>
             }
           />
-
+          {/* 2단계: PASS 본인인증 */}
           <Route
             path="/signup/verify"
             element={
@@ -299,7 +244,7 @@ function Router() {
               </PublicRoute>
             }
           />
-
+          {/* 3단계: 회원정보 입력 및 가입 완료 */}
           <Route
             path="/signup"
             element={
@@ -309,61 +254,12 @@ function Router() {
             }
           />
         </Route>
-        {/* =========================
-            아이디 찾기
-        ========================= */}
-        <Route
-          path="/find-id"
-          element={
-            <PublicRoute>
-              <FindIdPage />
-            </PublicRoute>
-          }
-        />
-        {/* =========================
-            비밀번호 찾기
-            PASS 인증 사용
-        ========================= */}
-        <Route
-          path="/find-password"
-          element={
-            <PublicRoute>
-              <FindPasswordForm />
-            </PublicRoute>
-          }
-        />
-        {/* =========================
-            NICE PASS Callback
 
-            PASS 인증창
-                ↓
-            callback 이동
-                ↓
-            postMessage 전달
-
-            PublicRoute 적용 X
-        ========================= */}
+        {/* PASS 인증 팝업 콜백: 결과를 부모 창으로 전달하므로 PublicRoute를 적용하지 않는다. */}
         <Route path="/pass/callback" element={<PassCallbackPage />} />
-        {/* 정의되지 않은 경로(예: /main)로 직접 접근한 경우 "/" 로 리다이렉트한다. */}
-        <Route path="*" element={<Navigate to="/" replace />} />
 
-        {/* =========================
-              가격 정보 (시세 및 비교)
-          ========================= */}
-        <Route
-          path="/price"
-          element={<Navigate to="/price/compare-apartment" replace />}
-        />
-        <Route path="/price/compare-list" element={<PriceCompareListPage />} />
-        <Route path="/price/region-map" element={<RegionMapPage />} />
-        <Route
-          path="/price/compare-apartment"
-          element={<PriceCompareAptPage />}
-        />
-        <Route
-          path="/price/compare-apt"
-          element={<Navigate to="/price/compare-apartment" replace />}
-        />
+        {/* 정의되지 않은 모든 경로는 서비스 홈으로 이동한다. */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
