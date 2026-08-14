@@ -10,7 +10,6 @@ import {
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 
 interface ReportEditFormData {
-  targetProperty: string;
   title: string;
   content: string;
   isSecret: boolean;
@@ -47,7 +46,6 @@ export default function ReportEditPage() {
     }
 
     reset({
-      targetProperty: report.targetProperty,
       title: report.title,
       content: report.content,
       isSecret: report.isSecret,
@@ -56,7 +54,17 @@ export default function ReportEditPage() {
   }, [loginUser, navigate, numericReportId, reset]);
 
   const onSubmit = (data: ReportEditFormData) => {
-    const updated = updateReport(numericReportId, data, loginUser);
+    const currentReport = getReportById(numericReportId);
+    if (!currentReport) {
+      alert("수정할 문의를 찾을 수 없습니다.");
+      return;
+    }
+
+    const updated = updateReport(
+      numericReportId,
+      { ...data, targetProperty: currentReport.targetProperty },
+      loginUser,
+    );
 
     if (!updated) {
       alert("문의 수정 권한이 없거나 문의를 찾을 수 없습니다.");
@@ -80,7 +88,7 @@ export default function ReportEditPage() {
             문의사항 수정
           </h1>
           <p className="text-[14px] text-[#6B7280] mt-1.5">
-            접수한 문의의 대상, 제목, 내용과 공개 여부를 수정할 수 있습니다.
+            접수한 문의의 제목, 내용과 공개 여부를 수정할 수 있습니다.
           </p>
         </div>
 

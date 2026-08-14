@@ -122,14 +122,14 @@ export default function BoardPage() {
             <span className="inline-block px-3 py-1 bg-[#E6F4F2] text-[#0F766E] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
               SSABU CUSTOMER CENTER
             </span>
-            <h1 className="text-[36px] font-black text-[#123047] tracking-tight">공지사항</h1>
-            <p className="text-[15px] text-[#6B7280]">싸부(SSABU) 부동산 실거래 및 시세 분석 서비스의 주요 소식을 전해드립니다.</p>
+            <h1 className="text-[36px] font-black text-[#123047] tracking-tight">게시판</h1>
+            <p className="text-[15px] text-[#6B7280]">싸부(SSABU) 부동산 실거래 및 시세 분석 서비스의 다양한 이야기를 나누는 공간입니다.</p>
           </div>
 
           {/* 카테고리 탭 */}
           <div className="flex justify-center mb-6">
             <div className="flex items-center gap-2 p-1 bg-white rounded-[10px] border border-[#DCE8ED] shadow-sm">
-              <button type="button" className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#123047] text-white">공지사항</button>
+              <button type="button" className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#123047] text-white">게시판</button>
               <button type="button" onClick={() => navigate('/qna')} className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#6B7280] hover:bg-[#F0F7FA]">질의응답</button>
               <button type="button" onClick={() => navigate('/faq')} className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#6B7280] hover:bg-[#F0F7FA]">자주 묻는 질문</button>
             </div>

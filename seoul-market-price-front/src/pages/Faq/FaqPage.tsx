@@ -126,7 +126,6 @@ export default function FaqPage() {
   };
 
   const toggleFaq = (id: number) => {
-    const isExpanding = !openIds.includes(id);
     setOpenIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );

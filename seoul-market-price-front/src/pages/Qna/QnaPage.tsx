@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 
 import { getLoginUser, isLogin } from "@/features/auth/utils/auth";
 import { getQnasApi } from "@/api/api";
@@ -22,13 +23,7 @@ import {
   PaginationNext,
 } from "@/components/ui/pagination";
 
-interface QnaAttachment {
-  id: string;
-  name: string;
-  size: number;
-  type: string;
-}
-
+/* 타입 정의 */
 interface QnaPost {
   id: number;
   authorId: string;
@@ -38,23 +33,16 @@ interface QnaPost {
   date: string;
   views: number;
   answer?: string;
-  attachments?: QnaAttachment[];
   publicQuestion?: boolean;
   isPublic?: boolean;
 }
 
 type SearchType = "title" | "author" | "content";
 
-/* 제거할 고정 샘플 게시글 ID */
 const SAMPLE_POST_IDS = new Set([1, 2, 3, 16, 17, 18]);
-
-/*
- * 게시글 정렬: 날짜 최신순
- * - 날짜(YYYY.MM.DD) 기준 내림차순
- * - 같은 날짜면 서버 게시글(소형 ID)을 타임스탬프 ID보다 먼저 표시
- * - 같은 유형이면 ID 내림차순
- */
 const TIMESTAMP_THRESHOLD = 1_000_000_000_000;
+
+/* 게시글 정렬: 날짜 최신순 */
 const sortPosts = (a: QnaPost, b: QnaPost): number => {
   const dateA = a.date && a.date !== "-" ? a.date : "0000.00.00";
   const dateB = b.date && b.date !== "-" ? b.date : "0000.00.00";
@@ -65,25 +53,21 @@ const sortPosts = (a: QnaPost, b: QnaPost): number => {
   return b.id - a.id;
 };
 
-const getInitialPosts = (): QnaPost[] => {
-  const storedPosts = localStorage.getItem("qnaPosts");
-  if (storedPosts) {
+/* 로컬 스토리지 데이터 조회 */
+const getLocalPosts = (): QnaPost[] => {
+  const stored = localStorage.getItem("qnaPosts");
+  if (stored) {
     try {
-      const parsed = JSON.parse(storedPosts);
+      const parsed = JSON.parse(stored);
       if (Array.isArray(parsed)) {
-        const filtered = (parsed as QnaPost[]).filter(
-          (p) => !SAMPLE_POST_IDS.has(p.id),
-        );
-        localStorage.setItem("qnaPosts", JSON.stringify(filtered));
-        return filtered.sort(sortPosts);
+        return (parsed as QnaPost[]).filter((p) => !SAMPLE_POST_IDS.has(p.id));
       }
-    } catch (error) {
-      console.error("질의응답 게시글 불러오기 실패:", error);
-    }
+    } catch { /* 무시 */ }
   }
   return [];
 };
 
+/* Q&A 테이블 행 컴포넌트 */
 interface QnaRowProps {
   item: QnaPost;
   displayNo: number;
@@ -106,12 +90,10 @@ function QnaRow({ item, displayNo, onClick, currentUserId, isAdmin }: QnaRowProp
 
   return (
     <TableRow className="bg-white hover:bg-[#f8faf7]">
-      {/* 1. 번호 (9%) */}
       <TableCell className="w-[9%] text-center text-[#5a6459] font-medium align-middle">
         {displayNo}
       </TableCell>
 
-      {/* 2. 답변 상태 (10%) */}
       <TableCell className="w-[10%] text-center align-middle">
         <span
           className={
@@ -124,8 +106,6 @@ function QnaRow({ item, displayNo, onClick, currentUserId, isAdmin }: QnaRowProp
         </span>
       </TableCell>
 
-
-      {/* 3. 제목 + 하단 답변 상태 표시 (43%) */}
       <TableCell className="w-[43%] text-left max-w-0 align-middle py-3">
         <button
           type="button"
@@ -136,7 +116,6 @@ function QnaRow({ item, displayNo, onClick, currentUserId, isAdmin }: QnaRowProp
           {displayTitle}
         </button>
 
-        {/* 답변 완료 시만 하단 답변 완료 표시 */}
         {answered && (
           <div className="flex items-center gap-1.5 mt-1">
             <span className="text-[11px] text-[#6B7280] font-semibold">↳</span>
@@ -150,109 +129,81 @@ function QnaRow({ item, displayNo, onClick, currentUserId, isAdmin }: QnaRowProp
         )}
       </TableCell>
 
-      {/* 4. 작성자 (14%) */}
       <TableCell className="w-[14%] text-center text-[#6B7280] align-middle">
         {item.author}
       </TableCell>
 
-      {/* 5. 작성일 (15%) */}
       <TableCell className="w-[15%] text-center text-[#6B7280] align-middle">
         {item.date || "-"}
       </TableCell>
 
-      {/* 6. 조회수 (9%) */}
       <TableCell className="w-[9%] text-center text-[#6B7280] align-middle">
         {item.views}
       </TableCell>
-
     </TableRow>
   );
 }
 
+/* 메인 컴포넌트 */
 export default function QnaPage() {
   const navigate = useNavigate();
-
-  const isLoggedIn = isLogin();
-  const loginUser = useMemo(() => {
-    if (!isLoggedIn) return null;
-    return getLoginUser();
-  }, [isLoggedIn]);
-
-  const loginUserId = loginUser?.userId ?? "";
-  const isAdmin = useMemo(() => {
-    if (!loginUser?.role) return false;
-    const role = loginUser.role.toUpperCase();
-    return role === "ADMIN" || role === "ROLE_ADMIN";
-  }, [loginUser]);
-
-  const [posts, setPosts] = useState<QnaPost[]>(getInitialPosts);
-
-  /* 백엔드 API 연동 (서버에 등록된 글도 병합하여 표시) */
-  useEffect(() => {
-    const fetchServerQnas = async () => {
-      try {
-        const response = await getQnasApi(0, 50);
-        if (response?.content && Array.isArray(response.content) && response.content.length > 0) {
-          const apiPosts: QnaPost[] = response.content.map((item) => ({
-            id: item.id,
-            authorId: item.writerLoginId || "user",
-            author: item.writerName || item.writerLoginId || "작성자",
-            title: item.title,
-            content: "",
-            date: item.createdAt ? item.createdAt.split("T")[0].replace(/-/g, ".") : "-",
-            views: item.viewCount || 0,
-            answer: item.answerStatus === "ANSWERED" || item.answeredAt ? "네, 답변되었습니다." : undefined,
-            publicQuestion: item.publicQuestion,
-          }));
-
-          setPosts((prevPosts) => {
-            const combined = prevPosts.filter((p) => !SAMPLE_POST_IDS.has(p.id));
-            apiPosts
-              .filter((apiItem) => !SAMPLE_POST_IDS.has(apiItem.id))
-              .forEach((apiItem) => {
-                const idx = combined.findIndex((p) => p.id === apiItem.id);
-                if (idx >= 0) {
-                  combined[idx] = { ...combined[idx], ...apiItem };
-                } else {
-                  combined.push(apiItem);
-                }
-              });
-            return combined.sort(sortPosts);
-          });
-        }
-      } catch (err) {
-        console.warn("백엔드 Q&A 목록 불러오기 실패 (로컬 데이터 사용):", err);
-      }
-    };
-
-    void fetchServerQnas();
-  }, []);
-
   const [searchParams, setSearchParams] = useSearchParams();
 
-  /* URL searchParams에서 searchType, keyword, page 파라미터 추출 및 유지 */
+  /* 로그인 및 권한 정보 */
+  const isLoggedIn = isLogin();
+  const currentUser = isLoggedIn ? getLoginUser() : null;
+  const currentUserId = currentUser?.userId || "";
+  const isAdmin = useMemo(() => {
+    const role = currentUser?.role?.toUpperCase();
+    return role === "ADMIN" || role === "ROLE_ADMIN";
+  }, [currentUser]);
+
+  /* React Query: Q&A 목록 조회 */
+  const { data: serverQnas } = useQuery({
+    queryKey: ["qnasList"],
+    queryFn: () => getQnasApi(0, 50),
+    staleTime: 1000 * 60 * 3,
+  });
+
+  /* 데이터 병합 */
+  const posts = useMemo(() => {
+    const local = getLocalPosts();
+    const serverItems = serverQnas?.content || [];
+
+    const apiPosts: QnaPost[] = serverItems.map((item) => ({
+      id: item.id,
+      authorId: item.writerLoginId || "user",
+      author: item.writerName || item.writerLoginId || "작성자",
+      title: item.title,
+      content: "",
+      date: item.createdAt ? item.createdAt.split("T")[0].replace(/-/g, ".") : "-",
+      views: item.viewCount || 0,
+      answer: item.answerStatus === "ANSWERED" || item.answeredAt ? "네, 답변되었습니다." : undefined,
+      publicQuestion: item.publicQuestion,
+    }));
+
+    const combined = [...local];
+    apiPosts
+      .filter((apiItem) => !SAMPLE_POST_IDS.has(apiItem.id))
+      .forEach((apiItem) => {
+        const idx = combined.findIndex((p) => p.id === apiItem.id);
+        if (idx >= 0) combined[idx] = { ...combined[idx], ...apiItem };
+        else combined.push(apiItem);
+      });
+
+    return combined.sort(sortPosts);
+  }, [serverQnas]);
+
+  /* 검색 및 페이지네이션 상태 */
   const urlTypeParam = (searchParams.get("searchType") || searchParams.get("type") || "title") as SearchType;
   const validSearchType: SearchType = ["title", "author", "content"].includes(urlTypeParam) ? urlTypeParam : "title";
   const urlKeyword = searchParams.get("keyword") || searchParams.get("searchKeyword") || "";
-
-  const pageFromUrl = parseInt(searchParams.get("page") || "1", 10);
-  const rawPage = isNaN(pageFromUrl) || pageFromUrl < 1 ? 1 : pageFromUrl;
+  const rawPage = parseInt(searchParams.get("page") || "1", 10);
+  const pageFromUrl = isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
 
   const [searchType, setSearchType] = useState<SearchType>(validSearchType);
   const [searchKeyword, setSearchKeyword] = useState(urlKeyword);
 
-  const [prevUrlType, setPrevUrlType] = useState(validSearchType);
-  const [prevUrlKeyword, setPrevUrlKeyword] = useState(urlKeyword);
-
-  /* URL searchParams 변경 시 로컬 입력 폼 상태 동기화 (render 시점 동기화로 연쇄 리렌더링 방지) */
-  if (prevUrlType !== validSearchType || prevUrlKeyword !== urlKeyword) {
-    setPrevUrlType(validSearchType);
-    setPrevUrlKeyword(urlKeyword);
-    setSearchType(validSearchType);
-    setSearchKeyword(urlKeyword);
-  }
-
-  /* 한 페이지에 게시글 5개씩 표기 */
   const POSTS_PER_PAGE = 5;
 
   const filteredPosts = useMemo(() => {
@@ -274,21 +225,17 @@ export default function QnaPage() {
   }, [posts, urlKeyword, validSearchType]);
 
   const totalPages = Math.max(1, Math.ceil(filteredPosts.length / POSTS_PER_PAGE));
-  const currentPage = Math.min(rawPage, totalPages);
+  const currentPage = Math.min(pageFromUrl, totalPages);
 
-  /* 현재 URL 쿼리 전체를 sessionStorage에 저장하여 목록 복귀 시 활용 */
   useEffect(() => {
     const currentQuery = searchParams.toString();
-    if (currentQuery) {
-      sessionStorage.setItem("qna_last_query", currentQuery);
-    } else {
-      sessionStorage.removeItem("qna_last_query");
-    }
+    if (currentQuery) sessionStorage.setItem("qna_last_query", currentQuery);
+    else sessionStorage.removeItem("qna_last_query");
   }, [searchParams]);
 
   const paginatedPosts = useMemo(() => {
-    const startIndex = (currentPage - 1) * POSTS_PER_PAGE;
-    return filteredPosts.slice(startIndex, startIndex + POSTS_PER_PAGE);
+    const start = (currentPage - 1) * POSTS_PER_PAGE;
+    return filteredPosts.slice(start, start + POSTS_PER_PAGE);
   }, [filteredPosts, currentPage]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -305,257 +252,156 @@ export default function QnaPage() {
         newParams.delete("keyword");
         newParams.delete("searchKeyword");
       }
-      newParams.delete("page"); // 검색 시 1페이지로 이동
+      newParams.set("page", "1");
       return newParams;
     });
   };
 
-  const handleResetSearch = () => {
-    setSearchKeyword("");
-    setSearchType("title");
-    setSearchParams(new URLSearchParams());
-  };
-
-  /* 글쓰기는 로그인한 사용자만 가능 */
-  const handleWriteClick = () => {
-    if (!isLoggedIn || !loginUserId) {
-      alert("로그인 후 글쓰기가 가능합니다.");
-      sessionStorage.setItem("redirectUrl", "/qna/write");
-      navigate("/login", { state: { from: "/qna/write" } });
-      return;
-    }
-    navigate("/qna/write");
-  };
-
-  /* 비공개 게시글인 경우 작성자 본인 및 관리자만 상세 이동 가능 */
-  const handlePostClick = (post: QnaPost) => {
-    if (!isLoggedIn || !loginUserId) {
-      alert("로그인 후 게시글 내용을 확인할 수 있습니다.");
-      sessionStorage.setItem("redirectUrl", `/qna/${post.id}`);
-      navigate("/login", { state: { from: `/qna/${post.id}` } });
-      return;
-    }
-
-
-    const isSecret = post.publicQuestion === false || post.isPublic === false;
-    const isMyPost = Boolean(loginUserId) && Boolean(post.authorId) && String(loginUserId) === String(post.authorId);
+  const handleRowClick = (item: QnaPost) => {
+    const isSecret = item.publicQuestion === false || item.isPublic === false;
+    const isMyPost = Boolean(currentUserId) && Boolean(item.authorId) && String(currentUserId) === String(item.authorId);
 
     if (isSecret && !isMyPost && !isAdmin) {
-      alert("작성자 본인과 관리자만 확인할 수 있는 비공개 글입니다.");
-      return;
+      return alert("작성자 본인과 관리자만 확인할 수 있는 비공개 글입니다.");
     }
-
-    const updatedPosts = posts.map((item) => {
-      if (item.id === post.id) {
-        return {
-          ...item,
-          views: item.views + 1,
-        };
-      }
-      return item;
-    });
-
-    setPosts(updatedPosts);
-    localStorage.setItem("qnaPosts", JSON.stringify(updatedPosts));
-    navigate(`/qna/${post.id}`, { state: { fromPage: currentPage } });
+    navigate(`/qna/${item.id}`, { state: { fromPage: currentPage } });
   };
-
 
   const handlePageChange = (page: number) => {
-    if (page < 1 || page > totalPages) return;
     setSearchParams((prev) => {
       const newParams = new URLSearchParams(prev);
-      if (page === 1) {
-        newParams.delete("page");
-      } else {
-        newParams.set("page", String(page));
-      }
+      newParams.set("page", String(page));
       return newParams;
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  /* 페이지 수는 5페이지씩 그룹화하여 넘어가도록 설정 */
-  const pageNumbers = useMemo(() => {
-    if (totalPages <= 1) return [];
-    const PAGE_GROUP_SIZE = 5;
-    const currentGroup = Math.ceil(currentPage / PAGE_GROUP_SIZE);
-    const startPage = (currentGroup - 1) * PAGE_GROUP_SIZE + 1;
-    const endPage = Math.min(totalPages, startPage + PAGE_GROUP_SIZE - 1);
-
-    const pages: number[] = [];
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(i);
-    }
-    return pages;
-  }, [totalPages, currentPage]);
-
   return (
-    <div className="min-h-screen bg-[#fafcf9]">
-      <div className="py-12 px-5 sm:px-8">
-        <div className="max-w-[1000px] mx-auto space-y-8">
-          {/* 헤더 영역 */}
-          <div className="text-center space-y-2 mb-8">
-            <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
+    <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8">
+      <div className="max-w-[1000px] mx-auto space-y-8">
+        {/* 상단 헤더 */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[#DCE8ED]">
+          <div>
+            <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
               CUSTOMER CENTER
             </span>
-            <h1 className="text-[36px] font-black text-[#0B5E73] tracking-tight">
-              질의응답
-            </h1>
-            <p className="text-[15px] text-[#6B7280]">
-              서울시 농수산물 가격 정보 서비스의 질의응답 게시판입니다.
+            <h1 className="text-[28px] font-black text-[#13202B] tracking-tight">질의응답 (Q&amp;A)</h1>
+            <p className="text-[14px] text-[#6B7280] mt-1 font-medium">
+              서비스 이용에 대한 궁금한 점을 질문해 주시면 성심성의껏 답변해 드립니다.
             </p>
           </div>
-
-
-          {/* 카테고리 탭 ([공지사항] [질의응답] [자주 묻는 질문]) */}
-          <div className="flex justify-center mb-6">
-            <div className="flex items-center gap-2 p-1 bg-white rounded-[10px] border border-[#DCE8ED] shadow-sm">
-              <button
-                type="button"
-                onClick={() => navigate("/board")}
-                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#6B7280] hover:bg-[#EBF5F8] hover:text-[#0F8AA8] transition-all cursor-pointer"
-              >
-                공지사항
-              </button>
-              <button
-                type="button"
-                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#0F8AA8] text-white transition-all cursor-pointer"
-              >
-                질의응답
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate("/faq")}
-                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#6B7280] hover:bg-[#EBF5F8] hover:text-[#0F8AA8] transition-all cursor-pointer"
-              >
-                자주 묻는 질문
-              </button>
-            </div>
-          </div>
-
-          {/* 검색 영역 */}
-          <div className="bg-[#F5FAFC] border border-[#DCE8ED] rounded-[12px] p-5 mb-6">
-            <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row items-center gap-3">
-              <select
-                value={searchType}
-                onChange={(e) => setSearchType(e.target.value as SearchType)}
-                className="h-[44px] w-full md:w-[130px] rounded-[7px] border border-[#DCE8ED] bg-white px-3 text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8]"
-              >
-                <option value="title">제목</option>
-                <option value="author">작성자</option>
-                <option value="content">내용</option>
-              </select>
-              <Input
-                type="text"
-                placeholder="검색어를 입력하세요."
-                value={searchKeyword}
-                onChange={(e) => setSearchKeyword(e.target.value)}
-                className="h-[44px] flex-1 bg-white border-[#DCE8ED] text-[14px] placeholder:text-[#6B7280] focus-visible:ring-[#0F8AA8]"
-              />
-              <div className="flex items-center gap-2 w-full md:w-auto">
-                <Button
-                  type="submit"
-                  className="h-[44px] px-6 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[7px] flex-1 md:flex-none"
-                >
-                  검색
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleResetSearch}
-                  className="h-[44px] px-5 bg-white border-[#DCE8ED] text-[#6B7280] hover:bg-[#EBF5F8] text-[14px] font-bold rounded-[7px] flex-1 md:flex-none"
-                >
-                  초기화
-                </Button>
-              </div>
-            </form>
-          </div>
-
-          {/* 목록 건수 정보 & 글쓰기 버튼 영역 */}
-          <div className="flex items-center justify-between mb-3 min-h-[44px]">
-            <p className="text-[14px] text-[#6B7280]">
-              전체 <strong className="text-[#0F8AA8] font-extrabold">{filteredPosts.length}</strong>개의 게시글이 있습니다.
-            </p>
-            <button
+          <div>
+            <Button
               type="button"
-              onClick={handleWriteClick}
-              className="inline-flex items-center justify-center min-w-[94px] h-[42px] px-5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[7px] transition-colors border border-[#0F8AA8] cursor-pointer"
+              onClick={() => {
+                if (!isLoggedIn) {
+                  alert("로그인 후 질의응답을 작성할 수 있습니다.");
+                  return navigate("/login");
+                }
+                navigate("/qna/write");
+              }}
+              className="bg-[#0F8AA8] hover:bg-[#0B5E73] text-white font-bold h-11 px-5 rounded-[10px] shadow-sm flex items-center gap-2 cursor-pointer transition-all"
             >
-              글쓰기
-            </button>
+              <span>질문 작성하기</span>
+            </Button>
           </div>
+        </div>
 
-          {/* Table 영역 */}
-          <div className="w-full bg-white border border-[#DCE8ED] rounded-[12px] shadow-[0_7px_24px_rgba(15,138,168,0.08)] overflow-hidden">
-            {paginatedPosts.length === 0 ? (
-              <div className="p-16 text-center text-[#6B7280] text-[14px]">
-                등록된 게시글이 없습니다.
-              </div>
+        {/* 검색 폼 */}
+        <div className="flex justify-end">
+          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 max-w-[400px] w-full">
+            <select
+              value={searchType}
+              onChange={(e) => setSearchType(e.target.value as SearchType)}
+              className="h-10 px-3 bg-white border border-[#DCE8ED] rounded-[8px] text-[13px] font-semibold text-[#13202B] outline-none focus:border-[#0F8AA8]"
+            >
+              <option value="title">제목</option>
+              <option value="author">작성자</option>
+              <option value="content">내용</option>
+            </select>
+            <Input
+              type="text"
+              placeholder="검색어를 입력하세요"
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              className="h-10 bg-white border-[#DCE8ED] text-[13px]"
+            />
+            <Button type="submit" className="h-10 px-4 bg-[#13202B] hover:bg-[#0F172A] text-white font-bold rounded-[8px]">
+              검색
+            </Button>
+          </form>
+        </div>
 
-            ) : (
-              <Table className="min-w-[820px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[9%] text-center">번호</TableHead>
-                    <TableHead className="w-[10%] text-center">답변상태</TableHead>
-                    <TableHead className="w-[43%] text-center">제목</TableHead>
-                    <TableHead className="w-[14%] text-center">작성자</TableHead>
-                    <TableHead className="w-[15%] text-center">작성일</TableHead>
-                    <TableHead className="w-[9%] text-center">조회수</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedPosts.map((item, index) => {
-                    const displayNo = filteredPosts.length - ((currentPage - 1) * POSTS_PER_PAGE + index);
-                    return (
-                      <QnaRow
-                        key={`qna-${item.id}`}
-                        item={item}
-                        displayNo={displayNo > 0 ? displayNo : index + 1}
-                        onClick={handlePostClick}
-                        currentUserId={loginUserId}
-                        isAdmin={isAdmin}
-                      />
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </div>
+        {/* 목록 테이블 */}
+        <div className="border border-[#DCE8ED] rounded-[16px] overflow-hidden bg-white shadow-sm">
+          <Table>
+            <TableHeader className="bg-[#F5FAFC] border-b border-[#DCE8ED]">
+              <TableRow>
+                <TableHead className="w-[9%] text-center text-[#13202B] font-extrabold text-[13px]">번호</TableHead>
+                <TableHead className="w-[10%] text-center text-[#13202B] font-extrabold text-[13px]">상태</TableHead>
+                <TableHead className="w-[43%] text-left text-[#13202B] font-extrabold text-[13px]">제목</TableHead>
+                <TableHead className="w-[14%] text-center text-[#13202B] font-extrabold text-[13px]">작성자</TableHead>
+                <TableHead className="w-[15%] text-center text-[#13202B] font-extrabold text-[13px]">작성일</TableHead>
+                <TableHead className="w-[9%] text-center text-[#13202B] font-extrabold text-[13px]">조회수</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-[#DCE8ED]">
+              {paginatedPosts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-40 text-center text-[#6B7280] font-medium">
+                    등록된 질의응답이 없습니다.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedPosts.map((post, idx) => {
+                  const displayNo = filteredPosts.length - ((currentPage - 1) * POSTS_PER_PAGE + idx);
+                  return (
+                    <QnaRow
+                      key={post.id}
+                      item={post}
+                      displayNo={displayNo}
+                      onClick={handleRowClick}
+                      currentUserId={currentUserId}
+                      isAdmin={isAdmin}
+                    />
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
 
-          {/* Pagination 영역 (5페이지 그룹 단위) */}
-          {totalPages > 1 && (
-            <Pagination className="pt-6">
+        {/* 페이지네이션 */}
+        {totalPages > 1 && (
+          <div className="flex justify-center pt-2">
+            <Pagination>
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage <= 1}
+                    onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                    className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                   />
                 </PaginationItem>
-
-                {pageNumbers.map((p) => (
-                  <PaginationItem key={p}>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                  <PaginationItem key={pageNum}>
                     <PaginationLink
-                      isActive={p === currentPage}
-                      onClick={() => handlePageChange(p)}
+                      isActive={pageNum === currentPage}
+                      onClick={() => handlePageChange(pageNum)}
+                      className="cursor-pointer"
                     >
-                      {p}
+                      {pageNum}
                     </PaginationLink>
                   </PaginationItem>
                 ))}
-
                 <PaginationItem>
                   <PaginationNext
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage >= totalPages}
+                    onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
                   />
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

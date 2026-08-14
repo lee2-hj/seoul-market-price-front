@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MessageSquare, Edit2, Trash2, Send, Paperclip, Download } from "lucide-react";
@@ -6,10 +6,10 @@ import type {
   BoardComment,
   AttachmentResponse,
 } from "@/features/board/types/board.types";
-import * as api from "@/api/api";
-
 import {
+  downloadBoardAttachmentApi,
   getBoardPostApi,
+  getBoardAttachmentsApi,
   deleteBoardPostApi,
   getBoardCommentsApi,
   createBoardCommentApi,
@@ -36,6 +36,10 @@ export default function BoardDetailPage() {
 
   const boardId = Number(postId);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [boardId]);
+
   // 로그인 상태 및 유저 정보 반응형 구독
   const loginUser = useAuthStore((state) => state.user);
   const isLoggedIn = isLogin();
@@ -59,37 +63,27 @@ export default function BoardDetailPage() {
     enabled: !isNaN(boardId) && boardId > 0,
   });
 
-  // 첨부파일 목록 Query (api.ts에 getBoardAttachmentsApi 구현 시 자동 로드)
+  // 첨부파일 목록 Query
   const { data: attachments = [] } = useQuery<AttachmentResponse[]>({
     queryKey: ["boardAttachments", boardId],
-    queryFn: async () => {
-      const getAttachmentsFn = (api as any).getBoardAttachmentsApi;
-      if (typeof getAttachmentsFn === "function") {
-        return await getAttachmentsFn(boardId);
-      }
-      return [];
-    },
+    queryFn: () => getBoardAttachmentsApi(boardId),
     enabled: !isNaN(boardId) && boardId > 0,
   });
 
   // 첨부파일 다운로드 핸들러
   const handleDownload = async (attachmentId: number, originalFilename: string) => {
     try {
-      const downloadFn = (api as any).downloadBoardAttachmentApi;
-      if (typeof downloadFn === "function") {
-        const res = await downloadFn(boardId, attachmentId);
-        if (res?.downloadUrl) {
-          const a = document.createElement("a");
-          a.href = res.downloadUrl;
-          a.download = res.originalFilename || originalFilename || "download";
-          a.target = "_blank";
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          return;
-        }
+      const res = await downloadBoardAttachmentApi(boardId, attachmentId);
+      if (res.downloadUrl) {
+        const a = document.createElement("a");
+        a.href = res.downloadUrl;
+        a.download = res.originalFilename || originalFilename || "download";
+        a.target = "_blank";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return;
       }
-      alert("다운로드 링크를 생성 중이거나 API 연동 준비 중입니다.");
     } catch (err) {
       console.error("다운로드 실패:", err);
       alert("파일 다운로드 중 오류가 발생했습니다.");
@@ -286,10 +280,12 @@ export default function BoardDetailPage() {
               SSABU CUSTOMER CENTER
             </span>
             <h1 className="text-[36px] font-black text-[#123047] tracking-tight">
-              공지사항 상세
+              {post?.postType === "NOTICE" ? "공지사항 상세" : "게시판 상세"}
             </h1>
             <p className="text-[15px] text-[#6B7280]">
-              싸부(SSABU) 부동산 실거래 및 시세 분석 서비스의 주요 소식을 전해드립니다.
+              {post?.postType === "NOTICE"
+                ? "싸부(SSABU) 부동산 실거래 및 시세 분석 서비스의 주요 소식을 전해드립니다."
+                : "싸부(SSABU) 이용자들과 부동산 관련 다양한 이야기를 나누는 공간입니다."}
             </p>
           </div>
 
