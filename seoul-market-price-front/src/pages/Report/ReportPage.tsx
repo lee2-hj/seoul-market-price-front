@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { isLogin } from "@/features/auth/utils/auth";
 import {
@@ -12,15 +12,11 @@ import { useAuthStore } from "@/features/auth/store/useAuthStore";
 export default function ReportPage() {
   const navigate = useNavigate();
   const loginUser = useAuthStore((state) => state.user);
-  const [reports, setReports] = useState<ReportItem[]>([]);
+  const [reports] = useState<ReportItem[]>(getStoredReports);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [activeKeyword, setActiveKeyword] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
-
-  useEffect(() => {
-    setReports(getStoredReports());
-  }, []);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,12 +33,16 @@ export default function ReportPage() {
   // 필터링된 문의 목록 (제목 전용 검색)
   const filteredReports = useMemo(() => {
     return reports.filter((item) => {
+      const isAccessible = canUserViewReport(item, loginUser);
+      const searchableTitle = isAccessible
+        ? item.title
+        : "작성자와 관리자만 열람할 수 있는 비공개 문의글입니다.";
       const matchKeyword =
         !activeKeyword ||
-        item.title.toLowerCase().includes(activeKeyword.toLowerCase());
+        searchableTitle.toLowerCase().includes(activeKeyword.toLowerCase());
       return matchKeyword;
     });
-  }, [reports, activeKeyword]);
+  }, [reports, activeKeyword, loginUser]);
 
   // 페이지네이션 계산
   const totalPages = Math.ceil(filteredReports.length / itemsPerPage) || 1;

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
+import { useMutation } from "@tanstack/react-query";
 import { isLogin } from "@/features/auth/utils/auth";
 import {
   createReport,
@@ -23,7 +24,6 @@ export default function ReportWritePage() {
   const navigate = useNavigate();
   const loginUser = useAuthStore((state) => state.user);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!isLogin()) {
@@ -71,40 +71,38 @@ export default function ReportWritePage() {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const onSubmit = async (data: ReportFormData) => {
-    try {
-      // 🛡️ 보안: 연속 신고 도배 방지 쿨다운 검사
-      const cooldown = checkReportCooldown();
-      if (!cooldown.canSubmit) {
-        alert(
-          `연속 접수 방지를 위해 ${cooldown.remainingSeconds}초 후에 다시 접수할 수 있습니다.`,
-        );
-        return;
-      }
-
-      setIsSubmitting(true);
-
-      const authorName = loginUser?.name || "-";
-
-      const newReport = createReport({
+  const createMutation = useMutation({
+    mutationFn: async (data: ReportFormData) =>
+      createReport({
         category: "OTHER",
         targetProperty: data.targetProperty || "일반 문의",
         title: data.title,
         content: data.content,
         isSecret: data.isSecret,
-        authorName,
+        authorName: loginUser?.name || "-",
         authorUserId: loginUser?.userId,
         files: selectedFiles,
-      });
-
+      }),
+    onSuccess: (newReport) => {
       alert("문의사항이 안전하게 접수되었습니다. 신속히 확인하여 답변드리겠습니다.");
       navigate(`/report/${newReport.id}`);
-    } catch (err) {
+    },
+    onError: (err) => {
       console.error("문의 접수 오류:", err);
       alert("문의 접수 중 오류가 발생했습니다. 다시 시도해 주세요.");
-    } finally {
-      setIsSubmitting(false);
+    },
+  });
+
+  const onSubmit = (data: ReportFormData) => {
+    const cooldown = checkReportCooldown();
+    if (!cooldown.canSubmit) {
+      alert(
+        `연속 접수 방지를 위해 ${cooldown.remainingSeconds}초 후에 다시 접수할 수 있습니다.`,
+      );
+      return;
     }
+
+    createMutation.mutate(data);
   };
 
   return (
@@ -255,10 +253,10 @@ export default function ReportWritePage() {
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={createMutation.isPending}
               className="h-[44px] px-7 rounded-[8px] bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold border-none cursor-pointer transition-colors shadow-xs disabled:opacity-50"
             >
-              {isSubmitting ? "접수 처리 중..." : "신고 접수하기"}
+              {createMutation.isPending ? "접수 처리 중..." : "문의 접수하기"}
             </button>
           </div>
         </form>

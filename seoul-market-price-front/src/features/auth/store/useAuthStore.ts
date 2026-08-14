@@ -12,6 +12,7 @@ export interface AuthUser {
   name: string;
   role: string;
   accessToken?: string;
+  preferredDistrict?: string;
 }
 
 interface AuthState {

@@ -1,14 +1,12 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import {
   SEOUL_GU_DONG_LIST,
   getMarketTrendsData,
   formatPriceKorean,
 } from "@/features/trends/services/trendsService";
-import type {
-  TrendsDataResponse,
-  MonthlyPriceTrendPoint,
-} from "@/features/trends/types/trends.types";
+import type { MonthlyPriceTrendPoint } from "@/features/trends/types/trends.types";
 
 function getInitialGu(userId?: string): string {
   try {
@@ -60,9 +58,7 @@ export default function MarketTrendsPage() {
   const [selectedDong, setSelectedDong] = useState<string>("전체");
   const [selectedComplex, setSelectedComplex] = useState<string>("전체");
   const [dongSearch, setDongSearch] = useState<string>("");
-  const [trendsData, setTrendsData] = useState<TrendsDataResponse | null>(null);
   const [hoveredPoint, setHoveredPoint] = useState<MonthlyPriceTrendPoint | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // 선택된 구의 동 목록
   const currentDongList = useMemo(() => {
@@ -78,20 +74,11 @@ export default function MarketTrendsPage() {
     );
   }, [currentDongList, dongSearch]);
 
-  // 데이터 로드
-  useEffect(() => {
-    let isMounted = true;
-    setIsLoading(true);
-    getMarketTrendsData(selectedGu, selectedDong, selectedComplex).then((res) => {
-      if (isMounted) {
-        setTrendsData(res);
-        setIsLoading(false);
-      }
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedGu, selectedDong, selectedComplex]);
+  const { data: trendsData, isLoading } = useQuery({
+    queryKey: ["marketTrends", selectedGu, selectedDong, selectedComplex],
+    queryFn: () =>
+      getMarketTrendsData(selectedGu, selectedDong, selectedComplex),
+  });
 
   // 구 변경 시 동 및 단지 초기화
   const handleGuChange = (gu: string) => {
