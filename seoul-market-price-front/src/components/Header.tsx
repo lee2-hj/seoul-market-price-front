@@ -26,7 +26,7 @@ const NAV_ITEMS: Array<{ label: string; to?: string; icon: typeof Search; links?
     label: "고객센터",
     icon: Headphones,
     links: [
-      { to: "/board", label: "공지사항" },
+      { to: "/board", label: "게시판" },
       { to: "/qna", label: "질의응답" },
       { to: "/faq", label: "자주 묻는 질문" },
       { to: "/report", label: "문의사항" },
