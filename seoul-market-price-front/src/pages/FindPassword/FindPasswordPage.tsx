@@ -17,6 +17,11 @@ import {
   checkUserIdApi,
 } from "@/api/api";
 
+type PasswordResetStep = 1 | 2 | 3;
+
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 16;
+
 function getApiErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as
@@ -39,11 +44,19 @@ const formatPhoneNumber = (value: string): string => {
   return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
 };
 
+function getSocialProvider(id: string) {
+  const normalizedId = id.trim().toLowerCase();
+  if (normalizedId.startsWith("google_") || normalizedId.includes("google")) return "구글";
+  if (normalizedId.startsWith("kakao_") || normalizedId.includes("kakao")) return "카카오";
+  if (normalizedId.startsWith("naver_") || normalizedId.includes("naver")) return "네이버";
+  return "";
+}
+
 export default function FindPasswordPage() {
   const navigate = useNavigate();
 
   // 단계 관리 (1: 아이디 확인 & PASS 본인인증, 2: 새 비밀번호 설정, 3: 변경 완료)
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<PasswordResetStep>(1);
 
   // 1단계 State
   const [userId, setUserId] = useState("");
@@ -68,14 +81,6 @@ export default function FindPasswordPage() {
   const [step2Error, setStep2Error] = useState("");
 
   // 소셜 로그인 계정 감지
-  const getSocialProvider = (id: string) => {
-    const lower = id.trim().toLowerCase();
-    if (lower.startsWith("google_") || lower.includes("google")) return "구글";
-    if (lower.startsWith("kakao_") || lower.includes("kakao")) return "카카오";
-    if (lower.startsWith("naver_") || lower.includes("naver")) return "네이버";
-    return "";
-  };
-
   const socialProviderName = getSocialProvider(userId);
   const isSocialAccount = Boolean(socialProviderName);
 
@@ -164,7 +169,7 @@ export default function FindPasswordPage() {
 
   // 3. 새 비밀번호 유효성 검사 (8~16자 & 일치 여부)
   const isPasswordLengthValid =
-    newPassword.length >= 8 && newPassword.length <= 16;
+    newPassword.length >= MIN_PASSWORD_LENGTH && newPassword.length <= MAX_PASSWORD_LENGTH;
   const isPasswordMatch =
     newPassword.length > 0 && newPassword === confirmPassword;
 

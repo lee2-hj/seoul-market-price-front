@@ -9,6 +9,7 @@ interface AutocompleteInputProps {
   onInvalidBlur?: () => void;
   placeholder?: string;
   disabled?: boolean;
+  requiredSelection?: boolean;
   className?: string;
 }
 
@@ -19,6 +20,7 @@ export function AutocompleteInput({
   onInvalidBlur,
   placeholder,
   disabled,
+  requiredSelection = false,
   className,
 }: AutocompleteInputProps) {
   const [open, setOpen] = useState(false);
@@ -94,7 +96,8 @@ export function AutocompleteInput({
         onBlur={() => {
           setOpen(false);
           setHighlightedIndex(-1);
-          if (value && !options.includes(value)) onInvalidBlur?.();
+          const isInvalid = !options.includes(value) && (requiredSelection || Boolean(value));
+          if (isInvalid) onInvalidBlur?.();
         }}
         className={cn("w-full", className)}
       />
