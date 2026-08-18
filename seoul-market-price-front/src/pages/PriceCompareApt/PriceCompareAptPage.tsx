@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import apiMiddleware from "../../api/middleware";
+import Header from "@/components/Header";
 
 /* 1. 타입 정의 */
 
@@ -93,20 +94,20 @@ export interface ApartmentCompareAreaPrice {
   apt2Price: number;
 }
 
-/* 비교 대상 단지 정보 */
+/* 비교 대상 단지 파라미터 */
 export interface ApartmentTargetParam {
   district: string;
   dong: string;
   complexName: string;
 }
 
-/* 아파트별 시세 비교 요청 */
+/* 아파트별 시세 비교 요청 DTO */
 export interface ApartmentCompareRequest {
   apt1: ApartmentTargetParam;
   apt2: ApartmentTargetParam;
 }
 
-/* 아파트별 시세 비교 응답 */
+/* 아파트별 시세 비교 응답 DTO */
 export interface ApartmentCompareApiResponse {
   apt1: ApartmentDetailData;
   apt2: ApartmentDetailData;
@@ -123,9 +124,17 @@ export interface AutocompleteOption {
   extra?: string;
 }
 
-/* 2. API 통신 함수 (백엔드 연동) */
+/* 2. 유틸리티 & API 연동 함수 */
 
-/* 1. 서울 자치구 목록 조회 API (GET /api/location/sggs) */
+/* 금액 포맷터 */
+function formatPriceKRW(priceInEok: number): string {
+  const eok = Math.floor(priceInEok);
+  const remainderMan = Math.round((priceInEok - eok) * 10000);
+  if (remainderMan === 0) return `${eok}억 원`;
+  return `${eok}억 ${remainderMan.toLocaleString()}만 원`;
+}
+
+/* 서울 자치구 목록 조회 API (GET /api/location/sggs) */
 async function fetchSggsApi(): Promise<SggLocationItem[]> {
   try {
     const response = await apiMiddleware.get<unknown>("/api/location/sggs");
@@ -151,7 +160,7 @@ async function fetchSggsApi(): Promise<SggLocationItem[]> {
   }
 }
 
-/* 2. 서울 자치동 목록 조회 API (GET /api/location/dongs) */
+/* 서울 자치동 목록 조회 API (GET /api/location/dongs) */
 async function fetchDongsApi(
   sggCd: string,
   districtName?: string,
@@ -184,7 +193,7 @@ async function fetchDongsApi(
   }
 }
 
-/* 3. 아파트 단지 목록 조회 API (GET /api/location/apartments) */
+/* 아파트 단지 목록 조회 API (GET /api/location/apartments) */
 async function fetchApartmentsApi(
   district: string,
   dong: string,
@@ -202,7 +211,7 @@ async function fetchApartmentsApi(
   }
 }
 
-/* 4. 아파트별 비교 데이터 조회 API (GET /api/v1/price/compare-apartment) */
+/* 아파트별 비교 데이터 조회 API (GET /api/v1/price/compare-apartment) */
 async function fetchApartmentCompareApi(
   payload: ApartmentCompareRequest,
 ): Promise<ApartmentCompareApiResponse> {
@@ -222,21 +231,9 @@ async function fetchApartmentCompareApi(
   return response.data;
 }
 
-/* 금액 포맷터 */
-function formatPriceKRW(priceInEok: number): string {
-  const eok = Math.floor(priceInEok);
-  const remainderMan = Math.round((priceInEok - eok) * 10000);
-  if (remainderMan === 0) return `${eok}억 원`;
-  return `${eok}억 ${remainderMan.toLocaleString()}만 원`;
-}
+/* 3. 커스텀 훅 */
 
-/* ==========================================================================
-   4. 커스텀 훅 (Data Query & Mutation Hooks)
-   ========================================================================== */
-
-/**
- * 자치구, 자치동, 아파트 단지 목록을 조회하는 React Query 훅
- */
+/* 행정구역 및 아파트 단지 목록 조회 훅 */
 function useLocationAndApartmentQuery(
   r1District: string,
   r1SggCd: string,
@@ -245,7 +242,7 @@ function useLocationAndApartmentQuery(
   r2SggCd: string,
   r2Dong: string,
 ) {
-  // 자치구 목록 조회 (useQuery)
+  /* 자치구 목록 조회 */
   const { data: sggList = [], isLoading: isSggLoading } = useQuery({
     queryKey: ["locationSggs"],
     queryFn: fetchSggsApi,
@@ -262,14 +259,13 @@ function useLocationAndApartmentQuery(
       }));
   }, [sggList]);
 
-  // 아파트 1 자치동 목록 (useQuery)
+  /* 자치동 목록 조회 (아파트 1 / 2) */
   const { data: r1Dongs = [], isLoading: isR1DongLoading } = useQuery({
     queryKey: ["locationDongs", r1SggCd, r1District],
     queryFn: () => fetchDongsApi(r1SggCd, r1District),
     enabled: !!r1District,
   });
 
-  // 아파트 2 자치동 목록 (useQuery)
   const { data: r2Dongs = [], isLoading: isR2DongLoading } = useQuery({
     queryKey: ["locationDongs", r2SggCd, r2District],
     queryFn: () => fetchDongsApi(r2SggCd, r2District),
@@ -292,14 +288,13 @@ function useLocationAndApartmentQuery(
     }));
   }, [r2Dongs]);
 
-  // 아파트 1 단지 목록 (useQuery)
+  /* 아파트 단지 목록 조회 (아파트 1 / 2) */
   const { data: r1Apartments = [], isLoading: isR1AptLoading } = useQuery({
     queryKey: ["locationApartments", r1District, r1Dong],
     queryFn: () => fetchApartmentsApi(r1District, r1Dong),
     enabled: !!r1District,
   });
 
-  // 아파트 2 단지 목록 (useQuery)
   const { data: r2Apartments = [], isLoading: isR2AptLoading } = useQuery({
     queryKey: ["locationApartments", r2District, r2Dong],
     queryFn: () => fetchApartmentsApi(r2District, r2Dong),
@@ -336,22 +331,16 @@ function useLocationAndApartmentQuery(
   };
 }
 
-/**
- * 아파트 비교 분석 데이터를 요청 및 관리하는 React Query 훅
- */
+/* 아파트 비교 뮤테이션 훅 */
 function useApartmentCompareMutation() {
-  const compareMutation = useMutation({
+  return useMutation({
     mutationFn: fetchApartmentCompareApi,
   });
-
-  return compareMutation;
 }
 
-/* ==========================================================================
-   5. UI 서브 컴포넌트
-   ========================================================================== */
+/* 4. UI 서브 컴포넌트 */
 
-/* 사이드바 내비게이션 컴포넌트 */
+/* 사이드바 내비게이션 */
 function SidebarNav() {
   return (
     <aside className="w-[240px] shrink-0 max-[900px]:w-full">
@@ -396,7 +385,7 @@ function SidebarNav() {
           </div>
           <p className="text-[11px] leading-relaxed text-[#64748B]">
             비교할 두 아파트의 자치구, 자치동, 단지명을 선택하고
-            &apos;비교하기&apos; 버튼을 누르면 실거래가, 세대수, 3년 가격 추이와
+            &apos;단지 비교하기&apos; 버튼을 누르면 실거래가, 세대수, 3년 가격 추이와
             평형별 시세를 한눈에 비교할 수 있습니다.
           </p>
         </div>
@@ -427,7 +416,7 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
   );
 }
 
-/* 키보드 방향키 이동을 지원하는 오토컴플리트 드롭다운 */
+/* 오토컴플리트 드롭다운 */
 interface AutocompleteSelectProps {
   value: string;
   onChange: (value: string, option?: AutocompleteOption) => void;
@@ -458,9 +447,7 @@ function AutocompleteSelect({
 
   /* 검색어 필터링 */
   const filteredOptions = useMemo(() => {
-    if (searchQuery === null || searchQuery.trim() === "") {
-      return options;
-    }
+    if (searchQuery === null || searchQuery.trim() === "") return options;
     const q = searchQuery.trim().toLowerCase();
     return options.filter(
       (opt) =>
@@ -474,7 +461,7 @@ function AutocompleteSelect({
     Math.max(0, filteredOptions.length - 1),
   );
 
-  /* 외부 클릭 감지 */
+  /* 외부 클릭 시 닫기 */
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -615,7 +602,6 @@ function AutocompleteSelect({
         </div>
       </div>
 
-      {/* 드롭다운 옵션 목록 */}
       {isOpen && !disabled && (
         <div
           ref={listRef}
@@ -746,16 +732,14 @@ function ApartmentSelectCard({
         </div>
 
         <div className="flex flex-col gap-4">
-          {/* 자치구 입력 */}
+          {/* 자치구 */}
           <div className="flex flex-col gap-1.5">
             <label className="flex items-center gap-1.5 text-[13px] font-bold text-[#334155]">
               <span>자치구</span>
               <span
                 className={cn(
                   "rounded px-1.5 py-0.5 text-[10px] font-extrabold",
-                  isApt1
-                    ? "bg-[#DBEAFE] text-[#1D4ED8]"
-                    : "bg-[#DCFCE7] text-[#15803D]",
+                  isApt1 ? "bg-[#DBEAFE] text-[#1D4ED8]" : "bg-[#DCFCE7] text-[#15803D]",
                 )}
               >
                 필수
@@ -777,16 +761,14 @@ function ApartmentSelectCard({
             />
           </div>
 
-          {/* 자치동 입력 */}
+          {/* 자치동 */}
           <div className="flex flex-col gap-1.5">
             <label className="flex items-center gap-1.5 text-[13px] font-bold text-[#334155]">
               <span>자치동</span>
               <span
                 className={cn(
                   "rounded px-1.5 py-0.5 text-[10px] font-extrabold",
-                  isApt1
-                    ? "bg-[#DBEAFE] text-[#1D4ED8]"
-                    : "bg-[#DCFCE7] text-[#15803D]",
+                  isApt1 ? "bg-[#DBEAFE] text-[#1D4ED8]" : "bg-[#DCFCE7] text-[#15803D]",
                 )}
               >
                 필수
@@ -810,16 +792,14 @@ function ApartmentSelectCard({
             />
           </div>
 
-          {/* 아파트 단지 입력 */}
+          {/* 아파트 단지 */}
           <div className="flex flex-col gap-1.5">
             <label className="flex items-center gap-1.5 text-[13px] font-bold text-[#334155]">
               <span>아파트 단지</span>
               <span
                 className={cn(
                   "rounded px-1.5 py-0.5 text-[10px] font-extrabold",
-                  isApt1
-                    ? "bg-[#DBEAFE] text-[#1D4ED8]"
-                    : "bg-[#DCFCE7] text-[#15803D]",
+                  isApt1 ? "bg-[#DBEAFE] text-[#1D4ED8]" : "bg-[#DCFCE7] text-[#15803D]",
                 )}
               >
                 필수
@@ -848,10 +828,7 @@ function ApartmentSelectCard({
   );
 }
 
-/* ==========================================================================
-   6. 아파트 프로필 & 핵심 비교 항목 상세 표
-   ========================================================================== */
-
+/* 아파트 프로필 & 5대 핵심 비교 지표 표 */
 interface ApartmentProfileComparisonProps {
   apt1: ApartmentDetailData;
   apt2: ApartmentDetailData;
@@ -873,7 +850,7 @@ function ApartmentProfileComparison({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* 1) 아파트 대표 사진 & 기본 정보 카드 */}
+      {/* 아파트 대표 사진 & 기본 정보 카드 */}
       <div className="grid grid-cols-2 gap-6 max-[1024px]:grid-cols-1">
         {/* 아파트 1 프로필 */}
         <div className="overflow-hidden rounded-[20px] border border-[#2563EB]/30 bg-white shadow-sm transition-all hover:shadow-md">
@@ -914,7 +891,6 @@ function ApartmentProfileComparison({
               </span>
             </div>
 
-            {/* 핵심 스펙 그리드 */}
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-[12px] bg-[#EFF6FF] p-3.5">
                 <span className="text-[11px] font-bold text-[#3B82F6]">
@@ -922,9 +898,7 @@ function ApartmentProfileComparison({
                 </span>
                 <div className="mt-1 flex items-baseline gap-1 text-[18px] font-black text-[#1E3A8A]">
                   {apt1.totalHouseholds.toLocaleString()}
-                  <span className="text-[12px] font-bold text-[#64748B]">
-                    세대
-                  </span>
+                  <span className="text-[12px] font-bold text-[#64748B]">세대</span>
                 </div>
               </div>
               <div className="rounded-[12px] bg-[#EFF6FF] p-3.5">
@@ -933,9 +907,7 @@ function ApartmentProfileComparison({
                 </span>
                 <div className="mt-1 flex items-baseline gap-1 text-[18px] font-black text-[#1E3A8A]">
                   {apt1.buildYear}
-                  <span className="text-[12px] font-bold text-[#64748B]">
-                    년
-                  </span>
+                  <span className="text-[12px] font-bold text-[#64748B]">년</span>
                 </div>
               </div>
             </div>
@@ -981,7 +953,6 @@ function ApartmentProfileComparison({
               </span>
             </div>
 
-            {/* 핵심 스펙 그리드 */}
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-[12px] bg-[#F0FDF4] p-3.5">
                 <span className="text-[11px] font-bold text-[#16A34A]">
@@ -989,9 +960,7 @@ function ApartmentProfileComparison({
                 </span>
                 <div className="mt-1 flex items-baseline gap-1 text-[18px] font-black text-[#14532D]">
                   {apt2.totalHouseholds.toLocaleString()}
-                  <span className="text-[12px] font-bold text-[#64748B]">
-                    세대
-                  </span>
+                  <span className="text-[12px] font-bold text-[#64748B]">세대</span>
                 </div>
               </div>
               <div className="rounded-[12px] bg-[#F0FDF4] p-3.5">
@@ -1000,9 +969,7 @@ function ApartmentProfileComparison({
                 </span>
                 <div className="mt-1 flex items-baseline gap-1 text-[18px] font-black text-[#14532D]">
                   {apt2.buildYear}
-                  <span className="text-[12px] font-bold text-[#64748B]">
-                    년
-                  </span>
+                  <span className="text-[12px] font-bold text-[#64748B]">년</span>
                 </div>
               </div>
             </div>
@@ -1010,7 +977,7 @@ function ApartmentProfileComparison({
         </div>
       </div>
 
-      {/* 2) 5대 핵심 항목 비교 표 (칸 형식 격자 구조) */}
+      {/* 5대 핵심 항목 비교 표 */}
       <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-6 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
         <div className="mb-5 flex items-center justify-between border-b border-[#F1F5F9] pb-4">
           <div className="flex items-center gap-2">
@@ -1029,9 +996,7 @@ function ApartmentProfileComparison({
             <table className="w-full border-collapse text-left text-[13px]">
               <thead>
                 <tr className="border-b border-[#CBD5E1] bg-[#F1F5F9] text-[13px] font-black text-[#334155]">
-                  <th className="w-[22%] border-r border-[#CBD5E1] p-3.5 text-center">
-                    비교 항목
-                  </th>
+                  <th className="w-[22%] border-r border-[#CBD5E1] p-3.5 text-center">비교 항목</th>
                   <th className="w-[26%] border-r border-[#CBD5E1] bg-[#EFF6FF] p-3.5 text-center text-[#1E40AF]">
                     <span className="mr-1.5 inline-block rounded-full bg-[#2563EB] px-2.5 py-0.5 text-[11px] font-black text-white">
                       아파트 1
@@ -1044,9 +1009,7 @@ function ApartmentProfileComparison({
                     </span>
                     {apt2.name}
                   </th>
-                  <th className="w-[26%] bg-[#F8FAFC] p-3.5 text-center text-[#475569]">
-                    격차 및 우위 분석
-                  </th>
+                  <th className="w-[26%] bg-[#F8FAFC] p-3.5 text-center text-[#475569]">격차 및 우위 분석</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#CBD5E1] font-medium text-[#0F172A]">
@@ -1199,10 +1162,7 @@ function ApartmentProfileComparison({
   );
 }
 
-/* ==========================================================================
-   7. 최근 3년 매매가 추이그래프 (꺾은선 그래프)
-   ========================================================================== */
-
+/* 최근 3년 매매가 추이그래프 */
 interface PriceTrendChartProps {
   apt1: ApartmentDetailData;
   apt2: ApartmentDetailData;
@@ -1221,7 +1181,6 @@ function PriceTrendChart({
   const paddingX = 32;
   const paddingY = 25;
 
-  // 차트 스케일링, SVG 패스 및 상승률 연산 최적화 (useMemo)
   const {
     maxVal,
     range,
@@ -1249,12 +1208,8 @@ function PriceTrendChart({
     const pts1 = yearlyTrends.map((p, idx) => getCoords(p.apt1Price, idx));
     const pts2 = yearlyTrends.map((p, idx) => getCoords(p.apt2Price, idx));
 
-    const path1 = pts1
-      .map((pt, idx) => `${idx === 0 ? "M" : "L"} ${pt.x} ${pt.y}`)
-      .join(" ");
-    const path2 = pts2
-      .map((pt, idx) => `${idx === 0 ? "M" : "L"} ${pt.x} ${pt.y}`)
-      .join(" ");
+    const path1 = pts1.map((pt, idx) => `${idx === 0 ? "M" : "L"} ${pt.x} ${pt.y}`).join(" ");
+    const path2 = pts2.map((pt, idx) => `${idx === 0 ? "M" : "L"} ${pt.x} ${pt.y}`).join(" ");
 
     const p1Start = yearlyTrends[0]?.apt1Price || 1;
     const p1End = yearlyTrends[yearlyTrends.length - 1]?.apt1Price || 1;
@@ -1291,7 +1246,6 @@ function PriceTrendChart({
           </div>
         </div>
 
-        {/* 범례 및 3개년 변동률 */}
         <div className="flex items-center justify-between text-[11px]">
           <div className="flex items-center gap-1.5 rounded-[8px] bg-[#EFF6FF] px-2.5 py-1">
             <span className="size-2.5 rounded-full bg-[#2563EB]" />
@@ -1308,9 +1262,7 @@ function PriceTrendChart({
         </div>
       </div>
 
-      {/* 꺾은선 차트 영역 */}
       <div className="relative flex-1">
-        {/* 호버 툴팁 */}
         {hoveredPoint && (
           <div className="absolute right-2 top-1 z-20 flex items-center gap-2 rounded-[10px] border border-[#CBD5E1] bg-white/95 px-3 py-1.5 text-[11px] shadow-md backdrop-blur-sm">
             <span className="font-black text-[#0F172A]">{hoveredPoint.date}</span>
@@ -1320,10 +1272,7 @@ function PriceTrendChart({
         )}
 
         <div className="w-full">
-          <svg
-            viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-            className="h-[230px] w-full"
-          >
+          <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="h-[230px] w-full">
             {/* 가이드라인 */}
             {[0, 0.33, 0.66, 1].map((ratio) => {
               const y = paddingY + ratio * chartH;
@@ -1350,7 +1299,7 @@ function PriceTrendChart({
               );
             })}
 
-            {/* 아파트 1 꺾은선 (파란색) */}
+            {/* 아파트 1 꺾은선 */}
             <path
               d={apt1Path}
               fill="none"
@@ -1360,7 +1309,7 @@ function PriceTrendChart({
               strokeLinejoin="round"
             />
 
-            {/* 아파트 2 꺾은선 (초록색) */}
+            {/* 아파트 2 꺾은선 */}
             <path
               d={apt2Path}
               fill="none"
@@ -1370,7 +1319,7 @@ function PriceTrendChart({
               strokeLinejoin="round"
             />
 
-            {/* 데이터 포인트 점 */}
+            {/* 데이터 포인트 */}
             {yearlyTrends.map((p, idx) => {
               const pt1 = apt1Points[idx];
               const pt2 = apt2Points[idx];
@@ -1421,7 +1370,6 @@ function PriceTrendChart({
                     strokeWidth="1.5"
                   />
 
-                  {/* 짝수 인덱스 또는 호버된 날짜만 표기하여 깔끔한 가독성 확보 */}
                   {(idx % 2 === 0 || isHovered || idx === yearlyTrends.length - 1) && (
                     <text
                       x={pt1.x}
@@ -1445,10 +1393,7 @@ function PriceTrendChart({
   );
 }
 
-/* ==========================================================================
-   8. 면적별 평균 매매가 (평형별 막대그래프)
-   ========================================================================== */
-
+/* 면적별 평균 매매가 (평형별 막대그래프) */
 interface AreaPriceComparisonProps {
   apt1: ApartmentDetailData;
   apt2: ApartmentDetailData;
@@ -1461,10 +1406,7 @@ function AreaPriceComparison({
   areaPrices,
 }: AreaPriceComparisonProps) {
   const maxPrice = useMemo(() => {
-    return Math.max(
-      ...areaPrices.flatMap((a) => [a.apt1Price, a.apt2Price]),
-      1,
-    );
+    return Math.max(...areaPrices.flatMap((a) => [a.apt1Price, a.apt2Price]), 1);
   }, [areaPrices]);
 
   return (
@@ -1477,7 +1419,6 @@ function AreaPriceComparison({
           </h3>
         </div>
 
-        {/* 범례 */}
         <div className="flex items-center gap-3 text-[11px] font-bold">
           <div className="flex items-center gap-1">
             <span className="size-2.5 rounded-[3px] bg-[#2563EB]" />
@@ -1490,7 +1431,6 @@ function AreaPriceComparison({
         </div>
       </div>
 
-      {/* 막대 그래프 리스트 */}
       <div className="flex flex-1 flex-col justify-between gap-3">
         {areaPrices.map((item, idx) => {
           const p1Ratio = Math.round((item.apt1Price / maxPrice) * 100);
@@ -1510,13 +1450,9 @@ function AreaPriceComparison({
                   {diff === 0 ? (
                     "동일"
                   ) : diff > 0 ? (
-                    <span className="font-bold text-[#2563EB]">
-                      {apt1.name} +{diff}억
-                    </span>
+                    <span className="font-bold text-[#2563EB]">{apt1.name} +{diff}억</span>
                   ) : (
-                    <span className="font-bold text-[#16A34A]">
-                      {apt2.name} +{Math.abs(diff)}억
-                    </span>
+                    <span className="font-bold text-[#16A34A]">{apt2.name} +{Math.abs(diff)}억</span>
                   )}
                 </span>
               </div>
@@ -1560,10 +1496,7 @@ function AreaPriceComparison({
   );
 }
 
-/* ==========================================================================
-   9. 한눈에 보는 비교 (Comprehensive Summary Insights)
-   ========================================================================== */
-
+/* 한눈에 보는 비교 총평 */
 interface QuickVerdictProps {
   apt1: ApartmentDetailData;
   apt2: ApartmentDetailData;
@@ -1668,9 +1601,7 @@ function QuickVerdict({ apt1, apt2 }: QuickVerdictProps) {
   );
 }
 
-/* ==========================================================================
-   10. 메인 페이지 컴포넌트
-   ========================================================================== */
+/* 5. 메인 페이지 컴포넌트 */
 
 export default function PriceCompareAptPage() {
   /* 아파트 1 선택 상태 */
@@ -1685,7 +1616,7 @@ export default function PriceCompareAptPage() {
   const [r2Dong, setR2Dong] = useState("");
   const [r2Complex, setR2Complex] = useState("");
 
-  /* 행정구역 & 아파트 단지 목록 커스텀 훅 (useQuery 기반) */
+  /* 행정구역 & 아파트 단지 목록 커스텀 훅 */
   const {
     sggOptions,
     r1DongOptions,
@@ -1706,10 +1637,10 @@ export default function PriceCompareAptPage() {
     r2Dong,
   );
 
-  /* 아파트 비교 뮤테이션 훅 (useMutation 기반) */
+  /* 아파트 비교 뮤테이션 훅 */
   const compareMutation = useApartmentCompareMutation();
 
-  /* 자치구 변경 핸들러 (useCallback) */
+  /* 자치구 변경 핸들러 */
   const handleR1DistrictChange = useCallback((district: string, opt?: AutocompleteOption) => {
     setR1District(district);
     setR1SggCd(opt?.code || "");
@@ -1724,7 +1655,7 @@ export default function PriceCompareAptPage() {
     setR2Complex("");
   }, []);
 
-  /* '단지 비교하기' 버튼 클릭 핸들러 (useCallback) */
+  /* '단지 비교하기' 실행 */
   const handleCompare = useCallback(() => {
     if (!r1District || !r1Complex) {
       alert("아파트 1(기준)의 자치구와 단지명을 선택해 주세요.");
@@ -1749,7 +1680,7 @@ export default function PriceCompareAptPage() {
     });
   }, [r1District, r1Dong, r1Complex, r2District, r2Dong, r2Complex, compareMutation]);
 
-  /* '초기화' 버튼 클릭 핸들러 (useCallback) */
+  /* '초기화' 실행 */
   const handleReset = useCallback(() => {
     setR1District("");
     setR1SggCd("");
@@ -1762,7 +1693,7 @@ export default function PriceCompareAptPage() {
     compareMutation.reset();
   }, [compareMutation]);
 
-  /* 비교 가능 여부 (useMemo) */
+  /* 비교 가능 여부 */
   const canCompare = useMemo(() => {
     return Boolean(r1District && r1Complex && r2District && r2Complex);
   }, [r1District, r1Complex, r2District, r2Complex]);
@@ -1770,8 +1701,10 @@ export default function PriceCompareAptPage() {
   const resultData = compareMutation.data;
 
   return (
-    <div className={cn("tw-scope", "min-h-screen", "bg-[#F8FAFC]")}>
-      <main className="py-8">
+    <div className={cn("tw-scope flex min-h-screen w-full flex-col bg-[#F8FAFC]")}>
+      <Header />
+
+      <main className="flex-1 py-8">
         <div
           className={cn(
             "mx-auto flex w-[min(1490px,calc(100%-48px))] gap-8",
@@ -1785,7 +1718,7 @@ export default function PriceCompareAptPage() {
 
           {/* 메인 콘텐츠 영역 */}
           <section className="min-w-0 flex-1">
-            {/* 타이틀 및 초기화 버튼 */}
+            {/* 상단 타이틀 & 초기화 버튼 */}
             <div className="mb-6 flex items-start justify-between">
               <div>
                 <h1 className="text-[24px] font-black text-[#0F172A]">
@@ -1858,7 +1791,7 @@ export default function PriceCompareAptPage() {
                   onComplexChange={(c) => setR2Complex(c)}
                 />
 
-                {/* 비교하기 버튼 영역 */}
+                {/* 단지 비교하기 버튼 영역 */}
                 <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#E2E8F0] bg-[#F8FAFC] p-5 text-center max-[1200px]:py-6">
                   <button
                     type="button"
@@ -1872,9 +1805,7 @@ export default function PriceCompareAptPage() {
                       <BarChart3 className="size-6 stroke-[2.2]" />
                     )}
                     <span className="text-[15px] font-black tracking-tight">
-                      {compareMutation.isPending
-                        ? "분석 중..."
-                        : "단지 비교하기"}
+                      {compareMutation.isPending ? "분석 중..." : "단지 비교하기"}
                     </span>
                   </button>
                   <p className="mt-3 text-[11px] font-medium leading-tight text-[#64748B]">
@@ -1927,36 +1858,33 @@ export default function PriceCompareAptPage() {
               </div>
             ) : (
               <div className="flex flex-col gap-8">
-                {/* 1. 아파트 프로필 & 5대 핵심 비교 지표 표 (칸 형식) */}
+                {/* 1. 아파트 프로필 & 5대 핵심 비교 지표 표 */}
                 <ApartmentProfileComparison
                   apt1={resultData.apt1}
                   apt2={resultData.apt2}
                 />
 
-                {/* 2. 최근 3년 매매가 추이 + 면적별 평균 매매가 + 한눈에 보는 비교 (한 줄 3단 그리드 배치) */}
+                {/* 2. 최근 3년 추이 차트 + 면적별 평균 매매가 + 한눈에 보는 비교 */}
                 <div className="grid grid-cols-3 gap-6 max-[1280px]:grid-cols-1">
-                  {/* (1) 최근 3년 매매가 추이그래프 (꺾은선 그래프) */}
                   <PriceTrendChart
                     apt1={resultData.apt1}
                     apt2={resultData.apt2}
                     yearlyTrends={resultData.yearlyTrends}
                   />
 
-                  {/* (2) 면적별 평균 매매가 (평형별 막대그래프) */}
                   <AreaPriceComparison
                     apt1={resultData.apt1}
                     apt2={resultData.apt2}
                     areaPrices={resultData.areaPrices}
                   />
 
-                  {/* (3) 한눈에 보는 비교 총평 */}
                   <QuickVerdict
                     apt1={resultData.apt1}
                     apt2={resultData.apt2}
                   />
                 </div>
 
-                {/* 출처 안내 */}
+                {/* 데이터 출처 안내 */}
                 <div className="flex items-center justify-between rounded-[16px] border border-[#E2E8F0] bg-white px-6 py-4 text-[11px] text-[#94A3B8]">
                   <div className="flex items-center gap-1.5">
                     <Info className="size-3.5 text-[#0F8AA8]" />
