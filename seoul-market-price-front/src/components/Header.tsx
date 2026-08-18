@@ -86,7 +86,7 @@ export default function Header() {
 
   const handleRegionChange = (nextRegion: string) => {
     const normalizedRegion = nextRegion.trim();
-    localStorage.setItem(REGION_STORAGE_KEY, normalizedRegion);
+    sessionStorage.setItem(REGION_STORAGE_KEY, normalizedRegion);
 
     // 로그인 중 위치 조회 결과를 인증 사용자 상태에도 반영해야
     // Header가 재렌더링/재마운트되어도 DB 초기값으로 되돌아가지 않는다.
