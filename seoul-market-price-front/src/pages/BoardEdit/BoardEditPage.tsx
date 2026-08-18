@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -47,7 +47,7 @@ export default function BoardEditPage() {
     register,
     handleSubmit,
     reset,
-    watch,
+    control,
     formState: { errors },
   } = useForm<BoardEditFormData>({
     defaultValues: {
@@ -56,7 +56,7 @@ export default function BoardEditPage() {
     },
   });
 
-  const titleValue = watch("title") || "";
+  const titleValue = useWatch({ control, name: "title" }) || "";
 
   const { data: post, isLoading, isError, error } = useQuery({
     queryKey: ["board", boardId],
