@@ -32,6 +32,7 @@ import SignupVerifyPage from "@/pages/SignupVerify/SignupVerifyPage";
 /* 가격정보 메인·지역 비교·지도·거래 동향 화면 */
 import PricePage from "@/pages/Price/PricePage";
 import PriceCompareListPage from "@/pages/PriceCompareList/PriceCompareListPage";
+import PriceDetailPage from "@/pages/PriceDetail/PriceDetailPage";
 import RegionMapPage from "@/pages/RegionMap/RegionMapPage";
 import MarketTrendsPage from "@/pages/Trends/MarketTrendsPage";
 
@@ -112,6 +113,9 @@ function Router() {
           <Route path="/region-map" element={<RegionMapPage />} />
           {/* 부동산 거래 동향을 조회하는 화면 */}
           <Route path="/trends" element={<MarketTrendsPage />} />
+
+          {/* 단지별 시세 상세 */}
+          <Route path="/price/detail" element={<PriceDetailPage />} />
 
           {/* --------------------------------------------------------------
               가격정보 아파트별 정보

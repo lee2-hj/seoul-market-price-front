@@ -709,13 +709,19 @@ export interface FaqPublicResponse {
 export async function getPublicFaqsApi(
   category?: string,
 ): Promise<FaqPublicResponse[]> {
-  const response = await apiMiddleware.get<FaqPublicResponse[]>("/api/faqs", {
-    params: {
-      category: category && category !== "전체" ? category : undefined,
-    },
-  });
+  try {
+    const response = await apiMiddleware.get<FaqPublicResponse[]>("/api/faqs", {
+      params: {
+        category: category && category !== "전체" ? category : undefined,
+      },
+      silentAuthCheck: true,
+    } as RetryableRequestConfig);
 
-  return response.data || [];
+    return response.data || [];
+  } catch (error) {
+    console.warn("Failed to fetch public FAQs:", error);
+    return [];
+  }
 }
 
 /**
@@ -724,8 +730,168 @@ export async function getPublicFaqsApi(
 export async function getPublicFaqApi(id: number): Promise<FaqPublicResponse> {
   const response = await apiMiddleware.get<FaqPublicResponse>(
     `/api/faqs/${id}`,
+    { silentAuthCheck: true } as RetryableRequestConfig,
   );
   return response.data;
+}
+
+/* ==========================================
+   위치 / 자치구 / 자치동 API
+========================================== */
+
+export interface SggItem {
+  sggCd: string;
+  sggNm: string;
+}
+
+export interface DongItem {
+  dongCd: string;
+  dongNm: string;
+  sggCd?: string;
+}
+
+/**
+ * 서울 자치구 목록 조회 API (GET /api/location/sggs)
+ */
+export async function getSggsApi(): Promise<SggItem[]> {
+  try {
+    const response = await apiMiddleware.get<any>("/api/location/sggs", {
+      silentAuthCheck: true,
+    } as RetryableRequestConfig);
+    const data = response.data;
+    if (Array.isArray(data)) {
+      return data.map((item: any) => {
+        if (typeof item === "string") {
+          return { sggCd: item, sggNm: item };
+        }
+        return {
+          sggCd: String(
+            item.sggCd || item.code || item.sggNm || item.name || "",
+          ),
+          sggNm: String(item.sggNm || item.name || item.sggCd || ""),
+        };
+      });
+    }
+    if (data && Array.isArray(data.items)) {
+      return data.items.map((item: any) => ({
+        sggCd: String(item.sggCd || item.code || item.sggNm || item.name || ""),
+        sggNm: String(item.sggNm || item.name || item.sggCd || ""),
+      }));
+    }
+    return [];
+  } catch (error) {
+    console.warn("Failed to fetch SGGs from DB API:", error);
+    return [];
+  }
+}
+
+/**
+ * 서울 자치동 목록 조회 API (GET /api/location/dongs?sggCd=11680)
+ */
+export async function getDongsApi(sggCd: string): Promise<DongItem[]> {
+  if (!sggCd) return [];
+  try {
+    const response = await apiMiddleware.get<any>("/api/location/dongs", {
+      params: { sggCd },
+      silentAuthCheck: true,
+    } as RetryableRequestConfig);
+    const data = response.data;
+    if (Array.isArray(data)) {
+      return data.map((item: any) => {
+        if (typeof item === "string") {
+          return { dongCd: item, dongNm: item, sggCd };
+        }
+        return {
+          dongCd: String(
+            item.dongCd || item.code || item.dongNm || item.name || "",
+          ),
+          dongNm: String(item.dongNm || item.name || item.dongCd || ""),
+          sggCd: String(item.sggCd || sggCd),
+        };
+      });
+    }
+    if (data && Array.isArray(data.items)) {
+      return data.items.map((item: any) => ({
+        dongCd: String(
+          item.dongCd || item.code || item.dongNm || item.name || "",
+        ),
+        dongNm: String(item.dongNm || item.name || item.dongCd || ""),
+        sggCd: String(item.sggCd || sggCd),
+      }));
+    }
+    return [];
+  } catch (error) {
+    console.warn("Failed to fetch Dongs from DB API:", error);
+    return [];
+  }
+}
+
+/* ==========================================
+   아파트 단지 시세 및 실거래가 API
+========================================== */
+
+export interface PyungDetail {
+  name: string;
+  area: number;
+  salePrice: number;
+  rentPrice: number;
+  recentTradeDate: string;
+  recentFloor: number;
+  pricePerPyung: number;
+}
+
+export interface TradeHistoryItem {
+  date: string;
+  floor: string;
+  type: string;
+  price: number;
+  change: string;
+  isUp: boolean | null;
+}
+
+export interface PriceTrendPoint {
+  month: string;
+  sale: number;
+  rent: number;
+}
+
+export interface ComplexDetailItem {
+  id: string;
+  name: string;
+  sggNm: string;
+  dongNm: string;
+  buildYear: number;
+  totalHouseholds: number;
+  totalBuildings: number;
+  address: string;
+  baseSalePrice: number;
+  baseRentPrice: number;
+  pyungs: PyungDetail[];
+  recentTrades?: TradeHistoryItem[];
+  chartPoints?: PriceTrendPoint[];
+}
+
+/**
+ * 동별 아파트 단지 목록 조회 API (GET /api/location/complexes)
+ */
+export async function getComplexesApi(
+  sggNm: string,
+  dongNm: string,
+): Promise<ComplexDetailItem[]> {
+  if (!sggNm || !dongNm) return [];
+  try {
+    const response = await apiMiddleware.get<any>("/api/location/complexes", {
+      params: { sggNm, dongNm },
+      silentAuthCheck: true,
+    } as RetryableRequestConfig);
+    const data = response.data;
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.items)) return data.items;
+    return [];
+  } catch (error) {
+    console.warn("Failed to fetch complexes from DB:", error);
+    return [];
+  }
 }
 
 /* ===============================
