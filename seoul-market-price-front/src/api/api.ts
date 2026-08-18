@@ -727,3 +727,157 @@ export async function getPublicFaqApi(id: number): Promise<FaqPublicResponse> {
   );
   return response.data;
 }
+
+/* ===============================
+   가격정보 및 아파트별 비교 API
+================================== */
+
+/* 서울 자치구 항목 */
+export interface SggLocationItem {
+  sggCd: string;
+  sggNm: string;
+}
+
+/* 서울 자치동 항목 */
+export interface DongLocationItem {
+  dongCd?: string;
+  dongNm: string;
+  sggCd?: string;
+}
+
+/* 아파트 단지 기본 정보 */
+export interface ApartmentComplexItem {
+  complexNo: string | number;
+  complexName: string;
+  sggNm: string;
+  dongNm: string;
+  address?: string;
+  totalHouseholds?: number;
+  buildYear?: number;
+  imageUrl?: string;
+}
+
+/* 단지 핵심 시세 및 스펙 지표 */
+export interface ApartmentCompareMetrics {
+  avgPrice: number;
+  recentPrice: number;
+  recent3MonthVolume: number;
+  totalHouseholds: number;
+  buildYear: number;
+  pricePerPyeong: number;
+}
+
+/* 아파트 단지 상세 정보 */
+export interface ApartmentDetailData {
+  name: string;
+  district: string;
+  dong: string;
+  address: string;
+  totalHouseholds: number;
+  buildYear: number;
+  floorInfo: string;
+  parkingPerHousehold: number;
+  imageUrl: string;
+  metrics: ApartmentCompareMetrics;
+}
+
+/* 최근 3년 매매가 추이 포인트 */
+export interface ApartmentCompareTrendPoint {
+  date: string;
+  apt1Price: number;
+  apt2Price: number;
+}
+
+/* 면적별 평균 매매가 항목 */
+export interface ApartmentCompareAreaPrice {
+  areaName: string;
+  apt1Price: number;
+  apt2Price: number;
+}
+
+/* 비교 대상 단지 파라미터 */
+export interface ApartmentTargetParam {
+  district: string;
+  dong: string;
+  complexName: string;
+}
+
+/* 아파트별 시세 비교 요청 DTO */
+export interface ApartmentCompareRequest {
+  apt1: ApartmentTargetParam;
+  apt2: ApartmentTargetParam;
+}
+
+/* 아파트별 시세 비교 응답 DTO */
+export interface ApartmentCompareApiResponse {
+  apt1: ApartmentDetailData;
+  apt2: ApartmentDetailData;
+  yearlyTrends: ApartmentCompareTrendPoint[];
+  areaPrices: ApartmentCompareAreaPrice[];
+  baseDate: string;
+}
+
+/* 1. 서울 자치구 목록 조회 API (GET /api/location/sggs) */
+export async function getLocationSggsApi(): Promise<SggLocationItem[]> {
+  const response = await apiMiddleware.get<any>("/api/location/sggs");
+  const raw = response.data;
+  const list = Array.isArray(raw) ? raw : (raw?.data ?? []);
+
+  return list.map((item: any) => ({
+    sggCd: String(item.sggCd ?? item.code ?? item.sggNm ?? ""),
+    sggNm: String(item.sggNm ?? item.name ?? item.sgg ?? ""),
+  }));
+}
+
+/* 2. 서울 자치동 목록 조회 API (GET /api/location/dongs) */
+export async function getLocationDongsApi(
+  sggCd: string,
+): Promise<DongLocationItem[]> {
+  if (!sggCd) return [];
+  const response = await apiMiddleware.get<any>("/api/location/dongs", {
+    params: { sggCd },
+  });
+  const raw = response.data;
+  const list = Array.isArray(raw) ? raw : (raw?.data ?? []);
+
+  return list.map((item: any) => ({
+    dongCd: item.dongCd ? String(item.dongCd) : undefined,
+    dongNm: String(item.dongNm ?? item.name ?? item.dong ?? ""),
+    sggCd: item.sggCd ? String(item.sggCd) : undefined,
+  }));
+}
+
+/* 3. 아파트 단지 목록 조회 API (GET /api/location/apartments) */
+export async function getApartmentComplexesApi(
+  district: string,
+  dong: string,
+): Promise<ApartmentComplexItem[]> {
+  if (!district) return [];
+  const response = await apiMiddleware.get<ApartmentComplexItem[]>(
+    "/api/location/apartments",
+    {
+      params: { district, dong },
+    },
+  );
+  return response.data;
+}
+
+/* 4. 아파트별 시세 비교 조회 API (GET /api/v1/price/compare-apartment) */
+export async function getApartmentCompareApi(
+  payload: ApartmentCompareRequest,
+): Promise<ApartmentCompareApiResponse> {
+  const response = await apiMiddleware.get<ApartmentCompareApiResponse>(
+    "/api/v1/price/compare-apartment",
+    {
+      params: {
+        apt1District: payload.apt1.district,
+        apt1Dong: payload.apt1.dong,
+        apt1Name: payload.apt1.complexName,
+        apt2District: payload.apt2.district,
+        apt2Dong: payload.apt2.dong,
+        apt2Name: payload.apt2.complexName,
+      },
+    },
+  );
+  return response.data;
+}
