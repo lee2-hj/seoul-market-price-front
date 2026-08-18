@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { BarChart3, Building2, ChevronDown, HelpCircle, Map, TrendingUp } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { BarChart3, Building2, HelpCircle, Map, TrendingUp } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
@@ -12,6 +12,7 @@ import SeoulDistrictMap from "@/features/region-map/components/D3SeoulDistrictMa
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { getLocalPreferredDistrict } from "@/features/member/utils/preferredDistrictStorage";
 import { getDongs, getSggs } from "@/features/location/services/locationService";
+import { getApartmentPriceRanking } from "@/features/region-map/services/regionMapService";
 
 const NAV_ITEMS = [
   { label: "지역별 비교(리스트)", to: "/price/compare-list", icon: BarChart3 },
@@ -19,16 +20,34 @@ const NAV_ITEMS = [
   { label: "단지별 시세", to: "/price/detail", icon: Building2 },
 ];
 
+const DETECTED_REGION_STORAGE_KEY = "ssabu_selected_region";
+
 export default function RegionMapPage() {
   const authUser = useAuthStore((state) => state.user);
   const preferredDistrict =
     authUser?.myGu || getLocalPreferredDistrict(authUser?.userId);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [districtExpanded, setDistrictExpanded] = useState(true);
+  const hasAppliedInitialRegion = useRef(false);
+  const rankingSectionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
+
+  useEffect(() => {
+    if (hasAppliedInitialRegion.current) return;
+    hasAppliedInitialRegion.current = true;
+    if (searchParams.has("district")) return;
+
+    const detectedDistrict = sessionStorage.getItem(DETECTED_REGION_STORAGE_KEY)?.trim() ?? "";
+    const initialDistrict = DISTRICT_PRICES.some((item) => item.name === detectedDistrict)
+      ? detectedDistrict
+      : "";
+
+    if (initialDistrict) {
+      setSearchParams({ district: initialDistrict }, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const { data: sggs = [] } = useQuery({
     queryKey: ["location", "sggs"],
@@ -54,22 +73,23 @@ export default function RegionMapPage() {
   const requestedDong = searchParams.get("dong") ?? "";
   const selectedDong = hasSelectedDistrict ? requestedDong : "";
 
-  const sortedApartments = useMemo(
-    () =>
-      selectedDistrict.apartments
-        .map((apartment) => ({
-          ...apartment,
-          name: selectedDong
-            ? `${selectedDong} ${apartment.name.replace(/^\S+구\s+/, "")}`
-            : apartment.name,
-        }))
-        .sort((a, b) => b.salePrice - a.salePrice),
-    [selectedDistrict, selectedDong],
-  );
+  const selectedDongCode = dongs.find((dong) => dong.dongNm === selectedDong)?.dongCd ?? "";
+  const apartmentRankingQuery = useQuery({
+    queryKey: ["region-map", "apartment-ranking", selectedDongCode],
+    queryFn: () => getApartmentPriceRanking(selectedSggCode, selectedDongCode),
+    enabled: Boolean(selectedDongCode),
+  });
+
+  useEffect(() => {
+    if (!selectedDong || !selectedDongCode) return;
+    const frameId = window.requestAnimationFrame(() => {
+      rankingSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [selectedDong, selectedDongCode]);
 
   const setRegion = useCallback((district: string, dong?: string) => {
     setSearchParams(dong ? { district, dong } : { district });
-    setDistrictExpanded(true);
   }, [setSearchParams]);
 
   const dongPrices = useMemo(
@@ -161,57 +181,34 @@ export default function RegionMapPage() {
             </div>}
           </div>
 
-          {hasSelectedDistrict && <><section className="overflow-hidden rounded-[16px] border border-[#E2E8F0] bg-white shadow-[0_4px_20px_rgba(15,23,42,0.04)]">
-            <button
-              type="button"
-              onClick={() => setDistrictExpanded((value) => !value)}
-              className="flex w-full items-center justify-between border-0 bg-white px-5 py-4 text-left hover:bg-[#F8FAFC]"
-              aria-expanded={districtExpanded}
-            >
-              <span>
-                <strong className="block text-[17px] font-black">{selectedDistrict.name} 법정동별 평균가격</strong>
-                <small className="mt-1 block text-[12px] font-medium text-[#64748B]">지도에서 법정동을 선택해 주세요.</small>
-              </span>
-              <ChevronDown className={`size-5 text-[#0F8AA8] transition-transform ${districtExpanded ? "rotate-180" : ""}`} />
-            </button>
-            {districtExpanded && (
-              <div className="grid max-h-[430px] gap-3 overflow-y-auto border-t border-[#E2E8F0] bg-[#F8FAFC] p-4 sm:grid-cols-2 xl:grid-cols-4">
-                {dongPrices.map((dong) => {
-                  const active = dong.name === selectedDong;
-                  return (
-                    <button
-                      key={dong.name}
-                      type="button"
-                      onClick={() => setRegion(selectedDistrict.name, dong.name)}
-                      className={`rounded-[10px] border p-4 text-left transition-all ${active ? "border-[#0F8AA8] bg-[#E8F6F9] shadow-[0_5px_14px_rgba(15,138,168,.12)]" : "border-[#E2E8F0] bg-white hover:border-[#94A3B8]"}`}
-                    >
-                      <span className={`block text-[13px] font-extrabold ${active ? "text-[#0F8AA8]" : "text-[#0F172A]"}`}>{dong.name}</span>
-                      <strong className="mt-2 block text-[18px] font-black">{formatPrice(dong.averagePrice)}</strong>
-                      <small className="mt-1 block text-[10px] text-[#94A3B8]">평균 매매가</small>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          {selectedDong && <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-6 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
+          {selectedDong && <div ref={rankingSectionRef} className="scroll-mt-24 rounded-[20px] border border-[#E2E8F0] bg-white p-6 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
             <h2 className="text-[18px] font-black">{selectedDistrict.name} {selectedDong} 아파트 시세 분석</h2>
-            <p className="mt-1 text-[12px] text-[#64748B]">선택한 지역의 최근 매매가 기준 상위·하위 5개 단지입니다.</p>
+            <p className="mt-1 text-[12px] text-[#64748B]">선택한 법정동의 평균 매매가격 기준 상위·하위 5개 단지입니다.</p>
+            {apartmentRankingQuery.isPending ? (
+              <p className="mt-5 rounded-[10px] bg-[#F8FAFC] p-5 text-center text-[13px] text-[#64748B]">아파트 가격 정보를 불러오는 중입니다.</p>
+            ) : apartmentRankingQuery.isError ? (
+              <p className="mt-5 rounded-[10px] bg-rose-50 p-5 text-center text-[13px] text-rose-600">아파트 가격 정보를 불러오지 못했습니다.</p>
+            ) : (
             <div className="mt-5 grid gap-4 xl:grid-cols-2">
-              {[{ title: "상위 5개 아파트 단지", items: sortedApartments.slice(0, 5), color: "text-rose-500" }, { title: "하위 5개 아파트 단지", items: sortedApartments.slice(-5).reverse(), color: "text-[#1677D2]" }].map((group) => (
+              {[{ title: "상위 5개 아파트 단지", items: apartmentRankingQuery.data?.top ?? [], color: "text-rose-500" }, { title: "하위 5개 아파트 단지", items: apartmentRankingQuery.data?.bottom ?? [], color: "text-[#1677D2]" }].map((group) => (
                 <div key={group.title} className="overflow-hidden rounded-[10px] border border-[#E2E8F0]">
                   <h3 className={`px-4 py-3 text-[14px] font-black ${group.color}`}>{group.title}</h3>
+                  {group.items.length < 5 && (
+                    <p className="border-t border-[#EDF2F4] bg-amber-50 px-4 py-2 text-[11px] font-medium text-amber-700">
+                      거래 자료가 부족하여 확인 가능한 {group.items.length}개 단지만 표시합니다.
+                    </p>
+                  )}
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[500px] text-left text-[12px]">
-                      <thead className="bg-[#F8FAFC] text-[#64748B]"><tr><th className="px-3 py-2">순위</th><th className="px-3 py-2">아파트 단지</th><th className="px-3 py-2">최근 매매가</th><th className="px-3 py-2">최근 거래일</th><th className="px-3 py-2">전용면적</th></tr></thead>
-                      <tbody>{group.items.map((item, index) => <tr key={item.name} className="border-t border-[#EDF2F4]"><td className="px-3 py-2 font-bold">{index + 1}</td><td className="px-3 py-2 font-semibold">{item.name}</td><td className="px-3 py-2">{formatPrice(item.salePrice)}</td><td className="px-3 py-2">{item.recentTradeDate}</td><td className="px-3 py-2">{item.exclusiveArea.toFixed(2)}㎡</td></tr>)}</tbody>
+                    <table className="w-full min-w-[430px] text-left text-[12px]">
+                      <thead className="bg-[#F8FAFC] text-[#64748B]"><tr><th className="px-3 py-2">순위</th><th className="px-3 py-2">아파트 단지</th><th className="px-3 py-2">평균 매매가</th><th className="px-3 py-2">거래 건수</th></tr></thead>
+                      <tbody>{group.items.map((item, index) => <tr key={item.code} className="border-t border-[#EDF2F4]"><td className="px-3 py-2 font-bold">{index + 1}</td><td className="px-3 py-2 font-semibold">{item.name}</td><td className="px-3 py-2">{formatPrice(item.averagePrice)}</td><td className="px-3 py-2">{item.dealCount.toLocaleString("ko-KR")}건</td></tr>)}</tbody>
                     </table>
                   </div>
                 </div>
               ))}
             </div>
-          </div>}</>}
+            )}
+          </div>}
         </section>
       </div>
     </main>

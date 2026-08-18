@@ -103,7 +103,14 @@ export default function D3SeoulDistrictMap({
   const [zoomState, setZoomState] = useState({ district: "", factor: 1 });
   const [isDragging, setIsDragging] = useState(false);
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const dragState = useRef({ pointerId: -1, x: 0, y: 0, moved: false });
+  const dragState = useRef({
+    pointerId: -1,
+    x: 0,
+    y: 0,
+    startX: 0,
+    startY: 0,
+    moved: false,
+  });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -257,7 +264,7 @@ export default function D3SeoulDistrictMap({
 
     svg.addEventListener("wheel", handleWheel, { passive: false });
     return () => svg.removeEventListener("wheel", handleWheel);
-  }, [selectedDistrict]);
+  }, [mapData, selectedDistrict]);
 
   const transformPoint = ([x, y]: [number, number]) => [
     (x - zoom.centerX) * displayScale + WIDTH / 2 + pan.x,
@@ -284,22 +291,29 @@ export default function D3SeoulDistrictMap({
         aria-label="서울 자치구별 평균 매매가 지도"
         onPointerDown={(event) => {
           if (!selectedDistrict || event.button !== 0) return;
-          event.preventDefault();
-          event.currentTarget.setPointerCapture(event.pointerId);
           dragState.current = {
             pointerId: event.pointerId,
             x: event.clientX,
             y: event.clientY,
+            startX: event.clientX,
+            startY: event.clientY,
             moved: false,
           };
-          setIsDragging(true);
         }}
         onPointerMove={(event) => {
           if (dragState.current.pointerId !== event.pointerId) return;
           const rect = event.currentTarget.getBoundingClientRect();
           const dx = (event.clientX - dragState.current.x) * (WIDTH / rect.width);
           const dy = (event.clientY - dragState.current.y) * (HEIGHT / rect.height);
-          if (Math.abs(dx) + Math.abs(dy) > 1) dragState.current.moved = true;
+          const totalMovement =
+            Math.abs(event.clientX - dragState.current.startX) +
+            Math.abs(event.clientY - dragState.current.startY);
+          if (totalMovement > 6 && !dragState.current.moved) {
+            dragState.current.moved = true;
+            event.currentTarget.setPointerCapture(event.pointerId);
+            setIsDragging(true);
+          }
+          if (!dragState.current.moved) return;
           dragState.current.x = event.clientX;
           dragState.current.y = event.clientY;
           setPanState((current) => ({
@@ -310,7 +324,9 @@ export default function D3SeoulDistrictMap({
         }}
         onPointerUp={(event) => {
           if (dragState.current.pointerId !== event.pointerId) return;
-          event.currentTarget.releasePointerCapture(event.pointerId);
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
           dragState.current.pointerId = -1;
           setIsDragging(false);
         }}

@@ -9,6 +9,14 @@ import { getDongs, getSggs } from "@/features/location/services/locationService"
 import type { MonthlyPriceTrendPoint } from "@/features/trends/types/trends.types";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 
+type AnalysisTab = "RANKING" | "MOVERS" | "AREA";
+
+const ANALYSIS_TABS: Array<{ value: AnalysisTab; label: string }> = [
+  { value: "RANKING", label: "실거래 순위" },
+  { value: "MOVERS", label: "급상승·급락" },
+  { value: "AREA", label: "평형대 비교" },
+];
+
 function getStoredPreferredDistrict(userId?: string): string | null {
   try {
     const cleanId = (userId || "").trim().toLowerCase();
@@ -48,6 +56,7 @@ export default function MarketTrendsPage() {
   const [guSearch, setGuSearch] = useState<string>(() => getInitialGu(loginUserId));
   const [dongSearch, setDongSearch] = useState<string>("전체");
   const [hoveredPoint, setHoveredPoint] = useState<MonthlyPriceTrendPoint | null>(null);
+  const [analysisTab, setAnalysisTab] = useState<AnalysisTab>("RANKING");
 
   const {
     data: sggs = [],
@@ -140,22 +149,19 @@ export default function MarketTrendsPage() {
     <div className="w-full min-h-screen bg-[#F5FAFC] text-[#13202B] py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-[1140px] mx-auto space-y-8">
         {/* 상단 타이틀 영역 */}
-        <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[16px] p-6 sm:p-8 shadow-xs">
+        <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[16px] p-6 shadow-xs">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-[12px] font-extrabold text-[#0F8AA8] uppercase tracking-wider">
-                  SSABU MARKET INTELLIGENCE
-                </span>
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#E6F4F2] text-[#0F766E]">
                   서울시 25개 자치구 · 법정동 DB 연동
                 </span>
               </div>
               <h1 className="text-[24px] sm:text-[28px] font-extrabold text-[#123047] tracking-tight">
-                서울시 아파트 거래동향 & AI 시세 추이
+                아파트 거래동향
               </h1>
               <p className="text-[14px] text-[#6B7280] mt-1.5 leading-relaxed">
-                국토교통부 실거래 빅데이터와 머신러닝 예측 모델을 결합하여 서울 자치구·법정동·단지별 거래량과 예상 시세를 한눈에 확인하세요.
+                지역과 단지를 선택해 실거래 흐름과 예상 시세를 확인하세요.
               </p>
             </div>
             <div className="text-right shrink-0">
@@ -169,9 +175,10 @@ export default function MarketTrendsPage() {
 
         {/* 3단계 인터랙티브 필터 (구 ➔ 동 ➔ 아파트 단지) */}
         <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[16px] p-6 shadow-xs space-y-5">
+          <div className="grid gap-5 md:grid-cols-2">
           {/* 1. 자치구 선택 */}
           <div>
-            <div className="flex items-center justify-between mb-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
               <span className="text-[12px] font-bold text-[#6B7280] block">
                 1. 자치구 선택 ({isSggsLoading ? "조회 중" : `${sggs.length}개 자치구`})
               </span>
@@ -207,7 +214,7 @@ export default function MarketTrendsPage() {
           </div>
 
           {/* 2. 법정동 선택 */}
-          <div className="pt-3.5 border-t border-[#DCE8ED]">
+          <div className="border-t border-[#DCE8ED] pt-4 md:border-l md:border-t-0 md:pl-5 md:pt-0">
             <div className="mb-2.5">
               <span className="text-[12px] font-bold text-[#6B7280]">
                 2. 법정동 선택 ({selectedGu}, 총 {currentDongList.length - 1}개 동)
@@ -238,9 +245,10 @@ export default function MarketTrendsPage() {
                 className="h-[46px] rounded-[9px] border border-[#DCE8ED] bg-white px-4 text-[14px] font-bold text-[#13202B] outline-none focus:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
               />
               <p className="mt-1.5 text-[11px] font-medium text-[#6B7280]">
-                DB에 등록된 법정동만 선택할 수 있습니다.
+                검색 결과에서 법정동을 선택해 주세요.
               </p>
             </div>
+          </div>
           </div>
 
           {/* 3. 아파트 단지 선택 */}
@@ -545,7 +553,30 @@ export default function MarketTrendsPage() {
           </div>
         </div>
 
+        {/* 하단 분석 결과 탭 */}
+        <section className="bg-white border border-[#DCE8ED] rounded-[16px] p-2 shadow-xs">
+          <div className="flex gap-1 overflow-x-auto" role="tablist" aria-label="거래 분석 결과">
+            {ANALYSIS_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                role="tab"
+                aria-selected={analysisTab === tab.value}
+                onClick={() => setAnalysisTab(tab.value)}
+                className={`min-w-max rounded-[9px] border-0 px-5 py-2.5 text-[13px] font-bold transition-colors ${
+                  analysisTab === tab.value
+                    ? "bg-[#123047] text-white"
+                    : "bg-white text-[#6B7280] hover:bg-[#E8F6F9] hover:text-[#0F8AA8]"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
         {/* 구/동별 인기 아파트 단지 실거래 랭킹 TOP 10 */}
+        {analysisTab === "RANKING" && (
         <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[16px] overflow-hidden shadow-xs">
           <div className="p-6 border-b border-[#DCE8ED] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
@@ -629,8 +660,10 @@ export default function MarketTrendsPage() {
             </table>
           </div>
         </div>
+        )}
 
         {/* 급상승·급락 단지 */}
+        {analysisTab === "MOVERS" && (
         <section className="bg-white border border-[#DCE8ED] rounded-[16px] p-6 shadow-xs space-y-5">
           <div>
             <h2 className="text-[18px] font-extrabold text-[#123047]">급상승·급락 단지</h2>
@@ -667,8 +700,10 @@ export default function MarketTrendsPage() {
             </div>
           </div>
         </section>
+        )}
 
         {/* 평형대별 시세 비교 */}
+        {analysisTab === "AREA" && (
         <section className="bg-white border border-[#DCE8ED] rounded-[16px] p-6 shadow-xs space-y-5">
           <div>
             <h2 className="text-[18px] font-extrabold text-[#123047]">평형대별 시세 비교</h2>
@@ -696,6 +731,7 @@ export default function MarketTrendsPage() {
             </p>
           )}
         </section>
+        )}
       </div>
     </div>
   );
