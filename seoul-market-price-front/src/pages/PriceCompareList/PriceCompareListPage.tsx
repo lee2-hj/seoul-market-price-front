@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "../../lib/utils";
-import apiMiddleware from "../../api/middleware";
+import apiMiddleware, { type RetryableRequestConfig } from "../../api/middleware";
 
 /* 타입 정의 */
 interface MetricResult {
@@ -40,8 +40,15 @@ interface SelectedRegion {
 
 /* API 연동 함수 */
 async function fetchSeoulRegionsApi(): Promise<Record<string, string[]>> {
-  const response = await apiMiddleware.get<Record<string, string[]>>("/api/v1/regions");
-  return response.data;
+  try {
+    const response = await apiMiddleware.get<Record<string, string[]>>("/api/v1/regions", {
+      silentAuthCheck: true,
+    } as RetryableRequestConfig);
+    return response.data;
+  } catch (error) {
+    console.warn("Failed to fetch regions:", error);
+    return {};
+  }
 }
 
 async function fetchPriceCompareApi(
@@ -55,7 +62,8 @@ async function fetchPriceCompareApi(
       r2Gu: region2.district,
       r2Dong: region2.dong === "전체" ? "" : region2.dong,
     },
-  });
+    silentAuthCheck: true,
+  } as RetryableRequestConfig);
   return response.data;
 }
 

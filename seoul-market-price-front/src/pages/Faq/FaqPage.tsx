@@ -165,7 +165,7 @@ export default function FaqPage() {
                 onClick={() => navigate('/board')}
                 className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#6B7280] hover:bg-[#F0F7FA]"
               >
-                공지사항
+                게시판
               </button>
               <button
                 type="button"
