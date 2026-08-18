@@ -118,12 +118,13 @@ export default function BoardPage() {
             <p className="text-[15px] text-[#6B7280]">싸부(SSABU) 부동산 실거래 및 시세 분석 서비스의 다양한 이야기를 나누는 공간입니다.</p>
           </div>
 
-          {/* 카테고리 탭 */}
+          {/* 고객센터 이동 탭 */}
           <div className="flex justify-center mb-6">
-            <div className="flex items-center gap-2 p-1 bg-white rounded-[10px] border border-[#DCE8ED] shadow-sm">
-              <button type="button" className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#123047] text-white">게시판</button>
-              <button type="button" onClick={() => navigate('/qna')} className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#6B7280] hover:bg-[#F0F7FA]">질의응답</button>
-              <button type="button" onClick={() => navigate('/faq')} className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#6B7280] hover:bg-[#F0F7FA]">자주 묻는 질문</button>
+            <div className="flex flex-wrap items-center justify-center gap-2 rounded-[10px] border border-[#DCE8ED] bg-white p-1 shadow-sm">
+              <button type="button" className="rounded-[8px] bg-[#123047] px-6 py-2.5 text-[14px] font-bold text-white">게시판</button>
+              <button type="button" onClick={() => navigate('/qna')} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA]">질의응답</button>
+              <button type="button" onClick={() => navigate('/faq')} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA]">자주 묻는 질문</button>
+              <button type="button" onClick={() => navigate('/report')} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA]">문의사항</button>
             </div>
           </div>
 
@@ -220,9 +221,11 @@ export default function BoardPage() {
                 </TableHeader>
                 <TableBody className="divide-y divide-[#DCE8ED]">
                   {/* 1. 상단 고정 공지사항 */}
-                  {data?.notices?.map((notice: BoardListItem) => (
+                  {data?.notices?.map((notice: BoardListItem, index: number) => (
                     <TableRow key={`notice-${notice.boardId}`} className="bg-[#F0F7FA] hover:bg-[#E1EFF5]">
-                      <TableCell className="w-[9%] text-center text-[#6B7280] font-medium">공지</TableCell>
+                      <TableCell className="w-[9%] text-center text-[#6B7280] font-medium">
+                        {(data?.totalElements ?? 0) + (data?.notices?.length ?? 0) - index}
+                      </TableCell>
                       <TableCell className="w-[10%] text-center">
                         <span className="inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]">
                           공지
@@ -246,7 +249,7 @@ export default function BoardPage() {
 
                     return (
                       <TableRow key={`item-${item.boardId}`} className={isNotice ? 'bg-[#F0F7FA] hover:bg-[#E1EFF5]' : 'bg-white hover:bg-[#F5FAFC]'}>
-                        <TableCell className="w-[9%] text-center text-[#6B7280] font-medium">{isNotice ? '공지' : displayNo}</TableCell>
+                        <TableCell className="w-[9%] text-center text-[#6B7280] font-medium">{displayNo}</TableCell>
                         <TableCell className="w-[10%] text-center">
                           <span className={isNotice ? 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]' : 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#E6F4F2] text-[#0F766E]'}>
                             {isNotice ? '공지' : '일반'}

@@ -323,7 +323,7 @@ export default function BoardEditPage() {
                     onClick={() => navigate("/board")}
                     className="h-9 w-24 border-[#DCE8ED] text-xs text-[#6B7280] hover:bg-[#F0F7FA] rounded-lg cursor-pointer"
                   >
-                    글목록
+                    목록으로
                   </Button>
                 </div>
 
