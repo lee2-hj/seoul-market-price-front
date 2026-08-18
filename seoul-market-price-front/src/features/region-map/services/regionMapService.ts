@@ -39,29 +39,42 @@ export interface ApartmentPriceRanking {
   bottom: ApartmentPriceRank[];
 }
 
-const mapRank = (item: TopAndBottomItemResponse, index: number): ApartmentPriceRank => ({
+export type PriceMetricType = "thing_amt" | "pyeong";
+
+const mapRank = (
+  item: TopAndBottomItemResponse,
+  index: number,
+  metricType: PriceMetricType,
+): ApartmentPriceRank => ({
   code: `${item.stdg_cd}-${item.bldg_nm}-${index}`,
   name: item.bldg_nm,
-  averagePrice: item.avg_thing_amt,
+  averagePrice: metricType === "pyeong" ? item.avg_pyeong_amt : item.avg_thing_amt,
   dealCount: item.deal_cnt,
 });
 
 export async function getApartmentPriceRanking(
   guCode: string,
   dongCode: string,
+  metricType: PriceMetricType,
 ): Promise<ApartmentPriceRanking> {
   const { data } = await apiMiddleware.get<TopAndBottomResponse>("/fastApi/topandbottom", {
     params: {
       guCode,
       dongCode,
-      metricType: "thing_amt",
+      metricType,
     },
   });
+  const top = (data.top ?? []).slice(0, 5).map((item, index) => mapRank(item, index, metricType));
+  const topNames = new Set(top.map((item) => item.name.trim()));
+  const bottom = (data.bottom ?? [])
+    .map((item, index) => mapRank(item, index, metricType))
+    .filter((item) => !topNames.has(item.name.trim()))
+    .slice(0, 5);
 
   return {
     baseDate: data.base_date,
     totalCount: data.total_count,
-    top: (data.top ?? []).slice(0, 5).map(mapRank),
-    bottom: (data.bottom ?? []).slice(0, 5).map(mapRank),
+    top,
+    bottom,
   };
 }

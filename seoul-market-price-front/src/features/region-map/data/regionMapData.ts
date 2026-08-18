@@ -64,5 +64,6 @@ export const DISTRICT_PRICES: DistrictPriceItem[] = DISTRICT_SEED.map(
 export function formatPrice(price: number): string {
   const eok = Math.floor(price / 10000);
   const man = price % 10000;
+  if (eok === 0) return `${man.toLocaleString("ko-KR")}만`;
   return man ? `${eok}억 ${man.toLocaleString("ko-KR")}만` : `${eok}억`;
 }
