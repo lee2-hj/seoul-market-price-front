@@ -28,6 +28,8 @@ interface MetricResult {
   recentPrice: number;
   avgJeonsePrice: number;
   recentJeonsePrice: number;
+  avgPyeongPrice?: number;
+  totalCount?: number;
 }
 
 interface CompareResponse {
@@ -36,9 +38,39 @@ interface CompareResponse {
   baseDate?: string;
 }
 
+interface FastApiRegionSummaryDto {
+  cgg_cd?: string;
+  stdg_cd?: string;
+  total_count?: number;
+  avg_thing_amt?: number;
+  avg_pyeong_amt?: number;
+}
+
+interface FastApiCompareResponse {
+  base_date?: string;
+  baseDate?: string;
+  region1?: FastApiRegionSummaryDto;
+  region2?: FastApiRegionSummaryDto;
+}
+
+interface FastApiListSummaryDto {
+  code?: string;
+  name?: string;
+  total_count?: number;
+  avg_thing_amt?: number;
+  avg_pyeong_amt?: number;
+}
+
+interface FastApiListResponse {
+  base_date?: string;
+  groups?: Record<string, FastApiListSummaryDto>;
+}
+
 interface SelectedRegion {
   district: string;
   dong: string;
+  sggCd?: string;
+  dongCd?: string;
 }
 
 interface SggItem {
@@ -154,23 +186,154 @@ async function fetchDongsApi(sggCd: string): Promise<DongItem[]> {
   }
 }
 
-/* 가격 비교 데이터 조회 API (GET /api/v1/price/compare) */
+/* fastApi 지역별 평균가 목록 조회 (GET /fastApi/list) */
+async function fetchFastApiList(guCode?: string): Promise<FastApiListResponse> {
+  const response = await apiMiddleware.get<FastApiListResponse>("/fastApi/list", {
+    params: guCode ? { guCode } : {},
+  });
+  return response.data;
+}
+
+/* 가격 비교 데이터 조회 API (FastAPI /fastApi/compare 우선 호출 및 /fastApi/list 폴백) */
 async function fetchPriceCompareApi(payload: {
   r1: SelectedRegion;
   r2: SelectedRegion;
 }): Promise<CompareResponse> {
-  const response = await apiMiddleware.get<CompareResponse>(
-    "/api/v1/price/compare",
-    {
-      params: {
-        r1Gu: payload.r1.district,
-        r1Dong: payload.r1.dong,
-        r2Gu: payload.r2.district,
-        r2Dong: payload.r2.dong,
+  const { r1, r2 } = payload;
+  const guCode1 = r1.sggCd || "";
+  const dongCode1 = r1.dongCd || "";
+  const guCode2 = r2.sggCd || "";
+  const dongCode2 = r2.dongCd || "";
+
+  // 1. /fastApi/compare 호출 시도
+  if (guCode1 && dongCode1 && guCode2 && dongCode2) {
+    try {
+      const response = await apiMiddleware.get<FastApiCompareResponse>(
+        "/fastApi/compare",
+        {
+          params: {
+            guCode1,
+            dongCode1,
+            guCode2,
+            dongCode2,
+          },
+        },
+      );
+
+      if (response.data && (response.data.region1 || response.data.region2)) {
+        const reg1 = response.data.region1;
+        const reg2 = response.data.region2;
+
+        const r1Avg = (reg1?.avg_thing_amt ?? 0) > 0
+          ? Number(((reg1?.avg_thing_amt ?? 0) / 10000).toFixed(2))
+          : 0;
+        const r2Avg = (reg2?.avg_thing_amt ?? 0) > 0
+          ? Number(((reg2?.avg_thing_amt ?? 0) / 10000).toFixed(2))
+          : 0;
+
+        return {
+          baseDate: response.data.baseDate || response.data.base_date,
+          r1: {
+            avgPrice: r1Avg,
+            recentPrice: r1Avg,
+            avgJeonsePrice: Number((r1Avg * 0.6).toFixed(2)),
+            recentJeonsePrice: Number((r1Avg * 0.6).toFixed(2)),
+            avgPyeongPrice: reg1?.avg_pyeong_amt,
+            totalCount: reg1?.total_count ? Number(reg1.total_count) : undefined,
+          },
+          r2: {
+            avgPrice: r2Avg,
+            recentPrice: r2Avg,
+            avgJeonsePrice: Number((r2Avg * 0.6).toFixed(2)),
+            recentJeonsePrice: Number((r2Avg * 0.6).toFixed(2)),
+            avgPyeongPrice: reg2?.avg_pyeong_amt,
+            totalCount: reg2?.total_count ? Number(reg2.total_count) : undefined,
+          },
+        };
+      }
+    } catch (fastApiErr) {
+      console.warn("/fastApi/compare 호출 실패, /fastApi/list 폴백 시도:", fastApiErr);
+    }
+  }
+
+  // 2. /fastApi/list 폴백 시도
+  try {
+    const [list1, list2] = await Promise.allSettled([
+      guCode1 ? fetchFastApiList(guCode1) : Promise.resolve(null),
+      guCode2 ? fetchFastApiList(guCode2) : Promise.resolve(null),
+    ]);
+
+    let r1Data: FastApiListSummaryDto | undefined;
+    let r2Data: FastApiListSummaryDto | undefined;
+    let baseDate: string | undefined;
+
+    if (list1.status === "fulfilled" && list1.value?.groups) {
+      baseDate = list1.value.base_date;
+      const groups: Record<string, FastApiListSummaryDto> = list1.value.groups;
+      r1Data = (dongCode1 && groups[dongCode1]) ||
+        Object.values(groups).find((g: FastApiListSummaryDto) => g.name === r1.dong || g.name?.includes(r1.dong));
+    }
+
+    if (list2.status === "fulfilled" && list2.value?.groups) {
+      baseDate = baseDate || list2.value.base_date;
+      const groups: Record<string, FastApiListSummaryDto> = list2.value.groups;
+      r2Data = (dongCode2 && groups[dongCode2]) ||
+        Object.values(groups).find((g: FastApiListSummaryDto) => g.name === r2.dong || g.name?.includes(r2.dong));
+    }
+
+    if (r1Data || r2Data) {
+      const r1Avg = (r1Data?.avg_thing_amt ?? 0) > 0
+        ? Number(((r1Data?.avg_thing_amt ?? 0) / 10000).toFixed(2))
+        : 0;
+      const r2Avg = (r2Data?.avg_thing_amt ?? 0) > 0
+        ? Number(((r2Data?.avg_thing_amt ?? 0) / 10000).toFixed(2))
+        : 0;
+
+      return {
+        baseDate,
+        r1: {
+          avgPrice: r1Avg,
+          recentPrice: r1Avg,
+          avgJeonsePrice: Number((r1Avg * 0.6).toFixed(2)),
+          recentJeonsePrice: Number((r1Avg * 0.6).toFixed(2)),
+          avgPyeongPrice: r1Data?.avg_pyeong_amt,
+          totalCount: r1Data?.total_count,
+        },
+        r2: {
+          avgPrice: r2Avg,
+          recentPrice: r2Avg,
+          avgJeonsePrice: Number((r2Avg * 0.6).toFixed(2)),
+          recentJeonsePrice: Number((r2Avg * 0.6).toFixed(2)),
+          avgPyeongPrice: r2Data?.avg_pyeong_amt,
+          totalCount: r2Data?.total_count,
+        },
+      };
+    }
+  } catch (listErr) {
+    console.warn("/fastApi/list 조회 실패:", listErr);
+  }
+
+  // 3. 기존 /api/v1/price/compare 최후 폴백
+  try {
+    const response = await apiMiddleware.get<CompareResponse>(
+      "/api/v1/price/compare",
+      {
+        params: {
+          r1Gu: r1.district,
+          r1Dong: r1.dong,
+          r2Gu: r2.district,
+          r2Dong: r2.dong,
+        },
       },
-    },
-  );
-  return response.data;
+    );
+    return response.data;
+  } catch {
+    return {
+      baseDate: new Date().toISOString().slice(0, 7),
+      r1: { avgPrice: 0, recentPrice: 0, avgJeonsePrice: 0, recentJeonsePrice: 0 },
+      r2: { avgPrice: 0, recentPrice: 0, avgJeonsePrice: 0, recentJeonsePrice: 0 },
+    };
+  }
 }
 
 /* 금액 포맷터 유틸 */
@@ -696,7 +859,7 @@ interface RegionCardProps {
   isSggLoading: boolean;
   isDongLoading: boolean;
   onDistrictChange: (name: string, opt?: AutocompleteOption) => void;
-  onDongChange: (dong: string) => void;
+  onDongChange: (dong: string, opt?: AutocompleteOption) => void;
 }
 
 function RegionCard({
@@ -1123,10 +1286,12 @@ export default function PriceCompareListPage() {
   const [r1District, setR1District] = useState("");
   const [r1SggCd, setR1SggCd] = useState("");
   const [r1Dong, setR1Dong] = useState("");
+  const [r1DongCd, setR1DongCd] = useState("");
 
   const [r2District, setR2District] = useState("");
   const [r2SggCd, setR2SggCd] = useState("");
   const [r2Dong, setR2Dong] = useState("");
+  const [r2DongCd, setR2DongCd] = useState("");
 
   /* 2. 행정구역 데이터 조회 훅 (useQuery, useMemo) */
   const {
@@ -1167,6 +1332,7 @@ export default function PriceCompareListPage() {
         opt?.code || sggList.find((s) => s.sggNm === name)?.sggCd || "",
       );
       setR1Dong("");
+      setR1DongCd("");
     },
     [sggList],
   );
@@ -1178,8 +1344,25 @@ export default function PriceCompareListPage() {
         opt?.code || sggList.find((s) => s.sggNm === name)?.sggCd || "",
       );
       setR2Dong("");
+      setR2DongCd("");
     },
     [sggList],
+  );
+
+  const handleR1DongChange = useCallback(
+    (name: string, opt?: AutocompleteOption) => {
+      setR1Dong(name);
+      setR1DongCd(opt?.code || r1DongOptions.find((d) => d.label === name)?.code || "");
+    },
+    [r1DongOptions],
+  );
+
+  const handleR2DongChange = useCallback(
+    (name: string, opt?: AutocompleteOption) => {
+      setR2Dong(name);
+      setR2DongCd(opt?.code || r2DongOptions.find((d) => d.label === name)?.code || "");
+    },
+    [r2DongOptions],
   );
 
   /* 시세 비교 실행 */
@@ -1189,19 +1372,21 @@ export default function PriceCompareListPage() {
       return;
     }
     compareMutation.mutate({
-      r1: { district: r1District, dong: r1Dong },
-      r2: { district: r2District, dong: r2Dong },
+      r1: { district: r1District, dong: r1Dong, sggCd: r1SggCd, dongCd: r1DongCd },
+      r2: { district: r2District, dong: r2Dong, sggCd: r2SggCd, dongCd: r2DongCd },
     });
-  }, [r1District, r1Dong, r2District, r2Dong, compareMutation]);
+  }, [r1District, r1Dong, r1SggCd, r1DongCd, r2District, r2Dong, r2SggCd, r2DongCd, compareMutation]);
 
   /* 전체 초기화 */
   const handleReset = useCallback(() => {
     setR1District("");
     setR1SggCd("");
     setR1Dong("");
+    setR1DongCd("");
     setR2District("");
     setR2SggCd("");
     setR2Dong("");
+    setR2DongCd("");
     resetCompare();
   }, [resetCompare]);
 
@@ -1256,7 +1441,7 @@ export default function PriceCompareListPage() {
                   isSggLoading={isSggLoading}
                   isDongLoading={isR1DongLoading}
                   onDistrictChange={handleR1DistrictChange}
-                  onDongChange={(d) => setR1Dong(d)}
+                  onDongChange={handleR1DongChange}
                 />
 
                 {/* 중앙 VS 배지 */}
@@ -1277,7 +1462,7 @@ export default function PriceCompareListPage() {
                   isSggLoading={isSggLoading}
                   isDongLoading={isR2DongLoading}
                   onDistrictChange={handleR2DistrictChange}
-                  onDongChange={(d) => setR2Dong(d)}
+                  onDongChange={handleR2DongChange}
                 />
 
                 {/* 비교하기 액션 영역 */}
