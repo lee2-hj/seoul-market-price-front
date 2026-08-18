@@ -21,7 +21,7 @@ const NAV_ITEMS: Array<{ label: string; to?: string; icon: typeof Search; links?
       { to: "/price/detail", label: "단지별 시세" },
     ],
   },
-  { label: "가격 추이", to: "/price", icon: BarChart3 },
+  { label: "가격 추이", to: "/trends", icon: BarChart3 },
   {
     label: "고객센터",
     icon: Headphones,
@@ -49,14 +49,14 @@ const REGION_STORAGE_KEY = "ssabu_selected_region";
 const TEST_LATITUDE_STORAGE_KEY = "latitude";
 const TEST_LONGITUDE_STORAGE_KEY = "longitude";
 
-const linkClass = ({ isActive }: { isActive: boolean }) =>
-  `group relative flex h-[68px] items-center gap-2 whitespace-nowrap px-1 text-[13px] font-extrabold tracking-[-0.025em] transition-colors no-underline after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:rounded-t-full after:transition-colors ${isActive ? "text-[#0F8AA8] after:bg-[#0F8AA8]" : "text-[#13202B] after:bg-transparent hover:text-[#0F8AA8]"
-  }`;
+const DESKTOP_MENU_TEXT_CLASS =
+  "text-[13px] font-medium tracking-[-0.025em] text-[#13202B]";
+const linkClass = `flex h-[68px] items-center gap-2 whitespace-nowrap px-1 transition-colors no-underline hover:text-[#0F8AA8] ${DESKTOP_MENU_TEXT_CLASS}`;
 
 function DesktopDropdown({ label, links, icon: Icon }: { label: string; links: MenuLink[]; icon: typeof Search }) {
   return (
     <div className="group relative flex h-[68px] items-center">
-      <button type="button" className="flex h-full items-center gap-2 border-0 bg-transparent px-1 text-[13px] font-extrabold tracking-[-0.025em] text-[#13202B] hover:text-[#0F8AA8]">
+      <button type="button" className={`flex h-full items-center gap-2 border-0 bg-transparent px-1 transition-colors hover:text-[#0F8AA8] ${DESKTOP_MENU_TEXT_CLASS}`}>
         <Icon className="size-[18px] stroke-[1.8]" />{label}<ChevronDown className="size-3.5" />
       </button>
       <div className="invisible absolute left-1/2 top-[64px] z-50 w-[190px] -translate-x-1/2 translate-y-1 rounded-[10px] border border-[#DCE8ED] bg-white p-2 opacity-0 shadow-[0_12px_30px_rgba(18,48,71,0.12)] transition-all group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">

@@ -102,6 +102,7 @@ export default function D3SeoulDistrictMap({
   const [panState, setPanState] = useState({ district: "", x: 0, y: 0 });
   const [zoomState, setZoomState] = useState({ district: "", factor: 1 });
   const [isDragging, setIsDragging] = useState(false);
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const dragState = useRef({ pointerId: -1, x: 0, y: 0, moved: false });
 
   useEffect(() => {
@@ -156,17 +157,18 @@ export default function D3SeoulDistrictMap({
       geoData as unknown as GeoPermissibleObjects,
     );
     const path = geoPath(projection);
-    const availableDongCodes = new Set(availableDongs.map((dong) => dong.dongCd));
+    const normalizedDistrictCode = String(selectedDistrictCode).slice(0, 5);
+    const availableDongsByCode = new Map(
+      availableDongs.map((dong) => [String(dong.dongCd).replace(/00$/, ""), dong]),
+    );
 
     return dongGeoData.features.flatMap((feature, index) => {
       const dongCode = `${feature.properties.EMD_CD}00`;
-      const dongName = feature.properties.EMD_NM;
-      const codeMatches =
-        feature.properties.COL_ADM_SE === selectedDistrictCode &&
-        availableDongCodes.has(dongCode);
-      if (
-        !codeMatches
-      ) {
+      const apiDong = availableDongsByCode.get(feature.properties.EMD_CD);
+      const dongName = apiDong?.dongNm ?? feature.properties.EMD_NM;
+      const belongsToSelectedDistrict =
+        String(feature.properties.COL_ADM_SE) === normalizedDistrictCode;
+      if (!belongsToSelectedDistrict) {
         return [];
       }
       const rewoundFeature = rewindDongFeature(feature);
@@ -215,6 +217,19 @@ export default function D3SeoulDistrictMap({
     : { x: 0, y: 0 };
   const userZoom = zoomState.district === selectedDistrict ? zoomState.factor : 1;
   const displayScale = zoom.scale * userZoom;
+  const panLimits = useMemo(() => {
+    const selected = mapData?.find((district) => district.name === selectedDistrict);
+    if (!selected) return { x: 0, y: 0 };
+
+    const [[x0, y0], [x1, y1]] = selected.bounds;
+    const scaledWidth = (x1 - x0) * displayScale;
+    const scaledHeight = (y1 - y0) * displayScale;
+
+    return {
+      x: Math.max(WIDTH * 0.15, (scaledWidth - WIDTH) / 2 + WIDTH * 0.2),
+      y: Math.max(HEIGHT * 0.15, (scaledHeight - HEIGHT) / 2 + HEIGHT * 0.2),
+    };
+  }, [displayScale, mapData, selectedDistrict]);
 
   const changeUserZoom = (nextFactor: number) => {
     setZoomState({
@@ -222,6 +237,27 @@ export default function D3SeoulDistrictMap({
       factor: Math.max(0.7, Math.min(2.5, nextFactor)),
     });
   };
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg || !selectedDistrict) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setZoomState((current) => {
+        const currentFactor = current.district === selectedDistrict ? current.factor : 1;
+        const nextFactor = currentFactor * (event.deltaY < 0 ? 1.12 : 0.89);
+        return {
+          district: selectedDistrict,
+          factor: Math.max(0.7, Math.min(2.5, nextFactor)),
+        };
+      });
+    };
+
+    svg.addEventListener("wheel", handleWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", handleWheel);
+  }, [selectedDistrict]);
 
   const transformPoint = ([x, y]: [number, number]) => [
     (x - zoom.centerX) * displayScale + WIDTH / 2 + pan.x,
@@ -241,17 +277,14 @@ export default function D3SeoulDistrictMap({
   return (
     <div className="relative w-full overflow-hidden bg-[radial-gradient(circle_at_50%_40%,#FFFFFF_0%,#F4F8F4_62%,#EAF2ED_100%)]">
       <svg
+        ref={svgRef}
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         className={`block h-auto min-h-[520px] w-full touch-none ${selectedDistrict ? (isDragging ? "cursor-grabbing" : "cursor-grab") : ""}`}
         role="img"
         aria-label="서울 자치구별 평균 매매가 지도"
-        onWheel={(event) => {
-          if (!selectedDistrict) return;
-          event.preventDefault();
-          changeUserZoom(userZoom * (event.deltaY < 0 ? 1.12 : 0.89));
-        }}
         onPointerDown={(event) => {
           if (!selectedDistrict || event.button !== 0) return;
+          event.preventDefault();
           event.currentTarget.setPointerCapture(event.pointerId);
           dragState.current = {
             pointerId: event.pointerId,
@@ -271,8 +304,8 @@ export default function D3SeoulDistrictMap({
           dragState.current.y = event.clientY;
           setPanState((current) => ({
             district: selectedDistrict,
-            x: Math.max(-WIDTH * 0.65, Math.min(WIDTH * 0.65, (current.district === selectedDistrict ? current.x : 0) + dx)),
-            y: Math.max(-HEIGHT * 0.65, Math.min(HEIGHT * 0.65, (current.district === selectedDistrict ? current.y : 0) + dy)),
+            x: Math.max(-panLimits.x, Math.min(panLimits.x, (current.district === selectedDistrict ? current.x : 0) + dx)),
+            y: Math.max(-panLimits.y, Math.min(panLimits.y, (current.district === selectedDistrict ? current.y : 0) + dy)),
           }));
         }}
         onPointerUp={(event) => {

@@ -2,77 +2,83 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import {
-  SEOUL_GU_DONG_LIST,
   getMarketTrendsData,
   formatPriceKorean,
 } from "@/features/trends/services/trendsService";
+import { getDongs, getSggs } from "@/features/location/services/locationService";
 import type { MonthlyPriceTrendPoint } from "@/features/trends/types/trends.types";
+import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 
-function getInitialGu(userId?: string): string {
+function getStoredPreferredDistrict(userId?: string): string | null {
   try {
     const cleanId = (userId || "").trim().toLowerCase();
     const key = cleanId ? `myPageSettings_${cleanId}` : "myPageSettings_guest";
     const saved = localStorage.getItem(key);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (
-        parsed?.preferredDistrict &&
-        SEOUL_GU_DONG_LIST.some((item) => item.gu === parsed.preferredDistrict)
-      ) {
-        return parsed.preferredDistrict;
+      if (typeof parsed?.preferredDistrict === "string" && parsed.preferredDistrict.trim()) {
+        return parsed.preferredDistrict as string;
       }
     }
   } catch (e) {
     console.warn("선호지역 로드 오류:", e);
   }
-  return "송파구";
+  return null;
+}
+
+function getInitialGu(userId?: string): string {
+  return getStoredPreferredDistrict(userId) ?? "송파구";
 }
 
 export default function MarketTrendsPage() {
   const loginUser = useAuthStore((state) => state.user);
+  const loginUserId = loginUser?.userId;
 
   // 마이페이지에 저장된 선호지역 감지
-  const preferredDistrict = useMemo(() => {
-    try {
-      const cleanId = (loginUser?.userId || "").trim().toLowerCase();
-      const key = cleanId ? `myPageSettings_${cleanId}` : "myPageSettings_guest";
-      const saved = localStorage.getItem(key);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (
-          parsed?.preferredDistrict &&
-          SEOUL_GU_DONG_LIST.some((item) => item.gu === parsed.preferredDistrict)
-        ) {
-          return parsed.preferredDistrict as string;
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return null;
-  }, [loginUser?.userId]);
+  const preferredDistrict = useMemo(
+    () => getStoredPreferredDistrict(loginUserId),
+    [loginUserId],
+  );
 
   const [selectedGu, setSelectedGu] = useState<string>(() =>
-    getInitialGu(loginUser?.userId),
+    getInitialGu(loginUserId),
   );
   const [selectedDong, setSelectedDong] = useState<string>("전체");
   const [selectedComplex, setSelectedComplex] = useState<string>("전체");
-  const [dongSearch, setDongSearch] = useState<string>("");
+  const [guSearch, setGuSearch] = useState<string>(() => getInitialGu(loginUserId));
+  const [dongSearch, setDongSearch] = useState<string>("전체");
   const [hoveredPoint, setHoveredPoint] = useState<MonthlyPriceTrendPoint | null>(null);
 
-  // 선택된 구의 동 목록
-  const currentDongList = useMemo(() => {
-    const found = SEOUL_GU_DONG_LIST.find((item) => item.gu === selectedGu);
-    return found ? found.dongs : ["전체"];
-  }, [selectedGu]);
+  const {
+    data: sggs = [],
+    isLoading: isSggsLoading,
+    isError: isSggsError,
+  } = useQuery({
+    queryKey: ["location", "sggs"],
+    queryFn: getSggs,
+    staleTime: Infinity,
+  });
 
-  // 검색어가 적용된 동 목록
-  const filteredDongList = useMemo(() => {
-    if (!dongSearch.trim()) return currentDongList;
-    return currentDongList.filter(
-      (d) => d === "전체" || d.toLowerCase().includes(dongSearch.trim().toLowerCase())
-    );
-  }, [currentDongList, dongSearch]);
+  const selectedSggCode =
+    sggs.find((sgg) => sgg.sggNm === selectedGu)?.sggCd ?? "";
+  const {
+    data: dongs = [],
+    isLoading: isDongsLoading,
+    isError: isDongsError,
+  } = useQuery({
+    queryKey: ["location", "dongs", selectedSggCode],
+    queryFn: () => getDongs(selectedSggCode),
+    enabled: Boolean(selectedSggCode),
+    staleTime: Infinity,
+  });
+
+  // 선택된 구의 동 목록
+  const currentDongList = useMemo(
+    () => ["전체", ...new Set(dongs.map((dong) => dong.dongNm))],
+    [dongs],
+  );
+
+  const guOptions = useMemo(() => sggs.map((sgg) => sgg.sggNm), [sggs]);
 
   const { data: trendsData, isLoading } = useQuery({
     queryKey: ["marketTrends", selectedGu, selectedDong, selectedComplex],
@@ -83,14 +89,16 @@ export default function MarketTrendsPage() {
   // 구 변경 시 동 및 단지 초기화
   const handleGuChange = (gu: string) => {
     setSelectedGu(gu);
+    setGuSearch(gu);
     setSelectedDong("전체");
     setSelectedComplex("전체");
-    setDongSearch("");
+    setDongSearch("전체");
   };
 
   // 동 변경 시 단지 초기화
   const handleDongChange = (dong: string) => {
     setSelectedDong(dong);
+    setDongSearch(dong);
     setSelectedComplex("전체");
   };
 
@@ -104,6 +112,29 @@ export default function MarketTrendsPage() {
   const priceRange = maxPrice - minPrice || 1;
 
   const maxVolume = Math.max(...chartPoints.map((p) => p.txVolume), 500);
+  const rankingItems = trendsData?.rankings ?? [];
+  const risingComplexes = [...rankingItems]
+    .filter((item) => item.changeFromLastMonth > 0)
+    .sort((a, b) => b.changeFromLastMonth - a.changeFromLastMonth)
+    .slice(0, 3);
+  const fallingComplexes = [...rankingItems]
+    .filter((item) => item.changeFromLastMonth < 0)
+    .sort((a, b) => a.changeFromLastMonth - b.changeFromLastMonth)
+    .slice(0, 3);
+  const areaPriceComparison = Array.from(
+    rankingItems.reduce((groups, item) => {
+      const current = groups.get(item.pyeongType) ?? { totalPrice: 0, count: 0 };
+      groups.set(item.pyeongType, {
+        totalPrice: current.totalPrice + item.recentTradePrice,
+        count: current.count + 1,
+      });
+      return groups;
+    }, new Map<string, { totalPrice: number; count: number }>()),
+  ).map(([area, value]) => ({
+    area,
+    averagePrice: Math.round(value.totalPrice / value.count),
+    complexCount: value.count,
+  }));
 
   return (
     <div className="w-full min-h-screen bg-[#F5FAFC] text-[#13202B] py-10 px-4 sm:px-6 lg:px-8">
@@ -117,14 +148,14 @@ export default function MarketTrendsPage() {
                   SSABU MARKET INTELLIGENCE
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#E6F4F2] text-[#0F766E]">
-                  서울시 25개 자치구 · 467개 법정동 빅데이터
+                  서울시 25개 자치구 · 법정동 DB 연동
                 </span>
               </div>
               <h1 className="text-[24px] sm:text-[28px] font-extrabold text-[#123047] tracking-tight">
                 서울시 아파트 거래동향 & AI 시세 추이
               </h1>
               <p className="text-[14px] text-[#6B7280] mt-1.5 leading-relaxed">
-                국토교통부 실거래 빅데이터와 머신러닝 예측 모델을 결합하여 서울 25개 구·467개 법정동·단지별 거래량과 예상 시세를 한눈에 확인하세요.
+                국토교통부 실거래 빅데이터와 머신러닝 예측 모델을 결합하여 서울 자치구·법정동·단지별 거래량과 예상 시세를 한눈에 확인하세요.
               </p>
             </div>
             <div className="text-right shrink-0">
@@ -142,7 +173,7 @@ export default function MarketTrendsPage() {
           <div>
             <div className="flex items-center justify-between mb-2.5">
               <span className="text-[12px] font-bold text-[#6B7280] block">
-                1. 자치구 선택 (25개 자치구)
+                1. 자치구 선택 ({isSggsLoading ? "조회 중" : `${sggs.length}개 자치구`})
               </span>
               {preferredDistrict && (
                 <span className="text-[12px] font-bold text-[#0F766E]">
@@ -150,61 +181,65 @@ export default function MarketTrendsPage() {
                 </span>
               )}
             </div>
-            <div className="flex flex-wrap gap-2 max-h-[160px] overflow-y-auto pr-1">
-              {SEOUL_GU_DONG_LIST.map((item) => {
-                const isActive = item.gu === selectedGu;
-                return (
-                  <button
-                    key={item.gu}
-                    type="button"
-                    onClick={() => handleGuChange(item.gu)}
-                    className={`px-3.5 py-1.5 rounded-[8px] text-[13px] font-bold transition-all cursor-pointer ${
-                      isActive
-                        ? "bg-[#123047] text-white shadow-xs"
-                        : "bg-[#F0F7FA] text-[#13202B] hover:bg-[#E1EFF5]"
-                    }`}
-                  >
-                    {item.gu}
-                  </button>
-                );
-              })}
+            <div className="max-w-[420px]">
+              {isSggsError && (
+                <p className="mb-2 text-[12px] font-semibold text-rose-500">
+                  자치구 목록을 불러오지 못했습니다.
+                </p>
+              )}
+              <AutocompleteInput
+                value={guSearch}
+                options={guOptions}
+                disabled={isSggsLoading || isSggsError}
+                requiredSelection
+                placeholder="자치구 검색..."
+                onChange={(value) => {
+                  setGuSearch(value);
+                  if (guOptions.includes(value)) handleGuChange(value);
+                }}
+                onInvalidBlur={() => setGuSearch(selectedGu)}
+                className="h-[46px] rounded-[9px] border border-[#DCE8ED] bg-white px-4 text-[14px] font-bold text-[#13202B] outline-none focus:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
+              />
+              <p className="mt-1.5 text-[11px] font-medium text-[#6B7280]">
+                검색 결과에서 자치구를 선택해 주세요.
+              </p>
             </div>
           </div>
 
           {/* 2. 법정동 선택 */}
           <div className="pt-3.5 border-t border-[#DCE8ED]">
-            <div className="flex items-center justify-between mb-2.5">
+            <div className="mb-2.5">
               <span className="text-[12px] font-bold text-[#6B7280]">
                 2. 법정동 선택 ({selectedGu}, 총 {currentDongList.length - 1}개 동)
               </span>
-              {currentDongList.length > 8 && (
-                <input
-                  type="text"
-                  placeholder="동 검색..."
-                  value={dongSearch}
-                  onChange={(e) => setDongSearch(e.target.value)}
-                  className="h-[28px] w-[110px] sm:w-[140px] px-2.5 text-[12px] rounded-[6px] border border-[#DCE8ED] bg-white outline-none focus:border-[#0F8AA8]"
-                />
-              )}
             </div>
-            <div className="flex flex-wrap gap-1.5 max-h-[160px] overflow-y-auto pr-1">
-              {filteredDongList.map((dong) => {
-                const isActive = dong === selectedDong;
-                return (
-                  <button
-                    key={dong}
-                    type="button"
-                    onClick={() => handleDongChange(dong)}
-                    className={`px-3 py-1.5 rounded-[6px] text-[12px] font-medium transition-all cursor-pointer ${
-                      isActive
-                        ? "bg-[#0F8AA8] text-white font-bold shadow-xs"
-                        : "bg-white border border-[#DCE8ED] text-[#13202B] hover:bg-[#F5FAFC]"
-                    }`}
-                  >
-                    {dong}
-                  </button>
-                );
-              })}
+            <div className="max-w-[420px]">
+              {isDongsLoading && (
+                <p className="mb-2 text-[12px] font-semibold text-[#6B7280]">
+                  법정동 목록을 불러오는 중입니다.
+                </p>
+              )}
+              {isDongsError && (
+                <p className="mb-2 text-[12px] font-semibold text-rose-500">
+                  법정동 목록을 불러오지 못했습니다.
+                </p>
+              )}
+              <AutocompleteInput
+                value={dongSearch}
+                options={currentDongList}
+                disabled={!selectedSggCode || isDongsLoading || isDongsError}
+                requiredSelection
+                placeholder="법정동 검색..."
+                onChange={(value) => {
+                  setDongSearch(value);
+                  if (currentDongList.includes(value)) handleDongChange(value);
+                }}
+                onInvalidBlur={() => setDongSearch(selectedDong)}
+                className="h-[46px] rounded-[9px] border border-[#DCE8ED] bg-white px-4 text-[14px] font-bold text-[#13202B] outline-none focus:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
+              />
+              <p className="mt-1.5 text-[11px] font-medium text-[#6B7280]">
+                DB에 등록된 법정동만 선택할 수 있습니다.
+              </p>
             </div>
           </div>
 
@@ -594,6 +629,73 @@ export default function MarketTrendsPage() {
             </table>
           </div>
         </div>
+
+        {/* 급상승·급락 단지 */}
+        <section className="bg-white border border-[#DCE8ED] rounded-[16px] p-6 shadow-xs space-y-5">
+          <div>
+            <h2 className="text-[18px] font-extrabold text-[#123047]">급상승·급락 단지</h2>
+            <p className="text-[13px] text-[#6B7280] mt-0.5">
+              선택 지역 단지의 전월 대비 실거래가 변동 폭을 비교합니다.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-[12px] border border-[#FECACA] bg-[#FEF2F2] p-4">
+              <strong className="text-[14px] font-extrabold text-[#DC2626]">상승 폭이 큰 단지</strong>
+              <div className="mt-3 space-y-2">
+                {risingComplexes.length > 0 ? risingComplexes.map((item) => (
+                  <div key={`rise-${item.complexName}`} className="flex items-center justify-between gap-3 text-[13px]">
+                    <span className="truncate font-bold text-[#13202B]">{item.complexName}</span>
+                    <span className="shrink-0 font-extrabold text-[#DC2626]">
+                      +{formatPriceKorean(item.changeFromLastMonth)}
+                    </span>
+                  </div>
+                )) : <p className="text-[12px] text-[#6B7280]">상승 단지가 없습니다.</p>}
+              </div>
+            </div>
+            <div className="rounded-[12px] border border-[#7CC9D8] bg-[#E8F6F9] p-4">
+              <strong className="text-[14px] font-extrabold text-[#0B5E73]">하락 폭이 큰 단지</strong>
+              <div className="mt-3 space-y-2">
+                {fallingComplexes.length > 0 ? fallingComplexes.map((item) => (
+                  <div key={`fall-${item.complexName}`} className="flex items-center justify-between gap-3 text-[13px]">
+                    <span className="truncate font-bold text-[#13202B]">{item.complexName}</span>
+                    <span className="shrink-0 font-extrabold text-[#0891B2]">
+                      -{formatPriceKorean(Math.abs(item.changeFromLastMonth))}
+                    </span>
+                  </div>
+                )) : <p className="text-[12px] text-[#6B7280]">하락 단지가 없습니다.</p>}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 평형대별 시세 비교 */}
+        <section className="bg-white border border-[#DCE8ED] rounded-[16px] p-6 shadow-xs space-y-5">
+          <div>
+            <h2 className="text-[18px] font-extrabold text-[#123047]">평형대별 시세 비교</h2>
+            <p className="text-[13px] text-[#6B7280] mt-0.5">
+              선택 지역의 단지 실거래가를 전용면적 유형별로 비교합니다.
+            </p>
+          </div>
+          {areaPriceComparison.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {areaPriceComparison.map((item) => (
+                <div key={item.area} className="rounded-[12px] border border-[#DCE8ED] bg-[#F5FAFC] p-4">
+                  <span className="text-[12px] font-bold text-[#6B7280]">{item.area}</span>
+                  <strong className="mt-2 block text-[19px] font-black text-[#123047]">
+                    {formatPriceKorean(item.averagePrice)}
+                  </strong>
+                  <small className="mt-1 block text-[11px] font-semibold text-[#0F8AA8]">
+                    {item.complexCount}개 단지 평균
+                  </small>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-[10px] bg-[#F5FAFC] p-5 text-center text-[13px] text-[#6B7280]">
+              비교할 단지 데이터가 없습니다.
+            </p>
+          )}
+        </section>
       </div>
     </div>
   );
