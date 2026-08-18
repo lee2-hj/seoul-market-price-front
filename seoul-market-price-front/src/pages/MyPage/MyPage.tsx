@@ -24,6 +24,12 @@ type MyPageTab = "PROFILE" | "ACTIVITY";
  */
 type ActivityType = "POST" | "COMMENT" | "QNA" | "INQUIRY";
 
+const ACTIVITY_TAB_BASE_CLASS =
+  "h-[38px] px-4 rounded-[8px] border font-bold text-[14px] cursor-pointer shrink-0";
+const ACTIVITY_TAB_ACTIVE_CLASS = "bg-[#0F8AA8] border-[#0F8AA8] text-white";
+const ACTIVITY_TAB_INACTIVE_CLASS =
+  "bg-white border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA]";
+
 /**
  * 로그인 방식
  */
@@ -532,6 +538,18 @@ export default function MyPage() {
     });
   }, [authUser, isLoggedIn]);
 
+  const activityTabs: Array<{
+    type: ActivityType;
+    label: string;
+    count: number;
+    isLoading: boolean;
+  }> = [
+    { type: "POST", label: "작성한 게시글", count: myPosts.length, isLoading: isBoardLoading },
+    { type: "COMMENT", label: "작성한 댓글", count: myComments.length, isLoading: isCommentsLoading },
+    { type: "QNA", label: "질의응답", count: myQnas.length, isLoading: isMyQnasLoading },
+    { type: "INQUIRY", label: "문의사항", count: myInquiries.length, isLoading: false },
+  ];
+
   // 폼이 수정되었는지 여부 계산 (Dirty check)
   const isFormDirty = useMemo(() => {
     const isProfileChanged =
@@ -1007,50 +1025,20 @@ export default function MyPage() {
 
                 {/* 내 활동 서브 탭 */}
                 <div className="flex items-center gap-2 pb-3 border-b border-[#DCE8ED] overflow-x-auto">
-                  <button
-                    type="button"
-                    onClick={() => setActivityType("POST")}
-                    className={
-                      activityType === "POST"
-                        ? "h-[38px] px-4 rounded-[8px] bg-[#0F8AA8] border border-[#0F8AA8] text-white font-bold text-[14px] cursor-pointer shrink-0"
-                        : "h-[38px] px-4 rounded-[8px] bg-white border border-[#DCE8ED] text-[#6B7280] font-bold text-[14px] hover:bg-[#F0F7FA] cursor-pointer shrink-0"
-                    }
-                  >
-                    작성한 게시글 {isLoggedIn && !isBoardLoading && `(${myPosts.length})`}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActivityType("COMMENT")}
-                    className={
-                      activityType === "COMMENT"
-                        ? "h-[38px] px-4 rounded-[8px] bg-[#0F8AA8] border border-[#0F8AA8] text-white font-bold text-[14px] cursor-pointer shrink-0"
-                        : "h-[38px] px-4 rounded-[8px] bg-white border border-[#DCE8ED] text-[#6B7280] font-bold text-[14px] hover:bg-[#F0F7FA] cursor-pointer shrink-0"
-                    }
-                  >
-                    작성한 댓글 {isLoggedIn && !isCommentsLoading && `(${myComments.length})`}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActivityType("QNA")}
-                    className={
-                      activityType === "QNA"
-                        ? "h-[38px] px-4 rounded-[8px] bg-[#0F8AA8] border border-[#0F8AA8] text-white font-bold text-[14px] cursor-pointer shrink-0"
-                        : "h-[38px] px-4 rounded-[8px] bg-white border border-[#DCE8ED] text-[#6B7280] font-bold text-[14px] hover:bg-[#F0F7FA] cursor-pointer shrink-0"
-                    }
-                  >
-                    질의응답 {isLoggedIn && !isMyQnasLoading && `(${myQnas.length})`}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActivityType("INQUIRY")}
-                    className={
-                      activityType === "INQUIRY"
-                        ? "h-[38px] px-4 rounded-[8px] bg-[#0F8AA8] border border-[#0F8AA8] text-white font-bold text-[14px] cursor-pointer shrink-0"
-                        : "h-[38px] px-4 rounded-[8px] bg-white border border-[#DCE8ED] text-[#6B7280] font-bold text-[14px] hover:bg-[#F0F7FA] cursor-pointer shrink-0"
-                    }
-                  >
-                    문의사항 {isLoggedIn && `(${myInquiries.length})`}
-                  </button>
+                  {activityTabs.map((tab) => (
+                    <button
+                      key={tab.type}
+                      type="button"
+                      onClick={() => setActivityType(tab.type)}
+                      className={`${ACTIVITY_TAB_BASE_CLASS} ${
+                        activityType === tab.type
+                          ? ACTIVITY_TAB_ACTIVE_CLASS
+                          : ACTIVITY_TAB_INACTIVE_CLASS
+                      }`}
+                    >
+                      {tab.label} {isLoggedIn && !tab.isLoading && `(${tab.count})`}
+                    </button>
+                  ))}
                 </div>
 
                 {/* 실제 게시글/댓글 목록 리스트 */}

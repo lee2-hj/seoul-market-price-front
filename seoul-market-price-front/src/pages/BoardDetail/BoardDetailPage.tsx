@@ -33,12 +33,21 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
+function normalizeIdentity(value?: string | null) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function getCommentAuthorName(comment: BoardComment): string {
+  return comment.writerName || comment.name || "-";
+}
+
 export default function BoardDetailPage() {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const boardId = Number(postId);
+  const isValidBoardId = !Number.isNaN(boardId) && boardId > 0;
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
@@ -57,21 +66,21 @@ export default function BoardDetailPage() {
   const { data: post, isLoading, isError, error } = useQuery({
     queryKey: ["board", boardId],
     queryFn: () => getBoardPostApi(boardId),
-    enabled: !isNaN(boardId) && boardId > 0,
+    enabled: isValidBoardId,
   });
 
   // 댓글 목록 Query
   const { data: comments = [], isLoading: isCommentsLoading } = useQuery({
     queryKey: ["boardComments", boardId],
     queryFn: () => getBoardCommentsApi(boardId),
-    enabled: !isNaN(boardId) && boardId > 0,
+    enabled: isValidBoardId,
   });
 
   // 첨부파일 목록 Query
   const { data: attachments = [] } = useQuery<AttachmentResponse[]>({
     queryKey: ["boardAttachments", boardId],
     queryFn: () => getBoardAttachmentsApi(boardId),
-    enabled: !isNaN(boardId) && boardId > 0,
+    enabled: isValidBoardId,
   });
 
   // 첨부파일 다운로드 핸들러
@@ -183,16 +192,13 @@ export default function BoardDetailPage() {
     }
   };
 
-  const getCommentAuthorName = (comment: BoardComment): string =>
-    comment.writerName || comment.name || "-";
-
   // 작성자 본인 및 관리자 권한 확인
   const canModifyComment = (comment: BoardComment) => {
     if (!loginUser) return false;
     if (loginUser.role === "ADMIN" || loginUser.role === "ROLE_ADMIN") return true;
 
-    const targetName = getCommentAuthorName(comment).trim();
-    const curName = String(loginUser.name || "").trim();
+    const targetName = normalizeIdentity(getCommentAuthorName(comment));
+    const curName = normalizeIdentity(loginUser.name);
     return Boolean(curName && targetName && curName === targetName);
   };
 
@@ -200,12 +206,12 @@ export default function BoardDetailPage() {
     if (!loginUser) return false;
     if (loginUser.role === "ADMIN") return true;
 
-    const curId = String(loginUser.userId || "").trim().toLowerCase();
-    const targetId = String(postAuthorId || "").trim().toLowerCase();
+    const curId = normalizeIdentity(loginUser.userId);
+    const targetId = normalizeIdentity(postAuthorId);
     if (curId && targetId && (curId === targetId || curId.includes(targetId) || targetId.includes(curId))) return true;
 
-    const curName = String(loginUser.name || "").trim();
-    const targetName = String(postAuthorName || "").trim();
+    const curName = normalizeIdentity(loginUser.name);
+    const targetName = normalizeIdentity(postAuthorName);
     if (curName && targetName && curName === targetName) return true;
 
     return false;
