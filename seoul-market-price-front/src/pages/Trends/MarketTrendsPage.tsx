@@ -8,6 +8,7 @@ import {
 import { getDongs, getSggs } from "@/features/location/services/locationService";
 import type { MonthlyPriceTrendPoint } from "@/features/trends/types/trends.types";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
+import { getDongPriceAnalysis, getRegionPriceList } from "@/features/trends/services/trendsApiService";
 
 type AnalysisTab = "RANKING" | "MOVERS" | "AREA";
 
@@ -88,12 +89,58 @@ export default function MarketTrendsPage() {
   );
 
   const guOptions = useMemo(() => sggs.map((sgg) => sgg.sggNm), [sggs]);
+  const selectedDongCode =
+    selectedDong === "전체"
+      ? ""
+      : dongs.find((dong) => dong.dongNm === selectedDong)?.dongCd ?? "";
+
+  const regionPriceQuery = useQuery({
+    queryKey: ["trends", "region-prices", selectedSggCode],
+    queryFn: () => getRegionPriceList(selectedSggCode),
+    enabled: Boolean(selectedSggCode),
+  });
+
+  const dongPriceQuery = useQuery({
+    queryKey: ["trends", "dong-price-analysis", selectedSggCode, selectedDongCode],
+    queryFn: () => getDongPriceAnalysis(selectedSggCode, selectedDongCode),
+    enabled: Boolean(selectedSggCode && selectedDongCode),
+  });
 
   const { data: trendsData, isLoading } = useQuery({
     queryKey: ["marketTrends", selectedGu, selectedDong, selectedComplex],
     queryFn: () =>
       getMarketTrendsData(selectedGu, selectedDong, selectedComplex),
   });
+
+  const apiPriceSummary = useMemo(() => {
+    if (selectedDongCode && dongPriceQuery.data) {
+      const highest = dongPriceQuery.data.top[0];
+      return {
+        baseDate: dongPriceQuery.data.baseDate,
+        totalTransactions: dongPriceQuery.data.totalCount,
+        averagePyeongPrice: dongPriceQuery.data.averagePyeongPrice,
+        highestName: highest?.name ?? "거래 자료 없음",
+        highestPrice: highest?.averageTradePrice ?? 0,
+        highestLabel: "최고 평균가 단지",
+      };
+    }
+
+    const regionData = regionPriceQuery.data;
+    if (!regionData?.groups.length) return null;
+    const totalTransactions = regionData.groups.reduce((sum, item) => sum + item.totalCount, 0);
+    const averagePyeongPrice = totalTransactions
+      ? Math.round(regionData.groups.reduce((sum, item) => sum + item.averagePyeongPrice * item.totalCount, 0) / totalTransactions)
+      : 0;
+    const highest = [...regionData.groups].sort((a, b) => b.averageTradePrice - a.averageTradePrice)[0];
+    return {
+      baseDate: regionData.baseDate,
+      totalTransactions,
+      averagePyeongPrice,
+      highestName: highest?.name ?? "거래 자료 없음",
+      highestPrice: highest?.averageTradePrice ?? 0,
+      highestLabel: "최고 평균가 법정동",
+    };
+  }, [dongPriceQuery.data, regionPriceQuery.data, selectedDongCode]);
 
   // 구 변경 시 동 및 단지 초기화
   const handleGuChange = (gu: string) => {
@@ -167,7 +214,7 @@ export default function MarketTrendsPage() {
             <div className="text-right shrink-0">
               <span className="text-[12px] text-[#6B7280] block">데이터 기준일</span>
               <span className="text-[13px] font-bold text-[#123047]">
-                {trendsData?.lastUpdated || "2026.08.12"} (일일 갱신)
+                {(apiPriceSummary?.baseDate ?? trendsData?.lastUpdated ?? "-").replaceAll("-", ".")} (일일 갱신)
               </span>
             </div>
           </div>
@@ -208,7 +255,7 @@ export default function MarketTrendsPage() {
                 className="h-[46px] rounded-[9px] border border-[#DCE8ED] bg-white px-4 text-[14px] font-bold text-[#13202B] outline-none focus:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
               />
               <p className="mt-1.5 text-[11px] font-medium text-[#6B7280]">
-                검색 결과에서 자치구를 선택해 주세요.
+                자치구를 선택해 주세요.
               </p>
             </div>
           </div>
@@ -245,7 +292,7 @@ export default function MarketTrendsPage() {
                 className="h-[46px] rounded-[9px] border border-[#DCE8ED] bg-white px-4 text-[14px] font-bold text-[#13202B] outline-none focus:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
               />
               <p className="mt-1.5 text-[11px] font-medium text-[#6B7280]">
-                검색 결과에서 법정동을 선택해 주세요.
+                법정동을 선택해 주세요.
               </p>
             </div>
           </div>
@@ -297,14 +344,11 @@ export default function MarketTrendsPage() {
             {/* 카드 1: 이번 달 거래량 */}
             <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[14px] p-5 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <span className="text-[12px] font-bold text-[#6B7280]">월간 거래량</span>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[#FEF2F2] text-[#DC2626]">
-                  +{trendsData.summary.txChangeRate}% 증감
-                </span>
+                <span className="text-[12px] font-bold text-[#6B7280]">거래 건수</span>
               </div>
               <div className="mt-3">
                 <div className="text-[26px] font-extrabold text-[#123047]">
-                  {trendsData.summary.totalTransactions.toLocaleString()}
+                  {(apiPriceSummary?.totalTransactions ?? 0).toLocaleString()}
                   <span className="text-[14px] font-normal text-[#6B7280] ml-1">건</span>
                 </div>
                 <span className="text-[12px] text-[#6B7280] mt-0.5 block">
@@ -317,33 +361,27 @@ export default function MarketTrendsPage() {
             <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[14px] p-5 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <span className="text-[12px] font-bold text-[#6B7280]">평균 평당 거래가</span>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[#FEF2F2] text-[#DC2626]">
-                  +{trendsData.summary.priceChangeRate}% 상승
-                </span>
               </div>
               <div className="mt-3">
                 <div className="text-[26px] font-extrabold text-[#123047]">
-                  {trendsData.summary.avgPricePerPyeong.toLocaleString()}
+                  {(apiPriceSummary?.averagePyeongPrice ?? 0).toLocaleString()}
                   <span className="text-[14px] font-normal text-[#6B7280] ml-1">만원 / 평</span>
                 </div>
-                <span className="text-[12px] text-[#6B7280] mt-0.5 block">전용면적 기준 환산</span>
+                <span className="text-[12px] text-[#6B7280] mt-0.5 block">실거래 데이터 평균</span>
               </div>
             </div>
 
             {/* 카드 3: 최고가 거래 단지 */}
             <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[14px] p-5 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <span className="text-[12px] font-bold text-[#6B7280]">최고 실거래 단지</span>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]">
-                  신고가 경신
-                </span>
+                <span className="text-[12px] font-bold text-[#6B7280]">{apiPriceSummary?.highestLabel ?? "최고 평균가"}</span>
               </div>
               <div className="mt-3">
                 <div className="text-[20px] font-extrabold text-[#123047] truncate">
-                  {trendsData.summary.highestTradeComplex}
+                  {apiPriceSummary?.highestName ?? "거래 자료 없음"}
                 </div>
                 <span className="text-[14px] font-bold text-[#0F8AA8] mt-0.5 block">
-                  {formatPriceKorean(trendsData.summary.highestTradePrice)}
+                  {formatPriceKorean(apiPriceSummary?.highestPrice ?? 0)}
                 </span>
               </div>
             </div>
@@ -584,75 +622,68 @@ export default function MarketTrendsPage() {
                 {selectedGu} {selectedDong} 실거래 순위 TOP
               </h2>
               <p className="text-[13px] text-[#6B7280] mt-0.5">
-                최근 1개월간 거래량이 가장 많았던 단지와 평균 체결 금액입니다.
+                선택한 법정동의 평균 거래가 상위 단지입니다.
               </p>
             </div>
             <span className="text-[12px] font-bold text-[#0F8AA8] px-3 py-1 bg-[#E6F4F2] rounded-full self-start sm:self-auto">
-              정렬: 거래량 순
+              정렬: 평균 거래가 순
             </span>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left border-collapse">
+            <table className="w-full min-w-[620px] text-left border-collapse">
               <thead>
                 <tr className="bg-[#F0F7FA] border-b border-[#DCE8ED] text-[13px] text-[#123047] font-bold">
                   <th className="py-3.5 px-4 text-center w-[70px]">순위</th>
                   <th className="py-3.5 px-4">단지명 및 소재지</th>
-                  <th className="py-3.5 px-4 text-center w-[130px]">평형 / 면적</th>
-                  <th className="py-3.5 px-4 text-center w-[110px]">월간 거래건수</th>
+                  <th className="py-3.5 px-4 text-center w-[110px]">거래 건수</th>
                   <th className="py-3.5 px-4 text-right w-[150px]">평균 거래가</th>
-                  <th className="py-3.5 px-4 text-right w-[150px]">최근 실거래가</th>
-                  <th className="py-3.5 px-4 text-center w-[110px]">전월 대비</th>
+                  <th className="py-3.5 px-4 text-right w-[150px]">평균 평당가</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#DCE8ED] text-[13px]">
-                {trendsData?.rankings.map((item) => (
-                  <tr key={`${item.complexName}-${item.rank}`} className="hover:bg-[#F5FAFC] transition-colors">
+                {selectedDong === "전체" ? (
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-[13px] text-[#6B7280]">법정동을 선택하면 실제 단지 순위를 확인할 수 있습니다.</td></tr>
+                ) : dongPriceQuery.isPending ? (
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-[13px] text-[#6B7280]">실거래 순위를 불러오는 중입니다.</td></tr>
+                ) : dongPriceQuery.isError ? (
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-[13px] text-rose-600">실거래 순위를 불러오지 못했습니다.</td></tr>
+                ) : !dongPriceQuery.data?.top.length ? (
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-[13px] text-[#6B7280]">표시할 거래 자료가 없습니다.</td></tr>
+                ) : dongPriceQuery.data.top.map((item, index) => (
+                  <tr key={`${item.name}-${index}`} className="hover:bg-[#F5FAFC] transition-colors">
                     <td className="py-4 px-4 text-center">
                       <span
                         className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[12px] font-extrabold ${
-                          item.rank === 1
+                          index === 0
                             ? "bg-[#123047] text-white"
-                            : item.rank === 2
+                            : index === 1
                             ? "bg-[#0F8AA8] text-white"
-                            : item.rank === 3
+                            : index === 2
                             ? "bg-[#7CC9D8] text-[#123047]"
                             : "bg-[#E1EFF5] text-[#123047]"
                         }`}
                       >
-                        {item.rank}
+                        {index + 1}
                       </span>
                     </td>
                     <td className="py-4 px-4 font-bold text-[#13202B]">
                       <div className="flex items-center gap-2">
-                        <span>{item.complexName}</span>
-                        {item.isNewHighPrice && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]">
-                            신고가
-                          </span>
-                        )}
+                        <span>{item.name}</span>
                       </div>
                       <span className="text-[12px] text-[#6B7280] font-normal block mt-0.5">
-                        {selectedGu} {item.dong}
+                        {selectedGu} {item.dongName}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-center text-[#6B7280] font-medium">
-                      {item.pyeongType}
-                    </td>
                     <td className="py-4 px-4 text-center">
-                      <span className="font-extrabold text-[#123047]">{item.txCount}</span>
+                      <span className="font-extrabold text-[#123047]">{item.dealCount}</span>
                       <span className="text-[12px] text-[#6B7280]">건</span>
                     </td>
                     <td className="py-4 px-4 text-right font-medium text-[#6B7280]">
-                      {formatPriceKorean(item.avgTradePrice)}
+                      {formatPriceKorean(item.averageTradePrice)}
                     </td>
                     <td className="py-4 px-4 text-right font-extrabold text-[#123047]">
-                      {formatPriceKorean(item.recentTradePrice)}
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-[#FEF2F2] text-[#DC2626]">
-                        +{formatPriceKorean(item.changeFromLastMonth)}
-                      </span>
+                      {item.averagePyeongPrice.toLocaleString("ko-KR")}만원/평
                     </td>
                   </tr>
                 ))}

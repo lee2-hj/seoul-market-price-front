@@ -7,6 +7,7 @@ import {
   maskName,
 } from "@/features/report/services/reportService";
 import type { ReportItem } from "@/features/report/types/report.types";
+import { Button } from "@/components/ui/button";
 
 const SECRET_REPORT_TITLE = "작성자와 관리자만 열람할 수 있는 비공개 문의글입니다.";
 const SECRET_REPORT_TARGET = "문의 대상 정보 비공개";
@@ -60,68 +61,77 @@ export default function ReportPage() {
 
   return (
     <div className="w-full min-h-screen bg-[#F5FAFC] text-[#13202B] py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-[1140px] mx-auto space-y-6">
+      <div className="mx-auto max-w-[1000px] space-y-8">
         {/* 상단 헤더 영역 */}
-        <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[16px] p-6 sm:p-8 shadow-xs">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <span className="text-[13px] font-extrabold text-[#0F8AA8] uppercase tracking-wider block mb-1">
-                SSABU CUSTOMER CENTER
-              </span>
-              <h1 className="text-[22px] sm:text-[26px] font-extrabold text-[#123047] tracking-tight">
-                문의사항
-              </h1>
-              <p className="text-[14px] text-[#6B7280] mt-1.5 leading-relaxed">
-                싸부(SSABU) 서비스 이용 중 궁금하신 점이나 건의사항을 문의해 주시면 신속하게 답변해 드립니다.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleWriteClick}
-              className="inline-flex items-center justify-center h-[46px] px-6 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[8px] transition-colors shadow-xs cursor-pointer border-none shrink-0"
-            >
-              문의 접수하기
-            </button>
+        <div className="mb-8 space-y-2 text-center">
+          <span className="inline-block rounded-full bg-[#E6F4F2] px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-[#0F766E]">
+            SSABU CUSTOMER CENTER
+          </span>
+          <h1 className="text-[36px] font-black tracking-tight text-[#123047]">문의사항</h1>
+          <p className="text-[15px] text-[#6B7280]">
+            서비스 이용 중 발생한 불편 사항이나 개선이 필요한 내용을 접수해 주세요. 담당자가 확인 후 답변드리겠습니다.
+          </p>
+        </div>
+
+        {/* 고객센터 이동 탭 */}
+        <div className="flex justify-center mb-6">
+          <div className="flex flex-wrap items-center justify-center gap-2 rounded-[10px] border border-[#DCE8ED] bg-white p-1 shadow-sm">
+            <button type="button" onClick={() => navigate("/board")} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA]">게시판</button>
+            <button type="button" onClick={() => navigate("/qna")} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA]">질의응답</button>
+            <button type="button" onClick={() => navigate("/faq")} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA]">자주 묻는 질문</button>
+            <button type="button" className="rounded-[8px] bg-[#123047] px-6 py-2.5 text-[14px] font-bold text-white">문의사항</button>
           </div>
         </div>
 
-        {/* 검색 및 건수 바 */}
-        <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[12px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-          <p className="text-[14px] text-[#6B7280]">
-            총{" "}
-            <strong className="text-[#0F8AA8] font-extrabold">
-              {filteredReports.length}
-            </strong>
-            건의 문의 접수 내역이 있습니다.
-          </p>
-
+        {/* 검색 영역 */}
+        <div className="rounded-[12px] border border-[#DCE8ED] bg-white p-5 shadow-xs">
           <form
             onSubmit={handleSearchSubmit}
-            className="flex items-center gap-2 w-full sm:w-auto"
+            className="flex flex-col items-center gap-3 md:flex-row"
           >
+            <select
+              aria-label="검색 조건"
+              className="h-[44px] w-full rounded-[7px] border border-[#DCE8ED] bg-[#F5FAFC] px-3 text-[14px] text-[#13202B] focus:border-[#0F8AA8] focus:outline-none md:w-[130px]"
+            >
+              <option>제목</option>
+            </select>
             <input
               type="text"
-              placeholder="문의 제목 검색"
+              placeholder="검색어를 입력하세요."
               value={searchKeyword}
               onChange={(e) => setSearchKeyword(e.target.value)}
-              className="h-[38px] px-3.5 rounded-[7px] border border-[#DCE8ED] text-[13px] text-[#13202B] bg-[#F5FAFC] focus:outline-none focus:border-[#0F8AA8] w-full sm:w-[240px]"
+              className="h-[44px] w-full flex-1 rounded-[7px] border border-[#DCE8ED] bg-[#F5FAFC] px-3.5 text-[14px] text-[#13202B] placeholder:text-[#9CA3AF] focus:border-[#0F8AA8] focus:outline-none"
             />
-            <button
-              type="submit"
-              className="h-[38px] px-4 rounded-[7px] bg-[#123047] hover:bg-[#0B5E73] text-white text-[13px] font-bold border-none cursor-pointer transition-colors shrink-0"
-            >
-              검색
-            </button>
-            {activeKeyword && (
-              <button
+            <div className="flex w-full items-center gap-2 md:w-auto">
+              <Button
+                type="submit"
+                className="h-[44px] flex-1 rounded-[7px] bg-[#0F8AA8] px-6 text-[14px] font-bold text-white hover:bg-[#0B5E73] md:flex-none"
+              >
+                검색
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleReset}
-                className="h-[38px] px-3 rounded-[7px] bg-white border border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA] text-[13px] font-medium cursor-pointer shrink-0"
+                className="h-[44px] flex-1 rounded-[7px] border-[#DCE8ED] bg-white px-5 text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA] md:flex-none"
               >
                 초기화
-              </button>
-            )}
+              </Button>
+            </div>
           </form>
+        </div>
+
+        <div className="flex min-h-[44px] items-center justify-between">
+          <p className="text-[14px] text-[#6B7280]">
+            총 <strong className="font-extrabold text-[#0F8AA8]">{filteredReports.length}</strong>건의 문의 접수 내역이 있습니다.
+          </p>
+          <button
+            type="button"
+            onClick={handleWriteClick}
+            className="inline-flex h-[42px] min-w-[120px] items-center justify-center rounded-[7px] border border-[#0F8AA8] bg-[#0F8AA8] px-5 text-[14px] font-bold text-white shadow-xs transition-colors hover:bg-[#0B5E73]"
+          >
+            문의 접수하기
+          </button>
         </div>
 
         {/* 문의 목록 테이블 */}
@@ -147,8 +157,9 @@ export default function ReportPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#DCE8ED] text-[13px]">
-                  {paginatedReports.map((item) => {
+                  {paginatedReports.map((item, index) => {
                     const statusMeta = REPORT_STATUS_MAP[item.status];
+                    const displayNo = filteredReports.length - ((currentPage - 1) * itemsPerPage + index);
 
                     return (
                       <tr
@@ -156,7 +167,7 @@ export default function ReportPage() {
                         className="hover:bg-[#F5FAFC] transition-colors"
                       >
                         <td className="py-4 px-4 text-center text-[#6B7280] font-medium">
-                          {item.id}
+                          {displayNo}
                         </td>
                         <td className="py-4 px-4">
                           <Link

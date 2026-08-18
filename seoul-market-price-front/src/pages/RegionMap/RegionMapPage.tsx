@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BarChart3, Building2, HelpCircle, Map, TrendingUp } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -13,6 +13,7 @@ import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { getLocalPreferredDistrict } from "@/features/member/utils/preferredDistrictStorage";
 import { getDongs, getSggs } from "@/features/location/services/locationService";
 import { getApartmentPriceRanking } from "@/features/region-map/services/regionMapService";
+import type { PriceMetricType } from "@/features/region-map/services/regionMapService";
 
 const NAV_ITEMS = [
   { label: "지역별 비교(리스트)", to: "/price/compare-list", icon: BarChart3 },
@@ -29,6 +30,7 @@ export default function RegionMapPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const hasAppliedInitialRegion = useRef(false);
   const rankingSectionRef = useRef<HTMLDivElement | null>(null);
+  const [priceMetric, setPriceMetric] = useState<PriceMetricType>("thing_amt");
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
@@ -75,8 +77,8 @@ export default function RegionMapPage() {
 
   const selectedDongCode = dongs.find((dong) => dong.dongNm === selectedDong)?.dongCd ?? "";
   const apartmentRankingQuery = useQuery({
-    queryKey: ["region-map", "apartment-ranking", selectedDongCode],
-    queryFn: () => getApartmentPriceRanking(selectedSggCode, selectedDongCode),
+    queryKey: ["region-map", "apartment-ranking", selectedDongCode, priceMetric],
+    queryFn: () => getApartmentPriceRanking(selectedSggCode, selectedDongCode, priceMetric),
     enabled: Boolean(selectedDongCode),
   });
 
@@ -182,26 +184,52 @@ export default function RegionMapPage() {
           </div>
 
           {selectedDong && <div ref={rankingSectionRef} className="scroll-mt-24 rounded-[20px] border border-[#E2E8F0] bg-white p-6 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
-            <h2 className="text-[18px] font-black">{selectedDistrict.name} {selectedDong} 아파트 시세 분석</h2>
-            <p className="mt-1 text-[12px] text-[#64748B]">선택한 법정동의 평균 매매가격 기준 상위·하위 5개 단지입니다.</p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-[18px] font-black">{selectedDistrict.name} {selectedDong} 아파트 시세 분석</h2>
+              </div>
+              <div className="flex rounded-[10px] border border-[#CBD5E1] bg-[#F8FAFC] p-1" aria-label="가격 기준 선택">
+                {([{"value":"thing_amt","label":"매매가"},{"value":"pyeong","label":"평당가"}] as const).map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setPriceMetric(option.value)}
+                    className={`rounded-[7px] border-0 px-4 py-2 text-[12px] font-bold transition-colors ${priceMetric === option.value ? "bg-[#0F8AA8] text-white shadow-sm" : "bg-transparent text-[#64748B] hover:text-[#0F172A]"}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {!apartmentRankingQuery.isPending && !apartmentRankingQuery.isError &&
+              ((apartmentRankingQuery.data?.top.length ?? 0) > 0 ||
+                (apartmentRankingQuery.data?.bottom.length ?? 0) > 0) &&
+              ((apartmentRankingQuery.data?.top.length ?? 0) < 5 ||
+                (apartmentRankingQuery.data?.bottom.length ?? 0) < 5) && (
+                <p className="mt-2 text-[12px] font-medium text-amber-700">
+                  거래 자료가 부족하여 확인 가능한 단지만 표시합니다.
+                </p>
+              )}
             {apartmentRankingQuery.isPending ? (
               <p className="mt-5 rounded-[10px] bg-[#F8FAFC] p-5 text-center text-[13px] text-[#64748B]">아파트 가격 정보를 불러오는 중입니다.</p>
             ) : apartmentRankingQuery.isError ? (
               <p className="mt-5 rounded-[10px] bg-rose-50 p-5 text-center text-[13px] text-rose-600">아파트 가격 정보를 불러오지 못했습니다.</p>
+            ) : (apartmentRankingQuery.data?.top.length ?? 0) === 0 &&
+              (apartmentRankingQuery.data?.bottom.length ?? 0) === 0 ? (
+              <p className="mt-5 rounded-[10px] bg-[#F8FAFC] p-5 text-center text-[13px] font-medium text-[#64748B]">
+                거래 자료가 부족하여 표시할 수 없습니다.
+              </p>
             ) : (
             <div className="mt-5 grid gap-4 xl:grid-cols-2">
-              {[{ title: "상위 5개 아파트 단지", items: apartmentRankingQuery.data?.top ?? [], color: "text-rose-500" }, { title: "하위 5개 아파트 단지", items: apartmentRankingQuery.data?.bottom ?? [], color: "text-[#1677D2]" }].map((group) => (
+              {[{ title: "상위 5개 아파트 단지", items: apartmentRankingQuery.data?.top ?? [], color: "text-rose-500" }, { title: "하위 5개 아파트 단지", items: apartmentRankingQuery.data?.bottom ?? [], color: "text-[#1677D2]" }]
+                .filter((group) => group.items.length > 0)
+                .map((group) => (
                 <div key={group.title} className="overflow-hidden rounded-[10px] border border-[#E2E8F0]">
                   <h3 className={`px-4 py-3 text-[14px] font-black ${group.color}`}>{group.title}</h3>
-                  {group.items.length < 5 && (
-                    <p className="border-t border-[#EDF2F4] bg-amber-50 px-4 py-2 text-[11px] font-medium text-amber-700">
-                      거래 자료가 부족하여 확인 가능한 {group.items.length}개 단지만 표시합니다.
-                    </p>
-                  )}
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[430px] text-left text-[12px]">
-                      <thead className="bg-[#F8FAFC] text-[#64748B]"><tr><th className="px-3 py-2">순위</th><th className="px-3 py-2">아파트 단지</th><th className="px-3 py-2">평균 매매가</th><th className="px-3 py-2">거래 건수</th></tr></thead>
-                      <tbody>{group.items.map((item, index) => <tr key={item.code} className="border-t border-[#EDF2F4]"><td className="px-3 py-2 font-bold">{index + 1}</td><td className="px-3 py-2 font-semibold">{item.name}</td><td className="px-3 py-2">{formatPrice(item.averagePrice)}</td><td className="px-3 py-2">{item.dealCount.toLocaleString("ko-KR")}건</td></tr>)}</tbody>
+                      <thead className="bg-[#F8FAFC] text-[#64748B]"><tr><th className="px-3 py-2">순위</th><th className="px-3 py-2">아파트 단지</th><th className="px-3 py-2">평균 {priceMetric === "pyeong" ? "평당가" : "매매가"}</th><th className="px-3 py-2">거래 건수</th></tr></thead>
+                      <tbody>{group.items.map((item, index) => <tr key={item.code} className="border-t border-[#EDF2F4]"><td className="px-3 py-2 font-bold">{index + 1}</td><td className="px-3 py-2 font-semibold">{item.name}</td><td className="px-3 py-2">{priceMetric === "pyeong" ? `${item.averagePrice.toLocaleString("ko-KR")}만원/평` : formatPrice(item.averagePrice)}</td><td className="px-3 py-2">{item.dealCount.toLocaleString("ko-KR")}건</td></tr>)}</tbody>
                     </table>
                   </div>
                 </div>
