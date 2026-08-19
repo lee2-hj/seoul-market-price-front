@@ -55,12 +55,6 @@ import QnaDetailPage from "@/pages/Qna/QnaDetailPage";
 import QnaEditPage from "@/pages/Qna/QnaEditPage";
 import QnaWritePage from "@/pages/Qna/QnaWritePage";
 
-/* 신고 게시판 목록·작성·수정·상세 화면 */
-import ReportPage from "@/pages/Report/ReportPage";
-import ReportDetailPage from "@/pages/ReportDetail/ReportDetailPage";
-import ReportEditPage from "@/pages/ReportEdit/ReportEditPage";
-import ReportWritePage from "@/pages/ReportWrite/ReportWritePage";
-
 function Router() {
   const isAuthInitialized = useAuthStore((state) => state.isInitialized);
 
@@ -164,33 +158,6 @@ function Router() {
           <Route path="/qna/:id" element={<QnaDetailPage />} />
           {/* 자주 묻는 질문 목록 */}
           <Route path="/faq" element={<FaqPage />} />
-
-          {/* --------------------------------------------------------------
-              신고 게시판
-              목록·상세는 공개하고 작성·수정은 로그인 사용자만 허용한다.
-          -------------------------------------------------------------- */}
-          {/* 신고 목록 */}
-          <Route path="/report" element={<ReportPage />} />
-          {/* 신고 작성: 로그인 사용자 전용 */}
-          <Route
-            path="/report/write"
-            element={
-              <PrivateRoute>
-                <ReportWritePage />
-              </PrivateRoute>
-            }
-          />
-          {/* 신고 수정: 로그인 사용자 전용 */}
-          <Route
-            path="/report/:reportId/edit"
-            element={
-              <PrivateRoute>
-                <ReportEditPage />
-              </PrivateRoute>
-            }
-          />
-          {/* 신고 상세 조회 */}
-          <Route path="/report/:reportId" element={<ReportDetailPage />} />
 
           {/* --------------------------------------------------------------
               마이페이지
