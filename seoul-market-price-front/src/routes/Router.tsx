@@ -110,7 +110,10 @@ function Router() {
           {/* 부동산 거래 동향을 조회하는 화면 */}
           <Route path="/trends" element={<MarketTrendsPage />} />
           {/* 아파트별 거래동향 */}
-          <Route path="/trends/apartment" element={<MarketTrendsPage />} />
+          <Route
+            path="/trends"
+            element={<Navigate to="/trends/apartment" replace />}
+          />
 
           {/* 단지별 시세 상세 */}
           <Route path="/price/detail" element={<PriceDetailPage />} />
