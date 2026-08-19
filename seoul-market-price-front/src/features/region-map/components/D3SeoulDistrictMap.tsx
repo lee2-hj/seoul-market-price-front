@@ -61,6 +61,7 @@ interface D3SeoulDistrictMapProps {
   availableDongs: Array<{ dongCd: string; dongNm: string }>;
   dongAveragePrices: Record<string, number>;
   districtAveragePrice: number;
+  districtAveragePrices?: Record<string, number>;
   preferredDistrict?: string | null;
   onSelect: (district: string) => void;
   onSelectDong: (dong: string) => void;
@@ -89,6 +90,7 @@ export default function D3SeoulDistrictMap({
   availableDongs,
   dongAveragePrices,
   districtAveragePrice,
+  districtAveragePrices,
   preferredDistrict,
   onSelect,
   onSelectDong,
@@ -147,15 +149,16 @@ export default function D3SeoulDistrictMap({
     const path = geoPath(projection);
     return geoData.features.map((feature) => {
       const district = DISTRICT_PRICES.find((item) => item.name === feature.properties.name);
+      const realPrice = districtAveragePrices?.[feature.properties.name] ?? district?.averagePrice ?? 0;
       return {
         name: feature.properties.name,
-        price: district?.averagePrice ?? 0,
+        price: realPrice,
         path: path(feature as unknown as GeoPermissibleObjects) ?? "",
         center: path.centroid(feature as unknown as GeoPermissibleObjects),
         bounds: path.bounds(feature as unknown as GeoPermissibleObjects),
       };
     });
-  }, [geoData]);
+  }, [districtAveragePrices, geoData]);
 
   const dongMapData = useMemo(() => {
     if (!geoData || !dongGeoData || !selectedDistrict) return [];

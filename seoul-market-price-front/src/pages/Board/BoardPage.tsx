@@ -208,7 +208,7 @@ export default function BoardPage() {
             ) : !data?.items?.length && !data?.notices?.length ? (
               <div className="p-16 text-center text-[#6B7280] text-[14px]">등록된 게시글이 없습니다.</div>
             ) : (
-              <Table className="min-w-[820px]">
+              <Table className="min-w-[820px] border-collapse">
                 <TableHeader>
                   <TableRow className="bg-[#F0F7FA] border-b border-[#DCE8ED]">
                     <TableHead className="w-[9%] text-center text-[#123047] font-bold">번호</TableHead>
@@ -222,7 +222,7 @@ export default function BoardPage() {
                 <TableBody className="divide-y divide-[#DCE8ED]">
                   {/* 1. 상단 고정 공지사항 */}
                   {data?.notices?.map((notice: BoardListItem, index: number) => (
-                    <TableRow key={`notice-${notice.boardId}`} className="bg-[#F0F7FA] hover:bg-[#E1EFF5]">
+                    <TableRow key={`notice-${notice.boardId}`} className="bg-[#F0F7FA] hover:bg-[#E1EFF5] border-b border-[#DCE8ED]">
                       <TableCell className="w-[9%] text-center text-[#6B7280] font-medium">
                         {(data?.totalElements ?? 0) + (data?.notices?.length ?? 0) - index}
                       </TableCell>
@@ -248,7 +248,7 @@ export default function BoardPage() {
                     const isNotice: boolean = item.postType === 'NOTICE';
 
                     return (
-                      <TableRow key={`item-${item.boardId}`} className={isNotice ? 'bg-[#F0F7FA] hover:bg-[#E1EFF5]' : 'bg-white hover:bg-[#F5FAFC]'}>
+                      <TableRow key={`item-${item.boardId}`} className={isNotice ? 'bg-[#F0F7FA] hover:bg-[#E1EFF5] border-b border-[#DCE8ED]' : 'bg-white hover:bg-[#F5FAFC] border-b border-[#DCE8ED]'}>
                         <TableCell className="w-[9%] text-center text-[#6B7280] font-medium">{displayNo}</TableCell>
                         <TableCell className="w-[10%] text-center">
                           <span className={isNotice ? 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]' : 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#E6F4F2] text-[#0F766E]'}>
