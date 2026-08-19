@@ -78,3 +78,63 @@ export async function getApartmentPriceRanking(
     bottom,
   };
 }
+
+interface FastApiListResponse {
+  base_date?: string;
+  groups?: Record<
+    string,
+    {
+      code?: string;
+      name?: string;
+      total_count?: number;
+      avg_thing_amt?: number;
+      avg_pyeong_amt?: number;
+    }
+  >;
+}
+
+/**
+ * 서울시 전체 구별 실제 평균 매매가 조회 (GET /fastApi/list)
+ */
+export async function getFastApiDistrictPrices(): Promise<Record<string, number>> {
+  try {
+    const { data } = await apiMiddleware.get<FastApiListResponse>("/fastApi/list");
+    const result: Record<string, number> = {};
+    if (data?.groups) {
+      Object.values(data.groups).forEach((group) => {
+        if (group.name && typeof group.avg_thing_amt === "number" && group.avg_thing_amt > 0) {
+          result[group.name] = group.avg_thing_amt;
+        }
+      });
+    }
+    return result;
+  } catch (err) {
+    console.warn("FastAPI 구별 평균 매매가 조회 실패 (기본 데이터 유지):", err);
+    return {};
+  }
+}
+
+/**
+ * 선택된 구의 동별 실제 평균 매매가 조회 (GET /fastApi/list?guCode=...)
+ */
+export async function getFastApiDongPrices(guCode: string): Promise<Record<string, number>> {
+  if (!guCode) return {};
+  try {
+    const { data } = await apiMiddleware.get<FastApiListResponse>("/fastApi/list", {
+      params: { guCode },
+    });
+    const result: Record<string, number> = {};
+    if (data?.groups) {
+      Object.values(data.groups).forEach((group) => {
+        if (group.name && typeof group.avg_thing_amt === "number" && group.avg_thing_amt > 0) {
+          result[group.name] = group.avg_thing_amt;
+        }
+      });
+    }
+    return result;
+  } catch (err) {
+    console.warn(`FastAPI 동별 평균 매매가 조회 실패 (guCode: ${guCode}):`, err);
+    return {};
+  }
+}
+

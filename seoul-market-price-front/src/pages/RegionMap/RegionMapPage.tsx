@@ -12,7 +12,11 @@ import SeoulDistrictMap from "@/features/region-map/components/D3SeoulDistrictMa
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { getLocalPreferredDistrict } from "@/features/member/utils/preferredDistrictStorage";
 import { getDongs, getSggs } from "@/features/location/services/locationService";
-import { getApartmentPriceRanking } from "@/features/region-map/services/regionMapService";
+import {
+  getApartmentPriceRanking,
+  getFastApiDistrictPrices,
+  getFastApiDongPrices,
+} from "@/features/region-map/services/regionMapService";
 import type { PriceMetricType } from "@/features/region-map/services/regionMapService";
 
 const NAV_ITEMS = [
@@ -51,10 +55,18 @@ export default function RegionMapPage() {
     }
   }, [searchParams, setSearchParams]);
 
+  // 1. 서울시 전체 구 목록 (법정동 코드 매핑용)
   const { data: sggs = [] } = useQuery({
     queryKey: ["location", "sggs"],
     queryFn: getSggs,
     staleTime: Infinity,
+  });
+
+  // 2. FastAPI 서울시 전체 25개 구별 실제 평균 매매가
+  const { data: districtPrices = {} } = useQuery({
+    queryKey: ["region-map", "district-prices"],
+    queryFn: getFastApiDistrictPrices,
+    staleTime: 1000 * 60 * 5,
   });
 
   const requestedDistrict = searchParams.get("district") ?? "";
@@ -65,12 +77,23 @@ export default function RegionMapPage() {
     hasSelectedDistrict
       ? sggs.find((sgg) => sgg.sggNm === selectedDistrict.name)?.sggCd ?? ""
       : "";
+
+  // 3. 선택된 구의 법정동 목록
   const { data: dongs = [] } = useQuery({
     queryKey: ["location", "dongs", selectedSggCode],
     queryFn: () => getDongs(selectedSggCode),
     enabled: Boolean(selectedSggCode),
     staleTime: Infinity,
   });
+
+  // 4. FastAPI 선택된 구의 동별 실제 평균 매매가
+  const { data: fastApiDongPrices = {} } = useQuery({
+    queryKey: ["region-map", "dong-prices", selectedSggCode],
+    queryFn: () => getFastApiDongPrices(selectedSggCode),
+    enabled: Boolean(selectedSggCode),
+    staleTime: 1000 * 60 * 5,
+  });
+
   const dongNames = dongs.map((dong) => dong.dongNm);
   const requestedDong = searchParams.get("dong") ?? "";
   const selectedDong = hasSelectedDistrict ? requestedDong : "";
@@ -94,18 +117,20 @@ export default function RegionMapPage() {
     setSearchParams(dong ? { district, dong } : { district });
   }, [setSearchParams]);
 
-  const dongPrices = useMemo(
-    () =>
-      dongNames.map((dong, index) => ({
-        name: dong,
-        averagePrice: Math.round(selectedDistrict.averagePrice * (1 + (index - 1.5) * 0.045) / 100) * 100,
-      })),
-    [dongNames, selectedDistrict.averagePrice],
-  );
-  const dongAveragePrices = useMemo(
-    () => Object.fromEntries(dongPrices.map((dong) => [dong.name, dong.averagePrice])),
-    [dongPrices],
-  );
+  // 선택된 구의 실제 평균 매매가 (FastAPI 실데이터 우선)
+  const currentDistrictAveragePrice =
+    districtPrices[selectedDistrict.name] ?? selectedDistrict.averagePrice;
+
+  // 동별 실제 평균 매매가 맵 (FastAPI 실데이터 매핑)
+  const dongAveragePrices = useMemo(() => {
+    const result: Record<string, number> = { ...fastApiDongPrices };
+    dongNames.forEach((dong) => {
+      if (result[dong] === undefined) {
+        result[dong] = currentDistrictAveragePrice;
+      }
+    });
+    return result;
+  }, [dongNames, fastApiDongPrices, currentDistrictAveragePrice]);
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] px-4 py-8 text-[#0F172A] sm:px-6">
@@ -170,7 +195,8 @@ export default function RegionMapPage() {
                 selectedDong={selectedDong}
                 availableDongs={dongs}
                 dongAveragePrices={dongAveragePrices}
-                districtAveragePrice={selectedDistrict.averagePrice}
+                districtAveragePrice={currentDistrictAveragePrice}
+                districtAveragePrices={districtPrices}
                 preferredDistrict={preferredDistrict}
                 onSelect={setRegion}
                 onSelectDong={(dong) => setRegion(selectedDistrict.name, dong)}
@@ -179,7 +205,7 @@ export default function RegionMapPage() {
             </div>
             {hasSelectedDistrict && <div className="absolute bottom-5 left-5 hidden items-center gap-3 rounded-[14px] border border-white/80 bg-white/90 px-4 py-3 shadow-[0_10px_25px_rgba(18,48,71,.12)] backdrop-blur md:flex">
               <span className="flex size-10 items-center justify-center rounded-full bg-[#E1F4F7] text-[#0F8AA8]"><TrendingUp className="size-5" /></span>
-              <span><small className="block text-[10px] font-bold text-[#94A3B8]">선택 지역 평균 매매가</small><strong className="block text-[18px] font-black text-[#0F172A]">{selectedDistrict.name} · {formatPrice(selectedDistrict.averagePrice)}</strong></span>
+              <span><small className="block text-[10px] font-bold text-[#94A3B8]">선택 지역 평균 매매가</small><strong className="block text-[18px] font-black text-[#0F172A]">{selectedDistrict.name} · {formatPrice(currentDistrictAveragePrice)}</strong></span>
             </div>}
           </div>
 
