@@ -34,13 +34,12 @@ import PricePage from "@/pages/Price/PricePage";
 import PriceCompareListPage from "@/pages/PriceCompareList/PriceCompareListPage";
 import PriceDetailPage from "@/pages/PriceDetail/PriceDetailPage";
 import RegionMapPage from "@/pages/RegionMap/RegionMapPage";
-import MarketTrendsPage from "@/pages/Trends/MarketTrendsPage";
 
 /* 가격정보 아파트별 정보*/
 import PriceCompareAptPage from "../pages/PriceCompareApt/PriceCompareAptPage";
 
 /*아파트별 거래동향 임포트*/
-// import MarketTrendsPage from "@/pages/Trends/MarketTrendsPage";
+import MarketTrendsPage from "@/pages/Trends/MarketTrendsPage";
 
 /* 일반 게시판 목록·작성·수정·상세 화면 */
 import BoardPage from "@/pages/Board/BoardPage";
