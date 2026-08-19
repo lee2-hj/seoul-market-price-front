@@ -18,6 +18,11 @@ import {
   getFastApiDongPrices,
 } from "@/features/region-map/services/regionMapService";
 import type { PriceMetricType } from "@/features/region-map/services/regionMapService";
+import {
+  getDetectedDistrict,
+  isSeoulDistrict,
+  REGION_CHANGED_EVENT,
+} from "@/features/region-map/utils/regionSelection";
 
 const NAV_ITEMS = [
   { label: "지역별 비교(리스트)", to: "/price/compare-list", icon: BarChart3 },
@@ -25,12 +30,17 @@ const NAV_ITEMS = [
   { label: "단지별 시세", to: "/price/detail", icon: Building2 },
 ];
 
-const DETECTED_REGION_STORAGE_KEY = "ssabu_selected_region";
-
 export default function RegionMapPage() {
   const authUser = useAuthStore((state) => state.user);
+  const rawPreferred =
+    authUser?.myGu || getLocalPreferredDistrict(authUser?.userId) || authUser?.preferredDistrict || "";
   const preferredDistrict =
-    authUser?.myGu || getLocalPreferredDistrict(authUser?.userId);
+    rawPreferred &&
+    rawPreferred !== "선호지역 없음" &&
+    rawPreferred !== "설정안함" &&
+    isSeoulDistrict(rawPreferred)
+      ? rawPreferred.trim()
+      : "";
   const [searchParams, setSearchParams] = useSearchParams();
   const hasAppliedInitialRegion = useRef(false);
   const rankingSectionRef = useRef<HTMLDivElement | null>(null);
@@ -45,15 +55,33 @@ export default function RegionMapPage() {
     hasAppliedInitialRegion.current = true;
     if (searchParams.has("district")) return;
 
-    const detectedDistrict = sessionStorage.getItem(DETECTED_REGION_STORAGE_KEY)?.trim() ?? "";
-    const initialDistrict = DISTRICT_PRICES.some((item) => item.name === detectedDistrict)
-      ? detectedDistrict
-      : "";
+    // 1. 위치서비스를 통해 확인된 자치구 (sessionStorage)
+    const detectedDistrict = getDetectedDistrict();
+    // 2. 위치서비스 미이용 시 회원 주소/선호 지역 (preferredDistrict)
+    const fallbackDistrict =
+      detectedDistrict
+        ? detectedDistrict
+        : preferredDistrict;
 
-    if (initialDistrict) {
-      setSearchParams({ district: initialDistrict }, { replace: true });
+    if (isSeoulDistrict(fallbackDistrict)) {
+      setSearchParams({ district: fallbackDistrict }, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [preferredDistrict, searchParams, setSearchParams]);
+
+  // 헤더에서 [내 위치 찾기] 버튼을 눌렀을 때 지도에 즉시 반영
+  useEffect(() => {
+    const handleRegionChanged = (event: Event) => {
+      const customEvent = event as CustomEvent<string>;
+      const nextDistrict = customEvent.detail;
+      if (isSeoulDistrict(nextDistrict)) {
+        setSearchParams({ district: nextDistrict });
+      }
+    };
+    window.addEventListener(REGION_CHANGED_EVENT, handleRegionChanged);
+    return () => {
+      window.removeEventListener(REGION_CHANGED_EVENT, handleRegionChanged);
+    };
+  }, [setSearchParams]);
 
   // 1. 서울시 전체 구 목록 (법정동 코드 매핑용)
   const { data: sggs = [] } = useQuery({
@@ -180,7 +208,7 @@ export default function RegionMapPage() {
         </aside>
 
         <section className="min-w-0 space-y-5">
-          <header className="flex flex-wrap items-start justify-between gap-4">
+          <header className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h1 className="text-[24px] font-black text-[#0F172A]">지역별 비교(지도)</h1>
               <p className="mt-1 text-[13px] font-medium text-[#64748B]">서울 구별 평균 매매가를 한눈에 확인하고, 관심 지역의 아파트를 분석해보세요.</p>
