@@ -5,6 +5,7 @@ import {
   Building2,
   Map,
   BarChart3,
+  Layers,
   Search,
   TrendingUp,
   TrendingDown,
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { label: "지역별 비교(리스트)", to: "/price/compare-list", icon: BarChart3 },
   { label: "지역별 비교(지도)", to: "/region-map", icon: Map },
   { label: "단지별 시세", to: "/price/detail", icon: Building2 },
+  { label: "아파트별 비교", to: "/price/compare-apartment", icon: Layers },
 ];
 
 /* 금액 포맷 유틸리티 (e.g. 348000 -> 34억 8,000만 원) */
@@ -47,10 +49,6 @@ function formatPriceKRW(priceInMan: number): string {
 export default function PriceDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  /* 콤보박스 선택 상태 */
-  const [selectedSggCd, setSelectedSggCd] = useState<string>("");
-  const [selectedDongNm, setSelectedDongNm] = useState<string>("");
-
   /* 1. 자치구 API 조회 */
   const { data: apiSggs = [], isLoading: isSggLoading } = useQuery<SggItem[]>({
     queryKey: ["locationSggs"],
@@ -60,6 +58,10 @@ export default function PriceDetailPage() {
 
   const sggList = apiSggs;
 
+  /* 콤보박스 선택 상태 */
+  const [selectedSggCd, setSelectedSggCd] = useState<string>("");
+  const [selectedDongNm, setSelectedDongNm] = useState<string>("");
+
   /* URL 파라미터가 있을 경우 초기값 설정 */
   useEffect(() => {
     const paramSgg = searchParams.get("sgg");
@@ -67,10 +69,12 @@ export default function PriceDetailPage() {
     if (paramSgg && sggList.length > 0) {
       const foundSgg = sggList.find((s) => s.sggNm === paramSgg || s.sggCd === paramSgg);
       if (foundSgg) {
-        setSelectedSggCd(foundSgg.sggCd);
-        if (paramDong) {
-          setSelectedDongNm(paramDong);
-        }
+        queueMicrotask(() => {
+          setSelectedSggCd(foundSgg.sggCd);
+          if (paramDong) {
+            setSelectedDongNm(paramDong);
+          }
+        });
       }
     }
   }, [searchParams, sggList]);
@@ -379,7 +383,12 @@ export default function PriceDetailPage() {
 
                   {/* 단지 리스트 */}
                   <div className={styles.complexItemScroll}>
-                    {filteredComplexes.length === 0 ? (
+                    {isComplexesLoading ? (
+                      <div className="flex flex-col items-center justify-center py-8 text-center text-[12px] text-[#94A3B8]">
+                        <Loader2 className="mb-2 size-5 animate-spin text-[#0F8AA8]" />
+                        <span>단지 목록 불러오는 중...</span>
+                      </div>
+                    ) : filteredComplexes.length === 0 ? (
                       <div className="py-8 text-center text-[12px] text-[#94A3B8]">
                         검색된 아파트 단지가 없습니다.
                       </div>

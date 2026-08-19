@@ -352,13 +352,6 @@ export default function QnaPage() {
             >
               자주 묻는 질문
             </button>
-            <button
-              type="button"
-              onClick={() => navigate("/report")}
-              className={cn('py-2.5', 'px-6', 'text-[14px]', 'font-bold', 'rounded-[8px]', 'text-[#6B7280]', 'hover:bg-[#F0F7FA]')}
-            >
-              문의사항
-            </button>
           </div>
         </div>
 
