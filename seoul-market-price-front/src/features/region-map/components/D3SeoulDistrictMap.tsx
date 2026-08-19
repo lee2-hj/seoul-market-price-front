@@ -448,7 +448,7 @@ export default function D3SeoulDistrictMap({
           <button
             type="button"
             onClick={onShowAll}
-            className="rounded-[10px] border border-[#CBD5E1] bg-white/95 px-3.5 py-2 text-[12px] font-extrabold text-[#334155] shadow-[0_6px_18px_rgba(15,23,42,.12)] backdrop-blur transition-colors hover:border-[#0F8AA8] hover:text-[#0F8AA8]"
+            className="rounded-[10px] border border-[#CBD5E1] bg-white/95 px-3.5 py-2 text-[12px] font-extrabold text-[#334155] shadow-[0_6px_18px_rgba(15,23,42,.12)] backdrop-blur transition-colors hover:border-[#0F8AA8] hover:text-[#0F8AA8] cursor-pointer"
           >
             서울 전체 보기
           </button>
@@ -456,7 +456,7 @@ export default function D3SeoulDistrictMap({
             <button
               type="button"
               onClick={() => changeUserZoom(userZoom / 1.2)}
-              className="flex size-9 items-center justify-center border-0 bg-transparent text-[19px] font-bold text-[#334155] hover:bg-[#E8F6F9] hover:text-[#0F8AA8]"
+              className="flex size-9 items-center justify-center border-0 bg-transparent text-[19px] font-bold text-[#334155] hover:bg-[#E8F6F9] hover:text-[#0F8AA8] cursor-pointer"
               aria-label="지도 축소"
             >
               −
@@ -464,7 +464,7 @@ export default function D3SeoulDistrictMap({
             <button
               type="button"
               onClick={() => changeUserZoom(userZoom * 1.2)}
-              className="flex size-9 items-center justify-center border-0 border-l border-[#E2E8F0] bg-transparent text-[19px] font-bold text-[#334155] hover:bg-[#E8F6F9] hover:text-[#0F8AA8]"
+              className="flex size-9 items-center justify-center border-0 border-l border-[#E2E8F0] bg-transparent text-[19px] font-bold text-[#334155] hover:bg-[#E8F6F9] hover:text-[#0F8AA8] cursor-pointer"
               aria-label="지도 확대"
             >
               +

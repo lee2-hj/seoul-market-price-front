@@ -10,9 +10,9 @@ import PassAuth from "@/features/auth/components/PassAuth";
 import { getBoardPostsApi, getBoardCommentsApi } from "@/api/api";
 import type { QnaPageResponse } from "@/api/api";
 import apiMiddleware from "@/api/middleware";
-import { getStoredReports, REPORT_STATUS_MAP } from "@/features/report/services/reportService";
 import { getSggs } from "@/features/location/services/locationService";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
+import { REGION_STORAGE_KEY } from "@/features/region-map/utils/regionSelection";
 
 /**
  * 마이페이지 상단 선택 탭
@@ -22,7 +22,7 @@ type MyPageTab = "PROFILE" | "ACTIVITY";
 /**
  * 내 활동 서브 탭
  */
-type ActivityType = "POST" | "COMMENT" | "QNA" | "INQUIRY";
+type ActivityType = "POST" | "COMMENT" | "QNA";
 
 const ACTIVITY_TAB_BASE_CLASS =
   "h-[38px] px-4 rounded-[8px] border font-bold text-[14px] cursor-pointer shrink-0";
@@ -95,7 +95,14 @@ const formatPhoneNumber = (value: string): string => {
   return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
 };
 
-
+/**
+ * 기본 주소 입력값 정제 (특수문자나 주소에 불필요한 기호 입력 방지)
+ * 한글, 영문, 숫자, 공백, 하이픈(-), 쉼표(,), 괄호(()), 마침표(.)만 허용
+ */
+const sanitizeAddress = (value: string): string => {
+  if (!value) return "";
+  return value.replace(/[^가-힣a-zA-Z0-9\s\-(),.]/g, "");
+};
 
 type Profile = {
   loginType: LoginType;
@@ -256,10 +263,6 @@ export default function MyPage() {
   const [withdrawError, setWithdrawError] = useState("");
   const [isWithdrawing, setIsWithdrawing] = useState(false);
 
-  const [emailVerified, setEmailVerified] = useState(false);
-  const [emailCertSent, setEmailCertSent] = useState(false);
-  const [emailCertCode, setEmailCertCode] = useState("");
-
   const handleOpenPasswordModal = () => {
     if (!isLoggedIn) {
       alert("로그인 후 이용하실 수 있습니다.");
@@ -368,10 +371,11 @@ export default function MyPage() {
   });
 
   const formValues = useWatch({ control });
-  const emailValue = useWatch({ control, name: "email" }) || "";
-  const isEmailValid = useMemo(() => {
-    return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(emailValue.trim());
-  }, [emailValue]);
+
+  // 선호지역 옵션 목록 ('선호지역 없음' 옵션 포함)
+  const districtOptions = useMemo(() => {
+    return ["선호지역 없음", ...sggs.map((sgg) => sgg.sggNm)];
+  }, [sggs]);
 
   // 소셜 로그인 감지 및 공급자명 판별
   const rawUserId = authUser?.userId || profile.userId || "";
@@ -521,23 +525,6 @@ export default function MyPage() {
     };
   }, [isLoggedIn, authUser, boardData]);
 
-  // 내가 작성한 문의사항 조회 & 필터링
-  const myInquiries = useMemo(() => {
-    if (!isLoggedIn || !authUser) return [];
-    const allReports = getStoredReports();
-    const currentName = normalizeIdentity(authUser.name);
-    const currentId = normalizeIdentity(authUser.userId);
-
-    return allReports.filter((r) => {
-      const authorUserId = normalizeIdentity(r.authorUserId);
-      const authorName = normalizeIdentity(r.authorName);
-      return (
-        (currentId && authorUserId === currentId) ||
-        (currentName && (authorName === currentName || authorName.startsWith(currentName.slice(0, 1))))
-      );
-    });
-  }, [authUser, isLoggedIn]);
-
   const activityTabs: Array<{
     type: ActivityType;
     label: string;
@@ -547,7 +534,6 @@ export default function MyPage() {
     { type: "POST", label: "작성한 게시글", count: myPosts.length, isLoading: isBoardLoading },
     { type: "COMMENT", label: "작성한 댓글", count: myComments.length, isLoading: isCommentsLoading },
     { type: "QNA", label: "질의응답", count: myQnas.length, isLoading: isMyQnasLoading },
-    { type: "INQUIRY", label: "문의사항", count: myInquiries.length, isLoading: false },
   ];
 
   // 폼이 수정되었는지 여부 계산 (Dirty check)
@@ -578,8 +564,6 @@ export default function MyPage() {
     setProfile(originalProfile);
     setPreferredDistrict(originalDistrict);
     setPhoneVerified(false);
-    setEmailCertSent(false);
-    setEmailVerified(false);
   };
 
   // 회원 정보 및 설정 일괄 저장 핸들러 (수동 저장)
@@ -602,7 +586,12 @@ export default function MyPage() {
             ? updatedProfile.name
             : authUser.name,
         myGu: preferredDistrict || null,
+        preferredDistrict: preferredDistrict || undefined,
       });
+    }
+
+    if (!preferredDistrict || preferredDistrict === "선호지역 없음") {
+      sessionStorage.removeItem(REGION_STORAGE_KEY);
     }
 
     const previousSettings = getStoredMyPageSettings(
@@ -618,8 +607,6 @@ export default function MyPage() {
 
     alert("회원 정보 및 설정이 성공적으로 저장되었습니다!");
   };
-
-
 
   // 본인인증 성공 핸들러
   const handlePassSuccess = (result: {
@@ -641,33 +628,6 @@ export default function MyPage() {
       }
     }
     setPhoneVerified(true);
-  };
-
-  // 이메일 인증 발송 및 검증
-  const handleSendEmailCert = () => {
-    if (!isLoggedIn) return alert("로그인 후 인증이 가능합니다.");
-    const emailVal = emailValue.trim();
-    if (!emailVal) {
-      alert("이메일 주소를 먼저 입력해 주세요.");
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(emailVal)) {
-      alert("올바른 이메일 형식(예: user@example.com)으로 입력해 주세요.");
-      return;
-    }
-    setEmailCertSent(true);
-    alert("인증번호가 이메일로 전송되었습니다. (테스트 인증번호: 654321)");
-  };
-
-  const handleVerifyEmailCode = () => {
-    if (emailCertCode.trim() === "654321" || emailCertCode.trim().length === 6) {
-      setEmailVerified(true);
-      setEmailCertSent(false);
-      alert("이메일 인증이 성공적으로 완료되었습니다!");
-    } else {
-      alert("인증번호 6자리를 올바르게 입력해주세요. (테스트 번호: 654321)");
-    }
   };
 
 
@@ -740,7 +700,7 @@ export default function MyPage() {
                   <div className="text-center space-y-1">
                     <h2 className="text-[22px] font-black text-[#123047]">회원 정보 관리</h2>
                     <p className="text-[14px] text-[#6B7280]">
-                      회원님의 필수 인적사항과 휴대폰 및 이메일 인증을 진행하실 수 있습니다.
+                      회원님의 필수 인적사항과 본인인증을 진행하실 수 있습니다.
                     </p>
                   </div>
 
@@ -876,63 +836,31 @@ export default function MyPage() {
                       </p>
                     </div>
 
-                    {/* ROW 4: 이메일 주소 + 이메일 인증 버튼 */}
+                    {/* ROW 4: 이메일 주소 (인증 없이 직접 입력) */}
                     <div className="space-y-1.5 w-full">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[14px] font-bold text-[#13202B] block">이메일 주소</label>
-                        {emailVerified && (
-                          <span className="inline-flex items-center gap-1 text-[12px] font-extrabold text-[#0F766E]">
-                            <CheckCircle2 className="w-4 h-4" /> 인증 완료
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <input
-                          {...register("email")}
-                          disabled={!isLoggedIn}
-                          placeholder="이메일 주소를 입력해 주세요 (예: user@example.com)"
-                          className="flex-1 h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
-                        />
-                        <button
-                          type="button"
-                          disabled={!isLoggedIn || emailVerified || !isEmailValid}
-                          onClick={handleSendEmailCert}
-                          className="h-[48px] px-5 bg-[#123047] hover:bg-[#0B5E73] text-white font-bold text-[13px] rounded-[8px] whitespace-nowrap transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          {emailVerified ? "인증됨" : "이메일 인증"}
-                        </button>
-                      </div>
-
-                      {/* 이메일 인증번호 입력 폼 */}
-                      {emailCertSent && !emailVerified && (
-                        <div className="flex gap-2 pt-1">
-                          <input
-                            type="text"
-                            maxLength={6}
-                            placeholder="인증번호 6자리 (테스트: 654321)"
-                            value={emailCertCode}
-                            onChange={(e) => setEmailCertCode(e.target.value)}
-                            className="flex-1 h-[42px] rounded-[6px] border border-[#0F8AA8] bg-white px-3 text-[14px] outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleVerifyEmailCode}
-                            className="h-[42px] px-4 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white font-bold text-[13px] rounded-[6px] cursor-pointer"
-                          >
-                            인증 확인
-                          </button>
-                        </div>
-                      )}
+                      <label className="text-[14px] font-bold text-[#13202B] block">이메일 주소</label>
+                      <input
+                        {...register("email")}
+                        type="email"
+                        disabled={!isLoggedIn}
+                        placeholder="이메일 주소를 입력해 주세요 (예: user@example.com)"
+                        className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
+                      />
                     </div>
 
-                    {/* ROW 5: 기본 주소 & 상세 주소 */}
+                    {/* ROW 5: 기본 주소 & 상세 주소 (특수문자 및 불필요한 기호 필터링 적용) */}
                     <div className="flex flex-col md:flex-row gap-4 w-full">
                       <div className="space-y-1.5 flex-1 w-full md:w-1/2">
                         <label className="text-[14px] font-bold text-[#13202B] block">기본 주소</label>
                         <input
-                          {...register("address")}
+                          {...register("address", {
+                            onChange: (e) => {
+                              const cleaned = sanitizeAddress(e.target.value);
+                              setValue("address", cleaned, { shouldDirty: true });
+                            },
+                          })}
                           disabled={!isLoggedIn}
-                          placeholder="기본 주소를 입력해 주세요"
+                          placeholder="기본 주소를 입력해 주세요 (특수문자 제외)"
                           className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA]"
                         />
                       </div>
@@ -940,7 +868,12 @@ export default function MyPage() {
                       <div className="space-y-1.5 flex-1 w-full md:w-1/2">
                         <label className="text-[14px] font-bold text-[#13202B] block">상세 주소</label>
                         <input
-                          {...register("detailAddress")}
+                          {...register("detailAddress", {
+                            onChange: (e) => {
+                              const cleaned = sanitizeAddress(e.target.value);
+                              setValue("detailAddress", cleaned, { shouldDirty: true });
+                            },
+                          })}
                           disabled={!isLoggedIn}
                           placeholder="상세 주소(동, 호수 등)를 입력해 주세요"
                           className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA]"
@@ -948,20 +881,21 @@ export default function MyPage() {
                       </div>
                     </div>
 
-                    {/* ROW 6: 선호 지역 설정 */}
+                    {/* ROW 6: 선호 지역 설정 ('선호지역 없음' + 검색/드롭다운 일체형) */}
                     <div className="space-y-1.5 w-full">
                       <label className="text-[14px] font-bold text-[#13202B] block">선호 지역 설정</label>
                       <AutocompleteInput
-                        value={preferredDistrict}
-                        options={sggs.map((sgg) => sgg.sggNm)}
+                        value={preferredDistrict || "선호지역 없음"}
+                        options={districtOptions}
                         disabled={!isLoggedIn || isSggsLoading}
-                        onChange={setPreferredDistrict}
+                        onChange={(val) => setPreferredDistrict(val === "선호지역 없음" ? "" : val)}
                         onInvalidBlur={() => setPreferredDistrict(originalDistrict)}
-                        placeholder="선호 자치구를 검색해 주세요"
-                        className={`h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA] ${
-                          !preferredDistrict ? "text-[#9CA3AF]" : "text-[#13202B]"
-                        }`}
+                        placeholder="자치구를 선택해 주세요"
+                        className={!preferredDistrict || preferredDistrict === "선호지역 없음" ? "text-[#64748B]" : "text-[#13202B]"}
                       />
+                      <p className="text-[12px] text-[#6B7280]">
+                        '선호지역 없음'을 선택하시면 지도 및 거래동향에서 특정 구가 아닌 서울시 전체를 기본으로 확인하실 수 있습니다.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1019,7 +953,7 @@ export default function MyPage() {
                 <div className="text-center space-y-1 mb-6">
                   <h2 className="text-[20px] font-bold text-[#123047]">내 활동</h2>
                   <p className="text-[14px] text-[#6B7280]">
-                    내가 작성한 게시글, 댓글, 질의응답 및 문의사항 현황을 확인하고 바로 이동할 수 있습니다.
+                    내가 작성한 게시글, 댓글 및 질의응답 현황을 확인하고 바로 이동할 수 있습니다.
                   </p>
                 </div>
 
@@ -1236,69 +1170,6 @@ export default function MyPage() {
                             style={{ textDecoration: "none" }}
                           >
                             질의응답 작성하러 가기 →
-                          </Link>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {activityType === "INQUIRY" && (
-                    <>
-                      {myInquiries.length > 0 ? (
-                        myInquiries.map((inquiry) => {
-                          const statusMeta = REPORT_STATUS_MAP[inquiry.status] || {
-                            label: "접수대기",
-                            bg: "bg-[#fff8e6]",
-                            text: "text-[#b47500]",
-                            border: "border-[#fae3a8]",
-                          };
-
-                          return (
-                            <Link
-                              key={inquiry.id}
-                              to={`/report/${inquiry.id}`}
-                              className="flex items-center justify-between p-5 hover:bg-[#F0F7FA] transition-colors group no-underline text-inherit"
-                              style={{ textDecoration: "none", color: "inherit" }}
-                            >
-                              <div className="min-w-0 pr-4">
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full border shrink-0 ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}
-                                  >
-                                    {statusMeta.label}
-                                  </span>
-                                  <strong className="text-[15px] font-bold text-[#123047] group-hover:text-[#0F8AA8] transition-colors block truncate no-underline">
-                                    {inquiry.title}
-                                  </strong>
-                                </div>
-                                <span className="text-[13px] text-[#6B7280] block mt-1.5 no-underline">
-                                  접수일 {inquiry.createdAt} · 대상: {inquiry.targetProperty}
-                                </span>
-                              </div>
-                              <b
-                                aria-hidden="true"
-                                className="text-[#0F8AA8] text-[24px] font-normal leading-none shrink-0 group-hover:translate-x-1 transition-transform no-underline"
-                              >
-                                ›
-                              </b>
-                            </Link>
-                          );
-                        })
-                      ) : (
-                        <div className="p-12 text-center space-y-3">
-                          <div className="text-[32px]">🙋</div>
-                          <p className="text-[15px] font-bold text-[#123047]">
-                            등록하신 문의사항이 없습니다.
-                          </p>
-                          <p className="text-[13px] text-[#6B7280]">
-                            궁금한 점이나 건의사항이 있으시면 언제든 문의를 남겨주세요!
-                          </p>
-                          <Link
-                            to="/report/write"
-                            className="inline-block px-5 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[13px] font-bold rounded-[8px] transition-colors shadow-xs no-underline"
-                            style={{ textDecoration: "none" }}
-                          >
-                            문의사항 작성하러 가기 →
                           </Link>
                         </div>
                       )}

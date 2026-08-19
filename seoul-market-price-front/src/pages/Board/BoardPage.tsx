@@ -124,7 +124,6 @@ export default function BoardPage() {
               <button type="button" className="rounded-[8px] bg-[#123047] px-6 py-2.5 text-[14px] font-bold text-white">게시판</button>
               <button type="button" onClick={() => navigate('/qna')} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA]">질의응답</button>
               <button type="button" onClick={() => navigate('/faq')} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA]">자주 묻는 질문</button>
-              <button type="button" onClick={() => navigate('/report')} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA]">문의사항</button>
             </div>
           </div>
 
