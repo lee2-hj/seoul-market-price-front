@@ -39,7 +39,7 @@ import RegionMapPage from "@/pages/RegionMap/RegionMapPage";
 import PriceCompareAptPage from "../pages/PriceCompareApt/PriceCompareAptPage";
 
 /*아파트별 거래동향 임포트*/
-import MarketTrendsPage from "@/pages/Trends/MarketTrendsPage";
+import MarketTrendsAptPage from "@/pages/Trends/MarketTrendsAptPage";
 
 /* 일반 게시판 목록·작성·수정·상세 화면 */
 import BoardPage from "@/pages/Board/BoardPage";
@@ -93,7 +93,6 @@ function Router() {
           {/* 메인: 서비스 홈과 프로젝트 소개 */}
           <Route path="/" element={<MainPage />} />
           <Route path="/about" element={<AboutPage />} />
-
           {/* --------------------------------------------------------------
               가격정보
               시세 메인, 지역별 목록 비교, 지도 비교, 거래 동향을 제공한다.
@@ -109,15 +108,10 @@ function Router() {
           <Route path="/region-map" element={<RegionMapPage />} />
           {/* 부동산 거래 동향을 조회하는 화면 */}
           <Route path="/trends" element={<MarketTrendsPage />} />
-          {/* 아파트별 거래동향 */}
-          <Route
-            path="/trends"
-            element={<Navigate to="/trends/apartment" replace />}
-          />
-
+          {/* 아파트별 거래동향 */} 수정
+          <Route path="/trends/apartment" element={<MarketTrendsAptPage />} />
           {/* 단지별 시세 상세 */}
           <Route path="/price/detail" element={<PriceDetailPage />} />
-
           {/* --------------------------------------------------------------
               가격정보 아파트별 정보
           -------------------------------------------------------------- */}
@@ -129,7 +123,6 @@ function Router() {
             path="/price/compare-apt"
             element={<Navigate to="/price/compare-apartment" replace />}
           />
-
           {/* --------------------------------------------------------------
               일반 게시판
               목록·작성·상세·수정 화면이며 현재 별도 라우트 권한 제한은 없다.
@@ -142,7 +135,6 @@ function Router() {
           <Route path="/board/:postId/edit" element={<BoardEditPage />} />
           {/* 게시글 상세 조회 */}
           <Route path="/board/:postId" element={<BoardDetailPage />} />
-
           {/* --------------------------------------------------------------
               Q&A 및 FAQ
               Q&A의 목록·작성·상세·수정 화면과 FAQ 목록을 제공한다.
@@ -157,7 +149,6 @@ function Router() {
           <Route path="/qna/:id" element={<QnaDetailPage />} />
           {/* 자주 묻는 질문 목록 */}
           <Route path="/faq" element={<FaqPage />} />
-
           {/* --------------------------------------------------------------
               마이페이지
               회원 개인정보를 포함하므로 로그인 사용자만 접근할 수 있다.
