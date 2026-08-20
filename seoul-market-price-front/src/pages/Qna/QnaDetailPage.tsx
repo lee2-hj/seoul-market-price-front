@@ -7,7 +7,6 @@ import { Paperclip, Download, FileText } from "lucide-react";
 import apiMiddleware from "@/api/middleware";
 import { getLoginUser } from "@/features/auth/utils/auth";
 import {
-  getQnaAttachmentsApi,
   downloadQnaAttachmentApi,
 } from "@/api/api";
 import type { AttachmentResponse } from "@/features/board/types/board.types";
@@ -56,9 +55,14 @@ const formatDate = (dateString?: string | null): string => {
 };
 
 /* API 연동 함수: Q&A 상세 조회 */
-async function fetchQnaDetailApi(id: string): Promise<QnaDetailResponse> {
+interface QnaFullDetailResponse {
+  detail: QnaDetailResponse;
+  attachments: AttachmentResponse[];
+}
+
+async function fetchQnaDetailApi(id: string): Promise<QnaFullDetailResponse> {
   try {
-    const response = await apiMiddleware.get<QnaDetailResponse>(`/api/qnas/${id}`);
+    const response = await apiMiddleware.get<QnaFullDetailResponse>(`/api/qnas/${id}/full`);
     if (response.data) return response.data;
   } catch (err) {
     const stored = localStorage.getItem("qnaPosts");
@@ -81,7 +85,7 @@ async function fetchQnaDetailApi(id: string): Promise<QnaDetailResponse> {
       }>;
       const found = localPosts.find((p) => String(p.id) === String(id));
       if (found) {
-        return {
+        return { detail: {
           id: found.id,
           writerLoginId: found.authorId,
           writerName: found.author,
@@ -96,7 +100,7 @@ async function fetchQnaDetailApi(id: string): Promise<QnaDetailResponse> {
           attachPath: found.attachPath,
           files: found.files,
           attachments: found.attachments,
-        };
+        }, attachments: found.attachments || [] };
       }
     }
     throw err;
@@ -136,7 +140,7 @@ export default function QnaDetailPage() {
   }, [currentUser]);
 
   /* React Query: Q&A 상세 데이터 조회 */
-  const { data: post, isLoading, isError, error } = useQuery({
+  const { data: fullDetail, isLoading, isError, error } = useQuery({
     queryKey: ["qnaDetail", id],
     queryFn: () => {
       if (!id) throw new Error("잘못된 게시글 번호입니다.");
@@ -147,12 +151,8 @@ export default function QnaDetailPage() {
   });
 
   /* React Query: Q&A 첨부파일 목록 조회 */
-  const { data: apiAttachments = [] } = useQuery<AttachmentResponse[]>({
-    queryKey: ["qnaAttachments", id],
-    queryFn: () => getQnaAttachmentsApi(Number(id)),
-    enabled: Boolean(id && Number(id) > 0),
-    retry: 1,
-  });
+  const post = fullDetail?.detail;
+  const apiAttachments = fullDetail?.attachments ?? [];
 
   /* 첨부파일 통합 계산 (API 첨부파일 + 본문 내 첨부파일 필드 + 로컬 스토리지) */
   const allAttachments = useMemo(() => {
