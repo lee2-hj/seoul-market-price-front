@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Paperclip, Upload, FileText } from "lucide-react";
 import axios from "axios";
 
 import apiMiddleware from "@/api/middleware";
 import { getLoginUser, isLogin } from "@/features/auth/utils/auth";
+import { uploadQnaAttachmentsApi } from "@/api/api";
 
-const MAX_FILE_COUNT = 3;
-const MAX_FILE_SIZE = 10 * 1024 * 1024; /* 10MB */
+const MAX_FILE_COUNT = 5;
+const MAX_FILE_SIZE = 50 * 1024 * 1024; /* 50MB */
 const ALLOWED_FILE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "pdf"];
 
 const getFileExtension = (fileName: string): string => {
@@ -55,9 +57,40 @@ export default function QnaWritePage() {
 
   /* React Query: Q&A 등록 뮤테이션 */
   const createMutation = useMutation({
-    mutationFn: (dto: CreateQnaDto) => createQnaApi(dto),
+    mutationFn: async (dto: CreateQnaDto) => {
+      // 1. Q&A 게시글 등록
+      const res = await createQnaApi(dto);
+      const resData = (res || {}) as Record<string, unknown>;
+      const innerData = (resData?.data || {}) as Record<string, unknown>;
+
+      const extractedId =
+        resData?.id ??
+        resData?.qnaId ??
+        resData?.boardId ??
+        innerData?.id ??
+        innerData?.qnaId ??
+        (typeof res === "number" ? res : null);
+
+      // 2. 첨부파일이 있으면 업로드 API 호출
+      if (attachedFiles.length > 0 && extractedId) {
+        try {
+          await uploadQnaAttachmentsApi(Number(extractedId), attachedFiles);
+        } catch (uploadErr) {
+          console.error("Q&A 첨부파일 업로드 실패:", uploadErr);
+          // 백엔드 엔드포인트 응답 확인을 위해 에러 메시지 알림
+          const errMsg = axios.isAxiosError(uploadErr)
+            ? uploadErr.response?.data?.message || uploadErr.message
+            : "첨부파일 업로드 중 오류가 발생했습니다.";
+          alert(`게시글은 등록되었으나 첨부파일 업로드에 실패했습니다.\n(${errMsg})`);
+        }
+      }
+
+      return { ...resData, id: extractedId };
+    },
     onSuccess: (data) => {
-      const newPostId = (data as { id?: number })?.id || Date.now();
+      const resData = (data || {}) as Record<string, unknown>;
+      const newPostId = resData?.id || Date.now();
+
       const today = new Date().toISOString().split("T")[0].replace(/-/g, ".");
       const newPostObj = {
         id: newPostId,
@@ -68,6 +101,12 @@ export default function QnaWritePage() {
         date: today,
         views: 0,
         publicQuestion: form.publicQuestion,
+        attachName: attachedFiles[0]?.name,
+        files: attachedFiles.map((f, idx) => ({
+          id: idx + 1,
+          name: f.name,
+          size: f.size,
+        })),
       };
 
       try {
@@ -78,6 +117,8 @@ export default function QnaWritePage() {
 
       alert("질의응답이 등록되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["qnasList"] });
+      queryClient.invalidateQueries({ queryKey: ["qnaDetail", String(newPostId)] });
+      queryClient.invalidateQueries({ queryKey: ["qnaAttachments", String(newPostId)] });
       navigate("/qna");
     },
     onError: (err) => {
@@ -113,7 +154,7 @@ export default function QnaWritePage() {
         return;
       }
       if (file.size > MAX_FILE_SIZE) {
-        alert(`${file.name}\n파일 크기가 10MB를 초과했습니다.`);
+        alert(`${file.name}\n파일 크기가 50MB를 초과했습니다.`);
         e.target.value = "";
         return;
       }
@@ -146,26 +187,17 @@ export default function QnaWritePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8">
-      <div className="max-w-[800px] mx-auto space-y-8">
-        {/* 상단 헤더 */}
-        <div className="flex items-center justify-between pb-4 border-b border-[#DCE8ED]">
-          <div>
-            <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
-              CUSTOMER CENTER
-            </span>
-            <h1 className="text-[28px] font-black text-[#13202B] tracking-tight">질의응답 작성</h1>
-            <p className="text-[14px] text-[#6B7280] mt-1">
-              궁금한 점을 자세히 작성해주시면 성실히 답변해 드리겠습니다.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate("/qna")}
-            className="px-4 py-2 bg-white border border-[#DCE8ED] text-[#6B7280] text-[13px] font-bold rounded-[7px] hover:bg-[#EBF5F8] cursor-pointer"
-          >
-            취소
-          </button>
+    <div className="flex min-h-[calc(100vh-200px)] w-full justify-center bg-[#F5FAFC] px-4 py-8 md:px-8 md:py-12">
+      <div className="w-full max-w-4xl space-y-8">
+        {/* 상단 헤더 (가운데 정렬) */}
+        <div className="text-center pb-6 border-b border-[#DCE8ED]">
+          <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
+            CUSTOMER CENTER
+          </span>
+          <h1 className="text-[28px] font-black text-[#13202B] tracking-tight">질의응답 작성</h1>
+          <p className="text-[14px] text-[#6B7280] mt-1.5">
+            궁금한 점을 자세히 작성해주시면 성실히 답변해 드리겠습니다.
+          </p>
         </div>
 
         {/* 작성 폼 */}
@@ -227,14 +259,26 @@ export default function QnaWritePage() {
             />
           </div>
 
-          {/* 첨부파일 */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-[13px] font-bold text-[#13202B]">
-                첨부파일 ({attachedFiles.length}/{MAX_FILE_COUNT})
-              </label>
-              <span className="text-[11px] text-[#6B7280]">파일당 최대 10MB (JPG, PNG, GIF, PDF)</span>
+          {/* 첨부파일 박스 */}
+          <div className="p-4 bg-[#F0F7FA] border border-[#DCE8ED] rounded-[12px] space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[14px] font-bold text-[#0F8AA8]">
+                <Paperclip className="w-4 h-4 text-[#0F8AA8]" />
+                <span>첨부파일 ({attachedFiles.length}/{MAX_FILE_COUNT})</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#E6F4F2] hover:bg-[#d0ece8] text-[#0F766E] text-[13px] font-bold rounded-[8px] transition-colors cursor-pointer border-none shadow-xs"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>파일 선택</span>
+              </button>
             </div>
+
+            <p className="text-[12px] text-[#6B7280]">
+              최대 5개까지 파일을 첨부할 수 있습니다. (다중 선택 가능)
+            </p>
 
             <input
               type="file"
@@ -245,28 +289,28 @@ export default function QnaWritePage() {
               className="hidden"
             />
 
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2 bg-white border border-[#DCE8ED] rounded-[8px] text-[13px] font-bold text-[#13202B] hover:bg-[#F5FAFC] cursor-pointer"
-            >
-              📎 파일 첨부
-            </button>
-
             {attachedFiles.length > 0 && (
-              <div className="mt-3 space-y-2">
+              <div className="pt-2 mt-2 border-t border-[#DCE8ED]/60 space-y-1.5">
                 {attachedFiles.map((file, idx) => (
                   <div
-                    key={`${file.name}-${file.lastModified}`}
-                    className="flex items-center justify-between px-3 py-2 bg-[#F5FAFC] border border-[#DCE8ED] rounded-[6px] text-[13px]"
+                    key={`${file.name}-${file.lastModified}-${idx}`}
+                    className="flex items-center justify-between px-3 py-2 bg-white border border-[#DCE8ED] rounded-[8px] text-[13px]"
                   >
-                    <span className="truncate text-[#13202B] font-medium max-w-[500px]">
-                      {file.name} ({(file.size / 1024).toFixed(1)} KB)
-                    </span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="w-4 h-4 text-[#0F8AA8] shrink-0" />
+                      <span className="truncate text-[#13202B] font-medium max-w-[450px]">
+                        {file.name}
+                      </span>
+                      <span className="text-[11px] text-[#6B7280] shrink-0">
+                        ({(file.size / 1024).toFixed(1)} KB)
+                      </span>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => setAttachedFiles((prev) => prev.filter((_, i) => i !== idx))}
-                      className="text-red-500 hover:text-red-700 text-[12px] font-bold cursor-pointer"
+                      onClick={() =>
+                        setAttachedFiles((prev) => prev.filter((_, i) => i !== idx))
+                      }
+                      className="text-rose-500 hover:text-rose-700 text-[12px] font-bold cursor-pointer hover:bg-rose-50 px-2 py-0.5 rounded transition-colors"
                     >
                       삭제
                     </button>
@@ -277,18 +321,18 @@ export default function QnaWritePage() {
           </div>
 
           {/* 제출 버튼 */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-[#DCE8ED]">
+          <div className="flex items-center justify-center gap-3 pt-6 border-t border-[#DCE8ED]">
             <button
               type="button"
               onClick={() => navigate("/qna")}
-              className="px-6 py-2.5 bg-white border border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[8px] hover:bg-[#F5FAFC] cursor-pointer"
+              className="px-8 py-2.5 bg-white border border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[8px] hover:bg-[#F5FAFC] cursor-pointer transition-colors"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={createMutation.isPending}
-              className="px-8 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[8px] shadow-sm cursor-pointer disabled:opacity-50"
+              className="px-10 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[8px] shadow-sm cursor-pointer disabled:opacity-50 transition-colors"
             >
               {createMutation.isPending ? "등록 중..." : "등록하기"}
             </button>
