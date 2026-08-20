@@ -166,13 +166,28 @@ export default function QnaDetailPage() {
     // 1. 첨부파일 전용 API 결과
     if (Array.isArray(apiAttachments) && apiAttachments.length > 0) {
       apiAttachments.forEach((att, idx) => {
+        const attObj = att as {
+          id?: number;
+          attachmentId?: number;
+          originalName?: string;
+          originalFilename?: string;
+          fileName?: string;
+          name?: string;
+          size?: number;
+          fileSize?: number;
+          downloadUrl?: string;
+          fileUrl?: string;
+        };
         list.push({
-          id: att.attachmentId ?? att.id ?? idx,
-          name: att.originalFilename || att.fileName || "첨부파일",
-          size: att.size ?? att.fileSize,
-          url:
-            (att as { downloadUrl?: string; fileUrl?: string }).downloadUrl ||
-            (att as { downloadUrl?: string; fileUrl?: string }).fileUrl,
+          id: attObj.id ?? attObj.attachmentId ?? idx + 1,
+          name:
+            attObj.originalName ||
+            attObj.originalFilename ||
+            attObj.fileName ||
+            attObj.name ||
+            "첨부파일",
+          size: attObj.fileSize ?? attObj.size,
+          url: attObj.downloadUrl || attObj.fileUrl,
         });
       });
     }
@@ -298,26 +313,55 @@ export default function QnaDetailPage() {
   }) => {
     try {
       if (id && attachment.id) {
+        // 1. JSON 형태의 presigned URL 다운로드 시도
         try {
           const res = await downloadQnaAttachmentApi(
             Number(id),
             Number(attachment.id),
           );
-          if (res?.downloadUrl) {
+          const downloadLink =
+            (res as { downloadUrl?: string; url?: string; fileUrl?: string })?.downloadUrl ||
+            (res as { downloadUrl?: string; url?: string; fileUrl?: string })?.url ||
+            (res as { downloadUrl?: string; url?: string; fileUrl?: string })?.fileUrl ||
+            (typeof res === "string" ? res : null);
+
+          if (downloadLink) {
             const a = document.createElement("a");
-            a.href = res.downloadUrl;
-            a.download = res.originalFilename || attachment.name || "download";
+            a.href = downloadLink;
+            a.download = (res as { originalFilename?: string })?.originalFilename || attachment.name || "download";
             a.target = "_blank";
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             return;
           }
-        } catch {
-          // fallback to direct download link
+        } catch (apiErr) {
+          console.warn("Pre-signed URL 다운로드 실패, 파일 스트림(Blob) 다운로드 시도:", apiErr);
+        }
+
+        // 2. 컨트롤러가 파일 바이너리(Blob/Resource)를 직접 반환하는 경우
+        try {
+          const blobResponse = await apiMiddleware.get(
+            `/api/qnas/${id}/attachments/${attachment.id}/download`,
+            { responseType: "blob" },
+          );
+          if (blobResponse.data) {
+            const blobUrl = window.URL.createObjectURL(new Blob([blobResponse.data]));
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            a.download = attachment.name || "download";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(blobUrl);
+            return;
+          }
+        } catch (blobErr) {
+          console.warn("Blob 다운로드 실패:", blobErr);
         }
       }
 
+      // 3. 첨부파일 객체에 직접 url이 있는 경우
       if (attachment.url) {
         const a = document.createElement("a");
         a.href = attachment.url;
