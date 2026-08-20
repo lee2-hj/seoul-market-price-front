@@ -1047,7 +1047,9 @@ function AutocompleteSelect({
           {displayQuery && !disabled && (
             <button
               type="button"
-              onClick={() => {
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={(e) => {
+                e.stopPropagation();
                 setSearchQuery("");
                 onChange("");
                 setIsOpen(true);
@@ -1062,13 +1064,21 @@ function AutocompleteSelect({
           <button
             type="button"
             tabIndex={-1}
-            onClick={() => {
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => {
+              e.stopPropagation();
               if (!disabled) {
-                setIsOpen((prev) => !prev);
-                inputRef.current?.focus();
+                setIsOpen((prev) => {
+                  const nextState = !prev;
+                  if (nextState) {
+                    inputRef.current?.focus();
+                  }
+                  return nextState;
+                });
               }
             }}
             className="p-1 rounded-full text-[#94A3B8] hover:bg-[#F1F5F9] hover:text-[#64748B] transition-colors cursor-pointer"
+            title={isOpen ? "접기" : "펼치기"}
           >
             <ChevronDown
               className={cn(

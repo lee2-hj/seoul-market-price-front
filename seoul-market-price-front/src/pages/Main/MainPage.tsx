@@ -120,8 +120,8 @@ export default function MainPage() {
 
           <article className={`${styles.card} ${styles.insight}`}>
             <header><h2>싸부의 한마디</h2><span>분석 완료</span></header>
-            <div><i><Lightbulb /></i><h3>최근 거래가가 지역<br />평균보다 낮아<br /><strong>지금 비교하기 좋습니다.</strong></h3></div>
-            <button type="button" onClick={() => navigate("/price")}>자세히 보기 <ChevronRight /></button>
+            <div><i><Lightbulb /></i><h3>관심 아파트의 실거래가를<br />1:1로 맞비교하고<br /><strong>최적의 매물을 찾아보세요.</strong></h3></div>
+            <button type="button" onClick={() => navigate("/price/compare-apartment")}>아파트별 비교하기 <ChevronRight /></button>
           </article>
         </section>
 
