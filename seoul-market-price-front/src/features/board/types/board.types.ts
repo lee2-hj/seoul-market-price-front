@@ -119,6 +119,7 @@ export interface AttachmentResponse {
   attachmentId?: number;
   id?: number;
   boardId?: number;
+  originalName?: string;
   fileName?: string;
   originalFilename?: string;
   fileSize?: number;

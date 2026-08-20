@@ -19,9 +19,7 @@ import {
 } from "@/features/region-map/services/regionMapService";
 import type { PriceMetricType } from "@/features/region-map/services/regionMapService";
 import {
-  getDetectedDistrict,
   isSeoulDistrict,
-  REGION_CHANGED_EVENT,
 } from "@/features/region-map/utils/regionSelection";
 
 const NAV_ITEMS = [
@@ -33,7 +31,7 @@ const NAV_ITEMS = [
 export default function RegionMapPage() {
   const authUser = useAuthStore((state) => state.user);
   const rawPreferred =
-    authUser?.myGu || getLocalPreferredDistrict(authUser?.userId) || authUser?.preferredDistrict || "";
+    authUser?.preferredDistrict ?? getLocalPreferredDistrict(authUser?.userId);
   const preferredDistrict =
     rawPreferred &&
     rawPreferred !== "선호지역 없음" &&
@@ -42,46 +40,12 @@ export default function RegionMapPage() {
       ? rawPreferred.trim()
       : "";
   const [searchParams, setSearchParams] = useSearchParams();
-  const hasAppliedInitialRegion = useRef(false);
   const rankingSectionRef = useRef<HTMLDivElement | null>(null);
   const [priceMetric, setPriceMetric] = useState<PriceMetricType>("thing_amt");
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
-
-  useEffect(() => {
-    if (hasAppliedInitialRegion.current) return;
-    hasAppliedInitialRegion.current = true;
-    if (searchParams.has("district")) return;
-
-    // 1. 위치서비스를 통해 확인된 자치구 (sessionStorage)
-    const detectedDistrict = getDetectedDistrict();
-    // 2. 위치서비스 미이용 시 회원 주소/선호 지역 (preferredDistrict)
-    const fallbackDistrict =
-      detectedDistrict
-        ? detectedDistrict
-        : preferredDistrict;
-
-    if (isSeoulDistrict(fallbackDistrict)) {
-      setSearchParams({ district: fallbackDistrict }, { replace: true });
-    }
-  }, [preferredDistrict, searchParams, setSearchParams]);
-
-  // 헤더에서 [내 위치 찾기] 버튼을 눌렀을 때 지도에 즉시 반영
-  useEffect(() => {
-    const handleRegionChanged = (event: Event) => {
-      const customEvent = event as CustomEvent<string>;
-      const nextDistrict = customEvent.detail;
-      if (isSeoulDistrict(nextDistrict)) {
-        setSearchParams({ district: nextDistrict });
-      }
-    };
-    window.addEventListener(REGION_CHANGED_EVENT, handleRegionChanged);
-    return () => {
-      window.removeEventListener(REGION_CHANGED_EVENT, handleRegionChanged);
-    };
-  }, [setSearchParams]);
 
   // 1. 서울시 전체 구 목록 (법정동 코드 매핑용)
   const { data: sggs = [] } = useQuery({

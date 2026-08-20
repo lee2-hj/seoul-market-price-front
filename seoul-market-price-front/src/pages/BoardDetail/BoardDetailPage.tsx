@@ -323,7 +323,8 @@ export default function BoardDetailPage() {
                     <div className="space-y-1.5">
                       {attachments.map((file, idx) => {
                         const fileId = file.attachmentId ?? file.id ?? idx;
-                        const fileName = file.originalFilename || file.fileName || "첨부파일";
+                        const fileName =
+                          file.originalName || file.originalFilename || file.fileName || "첨부파일";
                         const fileSize = file.size ?? file.fileSize ?? 0;
                         return (
                           <div

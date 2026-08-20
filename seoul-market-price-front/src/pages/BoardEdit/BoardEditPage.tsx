@@ -321,7 +321,8 @@ export default function BoardEditPage() {
                   <div className="space-y-1.5">
                     {attachments.map((att: AttachmentResponse) => {
                       const attId = att.attachmentId ?? att.id ?? 0;
-                      const attName = att.originalFilename || att.fileName || "첨부파일";
+                      const attName =
+                        att.originalName || att.originalFilename || att.fileName || "첨부파일";
                       const attSize = att.fileSize ?? att.size ?? 0;
                       return (
                         <div
