@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/table';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { maskAuthorName } from '@/lib/utils';
 
 // select 반환 타입 정의
 interface BoardPostsSelectResult {
@@ -219,47 +220,39 @@ export default function BoardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-[#DCE8ED]">
-                  {/* 1. 상단 고정 공지사항 */}
-                  {data?.notices?.map((notice: BoardListItem, index: number) => (
-                    <TableRow key={`notice-${notice.boardId}`} className="bg-[#F0F7FA] hover:bg-[#E1EFF5] border-b border-[#DCE8ED]">
-                      <TableCell className="w-[9%] text-center text-[#6B7280] font-medium">
-                        {(data?.totalElements ?? 0) + (data?.notices?.length ?? 0) - index}
-                      </TableCell>
-                      <TableCell className="w-[10%] text-center">
-                        <span className="inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]">
-                          공지
-                        </span>
-                      </TableCell>
-                      <TableCell className="w-[43%] text-left max-w-0">
-                        <Link to={`/board/${notice.boardId}`} className="block truncate w-full text-[14px] font-bold text-[#0B5E73] no-underline hover:text-[#0F8AA8]" title={notice.title}>
-                          {notice.title}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="w-[14%] text-center text-[#6B7280]">{notice.authorName}</TableCell>
-                      <TableCell className="w-[15%] text-center text-[#6B7280]">{notice.createdAt?.includes('T') ? `${notice.createdAt.split('T')[0].replace(/-/g, '.')} ${notice.createdAt.split('T')[1]?.slice(0, 5)}` : notice.createdAt?.replace(/-/g, '.') || '-'}</TableCell>
-                      <TableCell className="w-[9%] text-center text-[#6B7280]">{notice.viewCount?.toLocaleString() || 0}</TableCell>
-                    </TableRow>
-                  ))}
-
-                  {/* 2. 일반 게시글 */}
-                  {data?.items?.map((item: BoardListItem, index: number) => {
-                    const displayNo: number = (data?.totalElements || 0) - ((query.page - 1) * 10 + index);
-                    const isNotice: boolean = item.postType === 'NOTICE';
+                  {/* 전체 게시글 목록 (상단 공지 우선 배치 후 순서대로 1씩 감소) */}
+                  {[...(data?.notices || []), ...(data?.items || [])].map((item: BoardListItem, index: number) => {
+                    const totalElements = data?.totalElements ?? 0;
+                    const displayNo = Math.max(1, totalElements - ((query.page - 1) * 10 + index));
+                    const isNotice = item.postType === 'NOTICE' || data?.notices?.some((n) => n.boardId === item.boardId);
 
                     return (
-                      <TableRow key={`item-${item.boardId}`} className={isNotice ? 'bg-[#F0F7FA] hover:bg-[#E1EFF5] border-b border-[#DCE8ED]' : 'bg-white hover:bg-[#F5FAFC] border-b border-[#DCE8ED]'}>
+                      <TableRow
+                        key={`row-${item.boardId}`}
+                        className={isNotice ? 'bg-[#F0F7FA] hover:bg-[#E1EFF5] border-b border-[#DCE8ED]' : 'bg-white hover:bg-[#F5FAFC] border-b border-[#DCE8ED]'}
+                      >
                         <TableCell className="w-[9%] text-center text-[#6B7280] font-medium">{displayNo}</TableCell>
                         <TableCell className="w-[10%] text-center">
-                          <span className={isNotice ? 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]' : 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#E6F4F2] text-[#0F766E]'}>
+                          <span
+                            className={
+                              isNotice
+                                ? 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]'
+                                : 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#E6F4F2] text-[#0F766E]'
+                            }
+                          >
                             {isNotice ? '공지' : '일반'}
                           </span>
                         </TableCell>
                         <TableCell className="w-[43%] text-left max-w-0">
-                          <Link to={`/board/${item.boardId}`} className={`block truncate w-full text-[14px] no-underline hover:text-[#0F8AA8] ${isNotice ? 'font-bold text-[#0B5E73]' : 'font-semibold text-[#13202B]'}`} title={item.title}>
+                          <Link
+                            to={`/board/${item.boardId}`}
+                            className={`block truncate w-full text-[14px] no-underline hover:text-[#0F8AA8] ${isNotice ? 'font-bold text-[#0B5E73]' : 'font-semibold text-[#13202B]'}`}
+                            title={item.title}
+                          >
                             {item.title}
                           </Link>
                         </TableCell>
-                        <TableCell className="w-[14%] text-center text-[#6B7280]">{item.authorName}</TableCell>
+                        <TableCell className="w-[14%] text-center text-[#6B7280]">{maskAuthorName(item.authorName)}</TableCell>
                         <TableCell className="w-[15%] text-center text-[#6B7280]">{item.createdAt?.includes('T') ? `${item.createdAt.split('T')[0].replace(/-/g, '.')} ${item.createdAt.split('T')[1]?.slice(0, 5)}` : item.createdAt?.replace(/-/g, '.') || '-'}</TableCell>
                         <TableCell className="w-[9%] text-center text-[#6B7280]">{item.viewCount?.toLocaleString() || 0}</TableCell>
                       </TableRow>

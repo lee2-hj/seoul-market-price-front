@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Paperclip, X, Upload } from "lucide-react";
 
 import {
   deleteBoardAttachmentApi,
@@ -24,11 +25,17 @@ interface BoardEditFormData {
   content: string;
 }
 
+const MAX_FILE_COUNT = 5;
+const MAX_SINGLE_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+const ALLOWED_FILE_EXTENSIONS =
+  ".jpg,.jpeg,.png,.gif,.webp,.pdf,.zip,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv";
+
 export default function BoardEditPage() {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const boardId = Number(postId);
   const loginUser = useAuthStore((state) => state.user);
@@ -46,8 +53,8 @@ export default function BoardEditPage() {
   const {
     register,
     handleSubmit,
-    reset,
     control,
+    reset,
     formState: { errors },
   } = useForm<BoardEditFormData>({
     defaultValues: {
@@ -61,21 +68,21 @@ export default function BoardEditPage() {
   const { data: post, isLoading, isError, error } = useQuery({
     queryKey: ["board", boardId],
     queryFn: () => getBoardPostApi(boardId),
-    enabled: !isNaN(boardId) && boardId > 0,
+    enabled: !!boardId && !Number.isNaN(boardId),
   });
 
-  const { data: existingAttachments = [] } = useQuery<AttachmentResponse[]>({
+  const { data: attachments = [] } = useQuery<AttachmentResponse[]>({
     queryKey: ["boardAttachments", boardId],
     queryFn: () => getBoardAttachmentsApi(boardId),
-    enabled: !isNaN(boardId) && boardId > 0,
+    enabled: !!boardId && !Number.isNaN(boardId),
   });
 
   const deleteAttachmentMutation = useMutation({
     mutationFn: (attachmentId: number) =>
       deleteBoardAttachmentApi(boardId, attachmentId),
     onSuccess: () => {
-      alert("첨부파일이 삭제되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["boardAttachments", boardId] });
+      alert("첨부파일이 삭제되었습니다.");
     },
     onError: (err: Error) => {
       alert(`첨부파일 삭제 중 오류가 발생했습니다: ${err.message}`);
@@ -108,28 +115,88 @@ export default function BoardEditPage() {
     }
   }, [post, isAuthInitialized, loginUser, boardId, navigate, reset]);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawFiles = Array.from(e.target.files || []);
+    if (rawFiles.length === 0) return;
+
+    // 1. 개별 파일 용량 검증 (100MB)
+    const oversizedFiles = rawFiles.filter(
+      (file) => file.size > MAX_SINGLE_FILE_SIZE,
+    );
+    if (oversizedFiles.length > 0) {
+      alert(
+        `파일당 최대 용량은 100MB입니다.\n초과된 파일: ${oversizedFiles.map((f) => f.name).join(", ")}`,
+      );
+    }
+
+    const validFiles = rawFiles.filter(
+      (file) => file.size <= MAX_SINGLE_FILE_SIZE,
+    );
+    if (validFiles.length === 0) {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    // 2. 최대 개수 검증 (5개)
+    const currentTotal = attachments.length + selectedFiles.length;
+    const availableSlots = MAX_FILE_COUNT - currentTotal;
+    if (availableSlots <= 0) {
+      alert(`첨부파일은 최대 ${MAX_FILE_COUNT}개까지만 등록 가능합니다.`);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    if (validFiles.length > availableSlots) {
+      alert(
+        `최대 ${MAX_FILE_COUNT}개까지만 등록할 수 있어 ${availableSlots}개 파일만 추가되었습니다.`,
+      );
+      setSelectedFiles((prev) => [
+        ...prev,
+        ...validFiles.slice(0, availableSlots),
+      ]);
+    } else {
+      setSelectedFiles((prev) => [...prev, ...validFiles]);
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveNewFile = (indexToRemove: number) => {
+    setSelectedFiles((prev) =>
+      prev.filter((_, index) => index !== indexToRemove),
+    );
+  };
+
   const updateMutation = useMutation({
-    mutationFn: async (data: { title: string; content: string; file: File | null }) => {
+    mutationFn: async (data: { title: string; content: string; files: File[] }) => {
       await updateBoardPostApi(boardId, {
         title: data.title,
         content: data.content,
       });
 
-      if (data.file) {
+      let uploadFailed = false;
+      if (data.files && data.files.length > 0) {
         try {
-          await uploadBoardAttachmentsApi(boardId, [data.file]);
+          await uploadBoardAttachmentsApi(boardId, data.files);
         } catch (uploadErr) {
           console.error("첨부파일 추가 업로드 실패:", uploadErr);
-          alert("게시글은 수정되었으나 첨부파일 업로드 중 오류가 발생했습니다.");
+          uploadFailed = true;
         }
       }
+      return { uploadFailed };
     },
-    onSuccess: () => {
-      alert("게시글이 성공적으로 수정되었습니다.");
+    onSuccess: (result) => {
+      if (result?.uploadFailed) {
+        alert("게시글은 수정되었으나 첨부파일 업로드 중 오류가 발생했습니다.");
+      } else {
+        alert("게시글이 성공적으로 수정되었습니다.");
+      }
       queryClient.invalidateQueries({ queryKey: ["board", boardId] });
       queryClient.invalidateQueries({ queryKey: ["boardPosts"] });
       queryClient.invalidateQueries({ queryKey: ["boardAttachments", boardId] });
-      navigate(`/board/${boardId}`);
+      navigate(`/board/${boardId}`, { replace: true });
     },
     onError: (err: Error) => {
       alert(`게시글 수정 중 오류가 발생했습니다: ${err.message}`);
@@ -156,7 +223,7 @@ export default function BoardEditPage() {
     updateMutation.mutate({
       title: formData.title.trim(),
       content: formData.content.trim(),
-      file: selectedFile,
+      files: selectedFiles,
     });
   };
 
@@ -169,7 +236,6 @@ export default function BoardEditPage() {
   return (
     <div className="min-h-screen bg-[#F5FAFC] py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto space-y-8">
-        {/* 상단 헤더 */}
         <div className="text-center space-y-2">
           <div className="inline-block px-3 py-1 bg-[#E6F4F2] text-[#0F766E] text-[11px] font-extrabold tracking-widest uppercase rounded-full">
             EDIT POST
@@ -182,7 +248,6 @@ export default function BoardEditPage() {
           </p>
         </div>
 
-        {/* 폼 컨테이너 */}
         <div className="bg-white rounded-2xl shadow-xs border border-[#DCE8ED] p-6 md:p-8">
           {isLoading ? (
             <div className="py-20 text-center text-[#6B7280] text-xs">
@@ -203,7 +268,6 @@ export default function BoardEditPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* 제목 */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-[#13202B]">
@@ -230,7 +294,6 @@ export default function BoardEditPage() {
                 )}
               </div>
 
-              {/* 내용 */}
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-[#13202B]">
                   내용
@@ -248,24 +311,28 @@ export default function BoardEditPage() {
                 )}
               </div>
 
-              {/* 기존 첨부파일 목록 */}
-              {existingAttachments.length > 0 && (
-                <div className="p-3.5 bg-[#F0F7FA] rounded-xl border border-[#DCE8ED] space-y-2 text-xs">
-                  <span className="font-semibold text-[#123047] block">
-                    현재 등록된 첨부파일 :
-                  </span>
+              {attachments.length > 0 && (
+                <div className="p-4 bg-[#F0F7FA] rounded-xl border border-[#DCE8ED] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-xs text-[#123047]">
+                      현재 등록된 첨부파일 ({attachments.length}개)
+                    </span>
+                  </div>
                   <div className="space-y-1.5">
-                    {existingAttachments.map((att, idx) => {
-                      const attId = att.attachmentId ?? att.id ?? idx;
+                    {attachments.map((att: AttachmentResponse) => {
+                      const attId = att.attachmentId ?? att.id ?? 0;
                       const attName = att.originalFilename || att.fileName || "첨부파일";
-                      const attSize = att.size ?? att.fileSize ?? 0;
+                      const attSize = att.fileSize ?? att.size ?? 0;
                       return (
                         <div
                           key={attId}
-                          className="flex items-center justify-between p-2 bg-white rounded-lg border border-[#DCE8ED]"
+                          className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-[#DCE8ED] text-xs"
                         >
-                          <span className="text-[#13202B] font-medium truncate">
-                            {attName} ({(attSize / 1024).toFixed(1)} KB)
+                          <span className="text-[#13202B] font-medium truncate max-w-[80%]">
+                            {attName}
+                            <span className="text-[11px] text-[#6B7280] ml-2 font-normal">
+                              ({(attSize / 1024).toFixed(1)} KB)
+                            </span>
                           </span>
                           <button
                             type="button"
@@ -285,29 +352,61 @@ export default function BoardEditPage() {
                 </div>
               )}
 
-              {/* 새 첨부파일 추가 */}
-              <div className="p-3.5 bg-[#F0F7FA] rounded-xl border border-[#DCE8ED] text-xs text-[#6B7280] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-[#123047]">새 첨부파일 추가 :</span>
-                  {selectedFile ? (
-                    <span className="text-[#0F8AA8] font-bold">
-                      {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+              <div className="p-4 bg-[#F0F7FA] rounded-xl border border-[#DCE8ED] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#123047]">
+                    <Paperclip className="w-4 h-4 text-[#0F8AA8]" />
+                    <span>새 첨부파일 추가</span>
+                    <span className="text-[#0F8AA8] font-semibold">
+                      (총 {attachments.length + selectedFiles.length}/{MAX_FILE_COUNT})
                     </span>
-                  ) : (
-                    <span className="text-[#6B7280]">파일을 추가하려면 선택하세요</span>
-                  )}
+                  </div>
+                  <label className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#E6F4F2] hover:bg-[#d0ece8] text-[#0F766E] text-xs font-bold rounded-md cursor-pointer transition-colors">
+                    <Upload className="w-3.5 h-3.5" />
+                    파일 선택
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept={ALLOWED_FILE_EXTENSIONS}
+                      disabled={attachments.length + selectedFiles.length >= MAX_FILE_COUNT}
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
                 </div>
-                <input
-                  type="file"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] || null;
-                    setSelectedFile(file);
-                  }}
-                  className="text-xs text-[#6B7280] file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#E6F4F2] file:text-[#0F766E] hover:file:bg-[#d0ece8] cursor-pointer"
-                />
+
+                {selectedFiles.length > 0 ? (
+                  <div className="space-y-1.5 pt-1">
+                    {selectedFiles.map((file, idx) => (
+                      <div
+                        key={`${file.name}-${idx}`}
+                        className="flex items-center justify-between p-2.5 bg-white border border-[#DCE8ED] rounded-lg text-xs"
+                      >
+                        <span className="font-medium text-[#13202B] truncate max-w-[80%]">
+                          {file.name}
+                          <span className="text-[11px] text-[#6B7280] ml-2 font-normal">
+                            ({(file.size / 1024).toFixed(1)} KB)
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveNewFile(idx)}
+                          className="text-[#9CA3AF] hover:text-rose-500 p-1 rounded transition-colors border-none bg-transparent cursor-pointer"
+                          title="파일 제거"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#9CA3AF]">
+                    기존 파일을 포함하여 최대 {MAX_FILE_COUNT}개까지 추가할 수 있습니다.
+                  </p>
+                )}
               </div>
 
-              {/* 하단 버튼 */}
               <div className="flex items-center justify-between pt-6 border-t border-[#DCE8ED]">
                 <div className="flex items-center gap-2">
                   <Button

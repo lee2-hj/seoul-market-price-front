@@ -17,8 +17,7 @@ import {
   searchApartments,
   getApartmentTrendDetail,
 } from "@/features/trends/services/trendsService";
-import { getApartmentTrendRegionData } from "@/features/trends/services/trendsApiService";
-import { getApartmentComplexesApi } from "@/api/api";
+import { getApartmentComplexesApi, getComplexesApi } from "@/api/api";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import type {
   ApartmentSearchItem,
@@ -82,18 +81,19 @@ export default function MarketTrendsPage() {
   // 차트 호버 툴팁 상태
   const [hoveredMonthIndex, setHoveredMonthIndex] = useState<number | null>(null);
 
-  const { data: regionApiData, isLoading: isRegionApiLoading } = useQuery({
-    queryKey: ["apartmentTrendRegion", selectedApartment.gu, selectedApartment.dong],
-    queryFn: () => getApartmentTrendRegionData(selectedApartment.gu, selectedApartment.dong),
-    enabled: isAuthenticated && Boolean(selectedApartment.gu && selectedApartment.dong),
-    staleTime: 1000 * 60 * 5,
-  });
-
   const { data: apartmentComplexes = [] } = useQuery({
     queryKey: ["apartmentComplexes", selectedApartment.gu, selectedApartment.dong],
     queryFn: () => getApartmentComplexesApi(selectedApartment.gu, selectedApartment.dong),
-    enabled: Boolean(selectedApartment.gu && selectedApartment.dong),
+    enabled: isAuthenticated && Boolean(selectedApartment.gu && selectedApartment.dong),
     staleTime: 1000 * 60 * 10,
+    retry: false,
+  });
+
+  const { data: complexDetails = [], isLoading: isComplexDetailsLoading } = useQuery({
+    queryKey: ["apartmentComplexDetails", selectedApartment.gu, selectedApartment.dong],
+    queryFn: () => getComplexesApi(selectedApartment.gu, selectedApartment.dong),
+    enabled: isAuthenticated && Boolean(selectedApartment.gu && selectedApartment.dong),
+    staleTime: 1000 * 60 * 5,
     retry: false,
   });
 
@@ -108,33 +108,24 @@ export default function MarketTrendsPage() {
     [apartmentComplexes, selectedApartment.dong, selectedApartment.gu],
   );
 
-  const apiApartments = useMemo<ApartmentSearchItem[]>(() => {
-    if (!regionApiData) return [];
-    const summaries = [...regionApiData.top, ...regionApiData.bottom];
-    return summaries.map((item) => ({
-      name: item.name,
-      gu: regionApiData.guName,
-      dong: item.dongName,
-      complexId: `${regionApiData.dongCode}-${item.name}`,
-    }));
-  }, [regionApiData]);
-
-  // 지도 API 후보를 우선 사용하고, 아직 조회하지 않은 지역은 기존 후보로 보완한다.
+  // 백엔드 단지 목록을 우선 사용하고, 아직 조회하지 않은 지역은 기존 후보로 보완한다.
   const suggestions = useMemo(() => {
     const keyword = (isEditingSearch ? debouncedSearchInput : "").trim().toLowerCase();
     const uniqueCandidates = new Map<string, ApartmentSearchItem>();
-    [...complexApartments, ...apiApartments, ...SEOUL_POPULAR_APARTMENTS].forEach((item) => {
+    [...complexApartments, ...SEOUL_POPULAR_APARTMENTS].forEach((item) => {
       uniqueCandidates.set(`${item.gu}-${item.dong}-${item.name}`, item);
     });
-    const matched = [...uniqueCandidates.values()].filter(
+    const allList = [...uniqueCandidates.values()];
+    if (!keyword) {
+      return allList.slice(0, 10);
+    }
+    return allList.filter(
       (item) =>
-        !keyword ||
         item.name.toLowerCase().includes(keyword) ||
         item.gu.toLowerCase().includes(keyword) ||
         item.dong.toLowerCase().includes(keyword),
     );
-    return matched.length > 0 ? matched : searchApartments(debouncedSearchInput);
-  }, [apiApartments, complexApartments, debouncedSearchInput, isEditingSearch]);
+  }, [complexApartments, debouncedSearchInput, isEditingSearch]);
 
   // React Query 기반 아파트별 거래동향 데이터 로드
   const { data, isLoading } = useQuery({
@@ -198,19 +189,28 @@ export default function MarketTrendsPage() {
     setHighlightedSuggestionIndex(-1);
   };
 
-  const selectedApiSummary = regionApiData
-    ? [...regionApiData.top, ...regionApiData.bottom].find(
-        (item) => item.name.trim() === selectedApartment.name.trim(),
-      )
-    : undefined;
+  const selectedComplexDetail = complexDetails.find(
+    (complex) =>
+      String(complex.id) === selectedApartment.complexId ||
+      complex.name.trim() === selectedApartment.name.trim(),
+  );
+  const apiAveragePrice = selectedComplexDetail?.baseSalePrice ?? 0;
+  const apiHighestPrice = Math.max(
+    apiAveragePrice,
+    ...(selectedComplexDetail?.recentTrades?.map((trade) => trade.price) ?? []),
+    ...(selectedComplexDetail?.pyungs.map((pyung) => pyung.salePrice) ?? []),
+  );
   const kpi = data?.kpi
     ? {
         ...data.kpi,
-        ...(selectedApiSummary
+        ...(selectedComplexDetail
           ? {
-              totalTradeCount: selectedApiSummary.dealCount,
-              avgTradePriceEok: Math.floor(selectedApiSummary.averageTradePrice / 10000),
-              avgTradePriceMan: selectedApiSummary.averageTradePrice % 10000,
+              totalTradeCount:
+                selectedComplexDetail.recentTrades?.length ?? data.kpi.totalTradeCount,
+              avgTradePriceEok: Math.floor(apiAveragePrice / 10000),
+              avgTradePriceMan: apiAveragePrice % 10000,
+              maxTradePriceEok: Math.floor(apiHighestPrice / 10000),
+              maxTradePriceMan: apiHighestPrice % 10000,
             }
           : {}),
       }
@@ -220,7 +220,7 @@ export default function MarketTrendsPage() {
   const recentTrades = data?.recentTrades || [];
   const areaStats = data?.areaStats || [];
   const insights = data?.insights || [];
-  const isDataLoading = isLoading || isRegionApiLoading;
+  const isDataLoading = isLoading || isComplexDetailsLoading;
 
   return (
     <div className="tw-scope min-h-screen bg-[#F8FAFC] text-[#0F172A] [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
@@ -345,36 +345,53 @@ export default function MarketTrendsPage() {
                   </form>
 
                   {/* 자동완성 드롭다운 레이어 */}
-                  {isDropdownOpen && suggestions.length > 0 && (
+                  {isDropdownOpen && (
                     <div
                       id="apartment-suggestions"
                       role="listbox"
                       className="relative mt-2 max-h-[260px] w-full overflow-y-auto rounded-lg border border-[#E2E8F0] bg-white py-1.5 shadow-sm"
                     >
-                      {suggestions.map((item, idx) => (
-                        <Button
-                          key={`${item.name}-${idx}`}
-                          id={`apartment-suggestion-${idx}`}
-                          type="button"
-                          variant="ghost"
-                          role="option"
-                          aria-selected={idx === highlightedSuggestionIndex}
-                          onClick={() => handleSelectApartment(item)}
-                          onMouseEnter={() => setHighlightedSuggestionIndex(idx)}
-                          className={`h-auto w-full justify-between rounded-none border-0 px-4 py-2.5 text-left text-[14px] shadow-none focus-visible:ring-0 ${
-                            idx === highlightedSuggestionIndex
-                              ? "bg-white text-[#0F8AA8] shadow-[inset_3px_0_0_#0F8AA8]"
-                              : "bg-white hover:bg-white focus-visible:bg-white"
-                          }`}
-                        >
-                          <span className="font-semibold text-[#0F172A]">
-                            {item.name}
-                          </span>
-                          <span className="text-[12px] text-[#6B7280]">
-                            {item.gu} {item.dong}
-                          </span>
-                        </Button>
-                      ))}
+                      {isComplexDetailsLoading ? (
+                        <div className="flex items-center justify-center gap-2 py-6 text-[13px] text-[#64748B]">
+                          <div className="size-4 animate-spin rounded-full border-2 border-[#0F8AA8] border-t-transparent" />
+                          <span>단지 목록을 불러오는 중입니다...</span>
+                        </div>
+                      ) : suggestions.length > 0 ? (
+                        suggestions.map((item, idx) => (
+                          <Button
+                            key={`${item.name}-${idx}`}
+                            id={`apartment-suggestion-${idx}`}
+                            type="button"
+                            variant="ghost"
+                            role="option"
+                            aria-selected={idx === highlightedSuggestionIndex}
+                            onClick={() => handleSelectApartment(item)}
+                            onMouseEnter={() => setHighlightedSuggestionIndex(idx)}
+                            className={`h-auto w-full justify-between rounded-none border-0 px-4 py-2.5 text-left text-[14px] shadow-none focus-visible:ring-0 ${
+                              idx === highlightedSuggestionIndex
+                                ? "bg-white text-[#0F8AA8] shadow-[inset_3px_0_0_#0F8AA8]"
+                                : "bg-white hover:bg-white focus-visible:bg-white"
+                            }`}
+                          >
+                            <span className="font-semibold text-[#0F172A]">
+                              {item.name}
+                            </span>
+                            <span className="text-[12px] text-[#6B7280]">
+                              {item.gu} {item.dong}
+                            </span>
+                          </Button>
+                        ))
+                      ) : (
+                        <div className="py-6 px-4 text-center text-[13px] text-[#64748B]">
+                          <Building2 className="mx-auto mb-2 size-6 text-[#94A3B8]" />
+                          <p className="font-semibold text-[#1E293B]">
+                            일치하는 아파트 단지가 없습니다.
+                          </p>
+                          <p className="mt-0.5 text-[12px] text-[#94A3B8]">
+                            단지명 또는 구/동 이름을 확인해 주세요.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -714,7 +731,9 @@ export default function MarketTrendsPage() {
                 <Info className="size-4 text-[#2563EB]" />
                 본 정보는 국토교통부 실거래가 공개시스템 데이터를 기반으로 제공됩니다.
               </span>
-              <span>데이터 기준일: {regionApiData?.baseDate || data?.baseDate || "2024.05.20"}</span>
+              <span>
+                데이터 기준일: {selectedComplexDetail?.recentTrades?.[0]?.date || data?.baseDate || "2024.05.20"}
+              </span>
             </div>
           </main>
         </div>

@@ -19,6 +19,7 @@ import {
 import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { Button } from "@/components/ui/button";
+import { maskAuthorName } from "@/lib/utils";
 
 function formatBoardDate(dateStr?: string): string {
   if (!dateStr) return "-";
@@ -218,11 +219,7 @@ export default function BoardDetailPage() {
   };
 
   const handleGoToList = () => {
-    if (window.history.length > 1) {
-      navigate(-1);
-    } else {
-      navigate("/board");
-    }
+    navigate("/board");
   };
 
   if (isNaN(boardId) || boardId <= 0) {
@@ -305,7 +302,7 @@ export default function BoardDetailPage() {
                     {post.title}
                   </h2>
                   <div className="flex items-center gap-4 text-[13px] text-[#6B7280]">
-                    <span>작성자: <strong className="text-[#13202B] font-bold">{post.authorName || "-"}</strong></span>
+                    <span>작성자: <strong className="text-[#13202B] font-bold">{maskAuthorName(post.authorName)}</strong></span>
                     <span>작성일: {formatBoardDate(post.createdAt)}</span>
                     <span>조회수: {post.viewCount}</span>
                   </div>
@@ -457,7 +454,7 @@ export default function BoardDetailPage() {
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <strong className="text-[14px] font-bold text-[#123047]">{authorName}</strong>
+                            <strong className="text-[14px] font-bold text-[#123047]">{maskAuthorName(authorName)}</strong>
                             <span className="text-[12px] text-[#6B7280]">{formatBoardDate(comment.createdAt)}</span>
                           </div>
 
