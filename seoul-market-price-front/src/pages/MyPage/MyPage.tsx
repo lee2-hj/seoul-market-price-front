@@ -101,7 +101,7 @@ const formatPhoneNumber = (value: string): string => {
  */
 const sanitizeAddress = (value: string): string => {
   if (!value) return "";
-  return value.replace(/[^가-힣a-zA-Z0-9\s\-(),.]/g, "");
+  return value.replace(/[^가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9\s\-(),.]/g, "");
 };
 
 type Profile = {
