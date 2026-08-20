@@ -8,10 +8,9 @@ import type {
 } from "@/features/board/types/board.types";
 import {
   downloadBoardAttachmentApi,
-  getBoardPostApi,
-  getBoardAttachmentsApi,
-  deleteBoardPostApi,
+  getBoardFullDetailApi,
   getBoardCommentsApi,
+  deleteBoardPostApi,
   createBoardCommentApi,
   updateBoardCommentApi,
   deleteBoardCommentApi,
@@ -64,25 +63,26 @@ export default function BoardDetailPage() {
   const [editingContent, setEditingContent] = useState("");
 
   // 게시글 정보 Query
-  const { data: post, isLoading, isError, error } = useQuery({
-    queryKey: ["board", boardId],
-    queryFn: () => getBoardPostApi(boardId),
+  const { data: fullDetail, isLoading, isError, error } = useQuery({
+    queryKey: ["boardFull", boardId],
+    queryFn: () => getBoardFullDetailApi(boardId),
     enabled: isValidBoardId,
   });
 
   // 댓글 목록 Query
-  const { data: comments = [], isLoading: isCommentsLoading } = useQuery({
-    queryKey: ["boardComments", boardId],
-    queryFn: () => getBoardCommentsApi(boardId),
-    enabled: isValidBoardId,
-  });
+  const post = fullDetail?.detail;
+  const comments = fullDetail?.comments ?? [];
+  const isCommentsLoading = isLoading;
 
   // 첨부파일 목록 Query
-  const { data: attachments = [] } = useQuery<AttachmentResponse[]>({
-    queryKey: ["boardAttachments", boardId],
-    queryFn: () => getBoardAttachmentsApi(boardId),
-    enabled: isValidBoardId,
-  });
+  const attachments: AttachmentResponse[] = fullDetail?.attachments ?? [];
+
+  const refreshComments = async () => {
+    const nextComments = await getBoardCommentsApi(boardId);
+    queryClient.setQueryData(["boardFull", boardId], (current: typeof fullDetail) =>
+      current ? { ...current, comments: nextComments } : current,
+    );
+  };
 
   // 첨부파일 다운로드 핸들러
   const handleDownload = async (attachmentId: number, originalFilename: string) => {
@@ -120,9 +120,9 @@ export default function BoardDetailPage() {
   // 댓글 작성 Mutation
   const createCommentMutation = useMutation({
     mutationFn: (content: string) => createBoardCommentApi(boardId, { content }),
-    onSuccess: () => {
+    onSuccess: async () => {
       setCommentContent("");
-      queryClient.invalidateQueries({ queryKey: ["boardComments", boardId] });
+      await refreshComments();
     },
     onError: (err: unknown) => {
       alert(`댓글 등록 실패: ${getErrorMessage(err, "오류가 발생했습니다.")}`);
@@ -133,10 +133,10 @@ export default function BoardDetailPage() {
   const updateCommentMutation = useMutation({
     mutationFn: ({ commentId, content }: { commentId: number; content: string }) =>
       updateBoardCommentApi(boardId, commentId, { content }),
-    onSuccess: () => {
+    onSuccess: async () => {
       setEditingCommentId(null);
       setEditingContent("");
-      queryClient.invalidateQueries({ queryKey: ["boardComments", boardId] });
+      await refreshComments();
     },
     onError: (err: unknown) => {
       alert(`댓글 수정 실패: ${getErrorMessage(err, "수정 권한이 없거나 오류가 발생했습니다.")}`);
@@ -146,8 +146,8 @@ export default function BoardDetailPage() {
   // 댓글 삭제 Mutation
   const deleteCommentMutation = useMutation({
     mutationFn: (commentId: number) => deleteBoardCommentApi(boardId, commentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["boardComments", boardId] });
+    onSuccess: async () => {
+      await refreshComments();
     },
     onError: (err: unknown) => {
       alert(`댓글 삭제 실패: ${getErrorMessage(err, "삭제 권한이 없거나 오류가 발생했습니다.")}`);
