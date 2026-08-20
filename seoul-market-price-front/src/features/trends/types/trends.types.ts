@@ -113,3 +113,29 @@ export interface ApartmentTrendDetailResponse {
   insights: TrendInsight[];
   baseDate: string;
 }
+
+// URL 쿼리 파라미터 키 타입 (BoardPage style)
+export type TrendsQueryParamKeys = "name" | "gu" | "dong" | "complexId" | "period";
+
+// URL 쿼리 상태 인터페이스 (BoardPage style)
+export interface TrendsQueryState {
+  name: string;
+  gu: string;
+  dong: string;
+  complexId: string;
+  period: string;
+}
+
+// select 반환 통합 타입 정의 (BoardPage style)
+export interface ApartmentTrendsSelectResult {
+  apartment: ApartmentSearchItem;
+  kpi?: ApartmentKPI;
+  monthlyTrends: MonthlyVolumeAndPricePoint[];
+  areaDistribution: AreaDistributionItem[];
+  recentTrades: RecentTradeRecord[];
+  areaStats: AreaTradeStat[];
+  insights: TrendInsight[];
+  baseDate: string;
+  complexApartments: ApartmentSearchItem[];
+  apiWarning?: string;
+}

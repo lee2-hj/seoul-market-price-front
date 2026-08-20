@@ -959,6 +959,31 @@ export function searchApartments(keyword: string): ApartmentSearchItem[] {
       ];
 }
 
+const MOCK_PERIOD_MONTHS: Record<string, number> = {
+  "최근 6개월": 6,
+  "최근 1년": 12,
+  "최근 2년": 24,
+  "최근 3년": 36,
+};
+
+function formatMockMonth(date: Date): string {
+  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatMockDate(date: Date): string {
+  return `${formatMockMonth(date)}.${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function addMonths(date: Date, amount: number): Date {
+  return new Date(date.getFullYear(), date.getMonth() + amount, 1);
+}
+
+function addDays(date: Date, amount: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + amount);
+  return result;
+}
+
 /**
  * 아파트별 거래동향 상세 데이터 조회 (시안 1:1 맞춤형 데이터 생성 및 계산)
  */
@@ -968,6 +993,10 @@ export async function getApartmentTrendDetail(
 ): Promise<ApartmentTrendDetailResponse> {
   // 실제 API 지연 시뮬레이션
   await new Promise((resolve) => setTimeout(resolve, 60));
+
+  const baseDate = new Date();
+  const periodMonths = MOCK_PERIOD_MONTHS[period] ?? MOCK_PERIOD_MONTHS["최근 1년"];
+  const periodStartDate = addMonths(baseDate, -periodMonths);
 
   // 아파트 기본 가격 책정 (래미안대치팰리스: 22억대, 원베일리: 35억대, 헬리오시티: 20억대 등)
   let basePrice = 221900; // 22억 1,900만원
@@ -1004,22 +1033,14 @@ export async function getApartmentTrendDetail(
     totalAmountEok = Math.round(totalAmountEok * 2.7);
   }
 
-  // 12개월 월별 거래량 & 평균 거래가 추이
-  const monthlyTrends: MonthlyVolumeAndPricePoint[] = [
-    { month: "2023.05", volume: 23, avgPrice: Math.round(basePrice * 0.92) },
-    { month: "2023.06", volume: 25, avgPrice: Math.round(basePrice * 0.94) },
-    { month: "2023.07", volume: 21, avgPrice: Math.round(basePrice * 0.93) },
-    { month: "2023.08", volume: 22, avgPrice: Math.round(basePrice * 0.93) },
-    { month: "2023.09", volume: 28, avgPrice: Math.round(basePrice * 0.96) },
-    { month: "2023.10", volume: 24, avgPrice: Math.round(basePrice * 0.95) },
-    { month: "2023.11", volume: 32, avgPrice: Math.round(basePrice * 0.98) },
-    { month: "2023.12", volume: 25, avgPrice: Math.round(basePrice * 0.94) },
-    { month: "2024.01", volume: 21, avgPrice: Math.round(basePrice * 0.94) },
-    { month: "2024.02", volume: 24, avgPrice: Math.round(basePrice * 0.96) },
-    { month: "2024.03", volume: 21, avgPrice: Math.round(basePrice * 0.95) },
-    { month: "2024.04", volume: 27, avgPrice: Math.round(basePrice * 0.98) },
-    { month: "2024.05", volume: 24, avgPrice: Math.round(basePrice * 1.01) },
-  ];
+  // API 미연동 영역: 현재 월을 기준으로 최근 12개월 더미 추이를 생성한다.
+  const volumes = [23, 25, 21, 22, 28, 24, 32, 25, 21, 24, 21, 27, 24];
+  const priceRates = [0.92, 0.94, 0.93, 0.93, 0.96, 0.95, 0.98, 0.94, 0.94, 0.96, 0.95, 0.98, 1.01];
+  const monthlyTrends: MonthlyVolumeAndPricePoint[] = volumes.map((volume, index) => ({
+    month: formatMockMonth(addMonths(baseDate, index - 12)),
+    volume,
+    avgPrice: Math.round(basePrice * priceRates[index]),
+  }));
 
   // 전용면적별 거래 비중
   const areaDistribution: AreaDistributionItem[] = [
@@ -1029,13 +1050,13 @@ export async function getApartmentTrendDetail(
     { range: "115㎡ 이상", count: Math.round(totalCount * 0.132), percentage: 13.2, color: "#D1D5DB" },
   ];
 
-  // 최근 실거래 내역 5건
+  // API 미연동 영역: 기준일 직전 5일의 더미 실거래 내역
   const recentTrades: RecentTradeRecord[] = [
-    { dealDate: "2024.05.19", area: 84.98, floor: 12, price: Math.round(basePrice * 1.08) },
-    { dealDate: "2024.05.18", area: 109.98, floor: 21, price: Math.round(maxPrice * 0.98) },
-    { dealDate: "2024.05.17", area: 76.79, floor: 8, price: Math.round(basePrice * 0.96) },
-    { dealDate: "2024.05.16", area: 59.91, floor: 15, price: Math.round(basePrice * 0.82) },
-    { dealDate: "2024.05.15", area: 59.97, floor: 7, price: Math.round(basePrice * 0.78) },
+    { dealDate: formatMockDate(addDays(baseDate, -1)), area: 84.98, floor: 12, price: Math.round(basePrice * 1.08) },
+    { dealDate: formatMockDate(addDays(baseDate, -2)), area: 109.98, floor: 21, price: Math.round(maxPrice * 0.98) },
+    { dealDate: formatMockDate(addDays(baseDate, -3)), area: 76.79, floor: 8, price: Math.round(basePrice * 0.96) },
+    { dealDate: formatMockDate(addDays(baseDate, -4)), area: 59.91, floor: 15, price: Math.round(basePrice * 0.82) },
+    { dealDate: formatMockDate(addDays(baseDate, -5)), area: 59.97, floor: 7, price: Math.round(basePrice * 0.78) },
   ];
 
   // 면적별 거래 현황
@@ -1087,13 +1108,13 @@ export async function getApartmentTrendDetail(
       maxTradePriceMan: maxPriceMan,
       maxTradePriceChangeRate: 5.2,
       tradeVolumeChangeRate: 8.7,
-      periodLabel: "(2023.05 ~ 2024.05)",
+      periodLabel: `(${formatMockMonth(periodStartDate)} ~ ${formatMockMonth(baseDate)})`,
     },
     monthlyTrends,
     areaDistribution,
     recentTrades,
     areaStats,
     insights,
-    baseDate: "2024.05.20",
+    baseDate: formatMockDate(baseDate),
   };
 }
