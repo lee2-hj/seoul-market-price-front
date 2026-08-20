@@ -17,6 +17,8 @@ import type {
   CommentUpdateRequest,
   PostType,
   NoticeLevel,
+  AttachmentResponse,
+  AttachmentDownloadResponse,
 } from "@/features/board/types/board.types";
 
 // ===============================
@@ -573,15 +575,6 @@ export async function deleteBoardCommentApi(
   await apiMiddleware.delete(`/api/boards/${boardId}/comments/${commentId}`);
 }
 
-/* ==========================================
- 게시판 첨부파일 API (추가 요청용)
-========================================== */
-
-import type {
-  AttachmentResponse,
-  AttachmentDownloadResponse,
-} from "@/features/board/types/board.types";
-
 /**
  * 게시글 첨부파일 다중/단일 업로드 API (POST /api/boards/:boardId/attachments)
  */
@@ -1046,4 +1039,86 @@ export async function getApartmentCompareApi(
     },
   );
   return response.data;
+}
+
+/* Q&A 첨부파일 API  */
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+export async function uploadQnaAttachmentsApi(
+  qnaId: number,
+  files: File[],
+): Promise<AttachmentResponse[]> {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append("files", file);
+  });
+
+  const response = await apiMiddleware.post<AttachmentResponse[]>(
+    `/api/qnas/${qnaId}/attachments`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
+  return response.data;
+}
+
+export async function getQnaAttachmentsApi(
+  qnaId: number,
+): Promise<AttachmentResponse[]> {
+  const response = await apiMiddleware.get<AttachmentResponse[]>(
+    `/api/qnas/${qnaId}/attachments`,
+  );
+  return response.data || [];
+}
+
+export async function downloadQnaAttachmentApi(
+  qnaId: number,
+  attachmentId: number,
+): Promise<AttachmentDownloadResponse> {
+  const response = await apiMiddleware.get<AttachmentDownloadResponse>(
+    `/api/qnas/${qnaId}/attachments/${attachmentId}/download`,
+  );
+  return response.data;
+}
+
+export async function deleteQnaAttachmentApi(
+  qnaId: number,
+  attachmentId: number,
+): Promise<void> {
+  await apiMiddleware.delete(`/api/qnas/${qnaId}/attachments/${attachmentId}`);
+}
+
+/* Q&A 첨부파일 커스텀 훅 */
+
+export function useQnaAttachments(qnaId: number) {
+  return useQuery<AttachmentResponse[]>({
+    queryKey: ["qnaAttachments", qnaId],
+    queryFn: () => getQnaAttachmentsApi(qnaId),
+    enabled: Boolean(qnaId && qnaId > 0),
+  });
+}
+
+export function useUploadQnaAttachments(qnaId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (files: File[]) => uploadQnaAttachmentsApi(qnaId, files),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["qnaAttachments", qnaId] });
+    },
+  });
+}
+
+export function useDeleteQnaAttachment(qnaId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (attachmentId: number) =>
+      deleteQnaAttachmentApi(qnaId, attachmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["qnaAttachments", qnaId] });
+    },
+  });
 }

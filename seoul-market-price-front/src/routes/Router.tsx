@@ -40,6 +40,7 @@ import PriceCompareAptPage from "../pages/PriceCompareApt/PriceCompareAptPage";
 
 /*아파트별 거래동향 임포트*/
 import MarketTrendsAptPage from "@/pages/Trends/MarketTrendsAptPage";
+import MarketTrendsPage from "@/pages/Trends/MarketTrendsPage";
 
 /* 일반 게시판 목록·작성·수정·상세 화면 */
 import BoardPage from "@/pages/Board/BoardPage";
