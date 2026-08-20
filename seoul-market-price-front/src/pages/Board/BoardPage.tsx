@@ -82,7 +82,11 @@ export default function BoardPage() {
       // 따라서 1페이지 응답만으로는 뒤 페이지의 공지를 상단 고정할 수 없어,
       // 전체 범위에서 최신 공지 2건을 한 번 더 조회한다.
       if (query.keyword) {
-        return { ...currentPageData, notices: [] };
+        const searchItems = [...currentPageData.notices, ...currentPageData.items].sort(
+          (a, b) =>
+            Date.parse(b.createdAt) - Date.parse(a.createdAt) || b.boardId - a.boardId,
+        );
+        return { ...currentPageData, notices: [], items: searchItems };
       }
 
       const allPostsData = await getBoardPostsApi({
