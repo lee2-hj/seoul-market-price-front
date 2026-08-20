@@ -184,10 +184,10 @@ export default function BoardWritePage() {
             CREATE POST
           </div>
           <h1 className="text-3xl font-extrabold text-[#123047] tracking-tight">
-            공지사항 글쓰기
+            게시글 작성
           </h1>
           <p className="text-sm text-[#6B7280]">
-            싸부(SSABU) 서비스의 새로운 소식을 등록합니다.
+            싸부(SSABU) 게시판에 새로운 글을 등록합니다.
           </p>
         </div>
 
@@ -325,4 +325,3 @@ export default function BoardWritePage() {
     </div>
   );
 }
-

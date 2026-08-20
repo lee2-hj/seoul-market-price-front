@@ -1,5 +1,12 @@
-import { useState, useMemo, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import {
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   RotateCcw,
@@ -11,10 +18,10 @@ import {
   ChevronRight,
   Info,
   HelpCircle,
+  AlertCircle,
 } from "lucide-react";
 import {
   SEOUL_POPULAR_APARTMENTS,
-  searchApartments,
   getApartmentTrendDetail,
 } from "@/features/trends/services/trendsService";
 import { getApartmentComplexesApi, getComplexesApi } from "@/api/api";
@@ -23,6 +30,10 @@ import type {
   ApartmentSearchItem,
   MonthlyVolumeAndPricePoint,
   AreaDistributionItem,
+  ApartmentKPI,
+  TrendsQueryState,
+  ApartmentTrendsSelectResult,
+  TrendInsight,
 } from "@/features/trends/types/trends.types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,6 +56,160 @@ import {
 
 const PERIOD_OPTIONS = ["최근 6개월", "최근 1년", "최근 2년", "최근 3년"];
 const SEARCH_DEBOUNCE_MS = 300;
+const DEFAULT_PERIOD = "최근 1년";
+const DEFAULT_APARTMENT = SEOUL_POPULAR_APARTMENTS[0];
+
+function getTrendsQuery(searchParams: URLSearchParams): TrendsQueryState {
+  const name = searchParams.get("name")?.trim();
+  const gu = searchParams.get("gu")?.trim();
+  const dong = searchParams.get("dong")?.trim();
+  const complexId = searchParams.get("complexId")?.trim();
+  const periodParam = searchParams.get("period")?.trim();
+  const popularApartment = name
+    ? SEOUL_POPULAR_APARTMENTS.find(
+        (item) => item.name === name && (!gu || item.gu === gu),
+      )
+    : undefined;
+
+  return {
+    name: name || DEFAULT_APARTMENT.name,
+    gu: gu || popularApartment?.gu || DEFAULT_APARTMENT.gu,
+    dong: dong || popularApartment?.dong || DEFAULT_APARTMENT.dong,
+    complexId: complexId || popularApartment?.complexId || "",
+    period:
+      periodParam && PERIOD_OPTIONS.includes(periodParam)
+        ? periodParam
+        : DEFAULT_PERIOD,
+  };
+}
+
+function getSelectedApartment(query: TrendsQueryState): ApartmentSearchItem {
+  return {
+    name: query.name,
+    gu: query.gu,
+    dong: query.dong,
+    complexId: query.complexId || undefined,
+  };
+}
+
+function formatPrice(eok?: number, man?: number): string {
+  if (eok === undefined || man === undefined || (eok === 0 && man === 0)) return "-";
+  return man === 0 ? `${eok}억원` : `${eok}억 ${man.toLocaleString()}만원`;
+}
+
+interface KpiItemProps {
+  label: string;
+  value: string;
+  changeRate?: number;
+  periodLabel: string;
+  className?: string;
+}
+
+function KpiItem({ label, value, changeRate, periodLabel, className = "" }: KpiItemProps) {
+  const rate = changeRate ?? 0;
+  const isIncrease = rate >= 0;
+
+  return (
+    <div className={`border-b border-[#E2E8F0] p-4 lg:border-b-0 ${className}`}>
+      <span className="block text-[12px] font-medium text-[#6B7280]">{label}</span>
+      <div className="mt-2 text-[21px] font-extrabold tracking-[-0.02em] text-[#0F172A]">
+        {value}
+      </div>
+      <div className={`mt-1 text-[11px] font-medium ${isIncrease ? "text-[#E11D48]" : "text-[#2563EB]"}`}>
+        전년 대비 {isIncrease ? "▲" : "▼"} {Math.abs(rate)}%
+      </div>
+      <span className="mt-0.5 block text-[10px] text-[#9CA3AF]">{periodLabel}</span>
+    </div>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex h-[240px] flex-col items-center justify-center text-[13px] text-[#64748B]">
+      <BarChart3 className="mb-2 size-6 text-[#94A3B8]" />
+      <span>{message}</span>
+    </div>
+  );
+}
+
+function InsightIcon({ type }: { type: TrendInsight["iconType"] }) {
+  const config = {
+    up: { Icon: TrendingUp, className: "bg-[#DCFCE7] text-[#16A34A]" },
+    chart: { Icon: BarChart3, className: "bg-[#DBEAFE] text-[#2563EB]" },
+    star: { Icon: Star, className: "bg-[#F3E8FF] text-[#7C3AED]" },
+  }[type];
+  const { Icon } = config;
+
+  return (
+    <div className={`flex size-7 items-center justify-center rounded-full ${config.className}`}>
+      <Icon className={`size-4 ${type === "star" ? "fill-current" : ""}`} />
+    </div>
+  );
+}
+
+interface DetailCardProps {
+  title: string;
+  buttonLabel: string;
+  onViewAll: () => void;
+  children: ReactNode;
+}
+
+function DetailCard({ title, buttonLabel, onViewAll, children }: DetailCardProps) {
+  return (
+    <Card className="flex flex-col rounded-xl border-[#E2E8F0] shadow-none">
+      <CardHeader className="p-3 pb-1">
+        <CardTitle className="text-[15px] font-semibold text-[#0F172A]">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="grid flex-1 grid-rows-[1fr_auto] p-3 pt-1">
+        {children}
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onViewAll}
+          className="mt-1 h-8 w-full rounded-md border border-[#E2E8F0] bg-white text-[12px] font-semibold text-[#0F8AA8] shadow-none hover:bg-[#F8FAFC] hover:text-[#0B7285]"
+        >
+          {buttonLabel} <ChevronRight className="size-4" />
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface TrendModalProps {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+  maxWidth?: string;
+}
+
+function TrendModal({ open, title, onClose, children, maxWidth = "max-w-2xl" }: TrendModalProps) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={`flex max-h-[85vh] w-full flex-col space-y-4 rounded-2xl border border-[#DCE8ED] bg-white p-6 shadow-2xl ${maxWidth}`}
+      >
+        <header className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
+          <h3 className="text-[18px] font-bold text-[#123047]">{title}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="모달 닫기"
+            className="cursor-pointer text-[20px] font-bold text-[#9CA3AF] hover:text-[#111827]"
+          >
+            ✕
+          </button>
+        </header>
+        {children}
+      </section>
+    </div>
+  );
+}
 
 function useDebouncedValue<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -60,59 +225,138 @@ function useDebouncedValue<T>(value: T, delay: number): T {
 export default function MarketTrendsPage() {
   const isAuthenticated = useAuthStore((state) => state.user !== null);
 
-  // 검색어 및 선택된 아파트 상태
-  const [searchInput, setSearchInput] = useState("래미안대치팰리스");
-  const [selectedApartment, setSelectedApartment] = useState<ApartmentSearchItem>(
-    SEOUL_POPULAR_APARTMENTS[0]
-  );
-  const [selectedPeriod, setSelectedPeriod] = useState<string>("최근 1년");
-  const debouncedSearchInput = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
+  // 1. URL 쿼리 파라미터 상태 관리 (BoardPage 스타일)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = getTrendsQuery(searchParams);
+  const selectedApartment = getSelectedApartment(query);
+  const selectedPeriod = query.period;
 
-  // 자동완성 드롭다운 상태
+  const setQuery = (updates: Partial<TrendsQueryState>) => {
+    const next: TrendsQueryState = { ...query, ...updates };
+    const params: Record<string, string> = {
+      name: next.name,
+      gu: next.gu,
+      dong: next.dong,
+      period: next.period,
+    };
+    if (next.complexId) {
+      params.complexId = next.complexId;
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  // 2. 검색 입력 및 드롭다운 상태
+  const [searchInput, setSearchInput] = useState(query.name);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isEditingSearch, setIsEditingSearch] = useState(false);
   const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const debouncedSearchInput = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
 
-  // 모달 상태 (전체 실거래 / 전체 면적별 현황)
+  // URL 변경 시 검색창 텍스트 동기화
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSearchInput(query.name);
+  }, [query.name]);
+
+  // 모달 및 차트 호버 툴팁 상태
   const [isTradesModalOpen, setIsTradesModalOpen] = useState(false);
   const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
-
-  // 차트 호버 툴팁 상태
   const [hoveredMonthIndex, setHoveredMonthIndex] = useState<number | null>(null);
 
-  const { data: apartmentComplexes = [] } = useQuery({
-    queryKey: ["apartmentComplexes", selectedApartment.gu, selectedApartment.dong],
-    queryFn: () => getApartmentComplexesApi(selectedApartment.gu, selectedApartment.dong),
-    enabled: isAuthenticated && Boolean(selectedApartment.gu && selectedApartment.dong),
-    staleTime: 1000 * 60 * 10,
-    retry: false,
-  });
+  // 3. 통합 React Query 및 select 단일 정리 (BoardPage style)
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: [
+      "apartmentTrends",
+      query.name,
+      query.gu,
+      query.dong,
+      query.complexId,
+      query.period,
+      isAuthenticated,
+    ],
+    queryFn: async () => {
+      const trendRes = await getApartmentTrendDetail(selectedApartment, query.period);
+      const [complexesResult, complexDetailsResult] = await Promise.allSettled([
+        isAuthenticated && query.gu && query.dong
+          ? getApartmentComplexesApi(query.gu, query.dong)
+          : Promise.resolve([]),
+        isAuthenticated && query.gu && query.dong
+          ? getComplexesApi(query.gu, query.dong)
+          : Promise.resolve([]),
+      ]);
+      const complexesRes = complexesResult.status === "fulfilled" ? complexesResult.value : [];
+      const complexDetailsRes =
+        complexDetailsResult.status === "fulfilled" ? complexDetailsResult.value : [];
+      const hasApiFailure =
+        complexesResult.status === "rejected" || complexDetailsResult.status === "rejected";
 
-  const { data: complexDetails = [], isLoading: isComplexDetailsLoading } = useQuery({
-    queryKey: ["apartmentComplexDetails", selectedApartment.gu, selectedApartment.dong],
-    queryFn: () => getComplexesApi(selectedApartment.gu, selectedApartment.dong),
-    enabled: isAuthenticated && Boolean(selectedApartment.gu && selectedApartment.dong),
-    staleTime: 1000 * 60 * 5,
-    retry: false,
-  });
+      const selectedDetail = complexDetailsRes.find(
+        (complex) =>
+          String(complex.id) === query.complexId ||
+          complex.name.trim() === query.name.trim(),
+      );
 
-  const complexApartments = useMemo<ApartmentSearchItem[]>(
-    () =>
-      apartmentComplexes.map((complex) => ({
+      return {
+        trend: trendRes,
+        complexes: complexesRes,
+        selectedDetail,
+        apiWarning: hasApiFailure
+          ? "실제 단지 API 연결에 실패해 미연동 항목은 더미 데이터로 표시합니다."
+          : undefined,
+      };
+    },
+    select: ({ trend, complexes, selectedDetail, apiWarning }): ApartmentTrendsSelectResult => {
+      const complexApartments: ApartmentSearchItem[] = complexes.map((complex) => ({
         name: complex.complexName,
-        gu: complex.sggNm || selectedApartment.gu,
-        dong: complex.dongNm || selectedApartment.dong,
+        gu: complex.sggNm || query.gu,
+        dong: complex.dongNm || query.dong,
         complexId: String(complex.complexNo),
-      })),
-    [apartmentComplexes, selectedApartment.dong, selectedApartment.gu],
-  );
+      }));
 
-  // 백엔드 단지 목록을 우선 사용하고, 아직 조회하지 않은 지역은 기존 후보로 보완한다.
+      const apiAveragePrice = selectedDetail?.baseSalePrice ?? 0;
+      const apiHighestPrice = Math.max(
+        apiAveragePrice,
+        ...(selectedDetail?.recentTrades?.map((trade) => trade.price) ?? []),
+        ...(selectedDetail?.pyungs?.map((pyung) => pyung.salePrice) ?? []),
+      );
+
+      const kpi: ApartmentKPI | undefined = trend?.kpi
+        ? {
+            ...trend.kpi,
+            ...(selectedDetail && apiAveragePrice > 0
+              ? {
+                  avgTradePriceEok: Math.floor(apiAveragePrice / 10000),
+                  avgTradePriceMan: apiAveragePrice % 10000,
+                  maxTradePriceEok: Math.floor(apiHighestPrice / 10000),
+                  maxTradePriceMan: apiHighestPrice % 10000,
+                }
+              : {}),
+          }
+        : undefined;
+
+      return {
+        apartment: selectedApartment,
+        kpi,
+        monthlyTrends: trend?.monthlyTrends || [],
+        areaDistribution: trend?.areaDistribution || [],
+        recentTrades: trend?.recentTrades || [],
+        areaStats: trend?.areaStats || [],
+        insights: trend?.insights || [],
+        baseDate: trend?.baseDate || "",
+        complexApartments,
+        apiWarning,
+      };
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // 검색 제안 목록 계산
   const suggestions = useMemo(() => {
     const keyword = (isEditingSearch ? debouncedSearchInput : "").trim().toLowerCase();
+    const candidateList = data?.complexApartments || [];
     const uniqueCandidates = new Map<string, ApartmentSearchItem>();
-    [...complexApartments, ...SEOUL_POPULAR_APARTMENTS].forEach((item) => {
+    [...candidateList, ...SEOUL_POPULAR_APARTMENTS].forEach((item) => {
       uniqueCandidates.set(`${item.gu}-${item.dong}-${item.name}`, item);
     });
     const allList = [...uniqueCandidates.values()];
@@ -125,18 +369,7 @@ export default function MarketTrendsPage() {
         item.gu.toLowerCase().includes(keyword) ||
         item.dong.toLowerCase().includes(keyword),
     );
-  }, [complexApartments, debouncedSearchInput, isEditingSearch]);
-
-  // React Query 기반 아파트별 거래동향 데이터 로드
-  const { data, isLoading } = useQuery({
-    queryKey: [
-      "apartmentTrendDetail",
-      selectedApartment.complexId ?? selectedApartment.name,
-      selectedPeriod,
-    ],
-    queryFn: () => getApartmentTrendDetail(selectedApartment, selectedPeriod),
-    staleTime: 1000 * 60 * 5,
-  });
+  }, [data?.complexApartments, debouncedSearchInput, isEditingSearch]);
 
   // 검색창 외부 클릭 시 드롭다운 닫기
   useEffect(() => {
@@ -157,11 +390,21 @@ export default function MarketTrendsPage() {
 
   // 아파트 선택 핸들러
   const handleSelectApartment = (apt: ApartmentSearchItem) => {
-    setSelectedApartment(apt);
     setSearchInput(apt.name);
     setIsDropdownOpen(false);
     setIsEditingSearch(false);
     setHighlightedSuggestionIndex(-1);
+    setQuery({
+      name: apt.name,
+      gu: apt.gu,
+      dong: apt.dong,
+      complexId: apt.complexId || "",
+    });
+  };
+
+  // 기간 변경 핸들러
+  const handlePeriodChange = (newPeriod: string) => {
+    setQuery({ period: newPeriod });
   };
 
   // 검색 실행 핸들러
@@ -178,49 +421,92 @@ export default function MarketTrendsPage() {
     }
   };
 
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setIsDropdownOpen(true);
+      setHighlightedSuggestionIndex((index) =>
+        suggestions.length === 0 ? -1 : (index + 1) % suggestions.length,
+      );
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setIsDropdownOpen(true);
+      setHighlightedSuggestionIndex((index) =>
+        suggestions.length === 0
+          ? -1
+          : index <= 0
+            ? suggestions.length - 1
+            : index - 1,
+      );
+      return;
+    }
+    if (event.key === "Enter" && isDropdownOpen && highlightedSuggestionIndex >= 0) {
+      const suggestion = suggestions[highlightedSuggestionIndex];
+      if (suggestion) {
+        event.preventDefault();
+        handleSelectApartment(suggestion);
+      }
+      return;
+    }
+    if (event.key === "Escape") {
+      setIsDropdownOpen(false);
+      setHighlightedSuggestionIndex(-1);
+    }
+  };
+
   // 초기화 핸들러
   const handleReset = () => {
-    const defaultApt = SEOUL_POPULAR_APARTMENTS[0];
-    setSelectedApartment(defaultApt);
-    setSearchInput(defaultApt.name);
-    setSelectedPeriod("최근 1년");
+    setSearchInput(DEFAULT_APARTMENT.name);
     setIsDropdownOpen(false);
     setIsEditingSearch(false);
     setHighlightedSuggestionIndex(-1);
+    setSearchParams({}, { replace: true });
   };
 
-  const selectedComplexDetail = complexDetails.find(
-    (complex) =>
-      String(complex.id) === selectedApartment.complexId ||
-      complex.name.trim() === selectedApartment.name.trim(),
-  );
-  const apiAveragePrice = selectedComplexDetail?.baseSalePrice ?? 0;
-  const apiHighestPrice = Math.max(
-    apiAveragePrice,
-    ...(selectedComplexDetail?.recentTrades?.map((trade) => trade.price) ?? []),
-    ...(selectedComplexDetail?.pyungs.map((pyung) => pyung.salePrice) ?? []),
-  );
-  const kpi = data?.kpi
-    ? {
-        ...data.kpi,
-        ...(selectedComplexDetail
-          ? {
-              totalTradeCount:
-                selectedComplexDetail.recentTrades?.length ?? data.kpi.totalTradeCount,
-              avgTradePriceEok: Math.floor(apiAveragePrice / 10000),
-              avgTradePriceMan: apiAveragePrice % 10000,
-              maxTradePriceEok: Math.floor(apiHighestPrice / 10000),
-              maxTradePriceMan: apiHighestPrice % 10000,
-            }
-          : {}),
-      }
-    : undefined;
+  // 4. select 결과에서 가져온 정돈된 데이터
+  const kpi = data?.kpi;
   const monthlyTrends = data?.monthlyTrends || [];
   const areaDist = data?.areaDistribution || [];
   const recentTrades = data?.recentTrades || [];
   const areaStats = data?.areaStats || [];
   const insights = data?.insights || [];
-  const isDataLoading = isLoading || isComplexDetailsLoading;
+  const isDataLoading = isLoading;
+  const periodLabel = kpi?.periodLabel || `(${selectedPeriod} 기준)`;
+  const kpiItems: KpiItemProps[] = [
+    {
+      label: "총 거래 건수",
+      value: isDataLoading ? "-" : `${kpi?.totalTradeCount ?? 0}건`,
+      changeRate: kpi?.totalTradeCountChangeRate,
+      periodLabel,
+    },
+    {
+      label: "총 거래 금액",
+      value: isDataLoading ? "-" : `${(kpi?.totalTradeAmountEok ?? 0).toLocaleString()}억원`,
+      changeRate: kpi?.totalTradeAmountChangeRate,
+      periodLabel,
+    },
+    {
+      label: "평균 거래가",
+      value: isDataLoading ? "-" : formatPrice(kpi?.avgTradePriceEok, kpi?.avgTradePriceMan),
+      changeRate: kpi?.avgTradePriceChangeRate,
+      periodLabel,
+    },
+    {
+      label: "최고 거래가",
+      value: isDataLoading ? "-" : formatPrice(kpi?.maxTradePriceEok, kpi?.maxTradePriceMan),
+      changeRate: kpi?.maxTradePriceChangeRate,
+      periodLabel,
+    },
+    {
+      label: "거래량 증감률",
+      value: isDataLoading ? "-" : `${kpi?.tradeVolumeChangeRate ?? 0}%`,
+      changeRate: kpi?.tradeVolumeChangeRate,
+      periodLabel,
+      className: "border-b-0",
+    },
+  ];
 
   return (
     <div className="tw-scope min-h-screen bg-[#F8FAFC] text-[#0F172A] [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
@@ -281,6 +567,24 @@ export default function MarketTrendsPage() {
               </p>
             </div>
 
+            {/* 오류 발생 시 안내 배너 (BoardPage 스타일) */}
+            {isError && (
+              <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-[13px] font-medium text-rose-600">
+                <AlertCircle className="size-4 shrink-0" />
+                <span>
+                  데이터를 불러오는 중 오류가 발생했습니다:{" "}
+                  {(error as Error)?.message || "네트워크 상태를 확인해 주세요."}
+                </span>
+              </div>
+            )}
+
+            {data?.apiWarning && (
+              <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-[13px] font-medium text-amber-700">
+                <AlertCircle className="size-4 shrink-0" />
+                <span>{data.apiWarning}</span>
+              </div>
+            )}
+
             {/* 2. 검색 & 필터 바 */}
             <Card className="rounded-xl border-[#E2E8F0] shadow-none">
               <CardContent className="p-4 sm:p-5">
@@ -311,34 +615,7 @@ export default function MarketTrendsPage() {
                         setIsEditingSearch(false);
                         setHighlightedSuggestionIndex(-1);
                       }}
-                      onKeyDown={(event) => {
-                        if (event.key === "ArrowDown") {
-                          event.preventDefault();
-                          setIsDropdownOpen(true);
-                          setHighlightedSuggestionIndex((index) =>
-                            suggestions.length === 0 ? -1 : (index + 1) % suggestions.length,
-                          );
-                        } else if (event.key === "ArrowUp") {
-                          event.preventDefault();
-                          setIsDropdownOpen(true);
-                          setHighlightedSuggestionIndex((index) =>
-                            suggestions.length === 0
-                              ? -1
-                              : index <= 0
-                                ? suggestions.length - 1
-                                : index - 1,
-                          );
-                        } else if (event.key === "Enter" && isDropdownOpen && highlightedSuggestionIndex >= 0) {
-                          const suggestion = suggestions[highlightedSuggestionIndex];
-                          if (suggestion) {
-                            event.preventDefault();
-                            handleSelectApartment(suggestion);
-                          }
-                        } else if (event.key === "Escape") {
-                          setIsDropdownOpen(false);
-                          setHighlightedSuggestionIndex(-1);
-                        }
-                      }}
+                      onKeyDown={handleSearchKeyDown}
                       placeholder="아파트명을 입력해 주세요"
                       className="h-11 rounded-lg border-[#CBD5E1] bg-white px-4 text-[14px] shadow-none focus-visible:border-[#0F8AA8] focus-visible:ring-[#0F8AA8]/15"
                     />
@@ -351,7 +628,7 @@ export default function MarketTrendsPage() {
                       role="listbox"
                       className="relative mt-2 max-h-[260px] w-full overflow-y-auto rounded-lg border border-[#E2E8F0] bg-white py-1.5 shadow-sm"
                     >
-                      {isComplexDetailsLoading ? (
+                      {isLoading ? (
                         <div className="flex items-center justify-center gap-2 py-6 text-[13px] text-[#64748B]">
                           <div className="size-4 animate-spin rounded-full border-2 border-[#0F8AA8] border-t-transparent" />
                           <span>단지 목록을 불러오는 중입니다...</span>
@@ -406,7 +683,7 @@ export default function MarketTrendsPage() {
                 </Button>
 
                 {/* 기간 선택 드롭다운 */}
-                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <Select value={selectedPeriod} onValueChange={handlePeriodChange}>
                   <SelectTrigger className="h-11 min-w-[140px] rounded-lg border-[#CBD5E1] bg-white px-4 text-[14px] font-medium shadow-none">
                     <SelectValue aria-label="조회 기간 선택" />
                   </SelectTrigger>
@@ -448,95 +725,9 @@ export default function MarketTrendsPage() {
 
             {/* 3. 5대 KPI 요약 지표 카드 */}
             <Card className="grid grid-cols-1 overflow-hidden rounded-xl border-[#E2E8F0] shadow-none sm:grid-cols-2 lg:grid-cols-5 lg:divide-x lg:divide-[#E2E8F0]">
-              {/* KPI 1: 총 거래 건수 */}
-              <div className="border-b border-[#E2E8F0] p-4 lg:border-b-0">
-                <span className="text-[12px] font-medium text-[#6B7280] block">
-                  총 거래 건수
-                </span>
-                <div className="mt-2 text-[21px] font-extrabold tracking-[-0.02em] text-[#0F172A]">
-                  {isDataLoading ? "-" : `${kpi?.totalTradeCount}건`}
-                </div>
-                <div className="mt-1 flex items-center gap-1 text-[11px] font-medium text-[#E11D48]">
-                  <span>전년 대비 ▲ {kpi?.totalTradeCountChangeRate}%</span>
-                </div>
-                <span className="text-[10px] text-[#9CA3AF] block mt-0.5">
-                  {kpi?.periodLabel}
-                </span>
-              </div>
-
-              {/* KPI 2: 총 거래 금액 */}
-              <div className="border-b border-[#E2E8F0] p-4 lg:border-b-0">
-                <span className="text-[12px] font-medium text-[#6B7280] block">
-                  총 거래 금액
-                </span>
-                <div className="mt-2 text-[21px] font-extrabold tracking-[-0.02em] text-[#0F172A]">
-                  {isDataLoading
-                    ? "-"
-                    : `${kpi?.totalTradeAmountEok.toLocaleString()}억원`}
-                </div>
-                <div className="mt-1 flex items-center gap-1 text-[11px] font-medium text-[#E11D48]">
-                  <span>전년 대비 ▲ {kpi?.totalTradeAmountChangeRate}%</span>
-                </div>
-                <span className="text-[10px] text-[#9CA3AF] block mt-0.5">
-                  {kpi?.periodLabel}
-                </span>
-              </div>
-
-              {/* KPI 3: 평균 거래가 */}
-              <div className="border-b border-[#E2E8F0] p-4 lg:border-b-0">
-                <span className="text-[12px] font-medium text-[#6B7280] block">
-                  평균 거래가
-                </span>
-                <div className="mt-2 text-[21px] font-extrabold tracking-[-0.02em] text-[#0F172A]">
-                  {isDataLoading
-                    ? "-"
-                    : kpi?.avgTradePriceMan === 0
-                    ? `${kpi?.avgTradePriceEok}억원`
-                    : `${kpi?.avgTradePriceEok}억 ${kpi?.avgTradePriceMan.toLocaleString()}만원`}
-                </div>
-                <div className="mt-1 flex items-center gap-1 text-[11px] font-medium text-[#E11D48]">
-                  <span>전년 대비 ▲ {kpi?.avgTradePriceChangeRate}%</span>
-                </div>
-                <span className="text-[10px] text-[#9CA3AF] block mt-0.5">
-                  {kpi?.periodLabel}
-                </span>
-              </div>
-
-              {/* KPI 4: 최고 거래가 */}
-              <div className="border-b border-[#E2E8F0] p-4 lg:border-b-0">
-                <span className="text-[12px] font-medium text-[#6B7280] block">
-                  최고 거래가
-                </span>
-                <div className="mt-2 text-[21px] font-extrabold tracking-[-0.02em] text-[#0F172A]">
-                  {isDataLoading
-                    ? "-"
-                    : kpi?.maxTradePriceMan === 0
-                    ? `${kpi?.maxTradePriceEok}억원`
-                    : `${kpi?.maxTradePriceEok}억 ${kpi?.maxTradePriceMan.toLocaleString()}만원`}
-                </div>
-                <div className="mt-1 flex items-center gap-1 text-[11px] font-medium text-[#E11D48]">
-                  <span>전년 대비 ▲ {kpi?.maxTradePriceChangeRate}%</span>
-                </div>
-                <span className="text-[10px] text-[#9CA3AF] block mt-0.5">
-                  {kpi?.periodLabel}
-                </span>
-              </div>
-
-              {/* KPI 5: 거래량 증감률 */}
-              <div className="p-4">
-                <span className="text-[12px] font-medium text-[#6B7280] block">
-                  거래량 증감률
-                </span>
-                <div className="mt-2 text-[21px] font-extrabold tracking-[-0.02em] text-[#0F172A]">
-                  {isDataLoading ? "-" : `${kpi?.tradeVolumeChangeRate}%`}
-                </div>
-                <div className="mt-1 flex items-center gap-1 text-[11px] font-medium text-[#E11D48]">
-                  <span>전년 대비 ▲ {kpi?.tradeVolumeChangeRate}%</span>
-                </div>
-                <span className="text-[10px] text-[#9CA3AF] block mt-0.5">
-                  {kpi?.periodLabel}
-                </span>
-              </div>
+              {kpiItems.map((item) => (
+                <KpiItem key={item.label} {...item} />
+              ))}
             </Card>
 
             {/* 4. 시각화 차트 섹션 (2분할 그리드) */}
@@ -562,11 +753,15 @@ export default function MarketTrendsPage() {
                   </div>
 
                   {/* SVG 복합 차트 */}
-                  <MonthlyMixedChart
-                    data={monthlyTrends}
-                    hoveredIndex={hoveredMonthIndex}
-                    onHoverIndex={setHoveredMonthIndex}
-                  />
+                  {monthlyTrends.length > 0 ? (
+                    <MonthlyMixedChart
+                      data={monthlyTrends}
+                      hoveredIndex={hoveredMonthIndex}
+                      onHoverIndex={setHoveredMonthIndex}
+                    />
+                  ) : (
+                    <EmptyState message="조회된 월별 거래 데이터가 없습니다." />
+                  )}
                 </CardContent>
               </Card>
 
@@ -576,24 +771,25 @@ export default function MarketTrendsPage() {
                   <h3 className="mb-4 text-[15px] font-semibold text-[#0F172A]">
                     전용면적별 거래 비중
                   </h3>
-                  <AreaDonutChart
-                    items={areaDist}
-                    totalCount={kpi?.totalTradeCount || 128}
-                  />
+                  {areaDist.length > 0 ? (
+                    <AreaDonutChart
+                      items={areaDist}
+                      totalCount={kpi?.totalTradeCount || 0}
+                    />
+                  ) : (
+                    <EmptyState message="면적별 통계 데이터가 없습니다." />
+                  )}
                 </CardContent>
               </Card>
             </div>
 
             {/* 5. 하단 상세 데이터 그리드 (3단 구성) */}
             <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
-              {/* 5-1. 최근 실거래 내역 */}
-              <Card className="flex flex-col rounded-xl border-[#E2E8F0] shadow-none">
-                <CardHeader className="p-3 pb-1">
-                  <CardTitle className="text-[15px] font-semibold text-[#0F172A]">
-                    최근 실거래 내역
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid flex-1 grid-rows-[1fr_auto] p-3 pt-1">
+              <DetailCard
+                title="최근 실거래 내역"
+                buttonLabel="전체 실거래 내역 보기"
+                onViewAll={() => setIsTradesModalOpen(true)}
+              >
                     <Table className="h-full text-[13px]">
                       <TableHeader>
                         <TableRow className="text-[#6B7280] hover:bg-transparent">
@@ -604,44 +800,39 @@ export default function MarketTrendsPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {recentTrades.slice(0, 5).map((trade, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-center text-[#374151]">
-                              {trade.dealDate}
-                            </TableCell>
-                            <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-center text-[#374151]">
-                              {trade.area.toFixed(2)}
-                            </TableCell>
-                            <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-center text-[#374151]">
-                              {trade.floor}층
-                            </TableCell>
-                            <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-right font-semibold text-[#123047]">
-                              {trade.price.toLocaleString()}
+                        {recentTrades.length > 0 ? (
+                          recentTrades.slice(0, 5).map((trade, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-center text-[#374151]">
+                                {trade.dealDate}
+                              </TableCell>
+                              <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-center text-[#374151]">
+                                {trade.area.toFixed(2)}
+                              </TableCell>
+                              <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-center text-[#374151]">
+                                {trade.floor}층
+                              </TableCell>
+                              <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-right font-semibold text-[#123047]">
+                                {trade.price.toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={4} className="py-6 text-center text-[13px] text-[#64748B]">
+                              등록된 실거래 내역이 없습니다.
                             </TableCell>
                           </TableRow>
-                        ))}
+                        )}
                       </TableBody>
                     </Table>
+              </DetailCard>
 
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setIsTradesModalOpen(true)}
-                  className="mt-1 h-8 w-full rounded-md border border-[#E2E8F0] bg-white text-[12px] font-semibold text-[#0F8AA8] shadow-none hover:bg-[#F8FAFC] hover:text-[#0B7285]"
-                >
-                  전체 실거래 내역 보기 <ChevronRight className="size-4" />
-                </Button>
-                </CardContent>
-              </Card>
-
-              {/* 5-2. 면적별 거래 현황 */}
-              <Card className="flex flex-col rounded-xl border-[#E2E8F0] shadow-none">
-                <CardHeader className="p-3 pb-1">
-                  <CardTitle className="text-[15px] font-semibold text-[#0F172A]">
-                    면적별 거래 현황
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid flex-1 grid-rows-[1fr_auto] p-3 pt-1">
+              <DetailCard
+                title="면적별 거래 현황"
+                buttonLabel="전체 면적별 현황 보기"
+                onViewAll={() => setIsAreaModalOpen(true)}
+              >
                     <Table className="h-full text-[13px]">
                       <TableHeader>
                         <TableRow className="text-[#6B7280] hover:bg-transparent">
@@ -651,32 +842,30 @@ export default function MarketTrendsPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {areaStats.slice(0, 5).map((stat, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-center font-medium text-[#374151]">
-                              {stat.areaRange}
-                            </TableCell>
-                            <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-center text-[#374151]">
-                              {stat.dealCount}
-                            </TableCell>
-                            <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-right font-semibold text-[#123047]">
-                              {stat.avgPrice.toLocaleString()}
+                        {areaStats.length > 0 ? (
+                          areaStats.slice(0, 5).map((stat, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-center font-medium text-[#374151]">
+                                {stat.areaRange}
+                              </TableCell>
+                              <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-center text-[#374151]">
+                                {stat.dealCount}
+                              </TableCell>
+                              <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-right font-semibold text-[#123047]">
+                                {stat.avgPrice.toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={3} className="py-6 text-center text-[13px] text-[#64748B]">
+                              면적별 거래 현황 데이터가 없습니다.
                             </TableCell>
                           </TableRow>
-                        ))}
+                        )}
                       </TableBody>
                     </Table>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setIsAreaModalOpen(true)}
-                  className="mt-1 h-8 w-full rounded-md border border-[#E2E8F0] bg-white text-[12px] font-semibold text-[#0F8AA8] shadow-none hover:bg-[#F8FAFC] hover:text-[#0B7285]"
-                >
-                  전체 면적별 현황 보기 <ChevronRight className="size-4" />
-                </Button>
-                </CardContent>
-              </Card>
+              </DetailCard>
 
               {/* 5-3. 거래 동향 요약 (AI 인사이트) */}
               <Card className="space-y-3 rounded-xl border-[#E2E8F0] shadow-none">
@@ -686,41 +875,33 @@ export default function MarketTrendsPage() {
                 </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1.5 p-3 pt-1">
-                  {insights.map((insight) => (
-                    <div
-                      key={insight.id}
-                      className="flex items-start gap-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-2.5 transition-colors hover:bg-[#F1F5F9]"
-                    >
-                      {/* 아이콘 */}
-                      <div className="shrink-0 mt-0.5">
-                        {insight.iconType === "up" && (
-                          <div className="flex size-7 items-center justify-center rounded-full bg-[#DCFCE7] text-[#16A34A]">
-                            <TrendingUp className="size-4" />
-                          </div>
-                        )}
-                        {insight.iconType === "chart" && (
-                          <div className="flex size-7 items-center justify-center rounded-full bg-[#DBEAFE] text-[#2563EB]">
-                            <BarChart3 className="size-4" />
-                          </div>
-                        )}
-                        {insight.iconType === "star" && (
-                          <div className="flex size-7 items-center justify-center rounded-full bg-[#F3E8FF] text-[#7C3AED]">
-                            <Star className="size-4 fill-current" />
-                          </div>
-                        )}
-                      </div>
+                  {insights.length > 0 ? (
+                    insights.map((insight) => (
+                      <div
+                        key={insight.id}
+                        className="flex items-start gap-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-2.5 transition-colors hover:bg-[#F1F5F9]"
+                      >
+                        <div className="mt-0.5 shrink-0">
+                          <InsightIcon type={insight.iconType} />
+                        </div>
 
-                      {/* 텍스트 */}
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-bold text-[#111827]">
-                          {insight.title}
-                        </p>
-                        <p className="text-[12px] text-[#6B7280] mt-0.5">
-                          {insight.subtitle}
-                        </p>
+                        {/* 텍스트 */}
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-bold text-[#111827]">
+                            {insight.title}
+                          </p>
+                          <p className="text-[12px] text-[#6B7280] mt-0.5">
+                            {insight.subtitle}
+                          </p>
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="py-6 text-center text-[12px] text-[#6B7280]">
+                      <Building2 className="mx-auto mb-1.5 size-5 text-[#94A3B8]" />
+                      <span>실거래 기반 분석 데이터를 준비 중입니다.</span>
                     </div>
-                  ))}
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -732,31 +913,18 @@ export default function MarketTrendsPage() {
                 본 정보는 국토교통부 실거래가 공개시스템 데이터를 기반으로 제공됩니다.
               </span>
               <span>
-                데이터 기준일: {selectedComplexDetail?.recentTrades?.[0]?.date || data?.baseDate || "2024.05.20"}
+                데이터 기준일: {data?.baseDate || "-"}
               </span>
             </div>
           </main>
         </div>
       </div>
 
-      {/* =========================================================
-          모달 1: 전체 실거래 내역 모달
-      ========================================================= */}
-      {isTradesModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-2xl rounded-[16px] border border-[#DCE8ED] bg-white p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
-              <h3 className="text-[18px] font-bold text-[#123047]">
-                {selectedApartment.name} 전체 실거래 내역
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsTradesModalOpen(false)}
-                className="text-[20px] font-bold text-[#9CA3AF] hover:text-[#111827] cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
+      <TrendModal
+        open={isTradesModalOpen}
+        title={`${selectedApartment.name} 전체 실거래 내역`}
+        onClose={() => setIsTradesModalOpen(false)}
+      >
             <div className="overflow-y-auto flex-1">
               <table className="w-full text-left text-[13px] border-collapse">
                 <thead className="sticky top-0 bg-[#F9FAFB]">
@@ -781,28 +949,14 @@ export default function MarketTrendsPage() {
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      )}
+      </TrendModal>
 
-      {/* =========================================================
-          모달 2: 전체 면적별 현황 모달
-      ========================================================= */}
-      {isAreaModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-[16px] border border-[#DCE8ED] bg-white p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
-              <h3 className="text-[18px] font-bold text-[#123047]">
-                {selectedApartment.name} 면적별 상세 통계
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsAreaModalOpen(false)}
-                className="text-[20px] font-bold text-[#9CA3AF] hover:text-[#111827] cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
+      <TrendModal
+        open={isAreaModalOpen}
+        title={`${selectedApartment.name} 면적별 상세 통계`}
+        onClose={() => setIsAreaModalOpen(false)}
+        maxWidth="max-w-lg"
+      >
             <div>
               <table className="w-full text-left text-[13px] border-collapse">
                 <thead>
@@ -827,9 +981,7 @@ export default function MarketTrendsPage() {
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      )}
+      </TrendModal>
     </div>
   );
 }

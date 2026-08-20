@@ -88,9 +88,9 @@ export default function BoardDetailPage() {
   const handleDownload = async (attachmentId: number, originalFilename: string) => {
     try {
       const res = await downloadBoardAttachmentApi(boardId, attachmentId);
-      if (res.downloadUrl) {
+      if (res.url) {
         const a = document.createElement("a");
-        a.href = res.downloadUrl;
+        a.href = res.url;
         a.download = res.originalFilename || originalFilename || "download";
         a.target = "_blank";
         document.body.appendChild(a);
