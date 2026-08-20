@@ -495,6 +495,58 @@ export async function getBoardPostApi(boardId: number): Promise<BoardDetail> {
   };
 }
 
+export interface BoardFullDetailResponse {
+  detail: BoardDetail;
+  comments: BoardComment[];
+  attachments: AttachmentResponse[];
+}
+
+export async function getBoardFullDetailApi(
+  boardId: number,
+): Promise<BoardFullDetailResponse> {
+  try {
+    const response = await apiMiddleware.get<{
+      detail: RawBoardDetail;
+      comments: BoardComment[];
+      attachments: AttachmentResponse[];
+    }>(`/api/boards/${boardId}/full`);
+    const data = response.data.detail || {};
+
+    return {
+      detail: {
+        boardId: data.boardId || data.id || boardId,
+        title: data.title || data.boardTitle || data.subject || "",
+        content: data.content || data.boardContent || data.body || "",
+        authorName:
+          data.authorName ||
+          data.writerName ||
+          data.writer ||
+          data.userName ||
+          "",
+        authorId: data.authorId || data.writerId || data.userId || "user",
+        createdAt: data.createdAt || data.createDate || data.regDate || "",
+        viewCount: data.viewCount ?? data.hit ?? data.readCount ?? 0,
+        postType: data.postType || (data.type as PostType) || "GENERAL",
+      },
+      comments: response.data.comments || [],
+      attachments: response.data.attachments || [],
+    };
+  } catch (error) {
+    console.warn("단일 full API 호출 실패, 개별 API 호출로 fallback 진행:", error);
+    const [detail, comments, attachments] = await Promise.all([
+      getBoardPostApi(boardId),
+      getBoardCommentsApi(boardId),
+      getBoardAttachmentsApi(boardId),
+    ]);
+
+    return {
+      detail,
+      comments,
+      attachments,
+    };
+  }
+}
+
 /**
  * 게시글 등록 API (POST /api/boards)
  */
@@ -1044,6 +1096,42 @@ export async function getApartmentCompareApi(
 /* Q&A 첨부파일 API  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+export type AiSearchResponse = {
+  summary: string;
+  keyPoints: string[];
+  cautions: string[];
+};
+
+export async function searchPriceWithAiApi(
+  question: string,
+): Promise<AiSearchResponse> {
+  const response = await apiMiddleware.post<AiSearchResponse>(
+    "/api/ai/search",
+    { question },
+    {
+      timeout: 120000,
+    },
+  );
+  return response.data;
+}
+
+export type DongRegionResponse = {
+  dongName: string;
+  dongCode: string;
+  sggName: string;
+  sggCode: string;
+};
+export async function resolveDongsApi(
+  dong1: string,
+  dong2: string,
+): Promise<DongRegionResponse[]> {
+  const response = await apiMiddleware.get<DongRegionResponse[]>(
+    "/api/location/resolve-dongs",
+    { params: { dong1, dong2 } },
+  );
+  return response.data;
+}
 
 export async function uploadQnaAttachmentsApi(
   qnaId: number,
