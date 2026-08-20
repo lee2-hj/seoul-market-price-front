@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Paperclip, Upload, FileText } from "lucide-react";
 import axios from "axios";
 
 import apiMiddleware from "@/api/middleware";
@@ -29,7 +30,7 @@ interface UpdateQnaDto {
 }
 
 /* 상수 정의 */
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const ALLOWED_FILE_EXTENSIONS = [
   "jpg", "jpeg", "png", "gif", "pdf", "webp",
   "doc", "docx", "xls", "xlsx", "hwp", "hwpx", "txt"
@@ -240,7 +241,7 @@ function QnaEditForm({ post }: QnaEditFormProps) {
     if (!file) return;
 
     if (file.size > MAX_FILE_SIZE) {
-      alert("첨부파일은 최대 10MB까지 등록할 수 있습니다.");
+      alert("첨부파일은 최대 50MB까지 등록할 수 있습니다.");
       e.target.value = "";
       return;
     }
@@ -349,67 +350,105 @@ function QnaEditForm({ post }: QnaEditFormProps) {
       </div>
 
       {/* 첨부파일 영역 */}
-      <div>
-        <label className="block text-[13px] font-bold text-[#13202B] mb-2">첨부파일</label>
+      <div className="p-4 bg-[#F0F7FA] border border-[#DCE8ED] rounded-[12px] space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-[14px] font-bold text-[#0F8AA8]">
+            <Paperclip className="w-4 h-4 text-[#0F8AA8]" />
+            <span>첨부파일 ({newFile || (currentAttachment && !attachmentDeleted) ? 1 : 0}/1)</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleFileButtonClick}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#E6F4F2] hover:bg-[#d0ece8] text-[#0F766E] text-[13px] font-bold rounded-[8px] transition-colors cursor-pointer border-none shadow-xs"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>파일 선택</span>
+          </button>
+        </div>
+
+        <p className="text-[12px] text-[#6B7280]">
+          파일당 최대 50MB까지 첨부할 수 있습니다.
+        </p>
+
         <input
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
-          accept=".jpg,.jpeg,.png,.gif,.pdf"
+          accept=".jpg,.jpeg,.png,.gif,.pdf,.webp,.doc,.docx,.xls,.xlsx,.hwp,.hwpx,.txt"
           className="hidden"
         />
 
         {currentAttachment && !attachmentDeleted ? (
-          <div className="flex items-center justify-between p-3 bg-[#F5FAFC] border border-[#DCE8ED] rounded-[8px] text-[13px]">
-            <span className="font-medium text-[#13202B]">📎 {currentAttachment.name}</span>
-            <button
-              type="button"
-              onClick={handleDeleteAttachment}
-              className="text-red-500 hover:text-red-700 font-bold cursor-pointer"
-            >
-              삭제
-            </button>
+          <div className="pt-2 mt-2 border-t border-[#DCE8ED]/60">
+            <div className="flex items-center justify-between px-3 py-2 bg-white border border-[#DCE8ED] rounded-[8px] text-[13px]">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText className="w-4 h-4 text-[#0F8AA8] shrink-0" />
+                <span className="truncate text-[#13202B] font-medium max-w-[450px]">
+                  {currentAttachment.name}
+                </span>
+                <span className="text-[11px] text-[#0F8AA8] bg-[#EBF5F8] px-2 py-0.5 rounded font-bold shrink-0">
+                  기존 파일
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleDeleteAttachment}
+                className="text-rose-500 hover:text-rose-700 text-[12px] font-bold cursor-pointer hover:bg-rose-50 px-2 py-0.5 rounded transition-colors"
+              >
+                삭제
+              </button>
+            </div>
           </div>
         ) : newFile ? (
-          <div className="flex items-center justify-between p-3 bg-[#F5FAFC] border border-[#DCE8ED] rounded-[8px] text-[13px]">
-            <span className="font-medium text-[#13202B]">
-              📎 {newFile.name} ({(newFile.size / 1024).toFixed(1)} KB)
-            </span>
-            <button
-              type="button"
-              onClick={handleCancelNewFile}
-              className="text-red-500 hover:text-red-700 font-bold cursor-pointer"
-            >
-              취소
-            </button>
+          <div className="pt-2 mt-2 border-t border-[#DCE8ED]/60">
+            <div className="flex items-center justify-between px-3 py-2 bg-white border border-[#DCE8ED] rounded-[8px] text-[13px]">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText className="w-4 h-4 text-[#0F8AA8] shrink-0" />
+                <span className="truncate text-[#13202B] font-medium max-w-[450px]">
+                  {newFile.name}
+                </span>
+                <span className="text-[11px] text-[#6B7280] shrink-0">
+                  ({(newFile.size / 1024).toFixed(1)} KB)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelNewFile}
+                className="text-rose-500 hover:text-rose-700 text-[12px] font-bold cursor-pointer hover:bg-rose-50 px-2 py-0.5 rounded transition-colors"
+              >
+                취소
+              </button>
+            </div>
           </div>
-        ) : (
-          <button
-            type="button"
-            onClick={handleFileButtonClick}
-            className="px-4 py-2 bg-white border border-[#DCE8ED] rounded-[8px] text-[13px] font-bold text-[#13202B] hover:bg-[#F5FAFC] cursor-pointer"
-          >
-            📎 파일 첨부 / 교체
-          </button>
-        )}
+        ) : null}
       </div>
 
-      {/* 제출 및 취소 버튼 */}
-      <div className="flex justify-end gap-3 pt-4 border-t border-[#DCE8ED]">
+      {/* 하단 액션 버튼 (좌측: 목록으로, 우측: 취소/수정 완료) */}
+      <div className="flex justify-between items-center pt-6 border-t border-[#DCE8ED]">
         <button
           type="button"
-          onClick={handleCancelForm}
-          className="px-6 py-2.5 bg-white border border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[8px] hover:bg-[#F5FAFC] cursor-pointer"
+          onClick={() => navigate("/qna")}
+          className="px-5 py-2.5 bg-white border border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[7px] hover:bg-[#EBF5F8] cursor-pointer transition-colors"
         >
-          취소
+          목록으로
         </button>
-        <button
-          type="submit"
-          disabled={updateMutation.isPending}
-          className="px-8 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[8px] shadow-sm disabled:opacity-50 cursor-pointer"
-        >
-          {updateMutation.isPending ? "저장 중..." : "수정 완료"}
-        </button>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleCancelForm}
+            className="px-5 py-2.5 bg-white border border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[7px] hover:bg-[#F5FAFC] cursor-pointer transition-colors"
+          >
+            취소
+          </button>
+          <button
+            type="submit"
+            disabled={updateMutation.isPending}
+            className="px-6 py-2.5 bg-[#0F8AA8] text-white text-[14px] font-bold rounded-[7px] hover:bg-[#0B5E73] shadow-sm disabled:opacity-50 cursor-pointer transition-colors"
+          >
+            {updateMutation.isPending ? "저장 중..." : "수정 완료"}
+          </button>
+        </div>
       </div>
     </form>
   );
@@ -427,7 +466,6 @@ export default function QnaEditPage() {
   useQnaEditAuth(post?.writerLoginId, post?.id);
 
   // 헤더 네비게이션 액션
-  const handleCancelHeader = useCallback(() => navigate(`/qna/${id}`), [navigate, id]);
   const handleGoList = useCallback(() => navigate("/qna"), [navigate]);
 
   if (isLoading) {
@@ -454,23 +492,14 @@ export default function QnaEditPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8">
-      <div className="max-w-[800px] mx-auto space-y-8">
-        {/* 상단 헤더 */}
-        <div className="flex items-center justify-between pb-4 border-b border-[#DCE8ED]">
-          <div>
-            <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
-              CUSTOMER CENTER
-            </span>
-            <h1 className="text-[28px] font-black text-[#13202B] tracking-tight">질의응답 수정</h1>
-          </div>
-          <button
-            type="button"
-            onClick={handleCancelHeader}
-            className="px-4 py-2 bg-white border border-[#DCE8ED] text-[#6B7280] text-[13px] font-bold rounded-[7px] hover:bg-[#EBF5F8] cursor-pointer"
-          >
-            취소
-          </button>
+    <div className="flex min-h-[calc(100vh-200px)] w-full justify-center bg-[#F5FAFC] px-4 py-8 md:px-8 md:py-12">
+      <div className="w-full max-w-4xl space-y-8">
+        {/* 상단 헤더 (가운데 정렬) */}
+        <div className="text-center pb-6 border-b border-[#DCE8ED]">
+          <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
+            CUSTOMER CENTER
+          </span>
+          <h1 className="text-[28px] font-black text-[#13202B] tracking-tight">질의응답 수정</h1>
         </div>
 
         {/* 수정 폼 영역 */}

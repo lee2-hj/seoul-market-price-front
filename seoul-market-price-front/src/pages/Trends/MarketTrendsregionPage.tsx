@@ -556,21 +556,21 @@ export default function MarketTrendsregionPage() {
     );
   }, [dongList, selectedDongCode, dongSearchText]);
 
-  // 글자 입력 시 일치하는 자치구 목록 필터링
+  // 글자 입력 시 일치하는 자치구 목록 필터링 (화살표 클릭 시에는 전체 25개 자치구 목록 노출)
   const filteredSggList = useMemo(() => {
-    if (!guSearchText.trim()) return sggList;
+    if (!typedGuText || !typedGuText.trim()) return sggList;
     return sggList.filter((sgg) =>
-      sgg.sggNm.toLowerCase().includes(guSearchText.trim().toLowerCase()),
+      sgg.sggNm.toLowerCase().includes(typedGuText.trim().toLowerCase()),
     );
-  }, [sggList, guSearchText]);
+  }, [sggList, typedGuText]);
 
-  // 글자 입력 시 일치하는 자치동 목록 필터링
+  // 글자 입력 시 일치하는 자치동 목록 필터링 (화살표 클릭 시에는 해당 구의 전체 동 목록 노출)
   const filteredDongList = useMemo(() => {
-    if (!dongSearchText.trim()) return dongList;
+    if (!typedDongText || !typedDongText.trim()) return dongList;
     return dongList.filter((dong) =>
-      dong.dongNm.toLowerCase().includes(dongSearchText.trim().toLowerCase()),
+      dong.dongNm.toLowerCase().includes(typedDongText.trim().toLowerCase()),
     );
-  }, [dongList, dongSearchText]);
+  }, [dongList, typedDongText]);
 
   const { data: dongAnalysis } = useDongPriceAnalysis(
     selectedGuCode,
@@ -962,7 +962,14 @@ export default function MarketTrendsregionPage() {
                       type="text"
                       value={guSearchText}
                       placeholder="자치구 입력 (예: 강남구)"
-                      onFocus={() => setIsGuDropdownOpen(true)}
+                      onClick={() => {
+                        setTypedGuText(null);
+                        setIsGuDropdownOpen(true);
+                      }}
+                      onFocus={() => {
+                        setTypedGuText(null);
+                        setIsGuDropdownOpen(true);
+                      }}
                       onChange={(e) => {
                         setTypedGuText(e.target.value);
                         setIsGuDropdownOpen(true);
@@ -987,7 +994,14 @@ export default function MarketTrendsregionPage() {
                       )}
                     />
                     <ChevronDown
-                      onClick={() => setIsGuDropdownOpen((prev) => !prev)}
+                      onClick={() => {
+                        setIsGuDropdownOpen((prev) => {
+                          if (!prev) {
+                            setTypedGuText(null);
+                          }
+                          return !prev;
+                        });
+                      }}
                       className={cn(
                         "size-4",
                         "text-[#64748B]",
@@ -1025,10 +1039,10 @@ export default function MarketTrendsregionPage() {
                               type="button"
                               onClick={() => {
                                 setCustomGuCode(sgg.sggCd);
-                                setTypedGuText(sgg.sggNm);
+                                setTypedGuText(null);
                                 setIsGuDropdownOpen(false);
                                 setCustomDongCode("");
-                                setTypedDongText("");
+                                setTypedDongText(null);
                               }}
                               className={cn(
                                 "w-full",
@@ -1095,8 +1109,17 @@ export default function MarketTrendsregionPage() {
                           : "자치구를 먼저 선택하세요"
                       }
                       disabled={!selectedGuCode}
+                      onClick={() => {
+                        if (selectedGuCode) {
+                          setTypedDongText(null);
+                          setIsDongDropdownOpen(true);
+                        }
+                      }}
                       onFocus={() => {
-                        if (selectedGuCode) setIsDongDropdownOpen(true);
+                        if (selectedGuCode) {
+                          setTypedDongText(null);
+                          setIsDongDropdownOpen(true);
+                        }
                       }}
                       onChange={(e) => {
                         setTypedDongText(e.target.value);
@@ -1122,8 +1145,14 @@ export default function MarketTrendsregionPage() {
                     />
                     <ChevronDown
                       onClick={() => {
-                        if (selectedGuCode)
-                          setIsDongDropdownOpen((prev) => !prev);
+                        if (selectedGuCode) {
+                          setIsDongDropdownOpen((prev) => {
+                            if (!prev) {
+                              setTypedDongText(null);
+                            }
+                            return !prev;
+                          });
+                        }
                       }}
                       className={cn(
                         "size-4",
@@ -1162,7 +1191,7 @@ export default function MarketTrendsregionPage() {
                               type="button"
                               onClick={() => {
                                 setCustomDongCode(dong.dongCd);
-                                setTypedDongText(dong.dongNm);
+                                setTypedDongText(null);
                                 setIsDongDropdownOpen(false);
                               }}
                               className={cn(
