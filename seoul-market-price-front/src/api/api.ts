@@ -501,50 +501,36 @@ export interface BoardFullDetailResponse {
   attachments: AttachmentResponse[];
 }
 
+// 겟
 export async function getBoardFullDetailApi(
   boardId: number,
 ): Promise<BoardFullDetailResponse> {
-  try {
-    const response = await apiMiddleware.get<{
-      detail: RawBoardDetail;
-      comments: BoardComment[];
-      attachments: AttachmentResponse[];
-    }>(`/api/boards/${boardId}/full`);
-    const data = response.data.detail || {};
+  const response = await apiMiddleware.get<{
+    detail: RawBoardDetail;
+    comments: BoardComment[];
+    attachments: AttachmentResponse[];
+  }>(`/api/boards/${boardId}/full`);
+  const data = response.data.detail || {};
 
-    return {
-      detail: {
-        boardId: data.boardId || data.id || boardId,
-        title: data.title || data.boardTitle || data.subject || "",
-        content: data.content || data.boardContent || data.body || "",
-        authorName:
-          data.authorName ||
-          data.writerName ||
-          data.writer ||
-          data.userName ||
-          "",
-        authorId: data.authorId || data.writerId || data.userId || "user",
-        createdAt: data.createdAt || data.createDate || data.regDate || "",
-        viewCount: data.viewCount ?? data.hit ?? data.readCount ?? 0,
-        postType: data.postType || (data.type as PostType) || "GENERAL",
-      },
-      comments: response.data.comments || [],
-      attachments: response.data.attachments || [],
-    };
-  } catch (error) {
-    console.warn("단일 full API 호출 실패, 개별 API 호출로 fallback 진행:", error);
-    const [detail, comments, attachments] = await Promise.all([
-      getBoardPostApi(boardId),
-      getBoardCommentsApi(boardId),
-      getBoardAttachmentsApi(boardId),
-    ]);
-
-    return {
-      detail,
-      comments,
-      attachments,
-    };
-  }
+  return {
+    detail: {
+      boardId: data.boardId || data.id || boardId,
+      title: data.title || data.boardTitle || data.subject || "",
+      content: data.content || data.boardContent || data.body || "",
+      authorName:
+        data.authorName ||
+        data.writerName ||
+        data.writer ||
+        data.userName ||
+        "",
+      authorId: data.authorId || data.writerId || data.userId || "user",
+      createdAt: data.createdAt || data.createDate || data.regDate || "",
+      viewCount: data.viewCount ?? data.hit ?? data.readCount ?? 0,
+      postType: data.postType || (data.type as PostType) || "GENERAL",
+    },
+    comments: response.data.comments || [],
+    attachments: response.data.attachments || [],
+  };
 }
 
 /**
@@ -1209,4 +1195,10 @@ export function useDeleteQnaAttachment(qnaId: number) {
       queryClient.invalidateQueries({ queryKey: ["qnaAttachments", qnaId] });
     },
   });
+}
+
+export interface BoardFullDetailResponse {
+  detail: BoardDetail;
+  comments: BoardComment[];
+  attachments: AttachmentResponse[];
 }
