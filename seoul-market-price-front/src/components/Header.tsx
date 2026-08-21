@@ -216,19 +216,21 @@ export default function Header() {
         </nav>
 
         <div className="hidden shrink-0 items-center gap-2.5 lg:flex">
-          <div className="flex h-[42px] items-center gap-1 text-[#123047]">
-            {region ? <span className="text-[18px] font-extrabold">{region}</span> : null}
-            <button
-              type="button"
-              onClick={handleLocate}
-              disabled={locating}
-              aria-label="현재 위치로 자치구 찾기"
-              title="내 위치 찾기"
-              className="flex size-8 items-center justify-center rounded-full border-0 bg-transparent text-[#69747C] transition-colors hover:bg-[#E8F6F9] hover:text-[#0F8AA8] disabled:cursor-wait disabled:opacity-60 cursor-pointer"
-            >
-              {locating ? <LoaderCircle className="size-[18px] animate-spin text-[#0F8AA8]" /> : <LocateFixed className="size-[18px]" />}
-            </button>
-          </div>
+          {isAuthenticated && (
+            <div className="flex h-[42px] items-center gap-1 text-[#123047]">
+              {region ? <span className="text-[18px] font-extrabold">{region}</span> : null}
+              <button
+                type="button"
+                onClick={handleLocate}
+                disabled={locating}
+                aria-label="현재 위치로 자치구 찾기"
+                title="내 위치 찾기"
+                className="flex size-8 items-center justify-center rounded-full border-0 bg-transparent text-[#69747C] transition-colors hover:bg-[#E8F6F9] hover:text-[#0F8AA8] disabled:cursor-wait disabled:opacity-60 cursor-pointer"
+              >
+                {locating ? <LoaderCircle className="size-[18px] animate-spin text-[#0F8AA8]" /> : <LocateFixed className="size-[18px]" />}
+              </button>
+            </div>
+          )}
           {isAuthenticated ? (
             <>
               <span className="flex items-center gap-1.5 text-[13px] font-extrabold text-[#263329]"><UserRound className="size-4" />{user?.name}님</span>
@@ -254,13 +256,15 @@ export default function Header() {
               <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>
             ))}
             {isAuthenticated && MYPAGE_LINKS.map((item) => <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>)}
-            <div className="mt-3 flex items-center gap-2 border-t border-[#e5e8e4] pt-3 text-[13px] font-extrabold text-[#344037]">
-              <span>내 지역</span>
-              <span className="ml-auto text-[20px]">{region || "미설정"}</span>
-              <button type="button" onClick={handleLocate} disabled={locating} aria-label="현재 위치로 자치구 찾기" title="내 위치 찾기" className="flex size-9 items-center justify-center rounded-full border-0 bg-transparent text-[#69747C] hover:bg-[#E8F6F9] hover:text-[#0F8AA8] disabled:cursor-wait disabled:opacity-60 cursor-pointer">
-                {locating ? <LoaderCircle className="size-[18px] animate-spin text-[#0F8AA8]" /> : <LocateFixed className="size-[18px]" />}
-              </button>
-            </div>
+            {isAuthenticated && (
+              <div className="mt-3 flex items-center gap-2 border-t border-[#e5e8e4] pt-3 text-[13px] font-extrabold text-[#344037]">
+                <span>내 지역</span>
+                <span className="ml-auto text-[20px]">{region || "미설정"}</span>
+                <button type="button" onClick={handleLocate} disabled={locating} aria-label="현재 위치로 자치구 찾기" title="내 위치 찾기" className="flex size-9 items-center justify-center rounded-full border-0 bg-transparent text-[#69747C] hover:bg-[#E8F6F9] hover:text-[#0F8AA8] disabled:cursor-wait disabled:opacity-60 cursor-pointer">
+                  {locating ? <LoaderCircle className="size-[18px] animate-spin text-[#0F8AA8]" /> : <LocateFixed className="size-[18px]" />}
+                </button>
+              </div>
+            )}
             <div className="mt-3 border-t border-[#e5e8e4] pt-3">
               {isAuthenticated ? <Button type="button" variant="outline" onClick={handleLogout} className="h-11 w-full rounded-[8px]">{user?.name}님 · 로그아웃</Button> : <Button asChild className="h-11 w-full rounded-[8px] bg-[#0F8AA8] text-white"><Link to="/login" onClick={() => setOpen(false)} className="no-underline">로그인</Link></Button>}
             </div>

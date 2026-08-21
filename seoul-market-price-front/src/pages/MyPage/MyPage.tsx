@@ -10,8 +10,10 @@ import PassAuth from "@/features/auth/components/PassAuth";
 import {
   getBoardPostsApi,
   getBoardCommentsApi,
+  updateMemberMeApi,
 } from "@/api/api";
 import type { QnaPageResponse } from "@/api/api";
+import type { MemberUpdateRequest } from "@/api/api";
 import apiMiddleware from "@/api/middleware";
 import { getDongs, getSggs } from "@/features/location/services/locationService";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
@@ -296,6 +298,7 @@ export default function MyPage() {
 
   // 인증 관련 State
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [identityVerificationId, setIdentityVerificationId] = useState("");
 
   // 비밀번호 변경 모달 State
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -324,7 +327,7 @@ export default function MyPage() {
     setIsPasswordModalOpen(true);
   };
 
-  const handleSaveNewPassword = () => {
+  const handleSaveNewPassword = async () => {
     if (newPassword.length < 8 || newPassword.length > 16) {
       setPasswordError("비밀번호는 8자 이상 16자 이하로 입력해 주세요.");
       return;
@@ -333,11 +336,19 @@ export default function MyPage() {
       setPasswordError("비밀번호와 비밀번호 확인이 일치하지 않습니다.");
       return;
     }
-    alert("비밀번호가 성공적으로 변경되었습니다. 다음 로그인부터 새 비밀번호를 사용해 주세요.");
-    setIsPasswordModalOpen(false);
-    setNewPassword("");
-    setNewPasswordConfirm("");
-    setPasswordError("");
+    try {
+      await updateMemberMeApi({ password: newPassword });
+      alert("비밀번호가 성공적으로 변경되었습니다. 다음 로그인부터 새 비밀번호를 사용해 주세요.");
+      setIsPasswordModalOpen(false);
+      setNewPassword("");
+      setNewPasswordConfirm("");
+      setPasswordError("");
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.message
+        : null;
+      setPasswordError(message || "비밀번호 변경에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    }
   };
 
   // 실제 탈퇴 처리 로직 (백엔드 DELETE /api/members/me 연동)
@@ -632,12 +643,46 @@ export default function MyPage() {
     setPreferredDistrict(originalDistrict);
     setPreferredDong(originalDong);
     setPhoneVerified(false);
+    setIdentityVerificationId("");
   };
 
   // 회원 정보 및 설정 일괄 저장 핸들러 (수동 저장)
-  const handleSaveAll = (formData: Profile) => {
+  const handleSaveAll = async (formData: Profile) => {
     if (!isLoggedIn) {
       alert("로그인 후 회원 정보 및 설정을 저장하실 수 있습니다.");
+      return;
+    }
+
+    const isPhoneChanged = formData.phone !== originalProfile.phone;
+    if (isPhoneChanged && (!phoneVerified || !identityVerificationId)) {
+      alert("전화번호 변경을 위해 본인인증을 완료해 주세요.");
+      return;
+    }
+
+    const serverUpdate: MemberUpdateRequest = {
+        ...(isPhoneChanged
+          ? { phone: formData.phone, identityVerificationId }
+          : {}),
+        ...(formData.email !== originalProfile.email
+          ? { email: formData.email }
+          : {}),
+        ...(formData.address !== originalProfile.address
+          ? { address: formData.address }
+          : {}),
+        ...(formData.detailAddress !== originalProfile.detailAddress
+          ? { addressDetail: formData.detailAddress }
+          : {}),
+    };
+
+    try {
+      if (Object.keys(serverUpdate).length > 0) {
+        await updateMemberMeApi(serverUpdate);
+      }
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.message
+        : null;
+      alert(message || "회원 정보 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
       return;
     }
 
@@ -676,6 +721,9 @@ export default function MyPage() {
     const userKey = getStorageKey(authUser?.userId || profile.userId);
     localStorage.setItem(userKey, JSON.stringify(settingsToSave));
 
+    setPhoneVerified(false);
+    setIdentityVerificationId("");
+
     alert("회원 정보 및 설정이 성공적으로 저장되었습니다!");
   };
 
@@ -699,6 +747,7 @@ export default function MyPage() {
       }
     }
     setPhoneVerified(true);
+    setIdentityVerificationId(result.identityVerificationId);
   };
 
 
