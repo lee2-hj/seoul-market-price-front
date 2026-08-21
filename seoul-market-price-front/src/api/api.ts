@@ -1089,20 +1089,54 @@ export type AiSearchResponse = {
   cautions: string[];
 };
 
-export async function searchPriceWithAiApi(
-  question: string,
-): Promise<AiSearchResponse> {
-  const response = await apiMiddleware.post<AiSearchResponse>(
-    "/api/ai/search",
-    { question },
-    {
-      timeout: 120000,
-    },
+export type NaturalRegionCandidate = DongRegionResponse & { slot: number };
+export type NaturalSearchResponse = {
+  status: "SUCCESS" | "NEED_CLARIFICATION" | "ERROR";
+  intent?: "PRICE_COMPARISON" | "SINGLE_REGION" | "TOP_BOTTOM";
+  message?: string;
+  result?: AiSearchResponse;
+  missingFields: string[];
+  candidates: NaturalRegionCandidate[];
+  errorCode?: string;
+};
+
+export async function searchNaturalWithAiApi(question: string): Promise<NaturalSearchResponse> {
+  const response = await apiMiddleware.post<NaturalSearchResponse>("/api/ai/search-natural", { question }, { timeout: 120000 });
+  return response.data;
+}
+
+// ===============================
+// 내 정보 수정
+// ===============================
+
+// 전달된 필드만 선택적으로 변경한다.
+// 휴대전화 번호를 변경할 때는 PASS 본인인증 결과인
+// identityVerificationId를 phone과 함께 전달해야 한다.
+export interface MemberUpdateRequest {
+  password?: string;
+  phone?: string;
+  identityVerificationId?: string;
+  email?: string;
+  zipcode?: string;
+  address?: string;
+  addressDetail?: string;
+}
+
+// 현재 로그인한 회원의 비밀번호, 연락처 및 주소 정보를 수정한다.
+// 인증 대상 회원은 요청 데이터가 아닌 Access Token을 기준으로 식별한다.
+export async function updateMemberMeApi(
+  request: MemberUpdateRequest,
+): Promise<MemberMeResponse> {
+  const response = await apiMiddleware.patch<MemberMeResponse>(
+    "/api/members/me",
+    request,
   );
+
   return response.data;
 }
 
 export type DongRegionResponse = {
+  requestedName: string;
   dongName: string;
   dongCode: string;
   sggName: string;
@@ -1116,6 +1150,11 @@ export async function resolveDongsApi(
     "/api/location/resolve-dongs",
     { params: { dong1, dong2 } },
   );
+  return response.data;
+}
+
+export async function resolveDongApi(dong: string): Promise<DongRegionResponse[]> {
+  const response = await apiMiddleware.get<DongRegionResponse[]>("/api/location/resolve-dong", { params: { dong } });
   return response.data;
 }
 
