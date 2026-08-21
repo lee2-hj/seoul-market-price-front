@@ -6,20 +6,20 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   RotateCcw,
   TrendingUp,
   BarChart3,
   Star,
-  MapPin,
   Building2,
   ChevronRight,
   Info,
-  HelpCircle,
   AlertCircle,
 } from "lucide-react";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { TRENDS_NAVIGATION } from "@/config/sectionNavigation";
 import {
   SEOUL_POPULAR_APARTMENTS,
   getApartmentTrendDetail,
@@ -526,55 +526,11 @@ export default function MarketTrendsPage() {
   ];
 
   return (
-    <div className="tw-scope min-h-screen bg-[#F8FAFC] text-[#0F172A] [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
-      <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6">
-        <div className="grid gap-6 lg:grid-cols-[224px_minmax(0,1fr)]">
-          {/* =========================================================
-              좌측 사이드바: 거래동향 네비게이션
-          ========================================================= */}
-          <aside className="h-fit w-full shrink-0 lg:sticky lg:top-[96px] lg:w-[224px]">
-            <Card className="rounded-xl border-[#E2E8F0] shadow-none">
-              <CardContent className="p-4">
-              <h2 className="mb-4 text-[16px] font-black text-[#0F172A]">
-                거래동향
-              </h2>
-              <nav className="flex flex-col gap-1" aria-label="거래동향 메뉴">
-                {/* 1. 아파트별 거래동향 (활성) */}
-                <Link
-                  to="/trends"
-                  className="flex items-center gap-2.5 rounded-lg bg-[#E8F6F9] px-3 py-2.5 text-[13px] font-bold text-[#0F8AA8] no-underline"
-                >
-                  <BarChart3 className="size-4 shrink-0 stroke-[2.2]" />
-                  아파트별 거래동향
-                </Link>
-
-                {/* 2. 지역별 거래동향 (링크) */}
-                <Link
-                  to="/trends/region"
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium text-[#64748B] no-underline hover:bg-[#F1F5F9] hover:text-[#0F172A]"
-                >
-                  <MapPin className="size-4 shrink-0 stroke-[1.8]" />
-                  지역별 거래동향
-                </Link>
-              </nav>
-              <div className="mt-5 rounded-lg bg-[#F8FAFC] p-3.5">
-                <div className="mb-1.5 flex items-center gap-1.5 text-[12px] font-bold text-[#475569]">
-                  <HelpCircle className="size-3.5 text-[#0F8AA8]" />
-                  <span>이용 가이드</span>
-                </div>
-                <p className="text-[11px] leading-relaxed text-[#64748B]">
-                  아파트를 검색하면 거래량, 평균 거래가와 전용면적별 거래 현황을 한눈에 확인할 수 있어요.
-                </p>
-              </div>
-
-              </CardContent>
-            </Card>
-          </aside>
-
-          {/* =========================================================
-              우측 메인 콘텐츠
-          ========================================================= */}
-          <main className="min-w-0 space-y-4">
+    <div className="tw-scope [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
+      <SectionSidebarLayout
+        sectionTitle={TRENDS_NAVIGATION.sectionTitle}
+        menuItems={TRENDS_NAVIGATION.menuItems}
+      >
             {/* 1. 상단 페이지 타이틀 */}
             <div className="space-y-1">
               <h1 className="text-[24px] font-extrabold tracking-[-0.02em] text-[#0F172A]">
@@ -936,9 +892,7 @@ export default function MarketTrendsPage() {
                 데이터 기준일: {data?.baseDate || "-"}
               </span>
             </div>
-          </main>
-        </div>
-      </div>
+      </SectionSidebarLayout>
 
       <TrendModal
         open={isTradesModalOpen}
