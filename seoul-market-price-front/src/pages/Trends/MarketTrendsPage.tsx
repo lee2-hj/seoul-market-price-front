@@ -6,20 +6,20 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   RotateCcw,
   TrendingUp,
   BarChart3,
   Star,
-  MapPin,
   Building2,
   ChevronRight,
   Info,
-  HelpCircle,
   AlertCircle,
 } from "lucide-react";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { TRENDS_NAVIGATION } from "@/config/sectionNavigation";
 import {
   SEOUL_POPULAR_APARTMENTS,
   getApartmentTrendDetail,
@@ -228,6 +228,7 @@ export default function MarketTrendsPage() {
   // 1. URL 쿼리 파라미터 상태 관리 (BoardPage 스타일)
   const [searchParams, setSearchParams] = useSearchParams();
   const query = getTrendsQuery(searchParams);
+  const searchName = searchParams.get("name")?.trim() ?? "";
   const selectedApartment = getSelectedApartment(query);
   const selectedPeriod = query.period;
 
@@ -246,18 +247,15 @@ export default function MarketTrendsPage() {
   };
 
   // 2. 검색 입력 및 드롭다운 상태
-  const [searchInput, setSearchInput] = useState(query.name);
+  const [searchInput, setSearchInput] = useState(searchName);
+  const [showSelectedApartment, setShowSelectedApartment] = useState(
+    Boolean(searchName),
+  );
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isEditingSearch, setIsEditingSearch] = useState(false);
   const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const debouncedSearchInput = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
-
-  // URL 변경 시 검색창 텍스트 동기화
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSearchInput(query.name);
-  }, [query.name]);
 
   // 모달 및 차트 호버 툴팁 상태
   const [isTradesModalOpen, setIsTradesModalOpen] = useState(false);
@@ -391,6 +389,7 @@ export default function MarketTrendsPage() {
   // 아파트 선택 핸들러
   const handleSelectApartment = (apt: ApartmentSearchItem) => {
     setSearchInput(apt.name);
+    setShowSelectedApartment(true);
     setIsDropdownOpen(false);
     setIsEditingSearch(false);
     setHighlightedSuggestionIndex(-1);
@@ -410,11 +409,28 @@ export default function MarketTrendsPage() {
   // 검색 실행 핸들러
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (suggestions.length > 0) {
-      handleSelectApartment(suggestions[0]);
-    } else if (searchInput.trim()) {
+    const keyword = searchInput.trim();
+    if (!keyword) {
+      alert("검색할 아파트명을 입력해 주세요.");
+      return;
+    }
+
+    const normalizedKeyword = keyword.toLowerCase();
+    const matchedApartment = [
+      ...(data?.complexApartments ?? []),
+      ...SEOUL_POPULAR_APARTMENTS,
+    ].find(
+      (item) =>
+        item.name.toLowerCase().includes(normalizedKeyword) ||
+        item.gu.toLowerCase().includes(normalizedKeyword) ||
+        item.dong.toLowerCase().includes(normalizedKeyword),
+    );
+
+    if (matchedApartment) {
+      handleSelectApartment(matchedApartment);
+    } else {
       handleSelectApartment({
-        name: searchInput.trim(),
+        name: keyword,
         gu: "서울시",
         dong: "주요동",
       });
@@ -458,7 +474,8 @@ export default function MarketTrendsPage() {
 
   // 초기화 핸들러
   const handleReset = () => {
-    setSearchInput(DEFAULT_APARTMENT.name);
+    setSearchInput("");
+    setShowSelectedApartment(false);
     setIsDropdownOpen(false);
     setIsEditingSearch(false);
     setHighlightedSuggestionIndex(-1);
@@ -509,54 +526,11 @@ export default function MarketTrendsPage() {
   ];
 
   return (
-    <div className="tw-scope min-h-screen bg-[#F8FAFC] text-[#0F172A] [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
-      <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6">
-        <div className="grid gap-6 lg:grid-cols-[224px_minmax(0,1fr)]">
-          {/* =========================================================
-              좌측 사이드바: 거래동향 네비게이션
-          ========================================================= */}
-          <aside className="h-fit w-full shrink-0 lg:sticky lg:top-[96px] lg:w-[224px]">
-            <Card className="rounded-xl border-[#E2E8F0] shadow-none">
-              <CardContent className="p-4">
-              <h2 className="mb-4 text-[16px] font-black text-[#0F172A]">
-                거래동향
-              </h2>
-              <nav className="flex flex-col gap-1" aria-label="거래동향 메뉴">
-                {/* 1. 아파트별 거래동향 (활성) */}
-                <Link
-                  to="/trends"
-                  className="flex items-center gap-2.5 rounded-lg bg-[#E8F6F9] px-3 py-2.5 text-[13px] font-bold text-[#0F8AA8] no-underline"
-                >
-                  <BarChart3 className="size-4 shrink-0 stroke-[2.2]" />
-                  아파트별 거래동향
-                </Link>
-
-                {/* 2. 지역별 거래동향 (링크) */}
-                <Link
-                  to="/trends/region"
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium text-[#64748B] no-underline hover:bg-[#F1F5F9] hover:text-[#0F172A]"
-                >
-                  <MapPin className="size-4 shrink-0 stroke-[1.8]" />
-                  지역별 거래동향
-                </Link>
-              </nav>
-              <div className="mt-5 rounded-lg bg-[#F8FAFC] p-3.5">
-                <div className="mb-1.5 flex items-center gap-1.5 text-[12px] font-bold text-[#475569]">
-                  <HelpCircle className="size-3.5 text-[#0F8AA8]" />
-                  <span>이용 가이드</span>
-                </div>
-                <p className="text-[11px] leading-relaxed text-[#64748B]">
-                  아파트를 검색하면 거래량, 평균 거래가와 전용면적별 거래 현황을 한눈에 확인할 수 있어요.
-                </p>
-              </div>
-              </CardContent>
-            </Card>
-          </aside>
-
-          {/* =========================================================
-              우측 메인 콘텐츠
-          ========================================================= */}
-          <main className="min-w-0 space-y-4">
+    <div className="tw-scope [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
+      <SectionSidebarLayout
+        sectionTitle={TRENDS_NAVIGATION.sectionTitle}
+        menuItems={TRENDS_NAVIGATION.menuItems}
+      >
             {/* 1. 상단 페이지 타이틀 */}
             <div className="space-y-1">
               <h1 className="text-[24px] font-extrabold tracking-[-0.02em] text-[#0F172A]">
@@ -712,14 +686,16 @@ export default function MarketTrendsPage() {
                 </Button>
               </div>
 
-              {/* 선택된 아파트 태그 뱃지 */}
-              <div className="mt-4 flex items-center gap-2 border-t border-[#F1F5F9] pt-4">
-                <span className="inline-flex items-center gap-1.5 rounded-md bg-[#F1F5F9] px-3 py-1.5 text-[13px] font-semibold text-[#334155]">
-                  <Building2 className="size-3.5 text-[#0F8AA8]" />
-                  {selectedApartment.name} · {selectedApartment.gu}{" "}
-                  {selectedApartment.dong}
-                </span>
-              </div>
+              {showSelectedApartment && (
+                <div className="mt-4 flex items-center gap-2 border-t border-[#F1F5F9] pt-4">
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-[#F1F5F9] px-3 py-1.5 text-[13px] font-semibold text-[#334155]">
+                    <Building2 className="size-3.5 text-[#0F8AA8]" />
+                    {selectedApartment.name} · {selectedApartment.gu}{" "}
+                    {selectedApartment.dong}
+                  </span>
+                </div>
+              )}
+
               </CardContent>
             </Card>
 
@@ -916,9 +892,7 @@ export default function MarketTrendsPage() {
                 데이터 기준일: {data?.baseDate || "-"}
               </span>
             </div>
-          </main>
-        </div>
-      </div>
+      </SectionSidebarLayout>
 
       <TrendModal
         open={isTradesModalOpen}

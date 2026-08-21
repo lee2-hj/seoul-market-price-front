@@ -167,10 +167,15 @@ export default function BoardPage() {
               onSubmit={(e) => {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
+                const keyword = (formData.get('keyword') as string).trim();
+                if (!keyword) {
+                  alert('검색어를 입력해 주세요.');
+                  return;
+                }
                 setQuery({
                   page: 1,
                   searchType: formData.get('searchType') as BoardSearchType,
-                  keyword: (formData.get('keyword') as string).trim(),
+                  keyword,
                 });
               }}
               className="flex flex-col md:flex-row items-center gap-3"
