@@ -24,6 +24,7 @@ const NAV_ITEMS: Array<{ label: string; to?: string; icon: typeof Search; links?
       { to: "/price/compare-list", label: "지역별 비교(리스트)" },
       { to: "/region-map", label: "지역별 비교(지도)" },
       { to: "/price/detail", label: "단지별 시세" },
+      { to: "/price/compare-apartment", label: "아파트별 비교" },
     ],
   },
   {

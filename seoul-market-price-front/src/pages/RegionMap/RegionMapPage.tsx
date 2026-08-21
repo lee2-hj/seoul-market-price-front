@@ -31,7 +31,7 @@ const NAV_ITEMS = [
 export default function RegionMapPage() {
   const authUser = useAuthStore((state) => state.user);
   const rawPreferred = authUser
-    ? authUser.preferredDistrict ?? getLocalPreferredDistrict(authUser.userId)
+    ? getLocalPreferredDistrict(authUser.userId) ?? ""
     : "";
   const preferredDistrict =
     rawPreferred &&
