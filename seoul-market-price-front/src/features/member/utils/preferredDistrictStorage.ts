@@ -7,11 +7,11 @@ function getMyPageStorageKey(userId?: string) {
   return cleanId ? `myPageSettings_${cleanId}` : "myPageSettings_guest";
 }
 
-export function getLocalPreferredDistrict(userId?: string) {
-  if (typeof window === "undefined") return "";
+export function getLocalPreferredDistrict(userId?: string): string | undefined {
+  if (typeof window === "undefined") return undefined;
 
   const saved = localStorage.getItem(getMyPageStorageKey(userId));
-  if (!saved) return "";
+  if (!saved) return undefined;
 
   try {
     const settings = JSON.parse(saved) as StoredMyPageSettings;
@@ -19,6 +19,6 @@ export function getLocalPreferredDistrict(userId?: string) {
       ? settings.preferredDistrict.trim()
       : "";
   } catch {
-    return "";
+    return undefined;
   }
 }

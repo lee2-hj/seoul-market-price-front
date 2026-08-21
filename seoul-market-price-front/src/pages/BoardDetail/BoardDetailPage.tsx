@@ -2,10 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MessageSquare, Edit2, Trash2, Send, Paperclip, Download } from "lucide-react";
-import type {
-  BoardComment,
-  AttachmentResponse,
-} from "@/features/board/types/board.types";
+import type { BoardComment } from "@/features/board/types/board.types";
 import {
   downloadBoardAttachmentApi,
   getBoardPostApi,
@@ -84,7 +81,7 @@ export default function BoardDetailPage() {
   const isCommentsLoading = isLoading;
 
   // 첨부파일 목록 Query
-  const attachments: AttachmentResponse[] = fullDetail?.attachments ?? [];
+  const attachments = fullDetail?.attachments ?? [];
 
   const refreshComments = async () => {
     const nextComments = await getBoardCommentsApi(boardId);
