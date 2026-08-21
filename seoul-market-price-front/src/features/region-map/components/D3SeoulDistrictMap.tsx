@@ -63,6 +63,7 @@ interface D3SeoulDistrictMapProps {
   districtAveragePrice: number;
   districtAveragePrices?: Record<string, number>;
   preferredDistrict?: string | null;
+  preferredDong?: string | null;
   onSelect: (district: string) => void;
   onSelectDong: (dong: string) => void;
   onShowAll: () => void;
@@ -92,6 +93,7 @@ export default function D3SeoulDistrictMap({
   districtAveragePrice,
   districtAveragePrices,
   preferredDistrict,
+  preferredDong,
   onSelect,
   onSelectDong,
   onShowAll,
@@ -432,6 +434,19 @@ export default function D3SeoulDistrictMap({
                 transform={`translate(${labelX} ${labelY})`}
                 style={{ transition: isDragging ? "none" : "transform 520ms cubic-bezier(.22,.8,.3,1)" }}
               >
+                {selectedDistrict === preferredDistrict &&
+                  name === preferredDong && (
+                  <text
+                    x="0"
+                    y="-17"
+                    textAnchor="middle"
+                    fill="#E11D48"
+                    fontSize="14"
+                    aria-label="선호 동"
+                  >
+                    ♥
+                  </text>
+                  )}
                 <text textAnchor="middle" y="-2" fill="#17352D" stroke="#FFFFFF" strokeWidth="3" paintOrder="stroke" fontSize="11" fontWeight="900">
                   {name}
                 </text>

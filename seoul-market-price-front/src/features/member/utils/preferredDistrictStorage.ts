@@ -1,5 +1,6 @@
 interface StoredMyPageSettings {
   preferredDistrict?: string;
+  preferredDong?: string;
 }
 
 function getMyPageStorageKey(userId?: string) {
@@ -7,7 +8,9 @@ function getMyPageStorageKey(userId?: string) {
   return cleanId ? `myPageSettings_${cleanId}` : "myPageSettings_guest";
 }
 
-export function getLocalPreferredDistrict(userId?: string): string | undefined {
+export function getLocalPreferredLocation(userId?: string):
+  | { district: string; dong: string }
+  | undefined {
   if (typeof window === "undefined") return undefined;
 
   const saved = localStorage.getItem(getMyPageStorageKey(userId));
@@ -15,10 +18,21 @@ export function getLocalPreferredDistrict(userId?: string): string | undefined {
 
   try {
     const settings = JSON.parse(saved) as StoredMyPageSettings;
-    return typeof settings.preferredDistrict === "string"
-      ? settings.preferredDistrict.trim()
-      : "";
+    return {
+      district:
+        typeof settings.preferredDistrict === "string"
+          ? settings.preferredDistrict.trim()
+          : "",
+      dong:
+        typeof settings.preferredDong === "string"
+          ? settings.preferredDong.trim()
+          : "",
+    };
   } catch {
     return undefined;
   }
+}
+
+export function getLocalPreferredDistrict(userId?: string): string | undefined {
+  return getLocalPreferredLocation(userId)?.district;
 }

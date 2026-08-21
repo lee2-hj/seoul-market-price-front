@@ -31,8 +31,8 @@ const NAV_ITEMS: Array<{ label: string; to?: string; icon: typeof Search; links?
     label: "거래동향",
     icon: BarChart3,
     links: [
-      { to: "/trends", label: "아파트별 거래동향" },
       { to: "/trends/region", label: "지역별 거래동향" },
+      { to: "/trends", label: "아파트별 거래동향" },
     ],
   },
   {

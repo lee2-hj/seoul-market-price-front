@@ -228,6 +228,7 @@ export default function MarketTrendsPage() {
   // 1. URL 쿼리 파라미터 상태 관리 (BoardPage 스타일)
   const [searchParams, setSearchParams] = useSearchParams();
   const query = getTrendsQuery(searchParams);
+  const searchName = searchParams.get("name")?.trim() ?? "";
   const selectedApartment = getSelectedApartment(query);
   const selectedPeriod = query.period;
 
@@ -246,18 +247,15 @@ export default function MarketTrendsPage() {
   };
 
   // 2. 검색 입력 및 드롭다운 상태
-  const [searchInput, setSearchInput] = useState(query.name);
+  const [searchInput, setSearchInput] = useState(searchName);
+  const [showSelectedApartment, setShowSelectedApartment] = useState(
+    Boolean(searchName),
+  );
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isEditingSearch, setIsEditingSearch] = useState(false);
   const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const debouncedSearchInput = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
-
-  // URL 변경 시 검색창 텍스트 동기화
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSearchInput(query.name);
-  }, [query.name]);
 
   // 모달 및 차트 호버 툴팁 상태
   const [isTradesModalOpen, setIsTradesModalOpen] = useState(false);
@@ -391,6 +389,7 @@ export default function MarketTrendsPage() {
   // 아파트 선택 핸들러
   const handleSelectApartment = (apt: ApartmentSearchItem) => {
     setSearchInput(apt.name);
+    setShowSelectedApartment(true);
     setIsDropdownOpen(false);
     setIsEditingSearch(false);
     setHighlightedSuggestionIndex(-1);
@@ -410,11 +409,28 @@ export default function MarketTrendsPage() {
   // 검색 실행 핸들러
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (suggestions.length > 0) {
-      handleSelectApartment(suggestions[0]);
-    } else if (searchInput.trim()) {
+    const keyword = searchInput.trim();
+    if (!keyword) {
+      alert("검색할 아파트명을 입력해 주세요.");
+      return;
+    }
+
+    const normalizedKeyword = keyword.toLowerCase();
+    const matchedApartment = [
+      ...(data?.complexApartments ?? []),
+      ...SEOUL_POPULAR_APARTMENTS,
+    ].find(
+      (item) =>
+        item.name.toLowerCase().includes(normalizedKeyword) ||
+        item.gu.toLowerCase().includes(normalizedKeyword) ||
+        item.dong.toLowerCase().includes(normalizedKeyword),
+    );
+
+    if (matchedApartment) {
+      handleSelectApartment(matchedApartment);
+    } else {
       handleSelectApartment({
-        name: searchInput.trim(),
+        name: keyword,
         gu: "서울시",
         dong: "주요동",
       });
@@ -458,7 +474,8 @@ export default function MarketTrendsPage() {
 
   // 초기화 핸들러
   const handleReset = () => {
-    setSearchInput(DEFAULT_APARTMENT.name);
+    setSearchInput("");
+    setShowSelectedApartment(false);
     setIsDropdownOpen(false);
     setIsEditingSearch(false);
     setHighlightedSuggestionIndex(-1);
@@ -549,6 +566,7 @@ export default function MarketTrendsPage() {
                   아파트를 검색하면 거래량, 평균 거래가와 전용면적별 거래 현황을 한눈에 확인할 수 있어요.
                 </p>
               </div>
+
               </CardContent>
             </Card>
           </aside>
@@ -712,14 +730,16 @@ export default function MarketTrendsPage() {
                 </Button>
               </div>
 
-              {/* 선택된 아파트 태그 뱃지 */}
-              <div className="mt-4 flex items-center gap-2 border-t border-[#F1F5F9] pt-4">
-                <span className="inline-flex items-center gap-1.5 rounded-md bg-[#F1F5F9] px-3 py-1.5 text-[13px] font-semibold text-[#334155]">
-                  <Building2 className="size-3.5 text-[#0F8AA8]" />
-                  {selectedApartment.name} · {selectedApartment.gu}{" "}
-                  {selectedApartment.dong}
-                </span>
-              </div>
+              {showSelectedApartment && (
+                <div className="mt-4 flex items-center gap-2 border-t border-[#F1F5F9] pt-4">
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-[#F1F5F9] px-3 py-1.5 text-[13px] font-semibold text-[#334155]">
+                    <Building2 className="size-3.5 text-[#0F8AA8]" />
+                    {selectedApartment.name} · {selectedApartment.gu}{" "}
+                    {selectedApartment.dong}
+                  </span>
+                </div>
+              )}
+
               </CardContent>
             </Card>
 
