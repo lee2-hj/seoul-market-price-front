@@ -1,12 +1,10 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   RotateCcw,
   Search,
   ChevronDown,
-  Building2,
-  MapPin,
   TrendingUp,
   BarChart2,
   ArrowUpDown,
@@ -14,6 +12,8 @@ import {
   ChevronRight,
   X,
 } from "lucide-react";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { TRENDS_NAVIGATION } from "@/config/sectionNavigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -70,21 +70,6 @@ const PERIOD_OPTIONS: PeriodOption[] = [
   { value: "6M", label: "최근 6개월", rangeText: calculateRangeText(5) },
   { value: "1Y", label: "최근 1년", rangeText: calculateRangeText(12) },
   { value: "3Y", label: "최근 3년", rangeText: calculateRangeText(36) },
-];
-
-const TREND_NAV_ITEMS = [
-  {
-    label: "아파트별 거래동향",
-    to: "/trends/apartment",
-    icon: Building2,
-    active: false,
-  },
-  {
-    label: "지역별 거래동향",
-    to: "/trends/region",
-    icon: MapPin,
-    active: true,
-  },
 ];
 
 interface MonthlyPoint {
@@ -803,78 +788,12 @@ export default function MarketTrendsregionPage() {
 
   return (
     <div
-      className={cn(
-        "w-full",
-        "min-h-screen",
-        "bg-[#F8FAFC]",
-        "text-[#0F172A]",
-        "py-7",
-        "px-4",
-        "sm:px-6",
-        "lg:px-8",
-      )}
+      className="tw-scope [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]"
     >
-      <div
-        className={cn(
-          "max-w-[1380px]",
-          "mx-auto",
-          "grid",
-          "grid-cols-1",
-          "lg:grid-cols-[210px_1fr]",
-          "gap-6",
-          "items-start",
-        )}
+      <SectionSidebarLayout
+        sectionTitle={TRENDS_NAVIGATION.sectionTitle}
+        menuItems={TRENDS_NAVIGATION.menuItems}
       >
-        {/* 좌측 사이드바 메뉴 */}
-        <aside className={cn("w-full", "lg:sticky", "lg:top-20")}>
-          <div
-            className={cn(
-              "rounded-xl",
-              "border",
-              "border-[#E2E8F0]",
-              "bg-white",
-              "p-4",
-              "shadow-xs",
-            )}
-          >
-            <h2
-              className={cn(
-                "text-[16px]",
-                "font-bold",
-                "text-[#0F172A]",
-                "pb-3",
-                "mb-2",
-                "border-b",
-                "border-[#F1F5F9]",
-              )}
-            >
-              거래동향
-            </h2>
-            <nav
-              className={cn("flex", "flex-col", "gap-1")}
-              aria-label="거래동향 메뉴"
-            >
-              {TREND_NAV_ITEMS.map(({ label, to, icon: Icon, active }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  className={cn(
-                    "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition-colors no-underline",
-                    active
-                      ? "bg-[#EFF6FF] text-[#2563EB] font-bold"
-                      : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]",
-                  )}
-                >
-                  <Icon className={cn("size-4", "shrink-0")} />
-                  <span>{label}</span>
-                </Link>
-              ))}
-            </nav>
-          </div>
-        </aside>
-
-        {/* 우측 메인 콘텐츠 영역 */}
-        <main className={cn("min-w-0", "space-y-5")}>
           {/* 상단 타이틀 & 초기화 버튼 */}
           <div className={cn("flex", "items-start", "justify-between")}>
             <div>
@@ -2379,8 +2298,7 @@ export default function MarketTrendsregionPage() {
             </div>
             <span>데이터 기준일: {todayFormatted}</span>
           </div>
-        </main>
-      </div>
+      </SectionSidebarLayout>
 
       {/* 전체 실거래 내역 모달 */}
       {isAllTradesModalOpen && (

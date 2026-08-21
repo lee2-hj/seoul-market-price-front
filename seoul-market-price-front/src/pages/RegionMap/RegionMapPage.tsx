@@ -10,7 +10,7 @@ import {
 } from "@/features/region-map/data/regionMapData";
 import SeoulDistrictMap from "@/features/region-map/components/D3SeoulDistrictMap";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
-import { getLocalPreferredDistrict } from "@/features/member/utils/preferredDistrictStorage";
+import { getLocalPreferredLocation } from "@/features/member/utils/preferredDistrictStorage";
 import { getDongs, getSggs } from "@/features/location/services/locationService";
 import {
   getApartmentPriceRanking,
@@ -30,9 +30,10 @@ const NAV_ITEMS = [
 
 export default function RegionMapPage() {
   const authUser = useAuthStore((state) => state.user);
-  const rawPreferred = authUser
-    ? getLocalPreferredDistrict(authUser.userId) ?? ""
-    : "";
+  const preferredLocation = authUser
+    ? getLocalPreferredLocation(authUser.userId)
+    : undefined;
+  const rawPreferred = preferredLocation?.district ?? "";
   const preferredDistrict =
     rawPreferred &&
     rawPreferred !== "선호지역 없음" &&
@@ -191,6 +192,7 @@ export default function RegionMapPage() {
                 districtAveragePrice={currentDistrictAveragePrice}
                 districtAveragePrices={districtPrices}
                 preferredDistrict={preferredDistrict}
+                preferredDong={preferredLocation?.dong ?? ""}
                 onSelect={setRegion}
                 onSelectDong={(dong) => setRegion(selectedDistrict.name, dong)}
                 onShowAll={() => setSearchParams({})}

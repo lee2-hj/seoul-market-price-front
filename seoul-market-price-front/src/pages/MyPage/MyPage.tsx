@@ -7,10 +7,13 @@ import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { CheckCircle2 } from "lucide-react";
 import PassAuth from "@/features/auth/components/PassAuth";
-import { getBoardPostsApi, getBoardCommentsApi } from "@/api/api";
+import {
+  getBoardPostsApi,
+  getBoardCommentsApi,
+} from "@/api/api";
 import type { QnaPageResponse } from "@/api/api";
 import apiMiddleware from "@/api/middleware";
-import { getSggs } from "@/features/location/services/locationService";
+import { getDongs, getSggs } from "@/features/location/services/locationService";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { REGION_STORAGE_KEY } from "@/features/region-map/utils/regionSelection";
 
@@ -117,10 +120,24 @@ type Profile = {
 type MyPageSettings = {
   profile: Profile;
   preferredDistrict: string;
+  preferredDong?: string;
   favoriteItems?: string[];
   notificationSettings?: Record<string, boolean>;
   priceAlerts?: unknown[];
 };
+
+interface MyMemberResponse {
+  memberId: number;
+  userId: string;
+  name: string;
+  zipcode: string | null;
+  address: string | null;
+  addressDetail: string | null;
+  phone: string | null;
+  email: string | null;
+  socialId: string | null;
+  userType: string;
+}
 
 const normalizeIdentity = (value?: string | null): string =>
   (value || "").trim().toLowerCase();
@@ -184,6 +201,13 @@ async function getMyQnas() {
   return data;
 }
 
+async function getMyMember() {
+  const { data } = await apiMiddleware.get<MyMemberResponse>("/api/members/me", {
+    params: { _t: Date.now() },
+  });
+  return data;
+}
+
 export default function MyPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabValue = searchParams.get("tab");
@@ -191,6 +215,12 @@ export default function MyPage() {
 
   const isLoggedIn = isLogin();
   const authUser = useAuthStore((state) => state.user);
+  const { data: memberData } = useQuery({
+    queryKey: ["member", "me"],
+    queryFn: getMyMember,
+    enabled: isLoggedIn,
+    staleTime: 1000 * 60 * 5,
+  });
 
   const handleTabChange = (nextTab: MyPageTab) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -243,10 +273,26 @@ export default function MyPage() {
     const saved = getStoredMyPageSettings(authUser?.userId);
     return saved?.preferredDistrict ?? "";
   });
+  const [preferredDong, setPreferredDong] = useState(() => {
+    const saved = getStoredMyPageSettings(authUser?.userId);
+    return saved?.preferredDong ?? "";
+  });
+
+  const selectedSgg = useMemo(
+    () => sggs.find((sgg) => sgg.sggNm === preferredDistrict),
+    [preferredDistrict, sggs],
+  );
+  const { data: dongs = [], isLoading: isDongsLoading } = useQuery({
+    queryKey: ["location", "dongs", selectedSgg?.sggCd],
+    queryFn: () => getDongs(selectedSgg?.sggCd ?? ""),
+    enabled: Boolean(selectedSgg),
+    staleTime: Infinity,
+  });
 
   // 원본 스냅샷 (변경 취소 시 복구할 기준 데이터)
   const [originalProfile, setOriginalProfile] = useState<Profile>(profile);
   const [originalDistrict, setOriginalDistrict] = useState<string>(preferredDistrict);
+  const [originalDong, setOriginalDong] = useState<string>(preferredDong);
 
   // 인증 관련 State
   const [phoneVerified, setPhoneVerified] = useState(false);
@@ -299,12 +345,8 @@ export default function MyPage() {
     setIsWithdrawing(true);
     setWithdrawError("");
     try {
-      const now = new Date().toISOString();
       await apiMiddleware.delete("/api/members/me", {
-        data: {
-          password: password || "",
-          deletedAt: now,
-        },
+        data: { password: password ?? "" },
       });
 
       // 로컬 스토리지 및 세션 초기화
@@ -374,8 +416,11 @@ export default function MyPage() {
 
   // 선호지역 옵션 목록 ('선호지역 없음' 옵션 포함)
   const districtOptions = useMemo(() => {
-    return ["선호지역 없음", ...sggs.map((sgg) => sgg.sggNm)];
+    return ["선택 안 함", ...sggs.map((sgg) => sgg.sggNm)];
   }, [sggs]);
+  const dongOptions = useMemo(() => {
+    return ["선택 안 함", ...dongs.map((dong) => dong.dongNm)];
+  }, [dongs]);
 
   // 소셜 로그인 감지 및 공급자명 판별
   const rawUserId = authUser?.userId || profile.userId || "";
@@ -386,21 +431,38 @@ export default function MyPage() {
   useEffect(() => {
     if (authUser?.userId) {
       let isActive = true;
-      const isSocial = isSocialAccount(authUser.userId, "LOCAL");
+      const isSocial = memberData
+        ? Boolean(memberData.socialId) ||
+          isSocialAccount(memberData.userId, "LOCAL")
+        : isSocialAccount(authUser.userId, "LOCAL");
 
       const saved = getStoredMyPageSettings(authUser.userId);
-      const resolvedName = sanitizePlainText(authUser.name) || sanitizePlainText(saved?.profile?.name);
-      const resolvedUserId = sanitizePlainText(authUser.userId) || sanitizePlainText(saved?.profile?.userId);
+      const resolvedName = memberData
+        ? sanitizePlainText(memberData.name)
+        : sanitizePlainText(authUser.name) ||
+          sanitizePlainText(saved?.profile?.name);
+      const resolvedUserId = memberData
+        ? sanitizePlainText(memberData.userId)
+        : sanitizePlainText(authUser.userId) ||
+          sanitizePlainText(saved?.profile?.userId);
 
       const nextProfile: Profile = {
         ...DEFAULT_PROFILE,
-        ...(saved?.profile || {}),
+        ...(memberData
+          ? {
+              phone: formatPhoneNumber(memberData.phone ?? ""),
+              email: memberData.email ?? "",
+              address: memberData.address ?? "",
+              detailAddress: memberData.addressDetail ?? "",
+            }
+          : saved?.profile || {}),
         name: resolvedName,
         userId: resolvedUserId,
         loginType: isSocial ? "SOCIAL" : "LOCAL",
       };
 
       const nextDistrict = saved?.preferredDistrict ?? "";
+      const nextDong = saved?.preferredDong ?? "";
 
       queueMicrotask(() => {
         if (!isActive) return;
@@ -409,13 +471,15 @@ export default function MyPage() {
         reset(nextProfile);
         setPreferredDistrict(nextDistrict);
         setOriginalDistrict(nextDistrict);
+        setPreferredDong(nextDong);
+        setOriginalDong(nextDong);
       });
 
       return () => {
         isActive = false;
       };
     }
-  }, [authUser, reset]);
+  }, [authUser, memberData, reset]);
 
   // 실제 게시판 데이터 조회 (API 연동)
   const { data: boardData, isLoading: isBoardLoading } = useQuery({
@@ -546,7 +610,8 @@ export default function MyPage() {
       (formValues.detailAddress ?? "") !== (originalProfile.detailAddress ?? "");
 
     const isDistrictChanged = preferredDistrict !== originalDistrict;
-    return isProfileChanged || isDistrictChanged;
+    const isDongChanged = preferredDong !== originalDong;
+    return isProfileChanged || isDistrictChanged || isDongChanged;
   }, [
     formValues.name,
     formValues.phone,
@@ -556,6 +621,8 @@ export default function MyPage() {
     originalProfile,
     preferredDistrict,
     originalDistrict,
+    preferredDong,
+    originalDong,
   ]);
 
   // [변경 취소] 버튼 클릭 핸들러
@@ -563,6 +630,7 @@ export default function MyPage() {
     reset(originalProfile);
     setProfile(originalProfile);
     setPreferredDistrict(originalDistrict);
+    setPreferredDong(originalDong);
     setPhoneVerified(false);
   };
 
@@ -577,6 +645,7 @@ export default function MyPage() {
     setProfile(updatedProfile);
     setOriginalProfile(updatedProfile);
     setOriginalDistrict(preferredDistrict);
+    setOriginalDong(preferredDong);
 
     if (authUser) {
       useAuthStore.getState().setUser({
@@ -587,6 +656,7 @@ export default function MyPage() {
             : authUser.name,
         myGu: preferredDistrict || null,
         preferredDistrict: preferredDistrict || undefined,
+        myDong: preferredDong || null,
       });
     }
 
@@ -601,6 +671,7 @@ export default function MyPage() {
       ...previousSettings,
       profile: updatedProfile,
       preferredDistrict,
+      preferredDong,
     };
     const userKey = getStorageKey(authUser?.userId || profile.userId);
     localStorage.setItem(userKey, JSON.stringify(settingsToSave));
@@ -881,20 +952,49 @@ export default function MyPage() {
                       </div>
                     </div>
 
-                    {/* ROW 6: 선호 지역 설정 ('선호지역 없음' + 검색/드롭다운 일체형) */}
+                    {/* ROW 6: 선호 지역 구·동 설정 */}
                     <div className="space-y-1.5 w-full">
                       <label className="text-[14px] font-bold text-[#13202B] block">선호 지역 설정</label>
-                      <AutocompleteInput
-                        value={preferredDistrict || "선호지역 없음"}
-                        options={districtOptions}
-                        disabled={!isLoggedIn || isSggsLoading}
-                        onChange={(val) => setPreferredDistrict(val === "선호지역 없음" ? "" : val)}
-                        onInvalidBlur={() => setPreferredDistrict(originalDistrict)}
-                        placeholder="자치구를 선택해 주세요"
-                        className={!preferredDistrict || preferredDistrict === "선호지역 없음" ? "text-[#64748B]" : "text-[#13202B]"}
-                      />
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <AutocompleteInput
+                          value={preferredDistrict}
+                          options={districtOptions}
+                          disabled={!isLoggedIn || isSggsLoading}
+                          onChange={(value) => {
+                            setPreferredDistrict(value === "선택 안 함" ? "" : value);
+                            setPreferredDong("");
+                          }}
+                          onInvalidBlur={() => {
+                            setPreferredDistrict(originalDistrict);
+                            setPreferredDong(originalDong);
+                          }}
+                          placeholder="자치구를 선택하거나 입력해 주세요"
+                          className={!preferredDistrict ? "text-[#64748B]" : "text-[#13202B]"}
+                        />
+                        <AutocompleteInput
+                          value={preferredDong}
+                          options={dongOptions}
+                          disabled={!isLoggedIn || !selectedSgg || isDongsLoading}
+                          onChange={(value) =>
+                            setPreferredDong(value === "선택 안 함" ? "" : value)
+                          }
+                          onInvalidBlur={() =>
+                            setPreferredDong(
+                              preferredDistrict === originalDistrict
+                                ? originalDong
+                                : "",
+                            )
+                          }
+                          placeholder={
+                            selectedSgg
+                              ? "동을 선택하거나 입력해 주세요"
+                              : "자치구를 먼저 선택해 주세요"
+                          }
+                          className={!preferredDong ? "text-[#64748B]" : "text-[#13202B]"}
+                        />
+                      </div>
                       <p className="text-[12px] text-[#6B7280]">
-                        '선호지역 없음'을 선택하시면 지도 및 거래동향에서 특정 구가 아닌 서울시 전체를 기본으로 확인하실 수 있습니다.
+                        자치구와 동은 모두 선택하지 않을 수 있으며, 동은 자치구를 선택한 뒤 설정할 수 있습니다.
                       </p>
                     </div>
                   </div>
