@@ -8,8 +8,9 @@ import type {
 } from "@/features/board/types/board.types";
 import {
   downloadBoardAttachmentApi,
-  getBoardFullDetailApi,
+  getBoardPostApi,
   getBoardCommentsApi,
+  getBoardAttachmentsApi,
   deleteBoardPostApi,
   createBoardCommentApi,
   updateBoardCommentApi,
@@ -65,7 +66,15 @@ export default function BoardDetailPage() {
   // 게시글 정보 Query
   const { data: fullDetail, isLoading, isError, error } = useQuery({
     queryKey: ["boardFull", boardId],
-    queryFn: () => getBoardFullDetailApi(boardId),
+    queryFn: async () => {
+      const [detail, comments, attachments] = await Promise.all([
+        getBoardPostApi(boardId),
+        getBoardCommentsApi(boardId),
+        getBoardAttachmentsApi(boardId),
+      ]);
+
+      return { detail, comments, attachments };
+    },
     enabled: isValidBoardId,
   });
 
