@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -12,11 +11,9 @@ import {
   Check,
   ChevronDown,
   Coins,
-  HelpCircle,
   Info,
   Layers,
   Loader2,
-  Map,
   MapPin,
   Maximize2,
   RotateCcw,
@@ -27,6 +24,8 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import apiMiddleware from "../../api/middleware";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { PRICE_NAVIGATION } from "@/config/sectionNavigation";
 
 /* 1. 타입 정의 */
 
@@ -819,6 +818,7 @@ function useApartmentCompareMutation() {
 /* 4. UI 서브 컴포넌트 */
 
 /* 사이드바 내비게이션 */
+/*
 function SidebarNav() {
   return (
     <aside className="w-[240px] shrink-0 max-[900px]:w-full">
@@ -2199,21 +2199,17 @@ export default function PriceCompareAptPage() {
   const resultData = compareMutation.data;
 
   return (
-    <div className={cn("tw-scope w-full bg-[#F8FAFC]")}>
-      <main className="py-8">
-        <div
-          className={cn(
-            "mx-auto flex w-[min(1490px,calc(100%-48px))] gap-8",
-            "max-[1240px]:w-[min(980px,calc(100%-36px))]",
-            "max-[760px]:w-[calc(100%-24px)]",
-            "max-[900px]:flex-col",
-          )}
-        >
+    <SectionSidebarLayout
+      sectionTitle={PRICE_NAVIGATION.sectionTitle}
+      menuItems={PRICE_NAVIGATION.menuItems}
+    >
+      <div className={cn("tw-scope min-w-0 w-full bg-[#F8FAFC]")}>
+        <main className="py-8">
           {/* 사이드바 영역 */}
-          <SidebarNav />
+
 
           {/* 메인 콘텐츠 영역 */}
-          <section className="min-w-0 flex-1">
+          <section className="min-w-0">
             {/* 상단 타이틀 & 초기화 버튼 */}
             <div className="mb-6 flex items-start justify-between">
               <div>
@@ -2395,8 +2391,8 @@ export default function PriceCompareAptPage() {
               </div>
             )}
           </section>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </SectionSidebarLayout>
   );
 }
