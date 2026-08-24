@@ -1328,43 +1328,46 @@ export interface ApartmentAutocompleteRequest {
 
 export interface ApartmentAutocompleteItem {
   aptName: string;
+  mno: string;
+  sno: string;
   dongCd: string;
   dongNm: string;
   sggCd: string;
   sggNm: string;
+}
+
+interface ApartmentAutocompleteApiItem {
+  apt_name: string;
   mno: string;
   sno: string;
+  dong_cd: string;
+  dong_nm: string;
+  sgg_cd: string;
+  sgg_nm: string;
 }
 
 export async function searchApartmentAutocompleteApi(
-  request: ApartmentAutocompleteRequest = {},
+  request: ApartmentAutocompleteRequest,
 ): Promise<ApartmentAutocompleteItem[]> {
-  const response = await apiMiddleware.get<
-    Array<{
-      apt_name?: string;
-      dong_cd?: string;
-      dong_nm?: string;
-      sgg_cd?: string;
-      sgg_nm?: string;
-      mno?: string | number;
-      sno?: string | number;
-    }>
-  >("/elasticSearch/aptname", {
-    params: {
-      apt_name: request.aptName ?? "",
-      sgg_cd: request.sggCd ?? "",
-      dong_cd: request.dongCd ?? "",
+  const response = await apiMiddleware.get<ApartmentAutocompleteApiItem[]>(
+    "/elasticSearch/aptname",
+    {
+      params: {
+        apt_name: request.aptName ?? "",
+        sgg_cd: request.sggCd ?? "",
+        dong_cd: request.dongCd ?? "",
+      },
     },
-  });
+  );
 
   return response.data.map((item) => ({
-    aptName: item.apt_name ?? "",
-    dongCd: item.dong_cd ?? "",
-    dongNm: item.dong_nm ?? "",
-    sggCd: item.sgg_cd ?? "",
-    sggNm: item.sgg_nm ?? "",
-    mno: String(item.mno ?? ""),
-    sno: String(item.sno ?? ""),
+    aptName: item.apt_name,
+    mno: item.mno,
+    sno: item.sno,
+    dongCd: item.dong_cd,
+    dongNm: item.dong_nm,
+    sggCd: item.sgg_cd,
+    sggNm: item.sgg_nm,
   }));
 }
 
@@ -1377,10 +1380,50 @@ export interface ApartmentMarketTrendRequest {
 }
 
 export interface ApartmentMarketTrendItem {
-  [key: string]: unknown;
+  apt_name: string;
+  cgg_cd: string;
+  cgg_nm: string;
+  stdg_cd: string;
+  stdg_nm: string;
+  total_deal_count: number;
+  total_deal_amount: number;
+  average_deal_price: number;
+  max_deal_price: number;
+  count_change_rate: number | null;
+  biweekly_trend: Array<{
+    biweekly_period: string;
+    deal_count: number;
+    avg_price: number;
+  }>;
+  area_ratio: Array<{
+    exclusive_area: string;
+    pyeong: number | null;
+    share_percentage: number;
+  }>;
+  recent_deals: Array<{
+    deal_date: string;
+    exclusive_area: string;
+    pyeong: number;
+    floor: number;
+    deal_amount: number;
+  }>;
+  area_deals: Array<{
+    exclusive_area: string;
+    pyeong: number;
+    deal_count: number;
+    avg_deal_price: number;
+  }>;
 }
 
-export type ApartmentMarketTrendResponse = ApartmentMarketTrendItem[];
+export interface ApartmentMarketTrendResponse {
+  status: string;
+  search_period: {
+    start_date: string;
+    end_date: string;
+  };
+  count: number;
+  data: ApartmentMarketTrendItem[];
+}
 
 export async function getApartmentMarketTrendApi(
   request: ApartmentMarketTrendRequest,
