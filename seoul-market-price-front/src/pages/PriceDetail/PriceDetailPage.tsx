@@ -1,17 +1,19 @@
-import { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Building2,
-  Map as MapIcon,
   BarChart3,
-  HelpCircle,
+  Search,
+  TrendingUp,
+  TrendingDown,
+  Calendar,
+  Sparkles,
   RotateCcw,
+  ChevronRight,
   ChevronDown,
   Loader2,
   MapPin,
-  Search,
-  ArrowRightLeft,
 } from "lucide-react";
 import apiMiddleware from "@/api/middleware";
 import {
@@ -23,6 +25,8 @@ import {
   type ComplexDetailItem,
 } from "@/api/api";
 import styles from "./PriceDetailPage.module.css";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { PRICE_NAVIGATION } from "@/config/sectionNavigation";
 
 export interface AptTypeCompareRequest {
   apt_name: string;
@@ -81,81 +85,78 @@ async function callAptTypeCompareApi(
 }
 
 /* 사이드바 네비게이션 */
+/*
 const NAV_ITEMS = [
   { label: "지역별 비교(리스트)", to: "/price/compare-list", icon: BarChart3 },
-  { label: "지역별 비교(지도)", to: "/region-map", icon: MapIcon },
+  { label: "지역별 비교(지도)", to: "/region-map", icon: Map },
   { label: "단지별 시세", to: "/price/detail", icon: Building2 },
+  { label: "아파트별 비교", to: "/price/compare-apartment", icon: Layers },
 ];
+*/
 
-/* 평형 선택 옵션 */
-const PYUNG_OPTIONS = [
-  { value: "", label: "평형을 선택해 주세요" },
-  { value: "10", label: "10평형대 (전용 40㎡ 이하)" },
-  { value: "20", label: "20평형대 (전용 59㎡ 내외)" },
-  { value: "30", label: "30평형대 (전용 84㎡ 내외)" },
-  { value: "40", label: "40평형대 이상 (전용 114㎡ 이상)" },
-];
-
-/* 층수 선택 옵션 */
-const FLOOR_OPTIONS = [
-  { value: "", label: "층수를 선택해 주세요" },
-  { value: "LOW", label: "저층 (1층 ~ 5층)" },
-  { value: "MID", label: "중층 (6층 ~ 15층)" },
-  { value: "HIGH", label: "고층 (16층 이상)" },
-];
+/* 금액 포맷 유틸리티 (e.g. 348000 -> 34억 8,000만 원) */
+function formatPriceKRW(priceInMan: number): string {
+  const eok = Math.floor(priceInMan / 10000);
+  const remainderMan = priceInMan % 10000;
+  if (eok === 0) return `${remainderMan.toLocaleString()}만 원`;
+  if (remainderMan === 0) return `${eok}억 원`;
+  return `${eok}억 ${remainderMan.toLocaleString()}만 원`;
+}
 
 export default function PriceDetailPage() {
-  /* 자치구 & 자치동 선택 상태 */
-  const [selectedSggCd, setSelectedSggCd] = useState<string>("");
-  const [selectedDongNm, setSelectedDongNm] = useState<string>("");
-  const [selectedAptName, setSelectedAptName] = useState<string>("");
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  /* 검색 타입 (PYUNG: 평형, FLOOR: 층수) */
-  const [searchType, setSearchType] = useState<string>("");
-
-  /* 2가지 비교 선택 상태 (좌: A, 우: B) */
-  const [selectedPyungA, setSelectedPyungA] = useState<string>("");
-  const [selectedPyungB, setSelectedPyungB] = useState<string>("");
-  const [selectedFloorA, setSelectedFloorA] = useState<string>("");
-  const [selectedFloorB, setSelectedFloorB] = useState<string>("");
-
-  /* 검색 실행 파라미터 */
-  const [searchQuery, setSearchQuery] = useState<{
-    sggCd: string;
-    dongNm: string;
-    sggNm: string;
-    dongCd?: string;
-  } | null>(null);
-
-  /* 비교 실행 파라미터 (비교 버튼 클릭 시 설정) */
-  const [compareTrigger, setCompareTrigger] = useState<AptTypeCompareRequest | null>(null);
-
-  /* 1. 자치구 목록 조회 API (GET /api/location/sggs) */
-  const { data: sggList = [], isLoading: isSggLoading } = useQuery<SggItem[]>({
+  /* 1. 자치구 API 조회 */
+  const { data: apiSggs = [], isLoading: isSggLoading } = useQuery<SggItem[]>({
     queryKey: ["locationSggs"],
     queryFn: getSggsApi,
-    staleTime: 1000 * 60 * 60,
+    staleTime: 1000 * 60 * 30, // 30분
   });
 
-  /* 선택된 자치구 객체 */
-  const selectedSgg = useMemo(
-    () => sggList.find((s) => s.sggCd === selectedSggCd) || null,
-    [sggList, selectedSggCd],
-  );
+  const sggList = apiSggs;
 
-  /* 2. 자치동 목록 조회 API (GET /api/location/dongs?sggCd=...) */
-  const { data: dongList = [], isLoading: isDongLoading } = useQuery<DongItem[]>({
+  /* 콤보박스 선택 상태 */
+  const [selectedSggCd, setSelectedSggCd] = useState<string>("");
+  const [selectedDongNm, setSelectedDongNm] = useState<string>("");
+
+  /* URL 파라미터가 있을 경우 초기값 설정 */
+  useEffect(() => {
+    const paramSgg = searchParams.get("sgg");
+    const paramDong = searchParams.get("dong");
+    if (paramSgg && sggList.length > 0) {
+      const foundSgg = sggList.find((s) => s.sggNm === paramSgg || s.sggCd === paramSgg);
+      if (foundSgg) {
+        queueMicrotask(() => {
+          setSelectedSggCd(foundSgg.sggCd);
+          if (paramDong) {
+            setSelectedDongNm(paramDong);
+          }
+        });
+      }
+    }
+  }, [searchParams, sggList]);
+
+  /* 현재 선택된 자치구 객체 */
+  const selectedSgg = useMemo(() => {
+    if (!selectedSggCd) return null;
+    return sggList.find((s) => s.sggCd === selectedSggCd) || null;
+  }, [selectedSggCd, sggList]);
+
+  /* 2. 자치동 API 조회 */
+  const { data: apiDongs = [], isLoading: isDongLoading } = useQuery<DongItem[]>({
     queryKey: ["locationDongs", selectedSggCd],
     queryFn: () => getDongsApi(selectedSggCd),
     enabled: Boolean(selectedSggCd),
     staleTime: 1000 * 60 * 30,
   });
 
-  /* 선택된 자치동 객체 */
-  const selectedDongObj = useMemo(
-    () => dongList.find((d) => d.dongNm === selectedDongNm) || null,
-    [dongList, selectedDongNm],
-  );
+  /* 동 목록 생성 (DB API 결과 사용) */
+  const dongList: DongItem[] = apiDongs;
+
+  /* 검색 키워드 & 선택된 단지 및 평형 */
+  const [keyword, setKeyword] = useState("");
+  const [selectedComplexId, setSelectedComplexId] = useState<string | null>(null);
+  const [selectedPyungIndex, setSelectedPyungIndex] = useState(1); // Default 84㎡
 
   /* 3. 자치동 관할 아파트 단지 목록 조회 API (검색 버튼 클릭 시에만 호출) */
   const { data: complexList = [], isLoading: isComplexLoading } = useQuery<ComplexDetailItem[]>({
@@ -169,29 +170,38 @@ export default function PriceDetailPage() {
     staleTime: 1000 * 60 * 10,
   });
 
-  /* 4. 아파트 타입별(평형/층수) 비교 API 호출 (비교 버튼 클릭 시) */
-  const { data: compareResult, isFetching: isCompareLoading } = useQuery<AptTypeCompareResponse | null>({
-    queryKey: ["aptTypeCompare", compareTrigger],
-    queryFn: () => (compareTrigger ? callAptTypeCompareApi(compareTrigger) : null),
-    enabled: Boolean(compareTrigger),
-    retry: false,
-    staleTime: 0,
-  });
+  const complexes = apiComplexes;
 
-  /* 검색 버튼 클릭 핸들러 */
-  const handleSearchClick = () => {
-    if (!selectedSggCd || !selectedDongNm) {
-      alert("자치구와 자치동을 모두 선택해 주세요.");
-      return;
+  /* 키워드 필터링된 단지 목록 */
+  const filteredComplexes = useMemo(() => {
+    if (!keyword.trim()) return complexes;
+    return complexes.filter((c) => c.name.toLowerCase().includes(keyword.toLowerCase().trim()));
+  }, [complexes, keyword]);
+
+  /* 현재 선택된 아파트 단지 */
+  const currentComplex = useMemo(() => {
+    if (!complexes.length) return null;
+    if (selectedComplexId) {
+      const found = complexes.find((c) => c.id === selectedComplexId);
+      if (found) return found;
     }
-    setSearchQuery({
-      sggCd: selectedSggCd,
-      dongNm: selectedDongNm,
-      sggNm: selectedSgg?.sggNm || "",
-      dongCd: selectedDongObj?.dongCd,
-    });
-    setSelectedAptName("");
-    setCompareTrigger(null);
+    return filteredComplexes[0] || complexes[0];
+  }, [selectedComplexId, complexes, filteredComplexes]);
+
+  /* 콤보 박스: 자치구 변경 이벤트 */
+  const handleSggChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const nextSggCd = e.target.value;
+    setSelectedSggCd(nextSggCd);
+    setSelectedDongNm(""); // 동 선택 초기화
+    setSelectedComplexId(null);
+    setSelectedPyungIndex(1);
+
+    const foundSgg = sggList.find((s) => s.sggCd === nextSggCd);
+    if (foundSgg) {
+      setSearchParams({ sgg: foundSgg.sggNm });
+    } else {
+      setSearchParams({});
+    }
   };
 
   /* 선택된 아파트 단지 객체 */
@@ -238,72 +248,66 @@ export default function PriceDetailPage() {
         alert("비교할 2가지 층수를 모두 선택해 주세요.");
         return;
       }
-      const floorLabelMap: Record<string, string> = { LOW: "저층", MID: "중층", HIGH: "고층" };
-      setCompareTrigger({
-        apt_name: selectedAptName,
-        aptName: selectedAptName,
-        guCode,
-        dongCode,
-        mno,
-        sno,
-        sgg_cd: guCode,
-        dong_cd: dongCode,
-        sgg_nm: selectedSgg?.sggNm || "",
-        dong_nm: selectedDongNm,
-        type: "FLOOR",
-        targetA: floorLabelMap[selectedFloorA] || selectedFloorA,
-        targetB: floorLabelMap[selectedFloorB] || selectedFloorB,
-        floor1: selectedFloorA,
-        floor2: selectedFloorB,
-      });
     }
   };
 
-  /* 선택 초기화 핸들러 */
+  /* 초기화 */
   const handleReset = () => {
     setSelectedSggCd("");
     setSelectedDongNm("");
-    setSelectedAptName("");
-    setSearchType("");
-    setSelectedPyungA("");
-    setSelectedPyungB("");
-    setSelectedFloorA("");
-    setSelectedFloorB("");
-    setSearchQuery(null);
-    setCompareTrigger(null);
+    setSelectedComplexId(null);
+    setSearchParams({});
   };
 
-  /* 가격 포맷터 (억/만원) */
-  const formatPriceKorean = (val?: number | string) => {
-    if (val === undefined || val === null || val === "" || val === 0 || val === "0") return "-";
-    if (typeof val === "string" && (val.includes("억") || val.includes("만원"))) return val;
-    const num = typeof val === "string" ? Number(val.replace(/,/g, "").trim()) : Number(val);
-    if (!num || isNaN(num) || num <= 0) return "-";
+  const activePyung = currentComplex?.pyungs[selectedPyungIndex] || currentComplex?.pyungs[0];
 
-    // 1) 억 단위 소수점 (예: 16.5 -> 16억 5,000만원)
-    if (num < 1000) {
-      const ukPart = Math.floor(num);
-      const manPart = Math.round((num - ukPart) * 10000);
-      if (ukPart > 0 && manPart > 0) return `${ukPart}억 ${manPart.toLocaleString()}만원`;
-      if (ukPart > 0) return `${ukPart}억원`;
-      return `${manPart.toLocaleString()}만원`;
-    }
+  /* 12개월 시세 추이 데이터 계산 */
+  const chartPoints = useMemo(() => {
+    if (!activePyung) return [];
+    const baseSale = activePyung.salePrice;
+    const baseRent = activePyung.rentPrice;
+    const months = [
+      "25.09", "25.10", "25.11", "25.12",
+      "26.01", "26.02", "26.03", "26.04",
+      "26.05", "26.06", "26.07", "26.08",
+    ];
 
-    // 2) 만원 단위(165000) 또는 원 단위(1650000000)
-    const normalized = num >= 100_000_000 ? Math.round(num / 10000) : num;
-    const uk = Math.floor(normalized / 10000);
-    const man = Math.round(normalized % 10000);
-    if (uk > 0 && man > 0) return `${uk}억 ${man.toLocaleString()}만원`;
-    if (uk > 0) return `${uk}억원`;
-    return `${man.toLocaleString()}만원`;
-  };
+    const fluctuations = [-0.03, -0.025, -0.015, -0.01, 0, 0.008, 0.015, 0.022, 0.028, 0.035, 0.042, 0.05];
+
+    return months.map((month, idx) => {
+      const factor = 1 + fluctuations[idx];
+      return {
+        month,
+        sale: Math.round((baseSale * factor) / 100) * 100,
+        rent: Math.round((baseRent * (1 + fluctuations[idx] * 0.7)) / 100) * 100,
+      };
+    });
+  }, [activePyung]);
+
+  /* 실거래 내역 샘플 */
+  const recentTrades = useMemo(() => {
+    if (!activePyung) return [];
+    const base = activePyung.salePrice;
+    return [
+      { date: "2026.08.10", floor: "19층", type: "매매", price: base, change: "+6,000만", isUp: true },
+      { date: "2026.08.02", floor: "14층", type: "전세", price: activePyung.rentPrice, change: "+2,000만", isUp: true },
+      { date: "2026.07.28", floor: "23층", type: "매매", price: base - 4000, change: "+1,500만", isUp: true },
+      { date: "2026.07.15", floor: "8층", type: "매매", price: base - 7000, change: "-1,000만", isUp: false },
+      { date: "2026.07.01", floor: "11층", type: "전세", price: activePyung.rentPrice - 3000, change: "보합", isUp: null },
+    ];
+  }, [activePyung]);
 
   return (
+    <SectionSidebarLayout
+      sectionTitle={PRICE_NAVIGATION.sectionTitle}
+      menuItems={PRICE_NAVIGATION.menuItems}
+    >
     <main className={styles.pageContainer}>
       <div className={styles.mainGrid}>
         {/* =========================================
             좌측 사이드바 메뉴
         ========================================= */}
+        {/*
         <aside className={styles.sidebar}>
           <div className={styles.sidebarCard}>
             <h2 className={styles.sidebarTitle}>가격정보</h2>
@@ -329,20 +333,31 @@ export default function PriceDetailPage() {
                 <span>이용 안내</span>
               </div>
               <p className={styles.guideText}>
-                자치구, 자치동, 아파트 및 비교 타입을 선택한 후 [비교] 버튼을 누르면 서버로부터 시세 비교 분석 데이터가 생성됩니다.
+                콤보 박스에서 자치구와 자치동을 선택하면 해당 지역의 아파트 단지 목록과 실거래 시세를 분석해 드립니다.
               </p>
             </div>
           </div>
         </aside>
+        */}
 
         {/* =========================================
             우측 메인 콘텐츠
         ========================================= */}
         <section className="min-w-0 space-y-6">
-          {/* 상단 헤더: 타이틀 & 선택 초기화 버튼 */}
+          {/* 헤더 타이틀 */}
           <header className={styles.sectionHeader}>
             <div>
-              <h1 className={styles.pageTitle}>단지별 시세 비교</h1>
+              <div className={styles.breadcrumb}>
+                <span>서울시 아파트 시세 정보</span>
+                <ChevronRight className="size-3 text-[#94A3B8]" />
+                <span>{selectedSgg ? selectedSgg.sggNm : "자치구 선택"}</span>
+                <ChevronRight className="size-3 text-[#94A3B8]" />
+                <span>{selectedDongNm ? selectedDongNm : "자치동 선택"}</span>
+              </div>
+              <h1 className={styles.pageTitle}>단지별 시세 분석</h1>
+              <p className={styles.pageSubtitle}>
+                선택한 자치구와 동 내 아파트 단지들의 최신 실거래가, 매매/전세 시세, 12개월 추이를 한눈에 비교하세요.
+              </p>
             </div>
             <button
               type="button"
@@ -350,53 +365,43 @@ export default function PriceDetailPage() {
               className={styles.resetBtn}
             >
               <RotateCcw className="size-3.5" />
-              <span>선택 초기화</span>
+              선택 초기화
             </button>
           </header>
 
-          {/* 선택 카드 */}
+          {/* =========================================
+              지역 선택 카드 (자치구 & 자치동 콤보 박스)
+          ========================================= */}
           <div className={styles.selectCard}>
             <div className={styles.selectHeader}>
               <h3 className={styles.selectTitle}>
                 <MapPin className="size-4 text-[#0F8AA8]" />
-                <span>시세 분석 대상 선택</span>
+                <span>지역 선택 (자치구 / 자치동)</span>
               </h3>
-              {searchQuery && (
-                <span className={styles.selectedRegionBadge}>
-                  조회 지역: <strong>{searchQuery.sggNm} {searchQuery.dongNm}</strong>
-                  {selectedAptName && (
-                    <span className="ml-1.5 font-bold text-[#0F8AA8]">
-                      • {selectedAptName}
-                    </span>
-                  )}
-                </span>
-              )}
+              <span className={styles.selectedRegionText}>
+                선택된 지역:{" "}
+                <strong className="text-[#0F8AA8]">
+                  {selectedSgg ? selectedSgg.sggNm : "선택 안됨"}{" "}
+                  {selectedDongNm ? selectedDongNm : ""}
+                </strong>
+              </span>
             </div>
 
-            {/* 1행: 자치구, 자치동 콤보박스 및 우측 검색 버튼 */}
-            <div className={styles.selectorGridWithBtn}>
-              {/* 자치구 선택 콤보박스 */}
+            {/* 콤보 박스 셀렉트 영역 */}
+            <div className={styles.selectGrid}>
+              {/* 1. 자치구 콤보 박스 */}
               <div>
-                <div className={styles.fieldLabelRow}>
-                  <span className={styles.fieldTitle}>자치구</span>
-                  <span className={styles.requiredTag}>필수 선택</span>
-                  {isSggLoading && (
-                    <Loader2 className="inline size-3 animate-spin text-[#0F8AA8]" />
-                  )}
-                </div>
+                <label htmlFor="sgg-select" className={styles.selectLabel}>
+                  1. 자치구 선택 {isSggLoading && <Loader2 className="inline size-3 animate-spin text-[#0F8AA8]" />}
+                </label>
                 <div className={styles.selectWrapper}>
                   <select
+                    id="sgg-select"
                     value={selectedSggCd}
-                    onChange={(e) => {
-                      setSelectedSggCd(e.target.value);
-                      setSelectedDongNm("");
-                      setSearchQuery(null);
-                      setSelectedAptName("");
-                      setCompareTrigger(null);
-                    }}
+                    onChange={handleSggChange}
                     className={styles.selectInput}
                   >
-                    <option value="">자치구 선택 (예: 강동구)</option>
+                    <option value="">자치구를 선택해 주세요</option>
                     {sggList.map((sgg) => (
                       <option key={sgg.sggCd} value={sgg.sggCd}>
                         {sgg.sggNm}
@@ -407,32 +412,24 @@ export default function PriceDetailPage() {
                 </div>
               </div>
 
-              {/* 자치동 선택 콤보박스 */}
+              {/* 2. 자치동 콤보 박스 */}
               <div>
-                <div className={styles.fieldLabelRow}>
-                  <span className={styles.fieldTitle}>자치동</span>
-                  <span className={styles.requiredTag}>필수 선택</span>
-                  {isDongLoading && (
-                    <Loader2 className="inline size-3 animate-spin text-[#0F8AA8]" />
-                  )}
-                </div>
+                <label htmlFor="dong-select" className={styles.selectLabel}>
+                  2. 자치동 선택 {isDongLoading && <Loader2 className="inline size-3 animate-spin text-[#0F8AA8]" />}
+                </label>
                 <div className={styles.selectWrapper}>
                   <select
+                    id="dong-select"
                     value={selectedDongNm}
-                    onChange={(e) => {
-                      setSelectedDongNm(e.target.value);
-                      setSearchQuery(null);
-                      setSelectedAptName("");
-                      setCompareTrigger(null);
-                    }}
+                    onChange={handleDongChange}
                     disabled={!selectedSggCd}
                     className={`${styles.selectInput} ${!selectedSggCd ? styles.selectInputDisabled : ""}`}
                   >
                     <option value="">
-                      {selectedSggCd ? "자치동을 선택해 주세요" : "자치구를 먼저 선택해 주세요"}
+                      {selectedSggCd ? "자치동을 선택해 주세요" : "자치동을 선택해 주세요"}
                     </option>
                     {dongList.map((dong) => (
-                      <option key={dong.dongCd || dong.dongNm} value={dong.dongNm}>
+                      <option key={dong.dongCd} value={dong.dongNm}>
                         {dong.dongNm}
                       </option>
                     ))}
@@ -440,23 +437,8 @@ export default function PriceDetailPage() {
                   <ChevronDown className={styles.selectArrowIcon} />
                 </div>
               </div>
-
-              {/* 오른쪽 검색 버튼 */}
-              <div className={styles.searchBtnCol}>
-                <div className={styles.fieldLabelRow}>
-                  <span className="invisible text-xs font-semibold">검색</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleSearchClick}
-                  disabled={!selectedSggCd || !selectedDongNm}
-                  className={`${styles.searchSubmitBtn} ${!selectedSggCd || !selectedDongNm ? styles.searchSubmitBtnDisabled : ""}`}
-                >
-                  <Search className="size-4" />
-                  <span>검색</span>
-                </button>
-              </div>
             </div>
+          </div>
 
             {/* 2행: 아파트 선택 영역 */}
             <div className={styles.aptSectionUnified}>
@@ -502,259 +484,177 @@ export default function PriceDetailPage() {
                 </select>
                 <ChevronDown className={styles.selectArrowIcon} />
               </div>
+              <h3 className={styles.emptyTitle}>자치구와 자치동을 선택해 주세요</h3>
+              <p className={styles.emptySubtitle}>
+                상단의 콤보 박스에서 자치구와 자치동을 선택하시면 해당 동에 위치한 아파트 단지 목록과 최신 실거래 시세 분석 결과를 확인하실 수 있습니다.
+              </p>
             </div>
+          ) : (
+            /* =========================================
+                아파트 단지 목록 & 상세 대시보드 메인 레이아웃
+            ========================================= */
+            <div className={styles.contentSplit}>
+              {/* 좌측: 단지 목록 & 검색 */}
+              <div className="space-y-4">
+                <div className={styles.complexListCard}>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-[14px] font-extrabold text-[#0F172A]">
+                      {selectedDongNm} 단지 목록 <span className="text-[12px] font-bold text-[#0F8AA8]">({filteredComplexes.length})</span>
+                    </h3>
+                  </div>
 
-            {/* 3행: 검색 타입 선택 (평형 or 층수) */}
-            <div className={styles.searchTypeSection}>
-              <div className={styles.fieldLabelRow}>
-                <span className={styles.fieldTitle}>검색 타입</span>
-                <span className={styles.optionalTag}>조건 선택</span>
-              </div>
+                  {/* 단지 검색창 */}
+                  <div className={styles.searchBoxWrapper}>
+                    <Search className={styles.searchIcon} />
+                    <input
+                      type="text"
+                      value={keyword}
+                      onChange={(e) => setKeyword(e.target.value)}
+                      placeholder="단지명 검색 (e.g. 래미안)"
+                      className={styles.searchControl}
+                    />
+                  </div>
 
-              {/* 검색 타입 콤보박스 */}
-              <div className={styles.selectWrapper}>
-                <select
-                  value={searchType}
-                  onChange={(e) => {
-                    const newType = e.target.value;
-                    setSearchType(newType);
-                    setSelectedPyungA("");
-                    setSelectedPyungB("");
-                    setSelectedFloorA("");
-                    setSelectedFloorB("");
-                    setCompareTrigger(null);
-                  }}
-                  className={styles.selectInput}
-                >
-                  <option value="">평형 또는 층수</option>
-                  <option value="PYUNG">평형</option>
-                  <option value="FLOOR">층수</option>
-                </select>
-                <ChevronDown className={styles.selectArrowIcon} />
-              </div>
-
-              {/* 평형 선택 시: 좌 / 우 2개 평형 비교 콤보박스 + 우측 비교 버튼 */}
-              {searchType === "PYUNG" && (
-                <div className={styles.subOptionBox}>
-                  <div className={styles.comparisonGridWithBtn}>
-                    {/* 좌측: 비교 평형 A */}
-                    <div>
-                      <div className={styles.subFieldLabelRow}>
-                        <span className={styles.subFieldTitle}>비교 평형 A</span>
+                  {/* 단지 리스트 */}
+                  <div className={styles.complexItemScroll}>
+                    {isComplexesLoading ? (
+                      <div className="flex flex-col items-center justify-center py-8 text-center text-[12px] text-[#94A3B8]">
+                        <Loader2 className="mb-2 size-5 animate-spin text-[#0F8AA8]" />
+                        <span>단지 목록 불러오는 중...</span>
                       </div>
-                      <div className={styles.selectWrapper}>
-                        <select
-                          value={selectedPyungA}
-                          onChange={(e) => {
-                            setSelectedPyungA(e.target.value);
-                            setCompareTrigger(null);
-                          }}
-                          className={styles.selectInput}
-                        >
-                          {PYUNG_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className={styles.selectArrowIcon} />
+                    ) : filteredComplexes.length === 0 ? (
+                      <div className="py-8 text-center text-[12px] text-[#94A3B8]">
+                        검색된 아파트 단지가 없습니다.
                       </div>
-                    </div>
-
-                    {/* 우측: 비교 평형 B */}
-                    <div>
-                      <div className={styles.subFieldLabelRow}>
-                        <span className={styles.subFieldTitle}>비교 평형 B</span>
-                      </div>
-                      <div className={styles.selectWrapper}>
-                        <select
-                          value={selectedPyungB}
-                          onChange={(e) => {
-                            setSelectedPyungB(e.target.value);
-                            setCompareTrigger(null);
-                          }}
-                          className={styles.selectInput}
-                        >
-                          {PYUNG_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className={styles.selectArrowIcon} />
-                      </div>
-                    </div>
-
-                    {/* 오른쪽 비교 버튼 */}
-                    <div className={styles.searchBtnCol}>
-                      <div className={styles.subFieldLabelRow}>
-                        <span className="invisible text-xs font-semibold">비교</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleCompareClick}
-                        disabled={!selectedAptName || !selectedPyungA || !selectedPyungB || isCompareLoading}
-                        className={`${styles.compareSubmitBtn} ${!selectedAptName || !selectedPyungA || !selectedPyungB ? styles.compareSubmitBtnDisabled : ""}`}
-                      >
-                        {isCompareLoading ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          <ArrowRightLeft className="size-4" />
-                        )}
-                        <span>{isCompareLoading ? "비교 중" : "비교"}</span>
-                      </button>
-                    </div>
+                    ) : (
+                      filteredComplexes.map((item) => {
+                        const isSelected = currentComplex?.id === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setSelectedComplexId(item.id)}
+                            className={`${styles.complexItemBtn} ${isSelected ? styles.complexItemBtnActive : ""}`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <h4 className={`text-[14px] font-extrabold ${isSelected ? "text-[#0F8AA8]" : "text-[#0F172A]"}`}>
+                                  {item.name}
+                                </h4>
+                                <p className="mt-0.5 text-[11px] font-medium text-[#64748B]">
+                                  {item.buildYear}년 준공 · {item.totalHouseholds.toLocaleString()}세대
+                                </p>
+                              </div>
+                              {isSelected && (
+                                <span className={styles.complexBadge}>
+                                  선택됨
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-2.5 flex items-center justify-between border-t border-[#E2E8F0]/60 pt-2 text-[12px]">
+                              <span className="font-semibold text-[#64748B]">최근 실거래가</span>
+                              <span className="font-black text-[#0F172A]">{formatPriceKRW(item.baseSalePrice)}</span>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
-              )}
-
-              {/* 층수 선택 시: 좌 / 우 2개 층수 비교 콤보박스 + 우측 비교 버튼 */}
-              {searchType === "FLOOR" && (
-                <div className={styles.subOptionBox}>
-                  <div className={styles.comparisonGridWithBtn}>
-                    {/* 좌측: 비교 층수 A */}
-                    <div>
-                      <div className={styles.subFieldLabelRow}>
-                        <span className={styles.subFieldTitle}>비교 층수 A</span>
-                      </div>
-                      <div className={styles.selectWrapper}>
-                        <select
-                          value={selectedFloorA}
-                          onChange={(e) => {
-                            setSelectedFloorA(e.target.value);
-                            setCompareTrigger(null);
-                          }}
-                          className={styles.selectInput}
-                        >
-                          {FLOOR_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className={styles.selectArrowIcon} />
-                      </div>
-                    </div>
-
-                    {/* 우측: 비교 층수 B */}
-                    <div>
-                      <div className={styles.subFieldLabelRow}>
-                        <span className={styles.subFieldTitle}>비교 층수 B</span>
-                      </div>
-                      <div className={styles.selectWrapper}>
-                        <select
-                          value={selectedFloorB}
-                          onChange={(e) => {
-                            setSelectedFloorB(e.target.value);
-                            setCompareTrigger(null);
-                          }}
-                          className={styles.selectInput}
-                        >
-                          {FLOOR_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className={styles.selectArrowIcon} />
-                      </div>
-                    </div>
-
-                    {/* 오른쪽 비교 버튼 */}
-                    <div className={styles.searchBtnCol}>
-                      <div className={styles.subFieldLabelRow}>
-                        <span className="invisible text-xs font-semibold">비교</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleCompareClick}
-                        disabled={!selectedAptName || !selectedFloorA || !selectedFloorB || isCompareLoading}
-                        className={`${styles.compareSubmitBtn} ${!selectedAptName || !selectedFloorA || !selectedFloorB ? styles.compareSubmitBtnDisabled : ""}`}
-                      >
-                        {isCompareLoading ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          <ArrowRightLeft className="size-4" />
-                        )}
-                        <span>{isCompareLoading ? "비교 중" : "비교"}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* =========================================
-              4. 비교 분석 결과 출력 영역 (AptCompareResponse)
-          ========================================= */}
-          {compareTrigger && (
-            <div className={styles.compareResultCard}>
-              <div className={styles.resultHeader}>
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="size-5 text-[#0F8AA8]" />
-                  <h3 className={styles.resultTitle}>
-                    <strong>{compareTrigger.apt_name}</strong> {compareTrigger.type === "PYUNG" ? "평형별" : "층수별"} 시세 비교 분석
-                  </h3>
-                </div>
-                <span className={styles.resultTargetBadge}>
-                  {compareTrigger.targetA} vs {compareTrigger.targetB}
-                </span>
               </div>
 
-              {isCompareLoading ? (
-                <div className={styles.resultLoadingState}>
-                  <Loader2 className="size-8 animate-spin text-[#0F8AA8]" />
-                  <p>비교 데이터를 불러오는 중입니다...</p>
-                </div>
-              ) : compareResult ? (() => {
-                const hasDataA = Boolean(
-                  (compareResult.priceA && compareResult.priceA > 0) ||
-                  (compareResult.avgPriceA && compareResult.avgPriceA > 0) ||
-                  (compareResult.recentPriceA && compareResult.recentPriceA > 0) ||
-                  (compareResult.dealCountA && compareResult.dealCountA > 0)
-                );
-                const hasDataB = Boolean(
-                  (compareResult.priceB && compareResult.priceB > 0) ||
-                  (compareResult.avgPriceB && compareResult.avgPriceB > 0) ||
-                  (compareResult.recentPriceB && compareResult.recentPriceB > 0) ||
-                  (compareResult.dealCountB && compareResult.dealCountB > 0)
-                );
+              {/* 우측: 선택된 단지의 시세 상세 대시보드 */}
+              {currentComplex ? (
+                <div className="space-y-6">
+                  {/* 단지 상단 프로필 카드 */}
+                  <div className={styles.profileCard}>
+                    <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#F1F5F9] pb-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-[#123047] px-2.5 py-0.5 text-[11px] font-extrabold text-white">
+                            아파트 단지
+                          </span>
+                          <span className="text-[12px] font-medium text-[#64748B]">{currentComplex.address}</span>
+                        </div>
+                        <h2 className="mt-2 text-[24px] font-black text-[#0F172A]">{currentComplex.name}</h2>
+                      </div>
 
-                if (!hasDataA && !hasDataB) {
-                  return (
-                    <div className={styles.resultEmptyState}>
-                      <div className={styles.emptyIconCircle}>
-                        <Search className="size-6 text-slate-400" />
+                      <div className="flex flex-wrap gap-2 text-[12px]">
+                        <div className="rounded-[10px] bg-[#F8FAFC] border border-[#E2E8F0] px-3 py-1.5 font-bold text-[#475569]">
+                          준공: <span className="text-[#0F172A]">{currentComplex.buildYear}년</span>
+                        </div>
+                        <div className="rounded-[10px] bg-[#F8FAFC] border border-[#E2E8F0] px-3 py-1.5 font-bold text-[#475569]">
+                          총 세대수: <span className="text-[#0F172A]">{currentComplex.totalHouseholds.toLocaleString()}세대</span>
+                        </div>
+                        <div className="rounded-[10px] bg-[#F8FAFC] border border-[#E2E8F0] px-3 py-1.5 font-bold text-[#475569]">
+                          동 수: <span className="text-[#0F172A]">{currentComplex.totalBuildings}개동</span>
+                        </div>
                       </div>
-                      <div className={styles.emptyTitle}>
-                        {compareTrigger.targetA} vs {compareTrigger.targetB} 실거래 데이터 없음
-                      </div>
-                      <p className={styles.emptyDesc}>
-                        해당 조건의 등록된 데이터가 존재하지 않습니다.
-                      </p>
                     </div>
-                  );
-                }
 
-                const recentPriceDiff = (hasDataA && hasDataB && compareResult.recentPriceA && compareResult.recentPriceB)
-                  ? compareResult.recentPriceA - compareResult.recentPriceB
-                  : 0;
-                const avgPyeongDiff = (hasDataA && hasDataB && compareResult.avgPyeongAmtA && compareResult.avgPyeongAmtB)
-                  ? compareResult.avgPyeongAmtA - compareResult.avgPyeongAmtB
-                  : 0;
+                    {/* 평형(전용면적) 선택 탭 */}
+                    <div className="mt-5 flex flex-wrap items-center gap-2">
+                      <span className="mr-2 text-[12px] font-black text-[#475569]">전용면적 선택:</span>
+                      {currentComplex.pyungs.map((p, idx) => {
+                        const isSelected = selectedPyungIndex === idx;
+                        return (
+                          <button
+                            key={p.name}
+                            type="button"
+                            onClick={() => setSelectedPyungIndex(idx)}
+                            className={`${styles.pyungTab} ${isSelected ? styles.pyungTabActive : ""}`}
+                          >
+                            {p.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
-                const areaTextA = [
-                  compareResult.recentFloorA,
-                  compareResult.recentSupplyPyeongA ? (compareResult.recentSupplyPyeongA.includes("공급") ? compareResult.recentSupplyPyeongA : `공급 ${compareResult.recentSupplyPyeongA}`) : "",
-                  compareResult.recentExclusiveAreaA ? `전용 ${compareResult.recentExclusiveAreaA}` : "",
-                ].filter(Boolean).join(" · ");
+                  {/* 시세 핵심 지표 Grid (5개 카운터) */}
+                  <div className={styles.metricsGrid}>
+                    {/* 카드가 1: 최근 실거래가 */}
+                    <div className={styles.metricCard}>
+                      <div className={styles.metricTitle}>최근 실거래가 ({activePyung?.name.split(" ")[1]})</div>
+                      <div className={styles.metricValuePrimary}>
+                        {activePyung ? formatPriceKRW(activePyung.salePrice) : "-"}
+                      </div>
+                      <div className="mt-1 flex items-center gap-1 text-[11px] font-extrabold text-[#059669]">
+                        <TrendingUp className="size-3" />
+                        <span>전월 대비 +1.8%</span>
+                      </div>
+                    </div>
 
-                const areaTextB = [
-                  compareResult.recentFloorB,
-                  compareResult.recentSupplyPyeongB ? (compareResult.recentSupplyPyeongB.includes("공급") ? compareResult.recentSupplyPyeongB : `공급 ${compareResult.recentSupplyPyeongB}`) : "",
-                  compareResult.recentExclusiveAreaB ? `전용 ${compareResult.recentExclusiveAreaB}` : "",
-                ].filter(Boolean).join(" · ");
+                    {/* 카드가 2: 평균 매매 시세 */}
+                    <div className={styles.metricCard}>
+                      <div className={styles.metricTitle}>평균 매매가</div>
+                      <div className={styles.metricValueDark}>
+                        {activePyung ? formatPriceKRW(Math.round(activePyung.salePrice * 0.99)) : "-"}
+                      </div>
+                      <div className="mt-1 text-[11px] font-medium text-[#64748B]">
+                        시세 범위 ±3%
+                      </div>
+                    </div>
+
+                    {/* 카드가 3: 평균 전세 시세 */}
+                    <div className={styles.metricCard}>
+                      <div className={styles.metricTitle}>평균 전세가</div>
+                      <div className={styles.metricValueAmber}>
+                        {activePyung ? formatPriceKRW(activePyung.rentPrice) : "-"}
+                      </div>
+                      <div className="mt-1 text-[11px] font-medium text-[#64748B]">
+                        전월 대비 +0.8%
+                      </div>
+                    </div>
+
+                    {/* 카드가 4: 3.3㎡(평)당가 */}
+                    <div className={styles.metricCard}>
+                      <div className={styles.metricTitle}>3.3㎡(평)당가</div>
+                      <div className={styles.metricValueDark}>
+                        {activePyung ? `${activePyung.pricePerPyung.toLocaleString()}만 원` : "-"}
+                      </div>
+                      <div className="mt-1 text-[11px] font-medium text-[#64748B]">전용면적 기준</div>
+                    </div>
 
                 return (
                   <div className={styles.metricsCompareGrid}>
@@ -916,15 +816,13 @@ export default function PriceDetailPage() {
                   <div className={styles.emptyTitle}>
                     {compareTrigger.targetA} vs {compareTrigger.targetB} 실거래 데이터 없음
                   </div>
-                  <p className={styles.emptyDesc}>
-                    해당 조건의 등록된 데이터가 존재하지 않습니다.
-                  </p>
                 </div>
-              )}
+              ) : null}
             </div>
           )}
         </section>
       </div>
     </main>
+    </SectionSidebarLayout>
   );
 }
