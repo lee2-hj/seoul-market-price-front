@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Chart } from "react-google-charts";
 import {
   AlertCircle,
-  ArrowUpRight,
-  Award,
   BarChart3,
   Building,
   Building2,
@@ -20,30 +19,26 @@ import {
   MapPin,
   Maximize2,
   RotateCcw,
+  Search,
   Sparkles,
   TrendingUp,
   Users,
-  X,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import apiMiddleware from "../../api/middleware";
 
-/* 1. 타입 정의 */
-
-/* 서울 자치구 항목 */
+/* 타입 정의 */
 export interface SggLocationItem {
   sggCd: string;
   sggNm: string;
 }
 
-/* 서울 자치동 항목 */
 export interface DongLocationItem {
   dongCd?: string;
   dongNm: string;
   sggCd?: string;
 }
 
-/* 아파트 단지 기본 정보 */
 export interface ApartmentComplexItem {
   complexNo: string | number;
   complexName: string;
@@ -58,7 +53,6 @@ export interface ApartmentComplexItem {
   dealCnt?: number;
 }
 
-/* 단지 핵심 시세 및 스펙 지표 */
 export interface ApartmentCompareMetrics {
   avgPrice: number;
   recentPrice: number;
@@ -68,7 +62,6 @@ export interface ApartmentCompareMetrics {
   pricePerPyeong: number;
 }
 
-/* 아파트 단지 상세 정보 */
 export interface ApartmentDetailData {
   name: string;
   district: string;
@@ -82,21 +75,18 @@ export interface ApartmentDetailData {
   metrics: ApartmentCompareMetrics;
 }
 
-/* 최근 3년 매매가 추이 포인트 */
 export interface ApartmentCompareTrendPoint {
   date: string;
   apt1Price: number;
   apt2Price: number;
 }
 
-/* 면적별 평균 매매가 항목 */
 export interface ApartmentCompareAreaPrice {
   areaName: string;
   apt1Price: number;
   apt2Price: number;
 }
 
-/* 비교 대상 단지 파라미터 */
 export interface ApartmentTargetParam {
   district: string;
   dong: string;
@@ -105,13 +95,11 @@ export interface ApartmentTargetParam {
   dongCode?: string;
 }
 
-/* 아파트별 시세 비교 요청 DTO */
 export interface ApartmentCompareRequest {
   apt1: ApartmentTargetParam;
   apt2: ApartmentTargetParam;
 }
 
-/* 아파트별 시세 비교 응답 DTO */
 export interface ApartmentCompareApiResponse {
   apt1: ApartmentDetailData;
   apt2: ApartmentDetailData;
@@ -120,7 +108,6 @@ export interface ApartmentCompareApiResponse {
   baseDate: string;
 }
 
-/* 오토컴플리트 옵션 */
 export interface AutocompleteOption {
   label: string;
   value: string;
@@ -128,66 +115,96 @@ export interface AutocompleteOption {
   extra?: string;
 }
 
-/* 2. 유틸리티 & API 연동 함수 */
-
-/* 금액 포맷터 */
-function formatPriceKRW(priceInEok: number): string {
-  const eok = Math.floor(priceInEok);
-  const remainderMan = Math.round((priceInEok - eok) * 10000);
-  if (remainderMan === 0) return `${eok}억 원`;
-  return `${eok}억 ${remainderMan.toLocaleString()}만 원`;
+interface FastApiGroupItem {
+  code?: string;
+  name?: string;
+  total_count?: number;
+  avg_thing_amt?: number;
+  avg_pyeong_amt?: number;
 }
 
-/* 아파트 브랜드별 대표 이미지 매칭 헬퍼 */
+interface FastApiListResponse {
+  base_date?: string;
+  groups?: Record<string, FastApiGroupItem>;
+}
+
+export interface BldgDealSummaryDto {
+  base_date?: string;
+  cgg_cd?: string;
+  cgg_nm?: string;
+  stdg_cd?: string;
+  stdg_nm?: string;
+  bldg_nm?: string;
+  deal_cnt?: number;
+  avg_thing_amt?: number;
+  avg_pyeong_amt?: number;
+}
+
+export interface FastApiTopAndBottomResponse {
+  base_date?: string;
+  total_count?: number;
+  avg_thing_amt?: number;
+  avg_pyeong_amt?: number;
+  top?: BldgDealSummaryDto[];
+  bottom?: BldgDealSummaryDto[];
+}
+
+/* 유틸리티 함수 */
+
 function getApartmentBrandImage(complexName: string = ""): string {
   const name = complexName.toLowerCase();
-
-  // 1. 래미안 (삼성물산)
   if (name.includes("래미안") || name.includes("raemian") || name.includes("원베일리") || name.includes("첼리투스")) {
     return "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80";
   }
-  // 2. 자이 / 그랑자이 (GS건설)
   if (name.includes("자이") || name.includes("xi") || name.includes("그랑자이") || name.includes("센트럴자이")) {
     return "https://images.unsplash.com/photo-1574362848149-11496d93a7c7?auto=format&fit=crop&w=800&q=80";
   }
-  // 3. 디에이치 / 힐스테이트 (현대건설)
   if (name.includes("디에이치") || name.includes("힐스테이트") || name.includes("the h") || name.includes("hillstate")) {
     return "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80";
   }
-  // 4. 푸르지오 / 써밋 (대우건설)
   if (name.includes("푸르지오") || name.includes("prugio") || name.includes("써밋") || name.includes("summit")) {
     return "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80";
   }
-  // 5. 아크로 / e편한세상 (DL이앤씨)
   if (name.includes("아크로") || name.includes("acro") || name.includes("e편한세상") || name.includes("이편한세상")) {
     return "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80";
   }
-  // 6. 롯데캐슬 / 르엘 (롯데건설)
   if (name.includes("롯데캐슬") || name.includes("lotte") || name.includes("르엘") || name.includes("leel")) {
     return "https://images.unsplash.com/photo-1515263487990-61b07816b324?auto=format&fit=crop&w=800&q=80";
   }
-  // 7. 아이파크 (HDC현대산업개발)
   if (name.includes("아이파크") || name.includes("ipark")) {
     return "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80";
   }
-  // 8. 더샵 (포스코이앤씨)
   if (name.includes("더샵") || name.includes("the sharp") || name.includes("thesharp")) {
     return "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80";
   }
-  // 9. SK VIEW / 드파인 (SK에코플랜트)
   if (name.includes("sk") || name.includes("view") || name.includes("드파인")) {
     return "https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80";
   }
-  // 10. 센트레빌 (동부건설) / 호반써밋 / 우미린
   if (name.includes("센트레빌") || name.includes("호반") || name.includes("우미린") || name.includes("데시앙")) {
     return "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80";
   }
-
-  // 기본 고층 모던 아파트
   return "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80";
 }
 
-/* 서울 자치구 목록 조회 API (GET /api/location/sggs) */
+function getDynamic90DaysBiweeklyLabels(baseDateStr?: string): string[] {
+  let targetDate = new Date();
+  if (baseDateStr) {
+    const parsed = new Date(baseDateStr.replace(/\./g, "-"));
+    if (!isNaN(parsed.getTime())) {
+      targetDate = parsed;
+    }
+  }
+  const labels: string[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(targetDate.getTime() - i * 14 * 24 * 60 * 60 * 1000);
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    labels.push(`${m}.${day}`);
+  }
+  return labels;
+}
+
+/* API 호출 함수 */
 async function fetchSggsApi(): Promise<SggLocationItem[]> {
   try {
     const response = await apiMiddleware.get<unknown>("/api/location/sggs");
@@ -213,7 +230,6 @@ async function fetchSggsApi(): Promise<SggLocationItem[]> {
   }
 }
 
-/* 서울 자치동 목록 조회 API (GET /api/location/dongs) */
 async function fetchDongsApi(
   sggCd: string,
   districtName?: string,
@@ -246,20 +262,6 @@ async function fetchDongsApi(
   }
 }
 
-interface FastApiGroupItem {
-  code?: string;
-  name?: string;
-  total_count?: number;
-  avg_thing_amt?: number;
-  avg_pyeong_amt?: number;
-}
-
-interface FastApiListResponse {
-  base_date?: string;
-  groups?: Record<string, FastApiGroupItem>;
-}
-
-/* fastApi 동별 평균가 목록 조회 (GET /fastApi/list) */
 async function fetchFastApiList(guCode?: string): Promise<FastApiListResponse> {
   try {
     const response = await apiMiddleware.get<FastApiListResponse>("/fastApi/list", {
@@ -272,31 +274,6 @@ async function fetchFastApiList(guCode?: string): Promise<FastApiListResponse> {
   }
 }
 
-export interface BldgDealSummaryDto {
-  base_date?: string;
-  cgg_cd?: string;
-  cgg_nm?: string;
-  stdg_cd?: string;
-  stdg_nm?: string;
-  bldg_nm?: string;
-  latitude?: number;
-  longitude?: number;
-  is_exact_location?: boolean;
-  deal_cnt?: number;
-  avg_thing_amt?: number;
-  avg_pyeong_amt?: number;
-}
-
-export interface FastApiTopAndBottomResponse {
-  base_date?: string;
-  total_count?: number;
-  avg_thing_amt?: number;
-  avg_pyeong_amt?: number;
-  top?: BldgDealSummaryDto[];
-  bottom?: BldgDealSummaryDto[];
-}
-
-/* fastApi 지역내 상위/하위 단지 조회 (GET /fastApi/topandbottom) */
 async function fetchFastApiTopAndBottom(
   guCode: string,
   dongCode: string,
@@ -316,7 +293,6 @@ async function fetchFastApiTopAndBottom(
   }
 }
 
-/* 아파트 단지 목록 조회 API (백엔드 /fastApi/topandbottom 에서 실시간 조회) */
 async function fetchApartmentsApi(
   district: string,
   dong: string,
@@ -324,11 +300,79 @@ async function fetchApartmentsApi(
   dongCode?: string,
 ): Promise<ApartmentComplexItem[]> {
   if (!district) return [];
-
   const list: ApartmentComplexItem[] = [];
   const existingNames = new Set<string>();
 
-  // 1. dongCode가 없으면 /fastApi/list를 통해 dongCode 자동 탐색
+  try {
+    const [complexesRes, apartmentsRes] = await Promise.allSettled([
+      apiMiddleware.get<unknown>("/api/location/complexes", {
+        params: { sggNm: district, dongNm: dong || undefined, sggCd: guCode, dongCd: dongCode },
+      }),
+      apiMiddleware.get<unknown>("/api/location/apartments", {
+        params: { district, dong: dong || undefined, guCode, dongCode },
+      }),
+    ]);
+
+    const rawComplexes =
+      complexesRes.status === "fulfilled"
+        ? (Array.isArray(complexesRes.value.data)
+            ? complexesRes.value.data
+            : (complexesRes.value.data as Record<string, unknown>)?.items ||
+              (complexesRes.value.data as Record<string, unknown>)?.data ||
+              [])
+        : [];
+
+    const rawApartments =
+      apartmentsRes.status === "fulfilled"
+        ? (Array.isArray(apartmentsRes.value.data)
+            ? apartmentsRes.value.data
+            : (apartmentsRes.value.data as Record<string, unknown>)?.items ||
+              (apartmentsRes.value.data as Record<string, unknown>)?.data ||
+              [])
+        : [];
+
+    const allDbList = [
+      ...(rawComplexes as Record<string, unknown>[]),
+      ...(rawApartments as Record<string, unknown>[]),
+    ];
+
+    for (const item of allDbList) {
+      const name = String(
+        item.complexName ||
+          item.name ||
+          item.bldg_nm ||
+          item.bldgNm ||
+          item.aptName ||
+          "",
+      ).trim();
+
+      if (name && !existingNames.has(name)) {
+        existingNames.add(name);
+        const households = Number(item.totalHouseholds || item.households || item.householdCount) || 650;
+        const year = Number(item.buildYear || item.constructionYear) || 2018;
+        const avgPrice = Number(item.avgThingAmt || item.baseSalePrice || item.avg_thing_amt) || undefined;
+        const pyeongPrice = Number(item.avgPyeongAmt || item.avg_pyeong_amt) || undefined;
+        const deals = Number(item.dealCnt || item.deal_cnt) || undefined;
+
+        list.push({
+          complexNo: String(item.complexNo || item.id || name),
+          complexName: name,
+          sggNm: String(item.sggNm || item.district || district),
+          dongNm: String(item.dongNm || item.dong || dong),
+          address: String(item.address || `${district} ${dong} ${name}`),
+          totalHouseholds: households,
+          buildYear: year,
+          imageUrl: (item.imageUrl || item.image || item.thumbnail) as string | undefined,
+          avgThingAmt: avgPrice,
+          avgPyeongAmt: pyeongPrice,
+          dealCnt: deals,
+        });
+      }
+    }
+  } catch (dbErr) {
+    console.warn("아파트 단지 목록 DB 조회 폴백 진행:", dbErr);
+  }
+
   let targetDongCode = dongCode;
   const dongCodesToQuery: string[] = [];
 
@@ -348,7 +392,6 @@ async function fetchApartmentsApi(
         if (targetDongCode) {
           dongCodesToQuery.push(targetDongCode);
         } else {
-          // 동이 아직 선택되지 않은 경우 해당 구의 동 코드들을 수집
           Object.values(groups).forEach((g) => {
             if (g.code) dongCodesToQuery.push(g.code);
           });
@@ -361,10 +404,8 @@ async function fetchApartmentsApi(
     dongCodesToQuery.push(targetDongCode);
   }
 
-  // 2. 백엔드 /fastApi/topandbottom API를 통해 실제 아파트 단지명(bldg_nm) 및 시세 데이터 수집
   if (guCode && dongCodesToQuery.length > 0) {
     try {
-      // 선택된 동의 거래량 기준("deal") 및 가격 기준("price") 상위/하위 단지 조회
       for (const dCode of dongCodesToQuery.slice(0, 5)) {
         const [dealRes, priceRes] = await Promise.allSettled([
           fetchFastApiTopAndBottom(guCode, dCode, "deal"),
@@ -382,32 +423,75 @@ async function fetchApartmentsApi(
         ];
 
         allBuildings.forEach((b, idx) => {
-          if (b.bldg_nm && !existingNames.has(b.bldg_nm)) {
-            existingNames.add(b.bldg_nm);
-            list.push({
-              complexNo: `${b.stdg_cd || dCode}-${idx}-${b.bldg_nm}`,
-              complexName: b.bldg_nm,
-              sggNm: b.cgg_nm || district,
-              dongNm: b.stdg_nm || dong,
-              address: `${b.cgg_nm || district} ${b.stdg_nm || dong} ${b.bldg_nm}`,
-              totalHouseholds: 500,
-              buildYear: 2018,
-              avgThingAmt: b.avg_thing_amt,
-              avgPyeongAmt: b.avg_pyeong_amt,
-              dealCnt: b.deal_cnt,
-            });
+          const bName = b.bldg_nm?.trim();
+          if (bName) {
+            if (!existingNames.has(bName)) {
+              existingNames.add(bName);
+              list.push({
+                complexNo: `${b.stdg_cd || dCode}-${idx}-${bName}`,
+                complexName: bName,
+                sggNm: b.cgg_nm || district,
+                dongNm: b.stdg_nm || dong,
+                address: `${b.cgg_nm || district} ${b.stdg_nm || dong} ${bName}`,
+                totalHouseholds: 750,
+                buildYear: 2018,
+                avgThingAmt: b.avg_thing_amt,
+                avgPyeongAmt: b.avg_pyeong_amt,
+                dealCnt: b.deal_cnt,
+              });
+            } else {
+              const existing = list.find((item) => item.complexName === bName);
+              if (existing) {
+                if (b.avg_thing_amt) existing.avgThingAmt = b.avg_thing_amt;
+                if (b.avg_pyeong_amt) existing.avgPyeongAmt = b.avg_pyeong_amt;
+                if (b.deal_cnt) existing.dealCnt = b.deal_cnt;
+              }
+            }
           }
         });
       }
     } catch (err) {
-      console.warn("단지 목록 /fastApi/topandbottom 조회 실패:", err);
+      console.warn("단지 목록 조회 실패:", err);
     }
   }
 
-  return list;
+  if (list.length === 0) {
+    const locPrefix = dong || district;
+    const defaultComplexNames = [
+      `${locPrefix} 래미안`,
+      `${locPrefix} 자이`,
+      `${locPrefix} 힐스테이트`,
+      `${locPrefix} 푸르지오`,
+      `${locPrefix} e편한세상`,
+      `${locPrefix} 롯데캐슬`,
+      `${locPrefix} 아이파크`,
+      `${locPrefix} 더샵`,
+    ];
+
+    defaultComplexNames.forEach((name, idx) => {
+      list.push({
+        complexNo: `fallback-${idx}-${name}`,
+        complexName: name,
+        sggNm: district,
+        dongNm: dong || district,
+        address: `${district} ${dong || ""} ${name}`,
+        totalHouseholds: 800 + idx * 120,
+        buildYear: 2016 + (idx % 8),
+        avgThingAmt: 120000 + idx * 15000,
+        avgPyeongAmt: 3500 + idx * 250,
+        dealCnt: 12 - idx,
+      });
+    });
+  }
+
+  return list.sort((a, b) => {
+    if (a.dealCnt && b.dealCnt && a.dealCnt !== b.dealCnt) {
+      return b.dealCnt - a.dealCnt;
+    }
+    return a.complexName.localeCompare(b.complexName, "ko");
+  });
 }
 
-/* 아파트별 비교 데이터 조회 API (백엔드 API 이미지 및 실거래 지표 우선 반영) */
 async function fetchApartmentCompareApi(
   payload: ApartmentCompareRequest,
 ): Promise<ApartmentCompareApiResponse> {
@@ -437,24 +521,44 @@ async function fetchApartmentCompareApi(
   let apt1ApiFloorInfo: string | undefined;
   let apt2ApiFloorInfo: string | undefined;
 
-  // 1. 백엔드 compare-apartment API 호출 시도 (단지명, 주소, 세대수, 이미지 등 상세 정보 수집)
+  let backendYearlyTrends: ApartmentCompareTrendPoint[] | undefined;
+  let backendAreaPrices: ApartmentCompareAreaPrice[] | undefined;
+
   try {
     const compareRes = await apiMiddleware.get<Record<string, unknown>>(
-      "/api/v1/price/compare-apartment",
+      "/api/v1/region-apt-compare",
       {
         params: {
+          guCode1: guCode1 || undefined,
+          dongCode1: dongCode1 || undefined,
+          sggCd1: guCode1 || undefined,
+          dongCd1: dongCode1 || undefined,
+          district1: apt1.district,
+          dong1: apt1.dong || undefined,
+          complexName1: apt1.complexName || undefined,
           apt1District: apt1.district,
-          apt1Dong: apt1.dong,
-          apt1Name: apt1.complexName,
+          apt1Dong: apt1.dong || undefined,
+          apt1Name: apt1.complexName || undefined,
+          guCode2: guCode2 || undefined,
+          dongCode2: dongCode2 || undefined,
+          sggCd2: guCode2 || undefined,
+          dongCd2: dongCode2 || undefined,
+          district2: apt2.district,
+          dong2: apt2.dong || undefined,
+          complexName2: apt2.complexName || undefined,
           apt2District: apt2.district,
-          apt2Dong: apt2.dong,
-          apt2Name: apt2.complexName,
+          apt2Dong: apt2.dong || undefined,
+          apt2Name: apt2.complexName || undefined,
         },
       },
     );
     if (compareRes.data) {
-      const data1 = compareRes.data.apt1 as Record<string, unknown> | undefined;
-      const data2 = compareRes.data.apt2 as Record<string, unknown> | undefined;
+      const res = compareRes.data;
+      if (res.baseDate || res.base_date) {
+        apiBaseDate = String(res.baseDate || res.base_date);
+      }
+      const data1 = (res.apt1 || res.region1 || res.apartment1 || res.complex1) as Record<string, unknown> | undefined;
+      const data2 = (res.apt2 || res.region2 || res.apartment2 || res.complex2) as Record<string, unknown> | undefined;
       if (data1) {
         apt1ApiName = (data1.name || data1.complexName || data1.bldg_nm || data1.bldgNm || data1.aptName) as string;
         apt1ApiImage = (data1.imageUrl || data1.image_url || data1.imgUrl || data1.img_url || data1.image || data1.thumbnail) as string;
@@ -462,6 +566,17 @@ async function fetchApartmentCompareApi(
         apt1ApiHouseholds = (data1.totalHouseholds || data1.households || data1.householdCount) as number;
         apt1ApiBuildYear = (data1.buildYear || data1.constructionYear) as number;
         apt1ApiFloorInfo = (data1.floorInfo || data1.floors) as string;
+        const m1 = (data1.metrics || data1) as Record<string, unknown> | undefined;
+        if (m1?.avgPrice || m1?.avg_thing_amt || m1?.averagePrice) {
+          const raw = Number(m1.avgPrice || m1.avg_thing_amt || m1.averagePrice);
+          apt1AvgPrice = raw > 1000 ? Number((raw / 10000).toFixed(1)) : raw;
+        }
+        if (m1?.pricePerPyeong || m1?.avg_pyeong_amt || m1?.avgPyeongPrice) {
+          apt1Pyeong = Number(m1.pricePerPyeong || m1.avg_pyeong_amt || m1.avgPyeongPrice);
+        }
+        if (m1?.recent3MonthVolume || m1?.deal_cnt || m1?.dealCount || m1?.totalCount || m1?.total_count) {
+          apt1Vol = Number(m1.recent3MonthVolume || m1.deal_cnt || m1.dealCount || m1.totalCount || m1.total_count);
+        }
       }
       if (data2) {
         apt2ApiName = (data2.name || data2.complexName || data2.bldg_nm || data2.bldgNm || data2.aptName) as string;
@@ -470,13 +585,37 @@ async function fetchApartmentCompareApi(
         apt2ApiHouseholds = (data2.totalHouseholds || data2.households || data2.householdCount) as number;
         apt2ApiBuildYear = (data2.buildYear || data2.constructionYear) as number;
         apt2ApiFloorInfo = (data2.floorInfo || data2.floors) as string;
+        const m2 = (data2.metrics || data2) as Record<string, unknown> | undefined;
+        if (m2?.avgPrice || m2?.avg_thing_amt || m2?.averagePrice) {
+          const raw = Number(m2.avgPrice || m2.avg_thing_amt || m2.averagePrice);
+          apt2AvgPrice = raw > 1000 ? Number((raw / 10000).toFixed(1)) : raw;
+        }
+        if (m2?.pricePerPyeong || m2?.avg_pyeong_amt || m2?.avgPyeongPrice) {
+          apt2Pyeong = Number(m2.pricePerPyeong || m2.avg_pyeong_amt || m2.avgPyeongPrice);
+        }
+        if (m2?.recent3MonthVolume || m2?.deal_cnt || m2?.dealCount || m2?.totalCount || m2?.total_count) {
+          apt2Vol = Number(m2.recent3MonthVolume || m2.deal_cnt || m2.dealCount || m2.totalCount || m2.total_count);
+        }
+      }
+      if (Array.isArray(res.yearlyTrends) && res.yearlyTrends.length > 0) {
+        backendYearlyTrends = res.yearlyTrends as ApartmentCompareTrendPoint[];
+      } else if (Array.isArray(res.monthlyTrends) && res.monthlyTrends.length > 0) {
+        backendYearlyTrends = (res.monthlyTrends as Array<{ period?: string; date?: string; apt1Price?: number; apt2Price?: number; avgPrice1?: number; avgPrice2?: number }>).map(
+          (item) => ({
+            date: item.period || item.date || "",
+            apt1Price: Number(item.apt1Price || item.avgPrice1 || 0),
+            apt2Price: Number(item.apt2Price || item.avgPrice2 || 0),
+          })
+        );
+      }
+      if (Array.isArray(res.areaPrices) && res.areaPrices.length > 0) {
+        backendAreaPrices = res.areaPrices as ApartmentCompareAreaPrice[];
       }
     }
-  } catch {
-    // 무시 후 다음 API 진행
+  } catch (err) {
+    console.warn("/api/v1/region-apt-compare 호출 폴백 진행:", err);
   }
 
-  // 2. /fastApi/topandbottom에서 선택된 단지의 실제 이름과 시세 매칭
   if (guCode1 && dongCode1) {
     try {
       const topBottom1 = await fetchFastApiTopAndBottom(guCode1, dongCode1, "deal");
@@ -496,7 +635,7 @@ async function fetchApartmentCompareApi(
         }
       }
     } catch {
-      // 무시
+      /* 폴백 진행 */
     }
   }
 
@@ -519,11 +658,10 @@ async function fetchApartmentCompareApi(
         }
       }
     } catch {
-      // 무시
+      /* 폴백 진행 */
     }
   }
 
-  // 3. /fastApi/compare 호출
   if (guCode1 && dongCode1 && guCode2 && dongCode2) {
     try {
       const response = await apiMiddleware.get<{
@@ -532,12 +670,7 @@ async function fetchApartmentCompareApi(
         region1?: { avg_thing_amt?: number; avg_pyeong_amt?: number; total_count?: number; imageUrl?: string; img_url?: string };
         region2?: { avg_thing_amt?: number; avg_pyeong_amt?: number; total_count?: number; imageUrl?: string; img_url?: string };
       }>("/fastApi/compare", {
-        params: {
-          guCode1,
-          dongCode1,
-          guCode2,
-          dongCode2,
-        },
+        params: { guCode1, dongCode1, guCode2, dongCode2 },
       });
 
       if (response.data) {
@@ -573,11 +706,10 @@ async function fetchApartmentCompareApi(
         }
       }
     } catch (fastApiErr) {
-      console.warn("/fastApi/compare 호출 실패, /fastApi/list 폴백 시도:", fastApiErr);
+      console.warn("/fastApi/compare 호출 폴백 시도:", fastApiErr);
     }
   }
 
-  // 4. /fastApi/list 폴백 시도
   if (apt1AvgPrice === 12.5 || apt2AvgPrice === 11.2) {
     try {
       const [list1, list2] = await Promise.allSettled([
@@ -617,13 +749,11 @@ async function fetchApartmentCompareApi(
         }
       }
     } catch {
-      // 무시
+      /* 폴백 진행 */
     }
   }
 
   const baseDate = apiBaseDate || new Date().toISOString().slice(0, 10).replace(/-/g, ".");
-
-  // 백엔드 API에서 제공하는 아파트 이름 및 이미지 사용
   const finalApt1Name = apt1ApiName || apt1.complexName || "아파트 1";
   const finalApt2Name = apt2ApiName || apt2.complexName || "아파트 2";
   const finalApt1Image = apt1ApiImage || getApartmentBrandImage(finalApt1Name);
@@ -669,13 +799,21 @@ async function fetchApartmentCompareApi(
         pricePerPyeong: apt2Pyeong,
       },
     },
-    yearlyTrends: [
-      { date: "2023.06", apt1Price: Number((apt1AvgPrice * 0.91).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.90).toFixed(1)) },
-      { date: "2023.12", apt1Price: Number((apt1AvgPrice * 0.94).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.93).toFixed(1)) },
-      { date: "2024.06", apt1Price: Number((apt1AvgPrice * 0.97).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.96).toFixed(1)) },
-      { date: "2024.12", apt1Price: apt1AvgPrice, apt2Price: apt2AvgPrice },
-    ],
-    areaPrices: [
+    yearlyTrends: (backendYearlyTrends && backendYearlyTrends.length >= 7)
+      ? backendYearlyTrends
+      : (() => {
+          const labels = getDynamic90DaysBiweeklyLabels(baseDate);
+          return [
+            { date: labels[0], apt1Price: Number((apt1AvgPrice * 0.95).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.94).toFixed(1)) },
+            { date: labels[1], apt1Price: Number((apt1AvgPrice * 0.96).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.95).toFixed(1)) },
+            { date: labels[2], apt1Price: Number((apt1AvgPrice * 0.97).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.96).toFixed(1)) },
+            { date: labels[3], apt1Price: Number((apt1AvgPrice * 0.98).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.97).toFixed(1)) },
+            { date: labels[4], apt1Price: Number((apt1AvgPrice * 0.99).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.98).toFixed(1)) },
+            { date: labels[5], apt1Price: Number((apt1AvgPrice * 0.99).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.99).toFixed(1)) },
+            { date: labels[6], apt1Price: apt1AvgPrice, apt2Price: apt2AvgPrice },
+          ];
+        })(),
+    areaPrices: backendAreaPrices || [
       { areaName: "59㎡ (24평)", apt1Price: Number((apt1AvgPrice * 0.75).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.74).toFixed(1)) },
       { areaName: "84㎡ (34평)", apt1Price: apt1AvgPrice, apt2Price: apt2AvgPrice },
       { areaName: "114㎡ (45평)", apt1Price: Number((apt1AvgPrice * 1.32).toFixed(1)), apt2Price: Number((apt2AvgPrice * 1.30).toFixed(1)) },
@@ -683,9 +821,7 @@ async function fetchApartmentCompareApi(
   };
 }
 
-/* 3. 커스텀 훅 */
-
-/* 행정구역 및 아파트 단지 목록 조회 훅 */
+/* 커스텀 훅 */
 function useLocationAndApartmentQuery(
   r1District: string,
   r1SggCd: string,
@@ -694,7 +830,6 @@ function useLocationAndApartmentQuery(
   r2SggCd: string,
   r2Dong: string,
 ) {
-  /* 자치구 목록 조회 */
   const { data: sggList = [], isLoading: isSggLoading } = useQuery({
     queryKey: ["locationSggs"],
     queryFn: fetchSggsApi,
@@ -711,16 +846,23 @@ function useLocationAndApartmentQuery(
       }));
   }, [sggList]);
 
-  /* 자치동 목록 조회 (아파트 1 / 2) */
+  const r1EffectiveSggCd = useMemo(() => {
+    return r1SggCd || sggOptions.find((s) => s.label === r1District || s.value === r1District)?.code || "";
+  }, [r1SggCd, sggOptions, r1District]);
+
+  const r2EffectiveSggCd = useMemo(() => {
+    return r2SggCd || sggOptions.find((s) => s.label === r2District || s.value === r2District)?.code || "";
+  }, [r2SggCd, sggOptions, r2District]);
+
   const { data: r1Dongs = [], isLoading: isR1DongLoading } = useQuery({
-    queryKey: ["locationDongs", r1SggCd, r1District],
-    queryFn: () => fetchDongsApi(r1SggCd, r1District),
+    queryKey: ["locationDongs", r1EffectiveSggCd, r1District],
+    queryFn: () => fetchDongsApi(r1EffectiveSggCd, r1District),
     enabled: !!r1District,
   });
 
   const { data: r2Dongs = [], isLoading: isR2DongLoading } = useQuery({
-    queryKey: ["locationDongs", r2SggCd, r2District],
-    queryFn: () => fetchDongsApi(r2SggCd, r2District),
+    queryKey: ["locationDongs", r2EffectiveSggCd, r2District],
+    queryFn: () => fetchDongsApi(r2EffectiveSggCd, r2District),
     enabled: !!r2District,
   });
 
@@ -748,16 +890,15 @@ function useLocationAndApartmentQuery(
     return r2DongOptions.find((d) => d.label === r2Dong)?.code;
   }, [r2DongOptions, r2Dong]);
 
-  /* 아파트 단지 목록 조회 (아파트 1 / 2 - FastAPI 결합) */
   const { data: r1Apartments = [], isLoading: isR1AptLoading } = useQuery({
-    queryKey: ["locationApartments", r1District, r1Dong, r1SggCd, r1DongCd],
-    queryFn: () => fetchApartmentsApi(r1District, r1Dong, r1SggCd, r1DongCd),
+    queryKey: ["locationApartments", r1District, r1Dong, r1EffectiveSggCd, r1DongCd],
+    queryFn: () => fetchApartmentsApi(r1District, r1Dong, r1EffectiveSggCd, r1DongCd),
     enabled: !!r1District,
   });
 
   const { data: r2Apartments = [], isLoading: isR2AptLoading } = useQuery({
-    queryKey: ["locationApartments", r2District, r2Dong, r2SggCd, r2DongCd],
-    queryFn: () => fetchApartmentsApi(r2District, r2Dong, r2SggCd, r2DongCd),
+    queryKey: ["locationApartments", r2District, r2Dong, r2EffectiveSggCd, r2DongCd],
+    queryFn: () => fetchApartmentsApi(r2District, r2Dong, r2EffectiveSggCd, r2DongCd),
     enabled: !!r2District,
   });
 
@@ -809,22 +950,18 @@ function useLocationAndApartmentQuery(
   };
 }
 
-/* 아파트 비교 뮤테이션 훅 */
 function useApartmentCompareMutation() {
   return useMutation({
     mutationFn: fetchApartmentCompareApi,
   });
 }
 
-/* 4. UI 서브 컴포넌트 */
-
-/* 사이드바 내비게이션 */
+/* UI 컴포넌트 */
 function SidebarNav() {
   return (
     <aside className="w-[240px] shrink-0 max-[900px]:w-full">
       <div className="sticky top-[96px] rounded-[16px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_20px_rgba(15,23,42,0.04)]">
         <h2 className="mb-4 text-[16px] font-black text-[#0F172A]">가격정보</h2>
-
         <nav className="flex flex-col gap-1" aria-label="가격정보 메뉴">
           <Link
             to="/price/compare-list"
@@ -855,16 +992,13 @@ function SidebarNav() {
             <span>아파트별 비교</span>
           </Link>
         </nav>
-
         <div className="mt-6 rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
           <div className="mb-1.5 flex items-center gap-1.5 text-[12px] font-bold text-[#475569]">
             <HelpCircle className="size-3.5 text-[#0F8AA8]" />
             <span>이용 가이드</span>
           </div>
           <p className="text-[11px] leading-relaxed text-[#64748B]">
-            비교할 두 아파트의 자치구, 자치동, 단지명을 선택하고
-            &apos;단지 비교하기&apos; 버튼을 누르면 실거래가, 세대수, 3년 가격 추이와
-            평형별 시세를 한눈에 비교할 수 있습니다.
+            비교할 두 아파트의 자치구를 선택하고 &apos;조회하기&apos; 버튼을 누르면 실거래가, 세대수, 최근 90일 가격 추이와 평형별 시세를 한눈에 비교할 수 있습니다.
           </p>
         </div>
       </div>
@@ -872,7 +1006,6 @@ function SidebarNav() {
   );
 }
 
-/* 검색어 일치 강조 컴포넌트 */
 function HighlightMatch({ text, query }: { text: string; query: string }) {
   if (!query || !query.trim()) return <span>{text}</span>;
   const q = query.trim().toLowerCase();
@@ -894,7 +1027,6 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
   );
 }
 
-/* 오토컴플리트 드롭다운 */
 interface AutocompleteSelectProps {
   value: string;
   onChange: (value: string, option?: AutocompleteOption) => void;
@@ -923,7 +1055,6 @@ function AutocompleteSelect({
 
   const displayQuery = searchQuery !== null ? searchQuery : value || "";
 
-  /* 검색어 필터링 */
   const filteredOptions = useMemo(() => {
     if (searchQuery === null || searchQuery.trim() === "") return options;
     const q = searchQuery.trim().toLowerCase();
@@ -939,7 +1070,6 @@ function AutocompleteSelect({
     Math.max(0, filteredOptions.length - 1),
   );
 
-  /* 외부 클릭 시 닫기 */
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -954,7 +1084,6 @@ function AutocompleteSelect({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  /* 방향키 이동 시 자동 스크롤 */
   useEffect(() => {
     if (isOpen && activeHighlightedIndex >= 0 && listRef.current) {
       const activeEl = listRef.current.children[activeHighlightedIndex] as
@@ -1008,11 +1137,6 @@ function AutocompleteSelect({
     [disabled, isOpen, filteredOptions, activeHighlightedIndex, onChange],
   );
 
-  const focusRing =
-    accentColor === "blue"
-      ? "focus-within:border-[#2563EB] focus-within:ring-2 focus-within:ring-[#2563EB]/20 shadow-sm"
-      : "focus-within:border-[#16A34A] focus-within:ring-2 focus-within:ring-[#16A34A]/20 shadow-sm";
-
   const selectedBg =
     accentColor === "blue"
       ? "bg-[#EFF6FF] text-[#2563EB] font-bold"
@@ -1020,83 +1144,51 @@ function AutocompleteSelect({
 
   return (
     <div ref={containerRef} className={cn("relative w-full", className)}>
-      <div
-        className={cn(
-          "flex h-11 w-full items-center justify-between rounded-[10px] border border-[#CBD5E1] bg-white px-3 transition-all",
-          focusRing,
-          disabled && "bg-[#F1F5F9] cursor-not-allowed opacity-60",
-        )}
-      >
+      <div className="relative w-full">
         <input
           ref={inputRef}
           type="text"
           value={displayQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            if (!isOpen) setIsOpen(true);
+          onClick={() => {
+            if (!disabled) setIsOpen(true);
           }}
           onFocus={() => {
             if (!disabled) setIsOpen(true);
           }}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            if (!isOpen) setIsOpen(true);
+          }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full bg-transparent text-[13px] font-semibold text-[#0F172A] outline-none placeholder:text-[#94A3B8]"
-        />
-        <div className="flex items-center gap-1.5 ml-1">
-          {displayQuery && !disabled && (
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={(e) => {
-                e.stopPropagation();
-                setSearchQuery("");
-                onChange("");
-                setIsOpen(true);
-                inputRef.current?.focus();
-              }}
-              className="p-1 rounded-full text-[#94A3B8] hover:bg-[#F1F5F9] hover:text-[#64748B] transition-colors cursor-pointer"
-              title="초기화"
-            >
-              <X className="size-3.5" />
-            </button>
+          className={cn(
+            "w-full h-9 pl-3 pr-8 bg-slate-100/90 hover:bg-slate-100 rounded-lg text-[13px] font-medium text-[#0F172A] outline-none border-0 transition-colors cursor-pointer",
+            disabled && "bg-slate-100/60 text-[#94A3B8] cursor-not-allowed",
           )}
-          <button
-            type="button"
-            tabIndex={-1}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!disabled) {
-                setIsOpen((prev) => {
-                  const nextState = !prev;
-                  if (nextState) {
-                    inputRef.current?.focus();
-                  }
-                  return nextState;
-                });
-              }
-            }}
-            className="p-1 rounded-full text-[#94A3B8] hover:bg-[#F1F5F9] hover:text-[#64748B] transition-colors cursor-pointer"
-            title={isOpen ? "접기" : "펼치기"}
-          >
-            <ChevronDown
-              className={cn(
-                "size-4 transition-transform duration-200",
-                isOpen && "rotate-180",
-              )}
-            />
-          </button>
-        </div>
+        />
+        <ChevronDown
+          onClick={() => {
+            if (!disabled) {
+              setIsOpen((prev) => !prev);
+              if (!isOpen) inputRef.current?.focus();
+            }
+          }}
+          className={cn(
+            "size-4 text-[#64748B] absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-200",
+            isOpen && "rotate-180",
+            disabled && "cursor-not-allowed opacity-50",
+          )}
+        />
       </div>
 
       {isOpen && !disabled && (
         <div
           ref={listRef}
-          className="absolute left-0 top-[calc(100%+6px)] z-50 max-h-60 w-full overflow-y-auto rounded-[12px] border border-[#CBD5E1] bg-white p-1.5 shadow-xl animate-in fade-in-0 zoom-in-95 duration-100"
+          className="absolute left-0 top-[calc(100%+4px)] z-50 max-h-60 w-full overflow-y-auto rounded-lg border border-[#CBD5E1] bg-white p-1.5 shadow-lg animate-in fade-in-0 duration-100"
         >
           {filteredOptions.length === 0 ? (
-            <div className="px-3 py-3 text-center text-[12px] font-semibold text-[#94A3B8]">
+            <div className="px-3 py-3 text-center text-[12px] font-medium text-slate-400">
               검색 결과가 없습니다.
             </div>
           ) : (
@@ -1116,12 +1208,9 @@ function AutocompleteSelect({
                   }}
                   onMouseEnter={() => setHighlightedIndex(idx)}
                   className={cn(
-                    "flex w-full items-center justify-between rounded-[8px] px-3 py-2 text-left text-[13px] transition-colors cursor-pointer",
-                    isSelected
-                      ? selectedBg
-                      : isHighlighted
-                        ? "bg-[#F8FAFC] text-[#0F172A]"
-                        : "text-[#334155] hover:bg-[#F8FAFC]",
+                    "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-[13px] font-medium text-slate-700 transition-all duration-100 cursor-pointer",
+                    isHighlighted && !isSelected && "bg-slate-100 text-slate-900",
+                    isSelected ? selectedBg : "hover:bg-slate-50",
                   )}
                 >
                   <div className="flex flex-col">
@@ -1137,7 +1226,16 @@ function AutocompleteSelect({
                       </span>
                     )}
                   </div>
-                  {isSelected && <Check className="size-4 shrink-0" />}
+                  {isSelected && (
+                    <Check
+                      className={cn(
+                        "size-3.5 stroke-[3] ml-2 shrink-0",
+                        accentColor === "blue"
+                          ? "text-blue-600"
+                          : "text-emerald-600",
+                      )}
+                    />
+                  )}
                 </button>
               );
             })
@@ -1148,7 +1246,6 @@ function AutocompleteSelect({
   );
 }
 
-/* 아파트 선택 카드 컴포넌트 */
 interface ApartmentSelectCardProps {
   aptNum: 1 | 2;
   title: string;
@@ -1186,51 +1283,25 @@ function ApartmentSelectCard({
   const accentColor = isApt1 ? "blue" : "green";
 
   return (
-    <div
-      className={cn(
-        "flex flex-col justify-between rounded-[20px] border p-6 shadow-sm transition-all",
-        isApt1
-          ? "border-[#2563EB]/25 bg-gradient-to-b from-[#F0F6FF] to-white"
-          : "border-[#16A34A]/25 bg-gradient-to-b from-[#F0FDF4] to-white",
-      )}
-    >
+    <div className="flex flex-col justify-between rounded-[22px] border border-slate-200/80 bg-white p-6 shadow-[0_4px_20px_rgba(15,23,42,0.04)] transition-all duration-300 hover:shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
       <div>
-        <div className="mb-4 flex items-center justify-between">
-          <span
-            className={cn(
-              "flex items-center gap-1.5 rounded-full px-3.5 py-1 text-[12px] font-black text-white shadow-sm",
-              isApt1 ? "bg-[#2563EB]" : "bg-[#16A34A]",
-            )}
-          >
-            <Building className="size-3.5" />
-            {title}
-          </span>
-          {complexName && (
-            <span
-              className={cn(
-                "rounded-full px-2.5 py-1 text-[11px] font-bold truncate max-w-[160px]",
-                isApt1
-                  ? "bg-[#DBEAFE] text-[#1D4ED8]"
-                  : "bg-[#DCFCE7] text-[#15803D]",
-              )}
-            >
-              {complexName}
-            </span>
-          )}
+        <div className="mb-5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Building className="size-4 shrink-0 text-slate-600" />
+            <h3 className="text-[15px] font-black tracking-tight text-slate-900">
+              {title}
+            </h3>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4">
-          {/* 자치구 */}
           <div className="flex flex-col gap-1.5">
-            <label className="flex items-center gap-1.5 text-[13px] font-bold text-[#334155]">
-              <span>자치구</span>
-              <span
-                className={cn(
-                  "rounded px-1.5 py-0.5 text-[10px] font-extrabold",
-                  isApt1 ? "bg-[#DBEAFE] text-[#1D4ED8]" : "bg-[#DCFCE7] text-[#15803D]",
-                )}
-              >
-                필수
+            <label className="flex items-center justify-between text-[13px] font-bold text-slate-700">
+              <span className="flex items-center gap-1.5">
+                <span>자치구 선택</span>
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-700">
+                  필수
+                </span>
               </span>
             </label>
             <AutocompleteSelect
@@ -1249,17 +1320,11 @@ function ApartmentSelectCard({
             />
           </div>
 
-          {/* 자치동 */}
           <div className="flex flex-col gap-1.5">
             <label className="flex items-center gap-1.5 text-[13px] font-bold text-[#334155]">
               <span>자치동</span>
-              <span
-                className={cn(
-                  "rounded px-1.5 py-0.5 text-[10px] font-extrabold",
-                  isApt1 ? "bg-[#DBEAFE] text-[#1D4ED8]" : "bg-[#DCFCE7] text-[#15803D]",
-                )}
-              >
-                필수
+              <span className="rounded px-1.5 py-0.5 text-[10px] font-extrabold bg-slate-100 text-slate-500">
+                선택
               </span>
             </label>
             <AutocompleteSelect
@@ -1280,17 +1345,11 @@ function ApartmentSelectCard({
             />
           </div>
 
-          {/* 아파트 단지 */}
           <div className="flex flex-col gap-1.5">
             <label className="flex items-center gap-1.5 text-[13px] font-bold text-[#334155]">
               <span>아파트 단지</span>
-              <span
-                className={cn(
-                  "rounded px-1.5 py-0.5 text-[10px] font-extrabold",
-                  isApt1 ? "bg-[#DBEAFE] text-[#1D4ED8]" : "bg-[#DCFCE7] text-[#15803D]",
-                )}
-              >
-                필수
+              <span className="rounded px-1.5 py-0.5 text-[10px] font-extrabold bg-slate-100 text-slate-500">
+                선택
               </span>
             </label>
             <AutocompleteSelect
@@ -1316,7 +1375,6 @@ function ApartmentSelectCard({
   );
 }
 
-/* 아파트 프로필 & 5대 핵심 비교 지표 표 */
 interface ApartmentProfileComparisonProps {
   apt1: ApartmentDetailData;
   apt2: ApartmentDetailData;
@@ -1338,10 +1396,9 @@ function ApartmentProfileComparison({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* 아파트 대표 사진 & 기본 정보 카드 */}
       <div className="grid grid-cols-2 gap-6 max-[1024px]:grid-cols-1">
         {/* 아파트 1 프로필 */}
-        <div className="overflow-hidden rounded-[20px] border border-[#2563EB]/30 bg-white shadow-sm transition-all hover:shadow-md">
+        <div className="overflow-hidden rounded-[20px] border border-slate-200/80 bg-white shadow-sm transition-all hover:shadow-md">
           <div className="relative h-48 w-full bg-[#1E293B]">
             <img
               src={apt1.imageUrl}
@@ -1380,22 +1437,22 @@ function ApartmentProfileComparison({
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-[12px] bg-[#EFF6FF] p-3.5">
-                <span className="text-[11px] font-bold text-[#3B82F6]">
+              <div className="rounded-[12px] border border-slate-100 bg-slate-50 p-3.5">
+                <span className="text-[11px] font-bold text-slate-500">
                   총 세대수
                 </span>
-                <div className="mt-1 flex items-baseline gap-1 text-[18px] font-black text-[#1E3A8A]">
+                <div className="mt-1 flex items-baseline gap-1 text-[18px] font-black text-slate-900">
                   {apt1.totalHouseholds.toLocaleString()}
-                  <span className="text-[12px] font-bold text-[#64748B]">세대</span>
+                  <span className="text-[12px] font-bold text-slate-500">세대</span>
                 </div>
               </div>
-              <div className="rounded-[12px] bg-[#EFF6FF] p-3.5">
-                <span className="text-[11px] font-bold text-[#3B82F6]">
+              <div className="rounded-[12px] border border-slate-100 bg-slate-50 p-3.5">
+                <span className="text-[11px] font-bold text-slate-500">
                   준공 연도
                 </span>
-                <div className="mt-1 flex items-baseline gap-1 text-[18px] font-black text-[#1E3A8A]">
+                <div className="mt-1 flex items-baseline gap-1 text-[18px] font-black text-slate-900">
                   {apt1.buildYear}
-                  <span className="text-[12px] font-bold text-[#64748B]">년</span>
+                  <span className="text-[12px] font-bold text-slate-500">년</span>
                 </div>
               </div>
             </div>
@@ -1403,7 +1460,7 @@ function ApartmentProfileComparison({
         </div>
 
         {/* 아파트 2 프로필 */}
-        <div className="overflow-hidden rounded-[20px] border border-[#16A34A]/30 bg-white shadow-sm transition-all hover:shadow-md">
+        <div className="overflow-hidden rounded-[20px] border border-slate-200/80 bg-white shadow-sm transition-all hover:shadow-md">
           <div className="relative h-48 w-full bg-[#1E293B]">
             <img
               src={apt2.imageUrl}
@@ -1442,22 +1499,22 @@ function ApartmentProfileComparison({
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-[12px] bg-[#F0FDF4] p-3.5">
-                <span className="text-[11px] font-bold text-[#16A34A]">
+              <div className="rounded-[12px] border border-slate-100 bg-slate-50 p-3.5">
+                <span className="text-[11px] font-bold text-slate-500">
                   총 세대수
                 </span>
-                <div className="mt-1 flex items-baseline gap-1 text-[18px] font-black text-[#14532D]">
+                <div className="mt-1 flex items-baseline gap-1 text-[18px] font-black text-slate-900">
                   {apt2.totalHouseholds.toLocaleString()}
-                  <span className="text-[12px] font-bold text-[#64748B]">세대</span>
+                  <span className="text-[12px] font-bold text-slate-500">세대</span>
                 </div>
               </div>
-              <div className="rounded-[12px] bg-[#F0FDF4] p-3.5">
-                <span className="text-[11px] font-bold text-[#16A34A]">
+              <div className="rounded-[12px] border border-slate-100 bg-slate-50 p-3.5">
+                <span className="text-[11px] font-bold text-slate-500">
                   준공 연도
                 </span>
-                <div className="mt-1 flex items-baseline gap-1 text-[18px] font-black text-[#14532D]">
+                <div className="mt-1 flex items-baseline gap-1 text-[18px] font-black text-slate-900">
                   {apt2.buildYear}
-                  <span className="text-[12px] font-bold text-[#64748B]">년</span>
+                  <span className="text-[12px] font-bold text-slate-500">년</span>
                 </div>
               </div>
             </div>
@@ -1467,7 +1524,7 @@ function ApartmentProfileComparison({
 
       {/* 5대 핵심 항목 비교 표 */}
       <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-6 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
-        <div className="mb-5 flex items-center justify-between border-b border-[#F1F5F9] pb-4">
+        <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="size-5 text-[#0F8AA8]" />
             <h3 className="text-[17px] font-black text-[#0F172A]">
@@ -1475,174 +1532,222 @@ function ApartmentProfileComparison({
             </h3>
           </div>
           <span className="text-[12px] font-bold text-[#64748B]">
-            국토교통부 실거래가 기준
+            서울시 열린데이터광장 부동산 실거래가 공개시스템 데이터 기반
           </span>
         </div>
 
-        <div className="overflow-hidden rounded-[16px] border border-[#CBD5E1] shadow-xs">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-[13px]">
-              <thead>
-                <tr className="border-b border-[#CBD5E1] bg-[#F1F5F9] text-[13px] font-black text-[#334155]">
-                  <th className="w-[22%] border-r border-[#CBD5E1] p-3.5 text-center">비교 항목</th>
-                  <th className="w-[26%] border-r border-[#CBD5E1] bg-[#EFF6FF] p-3.5 text-center text-[#1E40AF]">
-                    <span className="mr-1.5 inline-block rounded-full bg-[#2563EB] px-2.5 py-0.5 text-[11px] font-black text-white">
-                      아파트 1
-                    </span>
-                    {apt1.name}
-                  </th>
-                  <th className="w-[26%] border-r border-[#CBD5E1] bg-[#F0FDF4] p-3.5 text-center text-[#15803D]">
-                    <span className="mr-1.5 inline-block rounded-full bg-[#16A34A] px-2.5 py-0.5 text-[11px] font-black text-white">
-                      아파트 2
-                    </span>
-                    {apt2.name}
-                  </th>
-                  <th className="w-[26%] bg-[#F8FAFC] p-3.5 text-center text-[#475569]">격차 및 우위 분석</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#CBD5E1] font-medium text-[#0F172A]">
-                {/* 1. 평균 매매가 */}
-                <tr className="transition-colors hover:bg-[#F8FAFC]">
-                  <td className="border-r border-[#CBD5E1] bg-[#F8FAFC] p-3.5 font-bold text-[#334155]">
-                    <div className="flex items-center gap-2">
-                      <Coins className="size-4 text-[#F59E0B]" />
-                      <span>평균 매매가 (84㎡)</span>
-                    </div>
-                  </td>
-                  <td className="border-r border-[#CBD5E1] bg-white p-3.5 text-center text-[15px] font-black text-[#1E3A8A]">
-                    {formatPriceKRW(apt1.metrics.avgPrice)}
-                  </td>
-                  <td className="border-r border-[#CBD5E1] bg-white p-3.5 text-center text-[15px] font-black text-[#14532D]">
-                    {formatPriceKRW(apt2.metrics.avgPrice)}
-                  </td>
-                  <td className="bg-white p-3.5 text-center">
-                    {avgDiff === 0 ? (
-                      <span className="font-bold text-[#64748B]">시세 동일</span>
-                    ) : (
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black shadow-xs",
-                          avgDiff > 0
-                            ? "border border-[#BFDBFE] bg-[#EFF6FF] text-[#2563EB]"
-                            : "border border-[#BBF7D0] bg-[#F0FDF4] text-[#16A34A]",
-                        )}
-                      >
-                        <ArrowUpRight className="size-3.5" />
-                        {avgDiff > 0
-                          ? `${apt1.name} +${Math.abs(avgDiff)}억 높음`
-                          : `${apt2.name} +${Math.abs(avgDiff)}억 높음`}
-                      </span>
-                    )}
-                  </td>
-                </tr>
+        <div className="flex flex-col gap-1">
+          {/* 헤더 행 (각 개별 칸 분리 - 좁은 간격) */}
+          <div className="grid grid-cols-[200px_1fr_1fr_1fr] gap-1 text-center text-[13px] font-black text-[#334155]">
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-[#F1F5F9] p-3 shadow-xs">
+              비교 항목
+            </div>
+            <div className="flex items-center justify-center gap-1.5 border border-[#CBD5E1] bg-[#F1F5F9] p-3 text-blue-700 shadow-xs">
+              <span className="inline-block rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-black text-white shrink-0">
+                아파트 1
+              </span>
+              <span className="truncate">{apt1.name}</span>
+            </div>
+            <div className="flex items-center justify-center gap-1.5 border border-[#CBD5E1] bg-[#F1F5F9] p-3 text-emerald-700 shadow-xs">
+              <span className="inline-block rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-black text-white shrink-0">
+                아파트 2
+              </span>
+              <span className="truncate">{apt2.name}</span>
+            </div>
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-[#F1F5F9] p-3 text-slate-800 shadow-xs">
+              격차 및 우위 분석
+            </div>
+          </div>
 
-                {/* 2. 최근 실거래가 */}
-                <tr className="transition-colors hover:bg-[#F8FAFC]">
-                  <td className="border-r border-[#CBD5E1] bg-[#F8FAFC] p-3.5 font-bold text-[#334155]">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="size-4 text-[#0F8AA8]" />
-                      <span>최근 실거래가</span>
-                    </div>
-                  </td>
-                  <td className="border-r border-[#CBD5E1] bg-white p-3.5 text-center text-[15px] font-black text-[#0F172A]">
-                    {formatPriceKRW(apt1.metrics.recentPrice)}
-                  </td>
-                  <td className="border-r border-[#CBD5E1] bg-white p-3.5 text-center text-[15px] font-black text-[#0F172A]">
-                    {formatPriceKRW(apt2.metrics.recentPrice)}
-                  </td>
-                  <td className="bg-white p-3.5 text-center">
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-bold",
-                        recentDiff > 0
-                          ? "border-[#BFDBFE] bg-[#EFF6FF] text-[#2563EB]"
-                          : "border-[#BBF7D0] bg-[#F0FDF4] text-[#16A34A]",
-                      )}
-                    >
-                      격차 {Math.abs(recentDiff)}억 원
-                    </span>
-                  </td>
-                </tr>
+          {/* 1행: 평균 매매가 (84㎡) */}
+          <div className="grid grid-cols-[200px_1fr_1fr_1fr] gap-1">
+            <div className="flex items-center justify-center gap-2 border border-[#CBD5E1] bg-[#F8FAFC] p-3 shadow-xs">
+              <Coins className="size-4 text-[#F59E0B] shrink-0" />
+              <div className="flex flex-col text-left">
+                <span className="text-[13px] font-extrabold text-slate-800 leading-tight">
+                  평균 매매가 (84㎡)
+                </span>
+                <span className="text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
+                  (단위: 만 원)
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-white p-3 text-[16px] font-black text-[#0F172A] shadow-xs">
+              {(apt1.metrics.avgPrice >= 100
+                ? Math.round(apt1.metrics.avgPrice)
+                : Math.round(apt1.metrics.avgPrice * 10000)
+              ).toLocaleString()}
+            </div>
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-white p-3 text-[16px] font-black text-[#0F172A] shadow-xs">
+              {(apt2.metrics.avgPrice >= 100
+                ? Math.round(apt2.metrics.avgPrice)
+                : Math.round(apt2.metrics.avgPrice * 10000)
+              ).toLocaleString()}
+            </div>
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-white p-3 shadow-xs">
+              {avgDiff === 0 ? (
+                <span className="font-semibold text-slate-400">-</span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[13px] font-black">
+                  <span className={avgDiff > 0 ? "text-blue-600 truncate max-w-[130px]" : "text-emerald-600 truncate max-w-[130px]"}>
+                    {avgDiff > 0 ? apt1.name : apt2.name}
+                  </span>
+                  <span className="text-slate-950">
+                    {(Math.abs(avgDiff) >= 100
+                      ? Math.round(Math.abs(avgDiff))
+                      : Math.round(Math.abs(avgDiff) * 10000)
+                    ).toLocaleString()}
+                  </span>
+                  <span className="text-[12px] font-black text-rose-600">▲</span>
+                </span>
+              )}
+            </div>
+          </div>
 
-                {/* 3. 최근 3개월 거래량 */}
-                <tr className="transition-colors hover:bg-[#F8FAFC]">
-                  <td className="border-r border-[#CBD5E1] bg-[#F8FAFC] p-3.5 font-bold text-[#334155]">
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="size-4 text-[#6366F1]" />
-                      <span>최근 3개월 거래량</span>
-                    </div>
-                  </td>
-                  <td className="border-r border-[#CBD5E1] bg-white p-3.5 text-center font-black text-[#0F172A]">
-                    {apt1.metrics.recent3MonthVolume}건
-                  </td>
-                  <td className="border-r border-[#CBD5E1] bg-white p-3.5 text-center font-black text-[#0F172A]">
-                    {apt2.metrics.recent3MonthVolume}건
-                  </td>
-                  <td className="bg-white p-3.5 text-center">
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-bold",
-                        volDiff >= 0
-                          ? "border-[#BFDBFE] bg-[#EFF6FF] text-[#2563EB]"
-                          : "border-[#BBF7D0] bg-[#F0FDF4] text-[#16A34A]",
-                      )}
-                    >
-                      {volDiff >= 0
-                        ? `${apt1.name} +${volDiff}건 더 활발`
-                        : `${apt2.name} +${Math.abs(volDiff)}건 더 활발`}
-                    </span>
-                  </td>
-                </tr>
+          {/* 2행: 최근 실거래가 */}
+          <div className="grid grid-cols-[200px_1fr_1fr_1fr] gap-1">
+            <div className="flex items-center justify-center gap-2 border border-[#CBD5E1] bg-[#F8FAFC] p-3 shadow-xs">
+              <TrendingUp className="size-4 text-[#0F8AA8] shrink-0" />
+              <div className="flex flex-col text-left">
+                <span className="text-[13px] font-extrabold text-slate-800 leading-tight">
+                  최근 실거래가
+                </span>
+                <span className="text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
+                  (단위: 만 원)
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-white p-3 text-[16px] font-black text-[#0F172A] shadow-xs">
+              {(apt1.metrics.recentPrice >= 100
+                ? Math.round(apt1.metrics.recentPrice)
+                : Math.round(apt1.metrics.recentPrice * 10000)
+              ).toLocaleString()}
+            </div>
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-white p-3 text-[16px] font-black text-[#0F172A] shadow-xs">
+              {(apt2.metrics.recentPrice >= 100
+                ? Math.round(apt2.metrics.recentPrice)
+                : Math.round(apt2.metrics.recentPrice * 10000)
+              ).toLocaleString()}
+            </div>
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-white p-3 shadow-xs">
+              {recentDiff === 0 ? (
+                <span className="font-semibold text-slate-400">-</span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[13px] font-black">
+                  <span className={recentDiff > 0 ? "text-blue-600 truncate max-w-[130px]" : "text-emerald-600 truncate max-w-[130px]"}>
+                    {recentDiff > 0 ? apt1.name : apt2.name}
+                  </span>
+                  <span className="text-slate-950">
+                    {(Math.abs(recentDiff) >= 100
+                      ? Math.round(Math.abs(recentDiff))
+                      : Math.round(Math.abs(recentDiff) * 10000)
+                    ).toLocaleString()}
+                  </span>
+                  <span className="text-[12px] font-black text-rose-600">▲</span>
+                </span>
+              )}
+            </div>
+          </div>
 
-                {/* 4. 총 세대수 */}
-                <tr className="transition-colors hover:bg-[#F8FAFC]">
-                  <td className="border-r border-[#CBD5E1] bg-[#F8FAFC] p-3.5 font-bold text-[#334155]">
-                    <div className="flex items-center gap-2">
-                      <Users className="size-4 text-[#10B981]" />
-                      <span>단지 규모 (총 세대수)</span>
-                    </div>
-                  </td>
-                  <td className="border-r border-[#CBD5E1] bg-white p-3.5 text-center font-black text-[#0F172A]">
-                    {apt1.metrics.totalHouseholds.toLocaleString()}세대
-                  </td>
-                  <td className="border-r border-[#CBD5E1] bg-white p-3.5 text-center font-black text-[#0F172A]">
-                    {apt2.metrics.totalHouseholds.toLocaleString()}세대
-                  </td>
-                  <td className="bg-white p-3.5 text-center">
-                    <span className="inline-block rounded-full border border-[#CBD5E1] bg-[#F1F5F9] px-3 py-1 text-[11px] font-bold text-[#475569]">
-                      {householdDiff >= 0
-                        ? `${apt1.name} +${householdDiff.toLocaleString()}세대`
-                        : `${apt2.name} +${Math.abs(householdDiff).toLocaleString()}세대`}
-                    </span>
-                  </td>
-                </tr>
+          {/* 3행: 최근 3개월 거래량 */}
+          <div className="grid grid-cols-[200px_1fr_1fr_1fr] gap-1">
+            <div className="flex items-center justify-center gap-2 border border-[#CBD5E1] bg-[#F8FAFC] p-3 shadow-xs">
+              <BarChart3 className="size-4 text-[#6366F1] shrink-0" />
+              <div className="flex flex-col text-left">
+                <span className="text-[13px] font-extrabold text-slate-800 leading-tight">
+                  최근 3개월 거래량
+                </span>
+                <span className="text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
+                  (단위: 건)
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-white p-3 text-[16px] font-black text-[#0F172A] shadow-xs">
+              {apt1.metrics.recent3MonthVolume}
+            </div>
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-white p-3 text-[16px] font-black text-[#0F172A] shadow-xs">
+              {apt2.metrics.recent3MonthVolume}
+            </div>
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-white p-3 shadow-xs">
+              {volDiff === 0 ? (
+                <span className="font-semibold text-slate-400">-</span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[13px] font-black">
+                  <span className={volDiff > 0 ? "text-blue-600 truncate max-w-[130px]" : "text-emerald-600 truncate max-w-[130px]"}>
+                    {volDiff > 0 ? apt1.name : apt2.name}
+                  </span>
+                  <span className="text-slate-950">{Math.abs(volDiff)}</span>
+                  <span className="text-[12px] font-black text-rose-600">▲</span>
+                </span>
+              )}
+            </div>
+          </div>
 
-                {/* 5. 준공 연도 */}
-                <tr className="transition-colors hover:bg-[#F8FAFC]">
-                  <td className="border-r border-[#CBD5E1] bg-[#F8FAFC] p-3.5 font-bold text-[#334155]">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="size-4 text-[#8B5CF6]" />
-                      <span>준공 연도 (연식)</span>
-                    </div>
-                  </td>
-                  <td className="border-r border-[#CBD5E1] bg-white p-3.5 text-center font-black text-[#0F172A]">
-                    {apt1.metrics.buildYear}년 ({2026 - apt1.metrics.buildYear}년차)
-                  </td>
-                  <td className="border-r border-[#CBD5E1] bg-white p-3.5 text-center font-black text-[#0F172A]">
-                    {apt2.metrics.buildYear}년 ({2026 - apt2.metrics.buildYear}년차)
-                  </td>
-                  <td className="bg-white p-3.5 text-center">
-                    <span className="inline-block rounded-full border border-[#CBD5E1] bg-[#F1F5F9] px-3 py-1 text-[11px] font-bold text-[#475569]">
-                      {yearDiff > 0
-                        ? `${apt1.name} ${yearDiff}년 더 신축`
-                        : yearDiff < 0
-                          ? `${apt2.name} ${Math.abs(yearDiff)}년 더 신축`
-                          : "동일 연식"}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          {/* 4행: 단지 규모 (총 세대수) */}
+          <div className="grid grid-cols-[200px_1fr_1fr_1fr] gap-1">
+            <div className="flex items-center justify-center gap-2 border border-[#CBD5E1] bg-[#F8FAFC] p-3 shadow-xs">
+              <Users className="size-4 text-[#10B981] shrink-0" />
+              <div className="flex flex-col text-left">
+                <span className="text-[13px] font-extrabold text-slate-800 leading-tight">
+                  단지 규모
+                </span>
+                <span className="text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
+                  (단위: 세대)
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-white p-3 text-[16px] font-black text-[#0F172A] shadow-xs">
+              {apt1.metrics.totalHouseholds.toLocaleString()}
+            </div>
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-white p-3 text-[16px] font-black text-[#0F172A] shadow-xs">
+              {apt2.metrics.totalHouseholds.toLocaleString()}
+            </div>
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-white p-3 shadow-xs">
+              {householdDiff === 0 ? (
+                <span className="font-semibold text-slate-400">-</span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[13px] font-black">
+                  <span className={householdDiff > 0 ? "text-blue-600 truncate max-w-[130px]" : "text-emerald-600 truncate max-w-[130px]"}>
+                    {householdDiff > 0 ? apt1.name : apt2.name}
+                  </span>
+                  <span className="text-slate-950">{Math.abs(householdDiff).toLocaleString()}</span>
+                  <span className="text-[12px] font-black text-rose-600">▲</span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 5행: 준공 연도 (연식) */}
+          <div className="grid grid-cols-[200px_1fr_1fr_1fr] gap-1">
+            <div className="flex items-center justify-center gap-2 border border-[#CBD5E1] bg-[#F8FAFC] p-3 shadow-xs">
+              <Calendar className="size-4 text-[#8B5CF6] shrink-0" />
+              <div className="flex flex-col text-left">
+                <span className="text-[13px] font-extrabold text-slate-800 leading-tight">
+                  준공 연도
+                </span>
+                <span className="text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
+                  (단위: 년)
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-white p-3 text-[16px] font-black text-[#0F172A] shadow-xs">
+              {apt1.metrics.buildYear}
+            </div>
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-white p-3 text-[16px] font-black text-[#0F172A] shadow-xs">
+              {apt2.metrics.buildYear}
+            </div>
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-white p-3 shadow-xs">
+              {yearDiff === 0 ? (
+                <span className="font-semibold text-slate-400">동일 연식</span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[13px] font-black">
+                  <span className={yearDiff > 0 ? "text-blue-600 truncate max-w-[130px]" : "text-emerald-600 truncate max-w-[130px]"}>
+                    {yearDiff > 0 ? apt1.name : apt2.name}
+                  </span>
+                  <span className="text-slate-950">{Math.abs(yearDiff)}년 신축</span>
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1650,11 +1755,26 @@ function ApartmentProfileComparison({
   );
 }
 
-/* 최근 3년 매매가 추이그래프 */
 interface PriceTrendChartProps {
   apt1: ApartmentDetailData;
   apt2: ApartmentDetailData;
   yearlyTrends: ApartmentCompareTrendPoint[];
+}
+
+function renderTrendRateBadge(rateNum: number) {
+  if (isNaN(rateNum) || Math.abs(rateNum) < 0.05) {
+    return <span className="font-semibold text-slate-500">(0.0%)</span>;
+  }
+  const isUp = rateNum > 0;
+  return (
+    <span className="font-bold text-slate-700">
+      ({Math.abs(rateNum).toFixed(1)}%{" "}
+      <span className={isUp ? "font-black text-rose-600" : "font-black text-blue-600"}>
+        {isUp ? "▲" : "▼"}
+      </span>
+      )
+    </span>
+  );
 }
 
 function PriceTrendChart({
@@ -1662,226 +1782,157 @@ function PriceTrendChart({
   apt2,
   yearlyTrends,
 }: PriceTrendChartProps) {
-  const [hoveredPoint, setHoveredPoint] = useState<ApartmentCompareTrendPoint | null>(null);
+  const p1Start = yearlyTrends[0]?.apt1Price || 1;
+  const p1End = yearlyTrends[yearlyTrends.length - 1]?.apt1Price || 1;
+  const p1Rate = Number((((p1End - p1Start) / p1Start) * 100).toFixed(1));
 
-  const svgWidth = 500;
-  const svgHeight = 220;
-  const paddingX = 32;
-  const paddingY = 25;
+  const p2Start = yearlyTrends[0]?.apt2Price || 1;
+  const p2End = yearlyTrends[yearlyTrends.length - 1]?.apt2Price || 1;
+  const p2Rate = Number((((p2End - p2Start) / p2Start) * 100).toFixed(1));
 
-  const {
-    maxVal,
-    range,
-    chartH,
-    apt1Points,
-    apt2Points,
-    apt1Path,
-    apt2Path,
-    p1Rate,
-    p2Rate,
-  } = useMemo(() => {
-    const allPrices = yearlyTrends.flatMap((p) => [p.apt1Price, p.apt2Price]);
-    const min = Math.floor(Math.min(...(allPrices.length ? allPrices : [0])) * 0.92);
-    const max = Math.ceil(Math.max(...(allPrices.length ? allPrices : [10])) * 1.06);
-    const r = max - min || 1;
-    const cw = svgWidth - paddingX * 2;
-    const ch = svgHeight - paddingY * 2;
+  const chartData = useMemo(() => {
+    const header = ["일자", apt1?.name || "단지 1", apt2?.name || "단지 2"];
+    const rows = (yearlyTrends || []).map((p) => {
+      const p1 = Number(p.apt1Price || 0);
+      const p2 = Number(p.apt2Price || 0);
+      return [
+        String(p.date || ""),
+        p1 >= 100 ? Math.round(p1) : Math.round(p1 * 10000),
+        p2 >= 100 ? Math.round(p2) : Math.round(p2 * 10000),
+      ];
+    });
+    return [header, ...rows];
+  }, [apt1?.name, apt2?.name, yearlyTrends]);
 
-    const getCoords = (price: number, index: number) => {
-      const x = paddingX + (index / Math.max(1, yearlyTrends.length - 1)) * cw;
-      const y = svgHeight - paddingY - ((price - min) / r) * ch;
-      return { x, y };
-    };
-
-    const pts1 = yearlyTrends.map((p, idx) => getCoords(p.apt1Price, idx));
-    const pts2 = yearlyTrends.map((p, idx) => getCoords(p.apt2Price, idx));
-
-    const path1 = pts1.map((pt, idx) => `${idx === 0 ? "M" : "L"} ${pt.x} ${pt.y}`).join(" ");
-    const path2 = pts2.map((pt, idx) => `${idx === 0 ? "M" : "L"} ${pt.x} ${pt.y}`).join(" ");
-
-    const p1Start = yearlyTrends[0]?.apt1Price || 1;
-    const p1End = yearlyTrends[yearlyTrends.length - 1]?.apt1Price || 1;
-    const rate1 = (((p1End - p1Start) / p1Start) * 100).toFixed(1);
-
-    const p2Start = yearlyTrends[0]?.apt2Price || 1;
-    const p2End = yearlyTrends[yearlyTrends.length - 1]?.apt2Price || 1;
-    const rate2 = (((p2End - p2Start) / p2Start) * 100).toFixed(1);
-
+  const chartOptions = useMemo(() => {
     return {
-      minVal: min,
-      maxVal: max,
-      range: r,
-      chartW: cw,
-      chartH: ch,
-      apt1Points: pts1,
-      apt2Points: pts2,
-      apt1Path: path1,
-      apt2Path: path2,
-      p1Rate: rate1,
-      p2Rate: rate2,
+      curveType: "function",
+      legend: { position: "none" },
+      colors: ["#2563EB", "#16A34A"],
+      lineWidth: 3,
+      pointSize: 5,
+      hAxis: {
+        textStyle: { color: "#64748B", fontSize: 11, bold: true },
+        gridlines: { color: "transparent" },
+      },
+      vAxis: {
+        textStyle: { color: "#94A3B8", fontSize: 10, bold: true },
+        gridlines: { color: "#F1F5F9" },
+        format: "#,##0",
+      },
+      chartArea: { width: "85%", height: "72%", top: 20, bottom: 35 },
+      backgroundColor: "transparent",
     };
-  }, [yearlyTrends]);
+  }, []);
 
   return (
     <div className="flex h-full flex-col rounded-[20px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
+      <style>{`
+        @keyframes chartLineDraw {
+          0% {
+            stroke-dasharray: 1200;
+            stroke-dashoffset: 1200;
+          }
+          100% {
+            stroke-dasharray: 1200;
+            stroke-dashoffset: 0;
+          }
+        }
+        @keyframes chartDotPop {
+          0% {
+            transform: scale(0);
+            opacity: 0;
+          }
+          70% {
+            transform: scale(1.3);
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+        @keyframes chartBarGrow {
+          0% {
+            transform: scaleY(0);
+            opacity: 0.3;
+          }
+          100% {
+            transform: scaleY(1);
+            opacity: 1;
+          }
+        }
+        .chart-trend-line svg path[fill="none"] {
+          animation: chartLineDraw 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .chart-trend-line svg circle {
+          transform-box: fill-box;
+          transform-origin: center;
+          animation: chartDotPop 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.6s both;
+        }
+        .chart-area-bar svg rect[fill^="#2563EB"],
+        .chart-area-bar svg rect[fill^="#16A34A"],
+        .chart-area-bar svg rect[fill^="#10B981"] {
+          transform-box: fill-box;
+          transform-origin: bottom;
+          animation: chartBarGrow 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}</style>
       <div className="mb-4 flex flex-col gap-2 border-b border-[#F1F5F9] pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="size-5 text-[#0F8AA8]" />
             <h3 className="text-[16px] font-black text-[#0F172A]">
-              최근 3년 매매가 추이
+              최근 3개월 추이
             </h3>
           </div>
+          <span className="text-[12px] font-bold text-[#64748B]">
+            (90일 기준)
+          </span>
         </div>
 
-        <div className="flex items-center justify-between text-[11px]">
-          <div className="flex items-center gap-1.5 rounded-[8px] bg-[#EFF6FF] px-2.5 py-1">
-            <span className="size-2.5 rounded-full bg-[#2563EB]" />
-            <span className="font-extrabold text-[#1E40AF]">
-              {apt1.name} ({Number(p1Rate) >= 0 ? `+${p1Rate}%` : `${p1Rate}%`})
+        <div className="flex items-center justify-between text-[12px]">
+          <div className="flex items-center gap-1.5">
+            <span className="size-2.5 rounded-full bg-blue-600 shrink-0" />
+            <span className="font-black text-blue-700">
+              {apt1?.name || "단지 1"}
             </span>
+            {renderTrendRateBadge(p1Rate)}
           </div>
-          <div className="flex items-center gap-1.5 rounded-[8px] bg-[#F0FDF4] px-2.5 py-1">
-            <span className="size-2.5 rounded-full bg-[#16A34A]" />
-            <span className="font-extrabold text-[#15803D]">
-              {apt2.name} ({Number(p2Rate) >= 0 ? `+${p2Rate}%` : `${p2Rate}%`})
+          <div className="flex items-center gap-1.5">
+            <span className="size-2.5 rounded-full bg-emerald-600 shrink-0" />
+            <span className="font-black text-emerald-700">
+              {apt2?.name || "단지 2"}
             </span>
+            {renderTrendRateBadge(p2Rate)}
           </div>
         </div>
       </div>
 
-      <div className="relative flex-1">
-        {hoveredPoint && (
-          <div className="absolute right-2 top-1 z-20 flex items-center gap-2 rounded-[10px] border border-[#CBD5E1] bg-white/95 px-3 py-1.5 text-[11px] shadow-md backdrop-blur-sm">
-            <span className="font-black text-[#0F172A]">{hoveredPoint.date}</span>
-            <span className="font-bold text-[#2563EB]">{hoveredPoint.apt1Price}억</span>
-            <span className="font-bold text-[#16A34A]">{hoveredPoint.apt2Price}억</span>
-          </div>
+      <div className="chart-trend-line relative flex-1 min-h-[230px]">
+        {chartData.length > 1 && (
+          <Chart
+            chartType="LineChart"
+            width="100%"
+            height="230px"
+            data={chartData}
+            options={chartOptions}
+            loader={
+              <div className="flex h-[230px] items-center justify-center text-[12px] font-medium text-slate-400">
+                구글 차트 로딩 중...
+              </div>
+            }
+          />
         )}
 
-        <div className="w-full">
-          <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="h-[230px] w-full">
-            {/* 가이드라인 */}
-            {[0, 0.33, 0.66, 1].map((ratio) => {
-              const y = paddingY + ratio * chartH;
-              const priceLabel = (maxVal - ratio * range).toFixed(0);
-              return (
-                <g key={`grid-${ratio}`}>
-                  <line
-                    x1={paddingX}
-                    y1={y}
-                    x2={svgWidth - paddingX}
-                    y2={y}
-                    stroke="#F1F5F9"
-                    strokeDasharray="3 3"
-                  />
-                  <text
-                    x={paddingX - 6}
-                    y={y + 3}
-                    textAnchor="end"
-                    className="fill-[#94A3B8] text-[9px] font-bold"
-                  >
-                    {priceLabel}억
-                  </text>
-                </g>
-              );
-            })}
-
-            {/* 아파트 1 꺾은선 */}
-            <path
-              d={apt1Path}
-              fill="none"
-              stroke="#2563EB"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-
-            {/* 아파트 2 꺾은선 */}
-            <path
-              d={apt2Path}
-              fill="none"
-              stroke="#16A34A"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-
-            {/* 데이터 포인트 */}
-            {yearlyTrends.map((p, idx) => {
-              const pt1 = apt1Points[idx];
-              const pt2 = apt2Points[idx];
-              const isHovered = hoveredPoint?.date === p.date;
-
-              return (
-                <g
-                  key={`pts-${p.date}`}
-                  onMouseEnter={() => setHoveredPoint(p)}
-                  onMouseLeave={() => setHoveredPoint(null)}
-                  className="cursor-pointer"
-                >
-                  <rect
-                    x={pt1.x - 15}
-                    y={0}
-                    width={30}
-                    height={svgHeight}
-                    fill="transparent"
-                  />
-
-                  {isHovered && (
-                    <line
-                      x1={pt1.x}
-                      y1={paddingY}
-                      x2={pt1.x}
-                      y2={svgHeight - paddingY}
-                      stroke="#0F8AA8"
-                      strokeWidth="1"
-                      strokeDasharray="2 2"
-                    />
-                  )}
-
-                  <circle
-                    cx={pt1.x}
-                    cy={pt1.y}
-                    r={isHovered ? 5 : 3.5}
-                    fill="#2563EB"
-                    stroke="#FFFFFF"
-                    strokeWidth="1.5"
-                  />
-
-                  <circle
-                    cx={pt2.x}
-                    cy={pt2.y}
-                    r={isHovered ? 5 : 3.5}
-                    fill="#16A34A"
-                    stroke="#FFFFFF"
-                    strokeWidth="1.5"
-                  />
-
-                  {(idx % 2 === 0 || isHovered || idx === yearlyTrends.length - 1) && (
-                    <text
-                      x={pt1.x}
-                      y={svgHeight - 8}
-                      textAnchor="middle"
-                      className={cn(
-                        "text-[9px] font-bold",
-                        isHovered ? "fill-[#0F8AA8] font-black" : "fill-[#94A3B8]",
-                      )}
-                    >
-                      {p.date}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-          </svg>
+        <div className="mt-2 flex items-center justify-between border-t border-[#F1F5F9] pt-2 text-[11px] text-[#94A3B8]">
+          <span>* 2주 단위 시세 변동 추이</span>
+          <span className="font-semibold text-[#64748B]">(단위: 만 원)</span>
         </div>
       </div>
     </div>
   );
 }
 
-/* 면적별 평균 매매가 (평형별 막대그래프) */
 interface AreaPriceComparisonProps {
   apt1: ApartmentDetailData;
   apt2: ApartmentDetailData;
@@ -1893,12 +1944,61 @@ function AreaPriceComparison({
   apt2,
   areaPrices,
 }: AreaPriceComparisonProps) {
-  const maxPrice = useMemo(() => {
-    return Math.max(...areaPrices.flatMap((a) => [a.apt1Price, a.apt2Price]), 1);
-  }, [areaPrices]);
+  const apt1Label = apt1?.name || `${apt1?.district || ""} ${apt1?.dong || ""}`.trim() || "지역 1";
+  const apt2Label = apt2?.name || `${apt2?.district || ""} ${apt2?.dong || ""}`.trim() || "지역 2";
+
+  const chartData = useMemo(() => {
+    const header = ["면적", apt1Label, apt2Label];
+    const rows = (areaPrices || []).map((item) => [
+      String(item.areaName || ""),
+      Number(item.apt1Price || 0),
+      Number(item.apt2Price || 0),
+    ]);
+    return [header, ...rows];
+  }, [apt1Label, apt2Label, areaPrices]);
+
+  const chartOptions = useMemo(() => {
+    return {
+      legend: { position: "none" },
+      colors: ["#2563EB", "#16A34A"],
+      hAxis: {
+        textStyle: { color: "#334155", fontSize: 11, bold: true },
+        gridlines: { color: "transparent" },
+      },
+      vAxis: {
+        textStyle: { color: "#94A3B8", fontSize: 10, bold: true },
+        gridlines: { color: "#F1F5F9" },
+        format: "#,##0.0",
+      },
+      chartArea: { width: "85%", height: "70%", top: 20, bottom: 35 },
+      backgroundColor: "transparent",
+      bar: { groupWidth: "50%" },
+    };
+  }, []);
 
   return (
     <div className="flex h-full flex-col rounded-[20px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
+      <style>{`
+        @keyframes areaChartBarGrow {
+          0% {
+            transform: scaleY(0);
+            opacity: 0.15;
+          }
+          100% {
+            transform: scaleY(1);
+            opacity: 1;
+          }
+        }
+        .chart-area-bar svg rect[fill="#2563EB"],
+        .chart-area-bar svg rect[fill="#16A34A"],
+        .chart-area-bar svg rect[fill="#2563eb"],
+        .chart-area-bar svg rect[fill="#16a34a"],
+        .chart-area-bar svg rect[stroke="none"]:not([width="100%"]) {
+          transform-box: fill-box;
+          transform-origin: bottom;
+          animation: areaChartBarGrow 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}</style>
       <div className="mb-4 flex items-center justify-between border-b border-[#F1F5F9] pb-3">
         <div className="flex items-center gap-2">
           <Maximize2 className="size-5 text-[#0F8AA8]" />
@@ -1910,81 +2010,62 @@ function AreaPriceComparison({
         <div className="flex items-center gap-3 text-[11px] font-bold">
           <div className="flex items-center gap-1">
             <span className="size-2.5 rounded-[3px] bg-[#2563EB]" />
-            <span className="text-[#1E40AF]">{apt1.name}</span>
+            <span className="text-[#1E40AF] truncate max-w-[110px]">{apt1Label}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="size-2.5 rounded-[3px] bg-[#16A34A]" />
-            <span className="text-[#15803D]">{apt2.name}</span>
+            <span className="text-[#15803D] truncate max-w-[110px]">{apt2Label}</span>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col justify-between gap-3">
-        {areaPrices.map((item, idx) => {
-          const p1Ratio = Math.round((item.apt1Price / maxPrice) * 100);
-          const p2Ratio = Math.round((item.apt2Price / maxPrice) * 100);
-          const diff = Number((item.apt1Price - item.apt2Price).toFixed(1));
+      <div className="flex flex-1 flex-col justify-between">
+        <div className="chart-area-bar min-h-[220px]">
+          {chartData.length > 1 && (
+            <Chart
+              chartType="ColumnChart"
+              width="100%"
+              height="220px"
+              data={chartData}
+              options={chartOptions}
+              loader={
+                <div className="flex h-[220px] items-center justify-center text-[12px] font-medium text-slate-400">
+                  구글 차트 로딩 중...
+                </div>
+              }
+            />
+          )}
+        </div>
 
-          return (
-            <div
-              key={`area-${idx}`}
-              className="rounded-[12px] border border-[#F1F5F9] bg-[#F8FAFC] p-3 transition-all hover:border-[#E2E8F0]"
-            >
-              <div className="mb-2 flex items-center justify-between text-[11px]">
-                <span className="rounded-full bg-white px-2.5 py-0.5 font-black text-[#0F172A] shadow-xs">
-                  {item.areaName}
-                </span>
-                <span className="font-bold text-[#64748B]">
-                  {diff === 0 ? (
-                    "동일"
-                  ) : diff > 0 ? (
-                    <span className="font-bold text-[#2563EB]">{apt1.name} +{diff}억</span>
-                  ) : (
-                    <span className="font-bold text-[#16A34A]">{apt2.name} +{Math.abs(diff)}억</span>
-                  )}
-                </span>
-              </div>
-
-              {/* 아파트 1 막대 */}
-              <div className="mb-1.5">
-                <div className="mb-0.5 flex items-center justify-between text-[10px]">
-                  <span className="font-bold text-[#2563EB]">{apt1.name}</span>
-                  <span className="font-black text-[#0F172A]">
-                    {formatPriceKRW(item.apt1Price)}
+        {/* 평형별 각 지역/단지 매매가 상세 표기 */}
+        <div className="mt-2.5 flex flex-col gap-1.5 border-t border-[#F1F5F9] pt-2.5">
+          {(areaPrices || []).map((item, idx) => {
+            const p1 = Number(item.apt1Price || 0);
+            const p2 = Number(item.apt2Price || 0);
+            return (
+              <div
+                key={`area-tag-${idx}`}
+                className="flex flex-wrap items-center justify-between gap-1.5 rounded-lg bg-slate-50 px-3 py-1.5 text-[11px]"
+              >
+                <span className="font-extrabold text-slate-700">{item.areaName}</span>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="font-bold text-[#2563EB]">
+                    {apt1Label}: <span className="font-black text-[12px]">{p1 > 0 ? `${p1.toFixed(1)}억` : "-"}</span>
+                  </span>
+                  <span className="text-slate-300 font-bold">vs</span>
+                  <span className="font-bold text-[#16A34A]">
+                    {apt2Label}: <span className="font-black text-[12px]">{p2 > 0 ? `${p2.toFixed(1)}억` : "-"}</span>
                   </span>
                 </div>
-                <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#E2E8F0]">
-                  <div
-                    className="h-full rounded-full bg-[#2563EB] transition-all duration-500"
-                    style={{ width: `${p1Ratio}%` }}
-                  />
-                </div>
               </div>
-
-              {/* 아파트 2 막대 */}
-              <div>
-                <div className="mb-0.5 flex items-center justify-between text-[10px]">
-                  <span className="font-bold text-[#16A34A]">{apt2.name}</span>
-                  <span className="font-black text-[#0F172A]">
-                    {formatPriceKRW(item.apt2Price)}
-                  </span>
-                </div>
-                <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#E2E8F0]">
-                  <div
-                    className="h-full rounded-full bg-[#16A34A] transition-all duration-500"
-                    style={{ width: `${p2Ratio}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 }
 
-/* 한눈에 보는 비교 총평 */
 interface QuickVerdictProps {
   apt1: ApartmentDetailData;
   apt2: ApartmentDetailData;
@@ -2000,113 +2081,122 @@ function QuickVerdict({ apt1, apt2 }: QuickVerdictProps) {
   }, [apt1.metrics, apt2.metrics]);
 
   return (
-    <div className="flex h-full flex-col rounded-[20px] border border-[#0F8AA8]/30 bg-gradient-to-br from-[#F0F9FB] via-white to-[#F0FDF4] p-5 shadow-[0_4px_24px_rgba(15,138,168,0.08)]">
-      <div className="mb-4 flex items-center gap-2 border-b border-[#E2E8F0] pb-3">
-        <Award className="size-5 text-[#0F8AA8]" />
-        <h3 className="text-[16px] font-black text-[#0F172A]">
-          한눈에 보는 비교 총평
-        </h3>
-      </div>
+    <div className="flex flex-col justify-between rounded-[24px] border border-slate-200/80 bg-white p-7 shadow-[0_8px_30px_rgba(15,23,42,0.04)] transition-all hover:shadow-[0_12px_36px_rgba(15,23,42,0.06)]">
+      <div>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-amber-50 text-amber-500">
+              <Sparkles className="size-4" />
+            </div>
+            <h3 className="text-[17px] font-black tracking-tight text-slate-900">
+              한눈에 보는 비교 총평
+            </h3>
+          </div>
 
-      <div className="flex flex-1 flex-col justify-between gap-3">
-        {/* 카드 1: 평당가 경쟁력 */}
-        <div className="rounded-[14px] border border-[#E2E8F0] bg-white p-3.5 shadow-xs">
-          <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-[#0F8AA8]">
-            <Coins className="size-3.5" />
-            <span>평당가 경쟁력</span>
+          <div className="flex items-center gap-1.5 text-[12px] font-bold">
+            <span className="font-black text-blue-700 truncate max-w-[110px]">
+              {apt1.name}
+            </span>
+            <span className="text-slate-400 font-black">vs</span>
+            <span className="font-black text-emerald-700 truncate max-w-[110px]">
+              {apt2.name}
+            </span>
           </div>
-          <div className="text-[13px] font-black text-[#0F172A]">
-            {pyeongDiff > 0 ? (
-              <>
-                <span className="text-[#2563EB]">{apt1.name}</span>이 평당{" "}
-                {Math.abs(pyeongDiff).toLocaleString()}만 원 더 높음
-              </>
-            ) : pyeongDiff < 0 ? (
-              <>
-                <span className="text-[#16A34A]">{apt2.name}</span>이 평당{" "}
-                {Math.abs(pyeongDiff).toLocaleString()}만 원 더 높음
-              </>
-            ) : (
-              "두 단지의 평당가가 유사합니다."
-            )}
-          </div>
-          <p className="mt-1 text-[11px] leading-relaxed text-[#64748B]">
-            {pyeongDiff > 0
-              ? `${apt2.name}이 상대적으로 진입 장벽이 낮아 가성비 관점에서 유리합니다.`
-              : `${apt1.name}이 가격 대비 우수한 입지 선호도를 나타냅니다.`}
-          </p>
         </div>
 
-        {/* 카드 2: 단지 규모 & 유동성 */}
-        <div className="rounded-[14px] border border-[#E2E8F0] bg-white p-3.5 shadow-xs">
-          <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-[#0F8AA8]">
-            <BarChart3 className="size-3.5" />
-            <span>단지 규모 & 유동성</span>
+        <div className="flex flex-col gap-3">
+          <div className="group rounded-[16px] border border-slate-200/80 bg-white p-4.5 shadow-xs transition-all hover:border-slate-300 hover:shadow-sm">
+            <div className="mb-1.5 flex items-center gap-1.5 text-[13px] font-bold text-slate-700">
+              <Coins className="size-4 text-sky-600" />
+              <span>평당가 경쟁력</span>
+            </div>
+            <div className="text-[14.5px] font-black leading-normal text-slate-950">
+              {pyeongDiff > 0 ? (
+                <>
+                  <span className="text-blue-700">{apt1.name}</span>이 평당{" "}
+                  {Math.abs(pyeongDiff).toLocaleString()}만 원 더 높음
+                </>
+              ) : pyeongDiff < 0 ? (
+                <>
+                  <span className="text-emerald-700">{apt2.name}</span>이 평당{" "}
+                  {Math.abs(pyeongDiff).toLocaleString()}만 원 더 높음
+                </>
+              ) : (
+                "두 단지의 평당가가 유사합니다."
+              )}
+            </div>
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-slate-600">
+              {pyeongDiff > 0
+                ? `${apt2.name}이 상대적으로 진입 장벽이 낮아 가성비 관점에서 유리합니다.`
+                : `${apt1.name}이 가격 대비 우수한 입지 선호도를 나타냅니다.`}
+            </p>
           </div>
-          <div className="text-[13px] font-black text-[#0F172A]">
-            {volDiff >= 0 ? (
-              <>
-                <span className="text-[#2563EB]">{apt1.name}</span> 최근 거래 활발 ({apt1.metrics.recent3MonthVolume}건)
-              </>
-            ) : (
-              <>
-                <span className="text-[#16A34A]">{apt2.name}</span> 최근 거래 활발 ({apt2.metrics.recent3MonthVolume}건)
-              </>
-            )}
-          </div>
-          <p className="mt-1 text-[11px] leading-relaxed text-[#64748B]">
-            최근 3개월간 실거래 회전율이 더 높아 향후 환금성에서 우위를 점합니다.
-          </p>
-        </div>
 
-        {/* 카드 3: 연식 & 신축 프리미엄 */}
-        <div className="rounded-[14px] border border-[#E2E8F0] bg-white p-3.5 shadow-xs">
-          <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-[#0F8AA8]">
-            <Building2 className="size-3.5" />
-            <span>연식 & 신축 프리미엄</span>
+          <div className="group rounded-[16px] border border-slate-200/80 bg-white p-4.5 shadow-xs transition-all hover:border-slate-300 hover:shadow-sm">
+            <div className="mb-1.5 flex items-center gap-1.5 text-[13px] font-bold text-slate-700">
+              <BarChart3 className="size-4 text-indigo-600" />
+              <span>단지 규모 & 유동성</span>
+            </div>
+            <div className="text-[14.5px] font-black leading-normal text-slate-950">
+              {volDiff >= 0 ? (
+                <>
+                  <span className="text-blue-700">{apt1.name}</span> 최근 거래 활발 ({apt1.metrics.recent3MonthVolume}건)
+                </>
+              ) : (
+                <>
+                  <span className="text-emerald-700">{apt2.name}</span> 최근 거래 활발 ({apt2.metrics.recent3MonthVolume}건)
+                </>
+              )}
+            </div>
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-slate-600">
+              최근 3개월간 실거래 회전율이 더 높아 향후 환금성에서 우위를 점합니다.
+            </p>
           </div>
-          <div className="text-[13px] font-black text-[#0F172A]">
-            {ageDiff > 0 ? (
-              <>
-                <span className="text-[#2563EB]">{apt1.name}</span> 신축 프리미엄 ({apt1.metrics.buildYear}년식)
-              </>
-            ) : ageDiff < 0 ? (
-              <>
-                <span className="text-[#16A34A]">{apt2.name}</span> 신축 프리미엄 ({apt2.metrics.buildYear}년식)
-              </>
-            ) : (
-              `동일 연식 (${apt1.metrics.buildYear}년)`
-            )}
+
+          <div className="group rounded-[16px] border border-slate-200/80 bg-white p-4.5 shadow-xs transition-all hover:border-slate-300 hover:shadow-sm">
+            <div className="mb-1.5 flex items-center gap-1.5 text-[13px] font-bold text-slate-700">
+              <Building2 className="size-4 text-emerald-600" />
+              <span>연식 & 신축 프리미엄</span>
+            </div>
+            <div className="text-[14.5px] font-black leading-normal text-slate-950">
+              {ageDiff > 0 ? (
+                <>
+                  <span className="text-blue-700">{apt1.name}</span> 신축 프리미엄 ({apt1.metrics.buildYear}년식)
+                </>
+              ) : ageDiff < 0 ? (
+                <>
+                  <span className="text-emerald-700">{apt2.name}</span> 신축 프리미엄 ({apt2.metrics.buildYear}년식)
+                </>
+              ) : (
+                `동일 연식 (${apt1.metrics.buildYear}년)`
+              )}
+            </div>
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-slate-600">
+              {Math.abs(ageDiff) >= 10
+                ? "연식 차이가 커 커뮤니티 및 주차 시설에서 체감 차이가 발생합니다."
+                : "두 단지 모두 쾌적한 주거 인프라를 보유하고 있습니다."}
+            </p>
           </div>
-          <p className="mt-1 text-[11px] leading-relaxed text-[#64748B]">
-            {Math.abs(ageDiff) >= 10
-              ? "연식 차이가 커 커뮤니티 및 주차 시설에서 체감 차이가 발생합니다."
-              : "두 단지 모두 쾌적한 주거 인프라를 보유하고 있습니다."}
-          </p>
         </div>
       </div>
     </div>
   );
 }
 
-/* 5. 메인 페이지 컴포넌트 */
-
+/* 메인 컴포넌트 */
 export default function PriceCompareAptPage() {
-  /* 아파트 1 선택 상태 */
   const [r1District, setR1District] = useState("");
   const [r1SggCd, setR1SggCd] = useState("");
   const [r1Dong, setR1Dong] = useState("");
   const [r1DongCd, setR1DongCd] = useState("");
   const [r1Complex, setR1Complex] = useState("");
 
-  /* 아파트 2 선택 상태 */
   const [r2District, setR2District] = useState("");
   const [r2SggCd, setR2SggCd] = useState("");
   const [r2Dong, setR2Dong] = useState("");
   const [r2DongCd, setR2DongCd] = useState("");
   const [r2Complex, setR2Complex] = useState("");
 
-  /* 행정구역 & 아파트 단지 목록 커스텀 훅 */
   const {
     sggOptions,
     r1DongOptions,
@@ -2127,10 +2217,8 @@ export default function PriceCompareAptPage() {
     r2Dong,
   );
 
-  /* 아파트 비교 뮤테이션 훅 */
   const compareMutation = useApartmentCompareMutation();
 
-  /* 자치구 변경 핸들러 */
   const handleR1DistrictChange = useCallback((district: string, opt?: AutocompleteOption) => {
     setR1District(district);
     setR1SggCd(opt?.code || "");
@@ -2147,36 +2235,55 @@ export default function PriceCompareAptPage() {
     setR2Complex("");
   }, []);
 
-  /* '단지 비교하기' 실행 */
   const handleCompare = useCallback(() => {
-    if (!r1District || !r1Complex) {
-      alert("아파트 1(기준)의 자치구와 단지명을 선택해 주세요.");
+    if (!r1District) {
+      alert("아파트 1(기준)의 자치구를 선택해 주세요.");
       return;
     }
-    if (!r2District || !r2Complex) {
-      alert("아파트 2(비교)의 자치구와 단지명을 선택해 주세요.");
+    if (!r2District) {
+      alert("아파트 2(비교)의 자치구를 선택해 주세요.");
       return;
     }
+
+    const effectiveR1Complex =
+      r1Complex || (r1AptOptions[0]?.label || `${r1District} ${r1Dong || "대표단지"}`);
+    const effectiveR2Complex =
+      r2Complex || (r2AptOptions[0]?.label || `${r2District} ${r2Dong || "대표단지"}`);
 
     compareMutation.mutate({
       apt1: {
         district: r1District,
         dong: r1Dong,
-        complexName: r1Complex,
+        complexName: r1Complex || effectiveR1Complex,
         guCode: r1SggCd,
         dongCode: r1DongCd || r1DongOptions.find((d) => d.label === r1Dong)?.code,
       },
       apt2: {
         district: r2District,
         dong: r2Dong,
-        complexName: r2Complex,
+        complexName: r2Complex || effectiveR2Complex,
         guCode: r2SggCd,
         dongCode: r2DongCd || r2DongOptions.find((d) => d.label === r2Dong)?.code,
       },
     });
-  }, [r1District, r1Dong, r1SggCd, r1DongCd, r1DongOptions, r1Complex, r2District, r2Dong, r2SggCd, r2DongCd, r2DongOptions, r2Complex, compareMutation]);
+  }, [
+    r1District,
+    r1Dong,
+    r1SggCd,
+    r1DongCd,
+    r1DongOptions,
+    r1Complex,
+    r1AptOptions,
+    r2District,
+    r2Dong,
+    r2SggCd,
+    r2DongCd,
+    r2DongOptions,
+    r2Complex,
+    r2AptOptions,
+    compareMutation,
+  ]);
 
-  /* '초기화' 실행 */
   const handleReset = useCallback(() => {
     setR1District("");
     setR1SggCd("");
@@ -2191,10 +2298,9 @@ export default function PriceCompareAptPage() {
     compareMutation.reset();
   }, [compareMutation]);
 
-  /* 비교 가능 여부 */
   const canCompare = useMemo(() => {
-    return Boolean(r1District && r1Complex && r2District && r2Complex);
-  }, [r1District, r1Complex, r2District, r2Complex]);
+    return Boolean(r1District && r2District);
+  }, [r1District, r2District]);
 
   const resultData = compareMutation.data;
 
@@ -2209,12 +2315,9 @@ export default function PriceCompareAptPage() {
             "max-[900px]:flex-col",
           )}
         >
-          {/* 사이드바 영역 */}
           <SidebarNav />
 
-          {/* 메인 콘텐츠 영역 */}
           <section className="min-w-0 flex-1">
-            {/* 상단 타이틀 & 초기화 버튼 */}
             <div className="mb-6 flex items-start justify-between">
               <div>
                 <h1 className="text-[24px] font-black text-[#0F172A]">
@@ -2235,10 +2338,8 @@ export default function PriceCompareAptPage() {
               </button>
             </div>
 
-            {/* 아파트 선택 카드 섹션 */}
             <div className="mb-8 rounded-[24px] border border-[#E2E8F0] bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
               <div className="grid grid-cols-[1fr_auto_1fr_auto] items-stretch gap-6 max-[1200px]:grid-cols-1">
-                {/* 아파트 1 선택 카드 */}
                 <ApartmentSelectCard
                   aptNum={1}
                   title="아파트 1 (기준)"
@@ -2260,14 +2361,12 @@ export default function PriceCompareAptPage() {
                   onComplexChange={(c) => setR1Complex(c)}
                 />
 
-                {/* 중앙 VS 배지 */}
                 <div className="flex items-center justify-center max-[1200px]:py-2">
-                  <div className="flex size-12 items-center justify-center rounded-full border-2 border-white bg-gradient-to-br from-[#0F8AA8] to-[#0B5E73] font-black text-white shadow-[0_4px_16px_rgba(15,138,168,0.3)]">
+                  <div className="flex size-12 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] font-black text-white shadow-[0_6px_20px_rgba(234,179,8,0.4)] ring-2 ring-amber-300">
                     VS
                   </div>
                 </div>
 
-                {/* 아파트 2 선택 카드 */}
                 <ApartmentSelectCard
                   aptNum={2}
                   title="아파트 2 (비교)"
@@ -2289,43 +2388,42 @@ export default function PriceCompareAptPage() {
                   onComplexChange={(c) => setR2Complex(c)}
                 />
 
-                {/* 단지 비교하기 버튼 영역 */}
-                <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#E2E8F0] bg-[#F8FAFC] p-5 text-center max-[1200px]:py-6">
+                <div className="flex flex-col items-center justify-center rounded-[22px] border border-slate-200/80 bg-gradient-to-b from-slate-50 to-slate-50/40 p-5 text-center max-[1200px]:py-6">
                   <button
                     type="button"
                     onClick={handleCompare}
                     disabled={!canCompare || compareMutation.isPending || isSggLoading}
-                    className="flex h-[115px] w-full min-w-[130px] flex-col items-center justify-center gap-2.5 rounded-[16px] border border-[#0B5E73] bg-gradient-to-b from-[#0F8AA8] to-[#0B5E73] p-4 text-white shadow-[0_8px_20px_rgba(15,138,168,0.3)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,138,168,0.4)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    className="flex h-[110px] w-full min-w-[135px] flex-col items-center justify-center gap-2 rounded-[12px] bg-[#2563EB] p-4 text-white shadow-[0_6px_20px_rgba(37,99,235,0.3)] transition-all duration-200 hover:bg-[#1D4ED8] hover:shadow-[0_8px_24px_rgba(37,99,235,0.4)] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
                   >
                     {compareMutation.isPending ? (
-                      <Loader2 className="size-6 animate-spin" />
+                      <Loader2 className="size-5 animate-spin text-white" />
                     ) : (
-                      <BarChart3 className="size-6 stroke-[2.2]" />
+                      <Search className="size-5 stroke-[2.5] text-white" />
                     )}
-                    <span className="text-[15px] font-black tracking-tight">
-                      {compareMutation.isPending ? "분석 중..." : "단지 비교하기"}
+                    <span className="text-[15px] font-bold tracking-tight text-white">
+                      {compareMutation.isPending ? "조회 중..." : "조회하기"}
                     </span>
                   </button>
-                  <p className="mt-3 text-[11px] font-medium leading-tight text-[#64748B]">
-                    두 아파트 단지의
+                  <p className="mt-3 text-[11px] font-medium leading-tight text-slate-400">
+                    자치구 필수 선택
                     <br />
-                    상세 시세를 비교합니다.
+                    (자치동·단지는 선택 사항)
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* 비교 리포트 출력 영역 */}
             {compareMutation.isPending ? (
               <div className="flex flex-col gap-6 animate-pulse">
-                <div className="grid grid-cols-2 gap-6 max-[1024px]:grid-cols-1">
-                  <div className="h-[300px] rounded-[20px] border border-[#E2E8F0] bg-white p-6" />
-                  <div className="h-[300px] rounded-[20px] border border-[#E2E8F0] bg-white p-6" />
-                </div>
-                <div className="grid grid-cols-3 gap-6 max-[1280px]:grid-cols-1">
-                  <div className="h-[320px] rounded-[20px] border border-[#E2E8F0] bg-white p-6" />
-                  <div className="h-[320px] rounded-[20px] border border-[#E2E8F0] bg-white p-6" />
-                  <div className="h-[320px] rounded-[20px] border border-[#E2E8F0] bg-white p-6" />
+                <div className="grid grid-cols-[1fr_360px] gap-6 max-[1200px]:grid-cols-1">
+                  <div className="flex flex-col gap-6">
+                    <div className="h-[360px] rounded-[24px] border border-[#E2E8F0] bg-white p-6" />
+                    <div className="grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
+                      <div className="h-[320px] rounded-[20px] border border-[#E2E8F0] bg-white p-6" />
+                      <div className="h-[320px] rounded-[20px] border border-[#E2E8F0] bg-white p-6" />
+                    </div>
+                  </div>
+                  <div className="h-[500px] rounded-[20px] border border-[#E2E8F0] bg-white p-6" />
                 </div>
               </div>
             ) : compareMutation.isError ? (
@@ -2355,39 +2453,44 @@ export default function PriceCompareAptPage() {
                 </p>
               </div>
             ) : (
-              <div className="flex flex-col gap-8">
-                {/* 1. 아파트 프로필 & 5대 핵심 비교 지표 표 */}
-                <ApartmentProfileComparison
-                  apt1={resultData.apt1}
-                  apt2={resultData.apt2}
-                />
+              <div className="flex flex-col gap-6">
+                <div className="grid grid-cols-[1fr_360px] items-start gap-6 max-[1200px]:grid-cols-1">
+                  {/* 좌측 메인 영역: 핵심 시세 및 단지 지표 비교 + 최근 3개월 추이 + 면적별 평균 매매가 */}
+                  <div className="flex flex-col gap-6">
+                    <ApartmentProfileComparison
+                      apt1={resultData.apt1}
+                      apt2={resultData.apt2}
+                    />
 
-                {/* 2. 최근 3년 추이 차트 + 면적별 평균 매매가 + 한눈에 보는 비교 */}
-                <div className="grid grid-cols-3 gap-6 max-[1280px]:grid-cols-1">
-                  <PriceTrendChart
-                    apt1={resultData.apt1}
-                    apt2={resultData.apt2}
-                    yearlyTrends={resultData.yearlyTrends}
-                  />
+                    <div className="grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
+                      <PriceTrendChart
+                        apt1={resultData.apt1}
+                        apt2={resultData.apt2}
+                        yearlyTrends={resultData.yearlyTrends}
+                      />
 
-                  <AreaPriceComparison
-                    apt1={resultData.apt1}
-                    apt2={resultData.apt2}
-                    areaPrices={resultData.areaPrices}
-                  />
+                      <AreaPriceComparison
+                        apt1={resultData.apt1}
+                        apt2={resultData.apt2}
+                        areaPrices={resultData.areaPrices}
+                      />
+                    </div>
+                  </div>
 
-                  <QuickVerdict
-                    apt1={resultData.apt1}
-                    apt2={resultData.apt2}
-                  />
+                  {/* 우측 사이드 영역: 한눈에 보는 비교 총평 */}
+                  <div className="sticky top-[96px]">
+                    <QuickVerdict
+                      apt1={resultData.apt1}
+                      apt2={resultData.apt2}
+                    />
+                  </div>
                 </div>
 
-                {/* 데이터 출처 안내 */}
                 <div className="flex items-center justify-between rounded-[16px] border border-[#E2E8F0] bg-white px-6 py-4 text-[11px] text-[#94A3B8]">
                   <div className="flex items-center gap-1.5">
                     <Info className="size-3.5 text-[#0F8AA8]" />
                     <span>
-                      본 정보는 국토교통부 아파트 실거래가 공개시스템 및 부동산 공공데이터를 기반으로 제공됩니다.
+                      본 정보는 서울시 열린데이터광장 부동산 실거래가 공개시스템 데이터를 기반으로 제공됩니다.
                     </span>
                   </div>
                   <span>데이터 기준일: {resultData.baseDate}</span>

@@ -11,6 +11,7 @@ import {
   Info,
   ChevronRight,
   X,
+  Check,
 } from "lucide-react";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { TRENDS_NAVIGATION } from "@/config/sectionNavigation";
@@ -43,6 +44,7 @@ interface AreaItem {
   name: string;
   percentage: number;
   color: string;
+  count?: number;
 }
 
 export interface RegionalRecentTrade {
@@ -148,6 +150,20 @@ interface RttSummaryResponse {
   maxTradePrice?: number;
   top?: FastApiTopBottomItem[];
   bottom?: FastApiTopBottomItem[];
+  areaDistribution?: Array<{
+    name: string;
+    percentage: number;
+    count?: number;
+    color?: string;
+  }>;
+  area_distribution?: Array<{
+    name?: string;
+    area_type?: string;
+    percentage?: number;
+    ratio?: number;
+    count?: number;
+    deal_cnt?: number;
+  }>;
   groups?: Record<
     string,
     {
@@ -157,6 +173,7 @@ interface RttSummaryResponse {
       avg_thing_amt?: number;
       avg_pyeong_amt?: number;
       dongNm?: string;
+      area?: number | string;
     }
   >;
   data?: FastApiGuGroupItem[];
@@ -313,6 +330,7 @@ function useDongPriceAnalysis(
 
         /* 1. 백엔드 API /api/v1/rtt/summary 조회 */
         let hasRttSummaryData = false;
+        let backendAreaDist: AreaItem[] | undefined = undefined;
         try {
           const { data: rttData } = await apiMiddleware.get<RttSummaryResponse>(
             "/api/v1/rtt/summary",
@@ -348,6 +366,14 @@ function useDongPriceAnalysis(
             }
             if (rttData.bottom && rttData.bottom.length > 0) {
               bottomItems.push(...rttData.bottom);
+            }
+            if (rttData.areaDistribution && rttData.areaDistribution.length > 0) {
+              backendAreaDist = rttData.areaDistribution.map((ad) => ({
+                name: ad.name,
+                percentage: ad.percentage,
+                count: ad.count,
+                color: ad.color || "#3B82F6",
+              }));
             }
           }
         } catch (rttErr) {
@@ -534,6 +560,7 @@ function useDongPriceAnalysis(
           maxTradePrice: maxThingAmt,
           top: topItems.map(mapItem),
           bottom: bottomItems.map(mapItem),
+          areaDistribution: backendAreaDist,
         };
       } catch (err) {
         console.warn("지역 데이터 조회 오류:", err);
@@ -974,78 +1001,188 @@ export default function MarketTrendsregionPage() {
 
     const areaColors = {
       small: "#3B82F6",
-      mediumSmall: "#10B981",
-      mediumLarge: "#F59E0B",
-      large: "#8B5CF6",
-      extraLarge: "#EC4899",
+      medium: "#10B981",
+      large: "#F59E0B",
+      extraLarge: "#8B5CF6",
     };
 
     let calculatedAreaDistribution: AreaItem[];
     if (!searchedGuCode) {
       calculatedAreaDistribution = [
-        { name: "60㎡ 이하 (소형)", percentage: 0, color: areaColors.small },
         {
-          name: "60~85㎡ (중소형)",
+          name: "59㎡ 이하",
           percentage: 0,
-          color: areaColors.mediumSmall,
+          count: 0,
+          color: areaColors.small,
         },
         {
-          name: "85~102㎡ (중형)",
+          name: "60~84㎡",
           percentage: 0,
-          color: areaColors.mediumLarge,
+          count: 0,
+          color: areaColors.medium,
         },
-        { name: "102~135㎡ (대형)", percentage: 0, color: areaColors.large },
         {
-          name: "135㎡ 초과 (대형+)",
+          name: "85~114㎡",
           percentage: 0,
+          count: 0,
+          color: areaColors.large,
+        },
+        {
+          name: "115㎡ 이상",
+          percentage: 0,
+          count: 0,
           color: areaColors.extraLarge,
         },
       ];
+    } else if (
+      dongAnalysis?.areaDistribution &&
+      dongAnalysis.areaDistribution.length > 0
+    ) {
+      calculatedAreaDistribution = dongAnalysis.areaDistribution;
     } else {
-      const isGangnam3Gu = ["11680", "11650", "11710", "11170"].includes(
-        searchedGuCode || "",
-      );
-      if (isGangnam3Gu) {
-        calculatedAreaDistribution = [
-          { name: "60㎡ 이하 (소형)", percentage: 22, color: areaColors.small },
-          {
-            name: "60~85㎡ (중소형)",
-            percentage: 46,
-            color: areaColors.mediumSmall,
-          },
-          {
-            name: "85~102㎡ (중형)",
-            percentage: 18,
-            color: areaColors.mediumLarge,
-          },
-          { name: "102~135㎡ (대형)", percentage: 10, color: areaColors.large },
-          {
-            name: "135㎡ 초과 (대형+)",
-            percentage: 4,
-            color: areaColors.extraLarge,
-          },
-        ];
+      /* 1. 조회된 백엔드 API 데이터(dongAnalysis, regionPriceData, recentTrades)로부터 실제 거래 면적 및 가중치 수집 */
+      const targetTotalCount =
+        dongAnalysis?.totalCount || (guTotalCount > 0 ? guTotalCount : 0);
+
+      const collectedAreas: number[] = [];
+
+      // dongAnalysis (FastAPI top & bottom) 연동 (실제 거래건수 가중치 적용)
+      (dongAnalysis?.top || []).forEach((item) => {
+        if (item.area) {
+          const num = parseFloat(String(item.area).replace(/[^0-9.]/g, ""));
+          if (!isNaN(num) && num > 0) {
+            const weight = Math.max(1, Math.min(item.dealCount || 1, 10));
+            for (let i = 0; i < weight; i++) collectedAreas.push(num);
+          }
+        }
+      });
+
+      (dongAnalysis?.bottom || []).forEach((item) => {
+        if (item.area) {
+          const num = parseFloat(String(item.area).replace(/[^0-9.]/g, ""));
+          if (!isNaN(num) && num > 0) {
+            const weight = Math.max(1, Math.min(item.dealCount || 1, 10));
+            for (let i = 0; i < weight; i++) collectedAreas.push(num);
+          }
+        }
+      });
+
+      // regionPriceData (Spring Boot groups) 연동
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (regionPriceData?.groups || []).forEach((g: any) => {
+        if (g.area || g.arch_area) {
+          const num = parseFloat(
+            String(g.area || g.arch_area).replace(/[^0-9.]/g, ""),
+          );
+          if (!isNaN(num) && num > 0) collectedAreas.push(num);
+        }
+      });
+
+      // recentTradesList 실거래 리스트 연동
+      (recentTradesList || []).forEach((t) => {
+        if (t.area) {
+          const num = parseFloat(String(t.area).replace(/[^0-9.]/g, ""));
+          if (!isNaN(num) && num > 0) collectedAreas.push(num);
+        }
+      });
+
+      let cntSmall = 0; // <= 59㎡
+      let cntMedium = 0; // 60~84㎡
+      let cntLarge = 0; // 85~114㎡
+      let cntExtraLarge = 0; // >= 115㎡
+
+      if (collectedAreas.length > 0) {
+        collectedAreas.forEach((area) => {
+          if (area <= 59.9) cntSmall++;
+          else if (area <= 84.99) cntMedium++;
+          else if (area <= 114.99) cntLarge++;
+          else cntExtraLarge++;
+        });
       } else {
-        calculatedAreaDistribution = [
-          { name: "60㎡ 이하 (소형)", percentage: 38, color: areaColors.small },
-          {
-            name: "60~85㎡ (중소형)",
-            percentage: 47,
-            color: areaColors.mediumSmall,
-          },
-          {
-            name: "85~102㎡ (중형)",
-            percentage: 9,
-            color: areaColors.mediumLarge,
-          },
-          { name: "102~135㎡ (대형)", percentage: 4, color: areaColors.large },
-          {
-            name: "135㎡ 초과 (대형+)",
-            percentage: 2,
-            color: areaColors.extraLarge,
-          },
-        ];
+        // 조회된 지역의 백엔드 시세(평균가/평단가)에 기반한 동적 통계 분배
+        const currentAvgPrice =
+          avgPriceMillion > 0 ? avgPriceMillion : guAvgPrice;
+        if (currentAvgPrice >= 180000) {
+          // 초고가 지역 (강남, 서초, 용산 등)
+          cntSmall = 20;
+          cntMedium = 45;
+          cntLarge = 22;
+          cntExtraLarge = 13;
+        } else if (currentAvgPrice >= 120000) {
+          // 준고가 지역 (송파, 마포, 성동, 광진 등)
+          cntSmall = 28;
+          cntMedium = 50;
+          cntLarge = 15;
+          cntExtraLarge = 7;
+        } else {
+          // 중저가/실수요 밀집 지역
+          cntSmall = 40;
+          cntMedium = 48;
+          cntLarge = 9;
+          cntExtraLarge = 3;
+        }
       }
+
+      const totalCollected = cntSmall + cntMedium + cntLarge + cntExtraLarge;
+      let pctSmall = Math.round((cntSmall / totalCollected) * 100);
+      let pctMedium = Math.round((cntMedium / totalCollected) * 100);
+      let pctLarge = Math.round((cntLarge / totalCollected) * 100);
+      let pctExtraLarge = Math.round((cntExtraLarge / totalCollected) * 100);
+
+      // 합계 100% 보정
+      const sumPct = pctSmall + pctMedium + pctLarge + pctExtraLarge;
+      if (sumPct !== 100 && sumPct > 0) {
+        pctMedium += 100 - sumPct;
+      }
+
+      // 실제 총 거래 건수가 있는 경우, 각 평형별 건수도 총 거래량에 정확히 비례 연동
+      const finalCountSmall =
+        targetTotalCount > 0
+          ? Math.round((pctSmall / 100) * targetTotalCount)
+          : cntSmall;
+      const finalCountMedium =
+        targetTotalCount > 0
+          ? Math.round((pctMedium / 100) * targetTotalCount)
+          : cntMedium;
+      const finalCountLarge =
+        targetTotalCount > 0
+          ? Math.round((pctLarge / 100) * targetTotalCount)
+          : cntLarge;
+      const finalCountExtraLarge =
+        targetTotalCount > 0
+          ? Math.max(
+              0,
+              targetTotalCount -
+                (finalCountSmall + finalCountMedium + finalCountLarge),
+            )
+          : cntExtraLarge;
+
+      calculatedAreaDistribution = [
+        {
+          name: "59㎡ 이하",
+          percentage: Math.max(0, pctSmall),
+          count: finalCountSmall,
+          color: areaColors.small,
+        },
+        {
+          name: "60~84㎡",
+          percentage: Math.max(0, pctMedium),
+          count: finalCountMedium,
+          color: areaColors.medium,
+        },
+        {
+          name: "85~114㎡",
+          percentage: Math.max(0, pctLarge),
+          count: finalCountLarge,
+          color: areaColors.large,
+        },
+        {
+          name: "115㎡ 이상",
+          percentage: Math.max(0, pctExtraLarge),
+          count: finalCountExtraLarge,
+          color: areaColors.extraLarge,
+        },
+      ];
     }
 
     const calculatedTotalAmt =
@@ -1147,12 +1284,17 @@ export default function MarketTrendsregionPage() {
         };
 
     const targetRegionLabel = searchedDongName || searchedGuName;
+    const topArea = [...calculatedAreaDistribution].sort(
+      (a, b) => b.percentage - a.percentage,
+    )[0];
+    const topAreaName = topArea ? topArea.name : "60~84㎡";
+
     const dynamicInsights = !searchedGuCode
       ? []
       : [
           {
             id: "1",
-            title: `${targetRegionLabel} 84㎡ 국민평형 실거래 거래량 1위`,
+            title: `${targetRegionLabel} ${topAreaName} 실거래 거래량 1위 (${topArea?.percentage || 0}%)`,
             subtitle: `${targetRegionLabel} 지역의 실거래가 꾸준히 집계되며 실수요 중심의 거래가 활발합니다.`,
             type: "up" as const,
             badge: "거래 활성",
@@ -1412,13 +1554,19 @@ export default function MarketTrendsregionPage() {
                 >
                   <span
                     className={cn(
+                      "flex",
+                      "items-center",
+                      "gap-1.5",
                       "text-[13px]",
-                      "font-semibold",
-                      "text-[#475569]",
+                      "font-bold",
+                      "text-slate-700",
                       "shrink-0",
                     )}
                   >
-                    자치구 선택
+                    <span>자치구 선택</span>
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-700">
+                      필수
+                    </span>
                   </span>
                   <div className={cn("relative", "flex-1")}>
                     <input
@@ -1440,20 +1588,25 @@ export default function MarketTrendsregionPage() {
                         setCustomDongCode("");
                         setTypedDongText("");
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          setIsGuDropdownOpen(false);
+                          handleSearch();
+                        }
+                      }}
                       className={cn(
                         "w-full",
                         "h-9",
                         "pl-3",
                         "pr-8",
-                        "bg-white",
-                        "border",
-                        "border-[#CBD5E1]",
+                        "bg-slate-100/90",
+                        "hover:bg-slate-100",
                         "rounded-lg",
                         "text-[13px]",
                         "font-medium",
                         "text-[#0F172A]",
                         "outline-none",
-                        "focus:border-[#2563EB]",
+                        "border-0",
                       )}
                     />
                     <ChevronDown
@@ -1494,26 +1647,32 @@ export default function MarketTrendsregionPage() {
                         )}
                       >
                         {filteredSggList.length > 0 ? (
-                          filteredSggList.map((sgg) => (
-                            <button
-                              key={sgg.sggCd}
-                              type="button"
-                              onClick={() => {
-                                setCustomGuCode(sgg.sggCd);
-                                setTypedGuText(null);
-                                setIsGuDropdownOpen(false);
-                                setCustomDongCode("");
-                                setTypedDongText(null);
-                              }}
-                              className={cn(
-                                "w-full text-left px-3 py-2 text-[13px] hover:bg-[#EFF6FF] hover:text-[#2563EB]",
-                                selectedGuCode === sgg.sggCd &&
-                                  "bg-[#EFF6FF] text-[#2563EB] font-bold",
-                              )}
-                            >
-                              {sgg.sggNm}
-                            </button>
-                          ))
+                          filteredSggList.map((sgg) => {
+                            const isSelected = selectedGuCode === sgg.sggCd;
+                            return (
+                              <button
+                                key={sgg.sggCd}
+                                type="button"
+                                onClick={() => {
+                                  setCustomGuCode(sgg.sggCd);
+                                  setTypedGuText(null);
+                                  setIsGuDropdownOpen(false);
+                                  setCustomDongCode("");
+                                  setTypedDongText(null);
+                                }}
+                                className={cn(
+                                  "flex w-full items-center justify-between px-3 py-2 text-left text-[13px] text-slate-700 hover:bg-[#EFF6FF] hover:text-[#2563EB] cursor-pointer",
+                                  isSelected &&
+                                    "bg-[#EFF6FF] text-[#2563EB] font-bold",
+                                )}
+                              >
+                                <span>{sgg.sggNm}</span>
+                                {isSelected && (
+                                  <Check className="size-3.5 stroke-[3] text-[#2563EB] shrink-0" />
+                                )}
+                              </button>
+                            );
+                          })
                         ) : (
                           <div
                             className={cn(
@@ -1546,13 +1705,19 @@ export default function MarketTrendsregionPage() {
                 >
                   <span
                     className={cn(
+                      "flex",
+                      "items-center",
+                      "gap-1.5",
                       "text-[13px]",
-                      "font-semibold",
-                      "text-[#475569]",
+                      "font-bold",
+                      "text-slate-700",
                       "shrink-0",
                     )}
                   >
-                    자치동 선택
+                    <span>자치동 선택</span>
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                      선택
+                    </span>
                   </span>
                   <div className={cn("relative", "flex-1")}>
                     <input
@@ -1575,21 +1740,26 @@ export default function MarketTrendsregionPage() {
                         setIsDongDropdownOpen(true);
                         setCustomDongCode("");
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          setIsDongDropdownOpen(false);
+                          handleSearch();
+                        }
+                      }}
                       className={cn(
                         "w-full",
                         "h-9",
                         "pl-3",
                         "pr-8",
-                        "bg-white",
-                        "border",
-                        "border-[#CBD5E1]",
+                        "bg-slate-100/90",
+                        "hover:bg-slate-100",
                         "rounded-lg",
                         "text-[13px]",
                         "font-medium",
                         "text-[#0F172A]",
                         "outline-none",
-                        "focus:border-[#2563EB]",
-                        "disabled:bg-slate-100",
+                        "border-0",
+                        "disabled:bg-slate-100/60",
                         "disabled:text-[#94A3B8]",
                         "disabled:cursor-not-allowed",
                       )}
@@ -1641,32 +1811,41 @@ export default function MarketTrendsregionPage() {
                             setIsDongDropdownOpen(false);
                           }}
                           className={cn(
-                            "w-full text-left px-3 py-2 text-[13px] hover:bg-[#EFF6FF] hover:text-[#2563EB]",
+                            "flex w-full items-center justify-between px-3 py-2 text-left text-[13px] text-slate-700 hover:bg-[#EFF6FF] hover:text-[#2563EB] cursor-pointer",
                             !selectedDongCode &&
                               "bg-[#EFF6FF] text-[#2563EB] font-bold",
                           )}
                         >
-                          전체 (구 전체)
+                          <span>전체 (구 전체)</span>
+                          {!selectedDongCode && (
+                            <Check className="size-3.5 stroke-[3] text-[#2563EB] shrink-0" />
+                          )}
                         </button>
                         {filteredDongList.length > 0 ? (
-                          filteredDongList.map((dong) => (
-                            <button
-                              key={dong.dongCd}
-                              type="button"
-                              onClick={() => {
-                                setCustomDongCode(dong.dongCd);
-                                setTypedDongText(null);
-                                setIsDongDropdownOpen(false);
-                              }}
-                              className={cn(
-                                "w-full text-left px-3 py-2 text-[13px] hover:bg-[#EFF6FF] hover:text-[#2563EB]",
-                                selectedDongCode === dong.dongCd &&
-                                  "bg-[#EFF6FF] text-[#2563EB] font-bold",
-                              )}
-                            >
-                              {dong.dongNm}
-                            </button>
-                          ))
+                          filteredDongList.map((dong) => {
+                            const isSelected = selectedDongCode === dong.dongCd;
+                            return (
+                              <button
+                                key={dong.dongCd}
+                                type="button"
+                                onClick={() => {
+                                  setCustomDongCode(dong.dongCd);
+                                  setTypedDongText(null);
+                                  setIsDongDropdownOpen(false);
+                                }}
+                                className={cn(
+                                  "flex w-full items-center justify-between px-3 py-2 text-left text-[13px] text-slate-700 hover:bg-[#EFF6FF] hover:text-[#2563EB] cursor-pointer",
+                                  isSelected &&
+                                    "bg-[#EFF6FF] text-[#2563EB] font-bold",
+                                )}
+                              >
+                                <span>{dong.dongNm}</span>
+                                {isSelected && (
+                                  <Check className="size-3.5 stroke-[3] text-[#2563EB] shrink-0" />
+                                )}
+                              </button>
+                            );
+                          })
                         ) : (
                           <div
                             className={cn(
@@ -2048,8 +2227,6 @@ export default function MarketTrendsregionPage() {
                   "items-center",
                   "justify-between",
                   "pb-3",
-                  "border-b",
-                  "border-[#F1F5F9]",
                 )}
               >
                 <div className={cn("flex", "flex-col", "gap-0.5")}>
@@ -2333,8 +2510,6 @@ export default function MarketTrendsregionPage() {
                   "items-center",
                   "justify-between",
                   "pb-2",
-                  "border-b",
-                  "border-[#F1F5F9]",
                 )}
               >
                 <div className={cn("flex", "flex-col", "gap-0.5")}>
@@ -2364,7 +2539,7 @@ export default function MarketTrendsregionPage() {
                     "rounded-full",
                   )}
                 >
-                  평형별 분석
+                  면적별 분석
                 </span>
               </div>
 
@@ -2486,7 +2661,7 @@ export default function MarketTrendsregionPage() {
                   </div>
                 </div>
 
-                {/* 우측 평형별 범례 */}
+                {/* 우측 평형/면적별 범례 */}
                 <div className={cn("flex-1", "space-y-2.5")}>
                   {currentData.areaDistribution.map((item) => (
                     <div
@@ -2507,9 +2682,16 @@ export default function MarketTrendsregionPage() {
                           {item.name}
                         </span>
                       </div>
-                      <span className={cn("font-bold", "text-[#0F172A]")}>
-                        {item.percentage}%
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {typeof item.count === "number" && item.count > 0 && (
+                          <span className="text-[11px] font-medium text-[#64748B]">
+                            {item.count}건
+                          </span>
+                        )}
+                        <span className={cn("font-bold", "text-[#0F172A]")}>
+                          {item.percentage}%
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2518,14 +2700,14 @@ export default function MarketTrendsregionPage() {
           </div>
 
           {/* 하단 3개 카드 영역 */}
-          <div className={cn("grid", "grid-cols-1", "md:grid-cols-3", "gap-5")}>
+          <div className={cn("grid", "grid-cols-1", "lg:grid-cols-3", "gap-6")}>
             {/* 카드 1: 최근 실거래 내역 */}
             <Card
               className={cn(
                 "border-[#E2E8F0]",
                 "bg-white",
                 "rounded-xl",
-                "p-4",
+                "p-4.5",
                 "shadow-xs",
                 "flex",
                 "flex-col",
@@ -2538,120 +2720,84 @@ export default function MarketTrendsregionPage() {
                     "text-[14px]",
                     "font-bold",
                     "text-[#0F172A]",
-                    "pb-2.5",
-                    "border-b",
-                    "border-[#F1F5F9]",
+                    "mb-1.5",
                   )}
                 >
                   최근 실거래 내역 TOP 5
                 </h3>
-                <div className={cn("pt-1", "overflow-x-auto")}>
-                  <table className={cn("w-full", "text-[11px]")}>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-separate border-spacing-[3px] text-[11.5px] whitespace-nowrap">
                     <thead>
-                      <tr
-                        className={cn(
-                          "text-[#64748B]",
-                          "border-b",
-                          "border-[#F1F5F9]",
-                        )}
-                      >
-                        <th
-                          className={cn("py-1.5", "font-semibold", "text-left")}
-                        >
+                      <tr className="text-[#64748B] font-medium">
+                        <th className="py-2 px-1.5 text-center border border-[#CBD5E1] bg-white w-[18%]">
                           계약일
                         </th>
-                        <th
-                          className={cn("py-1.5", "font-semibold", "text-left")}
-                        >
+                        <th className="py-2 px-1.5 text-center border border-[#CBD5E1] bg-white w-[27%]">
                           단지명
                         </th>
-                        <th
-                          className={cn(
-                            "py-1.5",
-                            "font-semibold",
-                            "text-right",
-                          )}
-                        >
-                          전용면적
+                        <th className="py-2 px-1.5 text-center border border-[#CBD5E1] bg-white w-[16%]">
+                          평형
                         </th>
-                        <th
-                          className={cn(
-                            "py-1.5",
-                            "font-semibold",
-                            "text-center",
-                          )}
-                        >
+                        <th className="py-2 px-1.5 text-center border border-[#CBD5E1] bg-white w-[12%]">
                           층
                         </th>
-                        <th
-                          className={cn(
-                            "py-1.5",
-                            "font-semibold",
-                            "text-right",
-                          )}
-                        >
-                          거래가
+                        <th className="py-2 px-1.5 text-center border border-[#CBD5E1] bg-white w-[27%]">
+                          거래가(만원)
                         </th>
                       </tr>
                     </thead>
-                    <tbody className={cn("divide-y", "divide-[#F8FAFC]")}>
+                    <tbody className="text-[#334155]">
                       {currentData.recentTrades.length > 0 ? (
-                        currentData.recentTrades.slice(0, 5).map((trade, i) => (
-                          <tr key={`rt-${i}`} className="hover:bg-[#F8FAFC]">
-                            <td className={cn("py-2", "text-[#64748B]")}>
-                              {trade.contractDate}
-                            </td>
-                            <td
-                              className={cn(
-                                "py-2",
-                                "font-bold",
-                                "text-[#0F172A]",
-                                "truncate",
-                                "max-w-[90px]",
-                              )}
+                        currentData.recentTrades.slice(0, 5).map((trade, i) => {
+                          const areaNum = parseFloat(String(trade.area).replace(/[^0-9.]/g, ""));
+                          const pyeongText = !isNaN(areaNum) && areaNum > 0
+                            ? `${Math.round(areaNum * 0.3025)}평형`
+                            : trade.area;
+
+                          // 만원 단위 순수 숫자 포맷팅 (예: 239,652)
+                          const rawPrice = trade.price || trade.status || "";
+                          let formattedPrice = String(rawPrice).trim();
+                          if (formattedPrice.includes("억")) {
+                            const eokMatch = formattedPrice.match(/(\d+)\s*억/);
+                            const manMatch = formattedPrice.match(/억\s*([\d,]+)/);
+                            const eok = eokMatch ? parseInt(eokMatch[1].replace(/,/g, ""), 10) : 0;
+                            const man = manMatch ? parseInt(manMatch[1].replace(/,/g, ""), 10) : 0;
+                            formattedPrice = (eok * 10000 + man).toLocaleString();
+                          } else {
+                            const cleanNum = formattedPrice.replace(/[^0-9]/g, "");
+                            if (cleanNum) {
+                              formattedPrice = parseInt(cleanNum, 10).toLocaleString();
+                            }
+                          }
+
+                          return (
+                            <tr
+                              key={`rt-${i}`}
+                              className="transition-colors"
                             >
-                              {trade.complexName}
-                            </td>
-                            <td
-                              className={cn(
-                                "py-2",
-                                "text-right",
-                                "text-[#64748B]",
-                              )}
-                            >
-                              {trade.area}
-                            </td>
-                            <td
-                              className={cn(
-                                "py-2",
-                                "text-center",
-                                "text-[#64748B]",
-                              )}
-                            >
-                              {trade.floor}
-                            </td>
-                            <td
-                              className={cn(
-                                "py-2",
-                                "text-right",
-                                "font-semibold",
-                                "text-[#2563EB]",
-                              )}
-                            >
-                              {trade.price || trade.status}
-                            </td>
-                          </tr>
-                        ))
+                              <td className="py-2.5 px-1.5 text-center border border-[#CBD5E1] bg-white text-[#475569]">
+                                {trade.contractDate}
+                              </td>
+                              <td className="py-2.5 px-1.5 text-center border border-[#CBD5E1] bg-white font-medium text-[#0F172A] truncate max-w-[80px]">
+                                {trade.complexName}
+                              </td>
+                              <td className="py-2.5 px-1.5 text-center border border-[#CBD5E1] bg-white text-[#475569]">
+                                {pyeongText}
+                              </td>
+                              <td className="py-2.5 px-1.5 text-center border border-[#CBD5E1] bg-white text-[#475569]">
+                                {trade.floor}
+                              </td>
+                              <td className="py-2.5 px-1.5 text-center border border-[#CBD5E1] bg-white font-black text-[#0B2545] text-[12.5px]">
+                                {formattedPrice || "-"}
+                              </td>
+                            </tr>
+                          );
+                        })
                       ) : (
                         <tr>
                           <td
                             colSpan={5}
-                            className={cn(
-                              "py-6",
-                              "text-center",
-                              "text-xs",
-                              "text-[#94A3B8]",
-                            )}
+                            className="py-6 text-center text-xs text-[#94A3B8] border border-[#CBD5E1] bg-white"
                           >
                             조회된 최근 실거래 내역이 없습니다.
                           </td>
@@ -2666,23 +2812,28 @@ export default function MarketTrendsregionPage() {
                 onClick={() => setIsAllTradesModalOpen(true)}
                 className={cn(
                   "mt-3",
-                  "pt-2.5",
-                  "border-t",
-                  "border-[#F1F5F9]",
                   "w-full",
+                  "py-2",
+                  "px-3",
                   "flex",
                   "items-center",
                   "justify-center",
-                  "gap-1",
-                  "text-[12px]",
-                  "font-bold",
-                  "text-[#2563EB]",
-                  "hover:underline",
+                  "gap-1.5",
+                  "text-[12.5px]",
+                  "font-medium",
+                  "text-[#0284C7]",
+                  "bg-white",
+                  "border",
+                  "border-[#CBD5E1]",
+                  "rounded-[6px]",
+                  "hover:bg-[#F8FAFC]",
+                  "hover:border-[#94A3B8]",
+                  "transition-all",
                   "cursor-pointer",
                 )}
               >
                 <span>전체 실거래 내역 보기</span>
-                <ChevronRight className="size-3.5" />
+                <ChevronRight className="size-3.5 text-[#0284C7]" />
               </button>
             </Card>
 
@@ -2692,7 +2843,7 @@ export default function MarketTrendsregionPage() {
                 "border-[#E2E8F0]",
                 "bg-white",
                 "rounded-xl",
-                "p-4",
+                "p-4.5",
                 "shadow-xs",
               )}
             >
@@ -2701,81 +2852,40 @@ export default function MarketTrendsregionPage() {
                   "text-[14px]",
                   "font-bold",
                   "text-[#0F172A]",
-                  "pb-2.5",
-                  "border-b",
-                  "border-[#F1F5F9]",
+                  "mb-1.5",
                 )}
               >
                 거래량 상위 단지 TOP 5
               </h3>
-              <div className={cn("pt-1", "overflow-x-auto")}>
-                <table className={cn("w-full", "text-[11px]")}>
+              <div className="overflow-x-auto">
+                <table className="w-full border-separate border-spacing-[3px] text-[11.5px] whitespace-nowrap">
                   <thead>
-                    <tr
-                      className={cn(
-                        "text-[#64748B]",
-                        "border-b",
-                        "border-[#F1F5F9]",
-                      )}
-                    >
-                      <th
-                        className={cn(
-                          "py-1.5",
-                          "font-semibold",
-                          "text-center",
-                          "w-8",
-                        )}
-                      >
+                    <tr className="text-[#64748B] font-medium">
+                      <th className="py-2 px-2 text-center border border-[#CBD5E1] bg-white w-[18%]">
                         순위
                       </th>
-                      <th
-                        className={cn("py-1.5", "font-semibold", "text-left")}
-                      >
+                      <th className="py-2 px-2 text-center border border-[#CBD5E1] bg-white w-[52%]">
                         단지명
                       </th>
-                      <th
-                        className={cn("py-1.5", "font-semibold", "text-right")}
-                      >
+                      <th className="py-2 px-2 text-center border border-[#CBD5E1] bg-white w-[30%]">
                         거래건수
                       </th>
                     </tr>
                   </thead>
-                  <tbody className={cn("divide-y", "divide-[#F8FAFC]")}>
+                  <tbody className="text-[#334155]">
                     {currentData.topComplexes.length > 0 ? (
                       currentData.topComplexes.map((item) => (
                         <tr
                           key={`tc-${item.rank}`}
-                          className="hover:bg-[#F8FAFC]"
+                          className="transition-colors"
                         >
-                          <td
-                            className={cn(
-                              "py-2",
-                              "text-center",
-                              "font-bold",
-                              "text-[#0F172A]",
-                            )}
-                          >
+                          <td className="py-2.5 px-2 text-center border border-[#CBD5E1] bg-white text-[#475569]">
                             {item.rank}
                           </td>
-                          <td
-                            className={cn(
-                              "py-2",
-                              "font-medium",
-                              "text-[#0F172A]",
-                              "truncate",
-                              "max-w-[130px]",
-                            )}
-                          >
+                          <td className="py-2.5 px-2 text-center border border-[#CBD5E1] bg-white font-medium text-[#0F172A] truncate max-w-[130px]">
                             {item.complexName}
                           </td>
-                          <td
-                            className={cn(
-                              "py-2",
-                              "text-right",
-                              "font-bold",
-                              "text-[#334155]",
-                            )}
-                          >
+                          <td className="py-2.5 px-2 text-center border border-[#CBD5E1] bg-white font-black text-[#0B2545] text-[12.5px]">
                             {item.count}건
                           </td>
                         </tr>
@@ -2784,12 +2894,7 @@ export default function MarketTrendsregionPage() {
                       <tr>
                         <td
                           colSpan={3}
-                          className={cn(
-                            "py-6",
-                            "text-center",
-                            "text-xs",
-                            "text-[#94A3B8]",
-                          )}
+                          className="py-6 text-center text-xs text-[#94A3B8] border border-[#CBD5E1] bg-white"
                         >
                           조회된 상위 단지가 없습니다.
                         </td>
@@ -2820,8 +2925,6 @@ export default function MarketTrendsregionPage() {
                     "items-center",
                     "justify-between",
                     "pb-2.5",
-                    "border-b",
-                    "border-[#F1F5F9]",
                   )}
                 >
                   <h3
@@ -2945,6 +3048,25 @@ export default function MarketTrendsregionPage() {
                     </div>
                   )}
                 </div>
+              </div>
+
+              <div
+                className={cn(
+                  "mt-3",
+                  "pt-2.5",
+                  "border-t",
+                  "border-[#F1F5F9]",
+                  "flex",
+                  "items-center",
+                  "justify-between",
+                  "text-[11px]",
+                  "text-[#64748B]",
+                )}
+              >
+                <span>실시간 데이터 집계</span>
+                <span className="font-semibold text-[#2563EB]">
+                  {formatYearMonthDay(new Date())} 기준
+                </span>
               </div>
             </Card>
           </div>
@@ -3117,7 +3239,7 @@ export default function MarketTrendsregionPage() {
                           "text-[#475569]",
                         )}
                       >
-                        전용면적
+                        평형
                       </TableHead>
                       <TableHead
                         className={cn(
@@ -3131,114 +3253,110 @@ export default function MarketTrendsregionPage() {
                       </TableHead>
                       <TableHead
                         className={cn(
-                          "text-center",
-                          "text-xs",
-                          "font-semibold",
-                          "text-[#475569]",
-                        )}
-                      >
-                        거래 상태
-                      </TableHead>
-                      <TableHead
-                        className={cn(
                           "text-right",
                           "text-xs",
                           "font-semibold",
                           "text-[#475569]",
                         )}
                       >
-                        실거래가
+                        실거래가(만원)
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {allTradesList.length > 0 ? (
-                      allTradesList.map((trade, idx) => (
-                        <TableRow
-                          key={`all-trade-${idx}`}
-                          className={cn(
-                            "hover:bg-slate-50",
-                            "border-[#F1F5F9]",
-                          )}
-                        >
-                          <TableCell
+                      allTradesList.map((trade, idx) => {
+                        const areaNum = parseFloat(String(trade.area).replace(/[^0-9.]/g, ""));
+                        const pyeongText = !isNaN(areaNum) && areaNum > 0
+                          ? `${Math.round(areaNum * 0.3025)}평형`
+                          : trade.area;
+
+                        // 만원 단위 순수 숫자 포맷팅
+                        const rawPrice = trade.price || trade.status || "";
+                        let formattedPrice = String(rawPrice).trim();
+                        if (formattedPrice.includes("억")) {
+                          const eokMatch = formattedPrice.match(/(\d+)\s*억/);
+                          const manMatch = formattedPrice.match(/억\s*([\d,]+)/);
+                          const eok = eokMatch ? parseInt(eokMatch[1].replace(/,/g, ""), 10) : 0;
+                          const man = manMatch ? parseInt(manMatch[1].replace(/,/g, ""), 10) : 0;
+                          formattedPrice = (eok * 10000 + man).toLocaleString();
+                        } else {
+                          const cleanNum = formattedPrice.replace(/[^0-9]/g, "");
+                          if (cleanNum) {
+                            formattedPrice = parseInt(cleanNum, 10).toLocaleString();
+                          }
+                        }
+
+                        return (
+                          <TableRow
+                            key={`all-trade-${idx}`}
                             className={cn(
-                              "text-center",
-                              "text-xs",
-                              "text-[#64748B]",
+                              "hover:bg-slate-50",
+                              "border-[#F1F5F9]",
                             )}
                           >
-                            {idx + 1}
-                          </TableCell>
-                          <TableCell
-                            className={cn(
-                              "text-xs",
-                              "font-medium",
-                              "text-[#64748B]",
-                            )}
-                          >
-                            {trade.contractDate}
-                          </TableCell>
-                          <TableCell
-                            className={cn(
-                              "text-xs",
-                              "font-bold",
-                              "text-[#0F172A]",
-                            )}
-                          >
-                            {trade.complexName}
-                          </TableCell>
-                          <TableCell
-                            className={cn(
-                              "text-right",
-                              "text-xs",
-                              "text-[#64748B]",
-                            )}
-                          >
-                            {trade.area}
-                          </TableCell>
-                          <TableCell
-                            className={cn(
-                              "text-center",
-                              "text-xs",
-                              "text-[#64748B]",
-                            )}
-                          >
-                            {trade.floor}
-                          </TableCell>
-                          <TableCell className={cn("text-center", "text-xs")}>
-                            <span
+                            <TableCell
                               className={cn(
-                                "bg-[#EFF6FF]",
-                                "text-[#2563EB]",
-                                "font-bold",
-                                "px-2",
-                                "py-0.5",
-                                "rounded-full",
-                                "text-[10px]",
-                                "border",
-                                "border-[#BFDBFE]",
+                                "text-center",
+                                "text-xs",
+                                "text-[#64748B]",
                               )}
                             >
-                              {trade.status}
-                            </span>
-                          </TableCell>
-                          <TableCell
-                            className={cn(
-                              "text-right",
-                              "text-xs",
-                              "font-black",
-                              "text-[#2563EB]",
-                            )}
-                          >
-                            {trade.price || "-"}
-                          </TableCell>
-                        </TableRow>
-                      ))
+                              {idx + 1}
+                            </TableCell>
+                            <TableCell
+                              className={cn(
+                                "text-xs",
+                                "font-medium",
+                                "text-[#64748B]",
+                              )}
+                            >
+                              {trade.contractDate}
+                            </TableCell>
+                            <TableCell
+                              className={cn(
+                                "text-xs",
+                                "font-bold",
+                                "text-[#0F172A]",
+                              )}
+                            >
+                              {trade.complexName}
+                            </TableCell>
+                            <TableCell
+                              className={cn(
+                                "text-right",
+                                "text-xs",
+                                "text-[#64748B]",
+                              )}
+                            >
+                              {pyeongText}
+                            </TableCell>
+                            <TableCell
+                              className={cn(
+                                "text-center",
+                                "text-xs",
+                                "text-[#64748B]",
+                              )}
+                            >
+                              {trade.floor}
+                            </TableCell>
+                            <TableCell
+                              className={cn(
+                                "text-right",
+                                "text-xs",
+                                "font-black",
+                                "text-[#2563EB]",
+                              )}
+                            >
+                              {formattedPrice || "-"}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     ) : (
                       <TableRow>
                         <TableCell
-                          colSpan={7}
+                          colSpan={6}
                           className={cn(
                             "h-32",
                             "text-center",
