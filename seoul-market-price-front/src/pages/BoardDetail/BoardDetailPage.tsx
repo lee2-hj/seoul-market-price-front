@@ -19,15 +19,9 @@ import { Button } from "@/components/ui/button";
 import { maskAuthorName } from "@/lib/utils";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
-
-function formatBoardDate(dateStr?: string): string {
-  if (!dateStr) return "-";
-  if (dateStr.includes("T")) {
-    const [d, t] = dateStr.split("T");
-    return `${d.replace(/-/g, ".")} ${t ? t.slice(0, 5) : ""}`.trim();
-  }
-  return dateStr.replace(/-/g, ".");
-}
+import BoardPageHeader from "@/features/board/components/BoardPageHeader";
+import { formatBoardDate } from "@/features/board/utils/boardDisplay";
+import { toBoardAttachmentView } from "@/features/board/utils/boardMappers";
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -262,20 +256,15 @@ export default function BoardDetailPage() {
     <div className="min-h-screen bg-[#F5FAFC]">
       <div className="py-12 px-5 sm:px-8">
         <div className="max-w-[900px] mx-auto space-y-6">
-          {/* 헤더 */}
-          <div className="text-center space-y-2 mb-8">
-            <span className="inline-block px-3 py-1 bg-[#E6F4F2] text-[#0F766E] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
-              SSABU CUSTOMER CENTER
-            </span>
-            <h1 className="text-[36px] font-black text-[#123047] tracking-tight">
-              {post?.postType === "NOTICE" ? "공지사항 상세" : "게시판 상세"}
-            </h1>
-            <p className="text-[15px] text-[#6B7280]">
-              {post?.postType === "NOTICE"
+          <BoardPageHeader
+            eyebrow="SSABU CUSTOMER CENTER"
+            title={post?.postType === "NOTICE" ? "공지사항 상세" : "게시판 상세"}
+            description={
+              post?.postType === "NOTICE"
                 ? "싸부(SSABU) 부동산 실거래 및 시세 분석 서비스의 주요 소식을 전해드립니다."
-                : "싸부(SSABU) 이용자들과 부동산 관련 다양한 이야기를 나누는 공간입니다."}
-            </p>
-          </div>
+                : "싸부(SSABU) 이용자들과 부동산 관련 다양한 이야기를 나누는 공간입니다."
+            }
+          />
 
           {/* 상세 카드 박스 */}
           <div className="bg-white border border-[#DCE8ED] rounded-[12px] p-6 md:p-8 space-y-6 shadow-xs">
@@ -339,24 +328,26 @@ export default function BoardDetailPage() {
                     </div>
                     <div className="space-y-1.5">
                       {attachments.map((file, idx) => {
-                        const fileId = file.attachmentId ?? file.id ?? idx;
-                        const fileName =
-                          file.originalName || file.originalFilename || file.fileName || "첨부파일";
-                        const fileSize = file.size ?? file.fileSize ?? 0;
+                        const attachment = toBoardAttachmentView(file, idx);
                         return (
                           <div
-                            key={fileId}
+                            key={attachment.id}
                             className="flex items-center justify-between p-2.5 bg-white border border-[#DCE8ED] rounded-[8px] text-[13px] gap-2"
                           >
                             <span className="font-medium text-[#13202B] truncate">
-                              {fileName}
+                              {attachment.name}
                               <span className="text-[11px] text-[#6B7280] ml-2 font-normal">
-                                ({(fileSize / 1024).toFixed(1)} KB)
+                                ({(attachment.size / 1024).toFixed(1)} KB)
                               </span>
                             </span>
                             <button
                               type="button"
-                              onClick={() => handleDownload(Number(fileId), fileName)}
+                              onClick={() =>
+                                handleDownload(
+                                  Number(attachment.id),
+                                  attachment.name,
+                                )
+                              }
                               className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[12px] font-bold rounded-[6px] transition-colors cursor-pointer shrink-0 shadow-xs border-none"
                             >
                               <Download className="w-3.5 h-3.5" /> 다운로드

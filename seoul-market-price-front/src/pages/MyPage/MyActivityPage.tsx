@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
@@ -33,6 +33,7 @@ export default function MyActivityPage() {
   const isLoggedIn = isLogin();
   const authUser = useAuthStore((state) => state.user);
   const [activityType, setActivityType] = useState<ActivityType>("POST");
+  const currentUserIdentity = normalizeIdentity(authUser?.userId);
 
   // 실제 게시판 데이터 조회 (API 연동)
   const {
@@ -43,6 +44,8 @@ export default function MyActivityPage() {
     queryKey: ["myBoardPosts"],
     queryFn: () => getBoardPostsApi({ page: 1, size: 100 }),
     enabled: isLoggedIn,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 
   // 내가 작성한 게시글 필터링
@@ -81,25 +84,61 @@ export default function MyActivityPage() {
   >([]);
   const [isCommentsLoading, setIsCommentsLoading] = useState(false);
   const [commentRequestFailureCount, setCommentRequestFailureCount] = useState(0);
+  const [commentsLoadedForUser, setCommentsLoadedForUser] = useState("");
+  const commentsRequestUserRef = useRef("");
+  const commentsStateUserRef = useRef(currentUserIdentity);
+  const isComponentMountedRef = useRef(true);
 
   useEffect(() => {
-    let isMounted = true;
+    return () => {
+      isComponentMountedRef.current = false;
+    };
+  }, []);
 
-    if (!isLoggedIn || !authUser || !boardData?.items || boardData.items.length === 0) {
-      queueMicrotask(() => {
-        if (isMounted) {
-          setMyComments([]);
-          setIsCommentsLoading(false);
-          setCommentRequestFailureCount(0);
-        }
-      });
-      return () => {
-        isMounted = false;
-      };
+  useEffect(() => {
+    if (commentsStateUserRef.current === currentUserIdentity) return;
+
+    commentsStateUserRef.current = currentUserIdentity;
+    commentsRequestUserRef.current = "";
+    queueMicrotask(() => {
+      if (!isComponentMountedRef.current) return;
+      setMyComments([]);
+      setIsCommentsLoading(false);
+      setCommentRequestFailureCount(0);
+      setCommentsLoadedForUser("");
+    });
+  }, [currentUserIdentity]);
+
+  useEffect(() => {
+    if (
+      activityType !== "COMMENT" ||
+      !isLoggedIn ||
+      !authUser ||
+      !currentUserIdentity ||
+      commentsLoadedForUser === currentUserIdentity ||
+      commentsRequestUserRef.current === currentUserIdentity
+    ) {
+      return;
     }
 
+    if (!boardData?.items) return;
+
+    if (boardData.items.length === 0) {
+      commentsRequestUserRef.current = currentUserIdentity;
+      queueMicrotask(() => {
+        if (!isComponentMountedRef.current) return;
+        setMyComments([]);
+        setIsCommentsLoading(false);
+        setCommentRequestFailureCount(0);
+        setCommentsLoadedForUser(currentUserIdentity);
+        commentsRequestUserRef.current = "";
+      });
+      return;
+    }
+
+    commentsRequestUserRef.current = currentUserIdentity;
     queueMicrotask(() => {
-      if (isMounted) setIsCommentsLoading(true);
+      if (isComponentMountedRef.current) setIsCommentsLoading(true);
     });
 
     const currentName = normalizeIdentity(authUser.name);
@@ -137,7 +176,10 @@ export default function MyActivityPage() {
       })
     )
       .then((results) => {
-        if (isMounted) {
+        if (
+          isComponentMountedRef.current &&
+          commentsStateUserRef.current === currentUserIdentity
+        ) {
           const flat = results
             .flatMap((result) => result.comments)
             .sort((a, b) => (b.commentId || 0) - (a.commentId || 0));
@@ -146,19 +188,33 @@ export default function MyActivityPage() {
             results.filter((result) => result.failed).length,
           );
           setIsCommentsLoading(false);
+          setCommentsLoadedForUser(currentUserIdentity);
+        }
+        if (commentsRequestUserRef.current === currentUserIdentity) {
+          commentsRequestUserRef.current = "";
         }
       })
       .catch(() => {
-        if (isMounted) {
+        if (
+          isComponentMountedRef.current &&
+          commentsStateUserRef.current === currentUserIdentity
+        ) {
           setCommentRequestFailureCount(boardData.items.slice(0, 30).length);
           setIsCommentsLoading(false);
+          setCommentsLoadedForUser(currentUserIdentity);
+        }
+        if (commentsRequestUserRef.current === currentUserIdentity) {
+          commentsRequestUserRef.current = "";
         }
       });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isLoggedIn, authUser, boardData]);
+  }, [
+    activityType,
+    isLoggedIn,
+    authUser,
+    currentUserIdentity,
+    commentsLoadedForUser,
+    boardData,
+  ]);
 
   const activityTabs: Array<{
     type: ActivityType;
@@ -194,7 +250,12 @@ export default function MyActivityPage() {
                   : ACTIVITY_TAB_INACTIVE_CLASS
               }`}
             >
-              {tab.label} {isLoggedIn && !tab.isLoading && `(${tab.count})`}
+              {tab.label}{" "}
+              {isLoggedIn &&
+                !tab.isLoading &&
+                (tab.type !== "COMMENT" ||
+                  commentsLoadedForUser === currentUserIdentity) &&
+                `(${tab.count})`}
             </button>
           ))}
         </div>

@@ -1,9 +1,12 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
+  BarChart3,
   Building2,
   CircleHelp,
   ClipboardList,
+  Layers,
+  Map,
   MapPin,
   MessageSquareText,
   UserRound,
@@ -36,6 +39,36 @@ export const TRENDS_NAVIGATION: SectionNavigation = {
       label: "지역별 거래동향",
       to: "/trends/region",
       icon: MapPin,
+    },
+  ],
+};
+
+export const PRICE_NAVIGATION: SectionNavigation = {
+  sectionTitle: "가격정보",
+  menuItems: [
+    {
+      label: "지역별 비교(리스트)",
+      to: "/price/compare-list",
+      icon: BarChart3,
+      end: true,
+    },
+    {
+      label: "지역별 비교(지도)",
+      to: "/region-map",
+      icon: Map,
+      end: true,
+    },
+    {
+      label: "단지별 시세",
+      to: "/price/detail",
+      icon: Building2,
+      end: true,
+    },
+    {
+      label: "아파트별 비교",
+      to: "/price/compare-apartment",
+      icon: Layers,
+      end: true,
     },
   ],
 };

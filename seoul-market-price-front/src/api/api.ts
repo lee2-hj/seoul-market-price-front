@@ -1087,21 +1087,91 @@ export type AiSearchResponse = {
   summary: string;
   keyPoints: string[];
   cautions: string[];
+  criteria?: RankingCriteria;
+};
+
+export type RankingCriteria = {
+  metric: string;
+  unit: string;
+  period: string;
+  minimumTradeCount: number;
+  sortDirection: string;
+};
+
+export type TradeVolumeRankingResponse = {
+  regionName: string;
+  periodStart: string;
+  periodEnd: string;
+  totalDealCount: number;
+  criteria: RankingCriteria;
+  items: Array<{
+    rank: number;
+    regionName?: string;
+    apartmentName: string;
+    mainAddressNumber?: string;
+    subAddressNumber?: string;
+    dealCount: number;
+    averageTradeAmount?: number;
+  }>;
+};
+
+export type PriceRankingResponse = {
+  regionName: string;
+  metricType: "pyeong" | "thing_amt";
+  baseDate?: string;
+  criteria: RankingCriteria;
+  items: Array<{
+    rank: number;
+    regionName?: string;
+    apartmentName: string;
+    metricValue?: number;
+    dealCount: number;
+  }>;
+};
+
+export type DistrictRankingResponse = {
+  regionName: string;
+  metricType: "district_pyeong";
+  baseDate?: string;
+  criteria: RankingCriteria;
+  items: Array<{
+    rank: number;
+    districtName: string;
+    averagePyeongAmount: number;
+    dealCount: number;
+  }>;
 };
 
 export type NaturalRegionCandidate = DongRegionResponse & { slot: number };
 export type NaturalSearchResponse = {
   status: "SUCCESS" | "NEED_CLARIFICATION" | "ERROR";
-  intent?: "PRICE_COMPARISON" | "SINGLE_REGION" | "TOP_BOTTOM";
+  intent?:
+    | "PRICE_COMPARISON"
+    | "SINGLE_REGION"
+    | "DISTRICT_SUMMARY"
+    | "DISTRICT_RANKING"
+    | "TOP_BOTTOM"
+    | "RANKING_SEARCH"
+    | "TRADE_TREND";
   message?: string;
-  result?: AiSearchResponse;
+  result?:
+    | AiSearchResponse
+    | TradeVolumeRankingResponse
+    | PriceRankingResponse
+    | DistrictRankingResponse;
   missingFields: string[];
   candidates: NaturalRegionCandidate[];
   errorCode?: string;
 };
 
-export async function searchNaturalWithAiApi(question: string): Promise<NaturalSearchResponse> {
-  const response = await apiMiddleware.post<NaturalSearchResponse>("/api/ai/search-natural", { question }, { timeout: 120000 });
+export async function searchNaturalWithAiApi(
+  question: string,
+): Promise<NaturalSearchResponse> {
+  const response = await apiMiddleware.post<NaturalSearchResponse>(
+    "/api/ai/search-natural",
+    { question },
+    { timeout: 120000 },
+  );
   return response.data;
 }
 
@@ -1153,8 +1223,13 @@ export async function resolveDongsApi(
   return response.data;
 }
 
-export async function resolveDongApi(dong: string): Promise<DongRegionResponse[]> {
-  const response = await apiMiddleware.get<DongRegionResponse[]>("/api/location/resolve-dong", { params: { dong } });
+export async function resolveDongApi(
+  dong: string,
+): Promise<DongRegionResponse[]> {
+  const response = await apiMiddleware.get<DongRegionResponse[]>(
+    "/api/location/resolve-dong",
+    { params: { dong } },
+  );
   return response.data;
 }
 
@@ -1240,4 +1315,142 @@ export interface BoardFullDetailResponse {
   detail: BoardDetail;
   comments: BoardComment[];
   attachments: AttachmentResponse[];
+}
+
+/**
+ * 쿼리 파라미터 방어 로직: null, undefined, 빈 문자열("") 항목을 제거하여 백엔드의 400 Bad Request / 500 오류 방지
+ */
+export interface ApartmentAutocompleteRequest {
+  aptName?: string;
+  sggCd?: string;
+  dongCd?: string;
+}
+
+export interface ApartmentAutocompleteItem {
+  aptName: string;
+  mno: string;
+  sno: string;
+  dongCd: string;
+  dongNm: string;
+  sggCd: string;
+  sggNm: string;
+}
+
+interface ApartmentAutocompleteApiItem {
+  apt_name: string;
+  mno: string;
+  sno: string;
+  dong_cd: string;
+  dong_nm: string;
+  sgg_cd: string;
+  sgg_nm: string;
+}
+
+export async function searchApartmentAutocompleteApi(
+  request: ApartmentAutocompleteRequest,
+): Promise<ApartmentAutocompleteItem[]> {
+  const response = await apiMiddleware.get<ApartmentAutocompleteApiItem[]>(
+    "/elasticSearch/aptname",
+    {
+      params: {
+        apt_name: request.aptName ?? "",
+        sgg_cd: request.sggCd ?? "",
+        dong_cd: request.dongCd ?? "",
+      },
+    },
+  );
+
+  return response.data.map((item) => ({
+    aptName: item.apt_name,
+    mno: item.mno,
+    sno: item.sno,
+    dongCd: item.dong_cd,
+    dongNm: item.dong_nm,
+    sggCd: item.sgg_cd,
+    sggNm: item.sgg_nm,
+  }));
+}
+
+export interface ApartmentMarketTrendRequest {
+  guCode: string;
+  dongCode: string;
+  aptName: string;
+  mno: string;
+  sno: string;
+}
+
+export interface ApartmentMarketTrendItem {
+  apt_name: string;
+  cgg_cd: string;
+  cgg_nm: string;
+  stdg_cd: string;
+  stdg_nm: string;
+  total_deal_count: number;
+  total_deal_amount: number;
+  average_deal_price: number;
+  max_deal_price: number;
+  count_change_rate: number | null;
+  biweekly_trend: Array<{
+    biweekly_period: string;
+    deal_count: number;
+    avg_price: number;
+  }>;
+  area_ratio: Array<{
+    exclusive_area: string;
+    pyeong: number | null;
+    share_percentage: number;
+  }>;
+  recent_deals: Array<{
+    deal_date: string;
+    exclusive_area: string;
+    pyeong: number;
+    floor: number;
+    deal_amount: number;
+  }>;
+  area_deals: Array<{
+    exclusive_area: string;
+    pyeong: number;
+    deal_count: number;
+    avg_deal_price: number;
+  }>;
+}
+
+export interface ApartmentMarketTrendResponse {
+  status: string;
+  search_period: {
+    start_date: string;
+    end_date: string;
+  };
+  count: number;
+  data: ApartmentMarketTrendItem[];
+}
+
+export async function getApartmentMarketTrendApi(
+  request: ApartmentMarketTrendRequest,
+): Promise<ApartmentMarketTrendResponse> {
+  const response = await apiMiddleware.get<ApartmentMarketTrendResponse>(
+    "/fastApi/aptmkt",
+    { params: request },
+  );
+
+  return response.data;
+}
+
+export function cleanParams<T extends Record<string, any>>(
+  params: T,
+): Record<string, any> {
+  const cleaned: Record<string, any> = {};
+  if (!params || typeof params !== "object") return cleaned;
+
+  Object.keys(params).forEach((key) => {
+    const val = params[key];
+    if (val !== undefined && val !== null) {
+      const strVal = String(val).trim();
+      if (strVal !== "") {
+        cleaned[key] = typeof val === "string" ? strVal : val;
+      }
+    }
+  });
+
+  return cleaned;
 }
