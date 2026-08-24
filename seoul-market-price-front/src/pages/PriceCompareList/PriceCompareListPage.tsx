@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -8,11 +8,8 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  HelpCircle,
   Info,
-  Layers,
   Loader2,
-  Map,
   MapPin,
   RotateCcw,
   Sparkles,
@@ -21,6 +18,8 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import apiMiddleware from "../../api/middleware";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { PRICE_NAVIGATION } from "@/config/sectionNavigation";
 
 /* 1. 타입 정의 */
 interface MetricResult {
@@ -599,59 +598,6 @@ function usePriceCompareMutation() {
 
 /* 4. UI 서브 컴포넌트 */
 /* 사이드바 내비게이션 컴포넌트 */
-function SidebarNav() {
-  return (
-    <aside className="w-[240px] shrink-0 max-[900px]:w-full">
-      <div className="sticky top-[96px] rounded-[16px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_20px_rgba(15,23,42,0.04)]">
-        <h2 className="mb-4 text-[16px] font-black text-[#0F172A]">가격정보</h2>
-
-        <nav className="flex flex-col gap-1">
-          <Link
-            to="/price/compare-list"
-            className="flex items-center gap-2.5 rounded-[10px] bg-[#E8F6F9] px-3.5 py-3 text-[13px] font-extrabold text-[#0F8AA8] no-underline"
-          >
-            <BarChart3 className="size-4" />
-            <span>지역별 비교(리스트)</span>
-          </Link>
-          <Link
-            to="/region-map"
-            className="flex items-center gap-2.5 rounded-[10px] px-3.5 py-3 text-[13px] font-semibold text-[#64748B] no-underline hover:bg-[#F1F5F9] hover:text-[#0F172A]"
-          >
-            <Map className="size-4" />
-            <span>지역별 비교(지도)</span>
-          </Link>
-          <Link
-            to="/price/detail"
-            className="flex items-center gap-2.5 rounded-[10px] px-3.5 py-3 text-[13px] font-semibold text-[#64748B] no-underline hover:bg-[#F1F5F9] hover:text-[#0F172A]"
-          >
-            <Building2 className="size-4" />
-            <span>단지별 시세</span>
-          </Link>
-          <Link
-            to="/price/compare-apartment"
-            className="flex items-center gap-2.5 rounded-[10px] px-3.5 py-3 text-[13px] font-semibold text-[#64748B] no-underline hover:bg-[#F1F5F9] hover:text-[#0F172A]"
-          >
-            <Layers className="size-4" />
-            <span>아파트별 비교</span>
-          </Link>
-        </nav>
-
-        <div className="mt-6 rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-          <div className="mb-1.5 flex items-center gap-1.5 text-[12px] font-bold text-[#475569]">
-            <HelpCircle className="size-3.5 text-[#0F8AA8]" />
-            <span>이용 가이드</span>
-          </div>
-          <p className="text-[11px] leading-relaxed text-[#64748B]">
-            비교할 두 지역의 자치구와 자치동을 검색하거나 선택하고
-            &apos;비교하기&apos; 버튼을 눌러보세요. 매매 및 전세 시세 차이를
-            한눈에 확인할 수 있습니다.
-          </p>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
 /* 검색어 일치 강조 컴포넌트 */
 function HighlightMatch({ text, query }: { text: string; query: string }) {
   if (!query || !query.trim()) return <span>{text}</span>;
@@ -1731,21 +1677,17 @@ export default function PriceCompareListPage() {
   }, [resetCompare, setSearchParams]);
 
   return (
-    <div className={cn("tw-scope", "min-h-screen", "bg-[#F8FAFC]")}>
-      <main className="py-8">
-        <div
-          className={cn(
-            "mx-auto flex w-[min(1490px,calc(100%-48px))] gap-8",
-            "max-[1240px]:w-[min(980px,calc(100%-36px))]",
-            "max-[760px]:w-[calc(100%-24px)]",
-            "max-[900px]:flex-col",
-          )}
-        >
+    <SectionSidebarLayout
+      sectionTitle={PRICE_NAVIGATION.sectionTitle}
+      menuItems={PRICE_NAVIGATION.menuItems}
+    >
+      <div className={cn("tw-scope min-w-0", "bg-[#F8FAFC]")}>
+        <main className="py-8">
           {/* 사이드바 영역 */}
-          <SidebarNav />
+
 
           {/* 메인 콘텐츠 영역 */}
-          <section className="min-w-0 flex-1">
+          <section className="min-w-0">
             {/* 타이틀 및 초기화 버튼 */}
             <div className="mb-7 flex items-end justify-between">
               <div>
@@ -1943,8 +1885,8 @@ export default function PriceCompareListPage() {
               </div>
             )}
           </section>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </SectionSidebarLayout>
   );
 }
