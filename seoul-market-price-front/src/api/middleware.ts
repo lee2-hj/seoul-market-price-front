@@ -46,14 +46,25 @@ apiMiddleware.interceptors.request.use((config) => {
 
 // 재발급 요청 중복 호출을 막고, 대기 중인 요청들을 재발급 완료 후 이어서 처리하기 위한 상태
 let isRefreshing = false;
-let refreshSubscribers: Array<() => void> = [];
+let refreshSubscribers: Array<{
+    resolve: (value: any) => void;
+    reject: (reason: any) => void;
+}> = [];
 
-function subscribeTokenRefresh(callback: () => void) {
-    refreshSubscribers.push(callback);
+function subscribeTokenRefresh(
+    resolve: (value: any) => void,
+    reject: (reason: any) => void,
+) {
+    refreshSubscribers.push({ resolve, reject });
 }
 
 function onTokenRefreshed() {
-    refreshSubscribers.forEach((callback) => callback());
+    refreshSubscribers.forEach(({ resolve }) => resolve(true));
+    refreshSubscribers = [];
+}
+
+function onTokenRefreshFailed(error: any) {
+    refreshSubscribers.forEach(({ reject }) => reject(error));
     refreshSubscribers = [];
 }
 
@@ -107,10 +118,11 @@ apiMiddleware.interceptors.response.use(
             // 이미 다른 요청이 재발급을 진행 중이면,
             // 그 재발급이 끝난 뒤에 원래 요청을 다시 보낸다.
             if (isRefreshing) {
-                return new Promise((resolve) => {
-                    subscribeTokenRefresh(() => {
-                        resolve(apiMiddleware(originalRequest));
-                    });
+                return new Promise((resolve, reject) => {
+                    subscribeTokenRefresh(
+                        () => resolve(apiMiddleware(originalRequest)),
+                        (err) => reject(err),
+                    );
                 });
             }
 
@@ -132,7 +144,7 @@ apiMiddleware.interceptors.response.use(
                 // 방금 지운 로그인 상태를 새 토큰으로 되살리지 않는다.
                 if (useAuthStore.getState().loggedOut) {
                     isRefreshing = false;
-                    refreshSubscribers = [];
+                    onTokenRefreshFailed(error);
 
                     return Promise.reject(error);
                 }
@@ -146,7 +158,7 @@ apiMiddleware.interceptors.response.use(
 
             } catch (reissueError) {
                 isRefreshing = false;
-                refreshSubscribers = [];
+                onTokenRefreshFailed(reissueError);
 
                 if (!isSilent) {
                     void handleSessionExpired();
