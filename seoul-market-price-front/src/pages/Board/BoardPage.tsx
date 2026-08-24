@@ -25,6 +25,10 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { maskAuthorName } from '@/lib/utils';
 import SectionSidebarLayout from '@/components/SectionSidebarLayout';
 import { CUSTOMER_CENTER_NAVIGATION } from '@/config/sectionNavigation';
+import BoardPageHeader from '@/features/board/components/BoardPageHeader';
+import BoardContentState from '@/features/board/components/BoardContentState';
+import { formatBoardDate } from '@/features/board/utils/boardDisplay';
+import { getPaginationPageNumbers } from '@/features/board/utils/pagination';
 
 // select 반환 타입 정의
 interface BoardPostsSelectResult {
@@ -122,17 +126,7 @@ export default function BoardPage() {
 
   // 3. 현재 페이지 그룹에 표시할 페이지 번호 계산
   const pageNumbers = useMemo(() => {
-    if (!data?.totalPages) return [];
-
-    const totalPages = data.totalPages;
-    const currentGroup: number = Math.ceil(query.page / 5);
-    const startPage: number = (currentGroup - 1) * 5 + 1;
-    const endPage: number = Math.min(startPage + 4, totalPages);
-
-    return Array.from(
-      { length: Math.max(0, endPage - startPage + 1) },
-      (_: unknown, i: number): number => startPage + i
-    );
+    return getPaginationPageNumbers(query.page, data?.totalPages ?? 0, 5);
   }, [data?.totalPages, query.page]);
 
   // 페이지 이동 처리 (상단 스크롤 포함)
@@ -149,14 +143,11 @@ export default function BoardPage() {
     <div className="min-h-screen bg-[#F5FAFC]">
       <div className="py-12 px-5 sm:px-8">
         <div className="max-w-[1000px] mx-auto space-y-8">
-          {/* 헤더 */}
-          <div className="text-center space-y-2 mb-8">
-            <span className="inline-block px-3 py-1 bg-[#E6F4F2] text-[#0F766E] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
-              SSABU CUSTOMER CENTER
-            </span>
-            <h1 className="text-[36px] font-black text-[#123047] tracking-tight">게시판</h1>
-            <p className="text-[15px] text-[#6B7280]">싸부(SSABU) 부동산 실거래 및 시세 분석 서비스의 다양한 이야기를 나누는 공간입니다.</p>
-          </div>
+          <BoardPageHeader
+            eyebrow="SSABU CUSTOMER CENTER"
+            title="게시판"
+            description="싸부(SSABU) 부동산 실거래 및 시세 분석 서비스의 다양한 이야기를 나누는 공간입니다."
+          />
 
           {/* 검색 영역 */}
           <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[12px] p-5 mb-6 shadow-xs">
@@ -237,11 +228,23 @@ export default function BoardPage() {
           {/* 테이블 */}
           <div className="w-full bg-white border border-[#DCE8ED] rounded-[12px] shadow-xs overflow-hidden">
             {isLoading ? (
-              <div className="p-16 text-center text-[#6B7280] text-[14px]">게시글 목록을 불러오는 중입니다...</div>
+              <BoardContentState
+                state="loading"
+                message="게시글 목록을 불러오는 중입니다..."
+                className="p-16"
+              />
             ) : isError ? (
-              <div className="p-16 text-center text-rose-500 text-[14px]">오류가 발생했습니다: {(error as Error).message}</div>
+              <BoardContentState
+                state="error"
+                message={`오류가 발생했습니다: ${(error as Error).message}`}
+                className="p-16"
+              />
             ) : !data?.items?.length && !data?.notices?.length ? (
-              <div className="p-16 text-center text-[#6B7280] text-[14px]">등록된 게시글이 없습니다.</div>
+              <BoardContentState
+                state="empty"
+                message="등록된 게시글이 없습니다."
+                className="p-16"
+              />
             ) : (
               <Table className="min-w-[820px] border-collapse">
                 <TableHeader>
@@ -292,7 +295,7 @@ export default function BoardPage() {
                           </Link>
                         </TableCell>
                         <TableCell className="w-[14%] text-center text-[#6B7280]">{maskAuthorName(item.authorName)}</TableCell>
-                        <TableCell className="w-[15%] text-center text-[#6B7280]">{item.createdAt?.includes('T') ? `${item.createdAt.split('T')[0].replace(/-/g, '.')} ${item.createdAt.split('T')[1]?.slice(0, 5)}` : item.createdAt?.replace(/-/g, '.') || '-'}</TableCell>
+                        <TableCell className="w-[15%] text-center text-[#6B7280]">{formatBoardDate(item.createdAt)}</TableCell>
                         <TableCell className="w-[9%] text-center text-[#6B7280]">{item.viewCount?.toLocaleString() || 0}</TableCell>
                       </TableRow>
                     );

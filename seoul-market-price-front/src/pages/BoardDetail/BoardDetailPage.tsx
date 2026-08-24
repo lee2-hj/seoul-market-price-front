@@ -19,15 +19,10 @@ import { Button } from "@/components/ui/button";
 import { maskAuthorName } from "@/lib/utils";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
-
-function formatBoardDate(dateStr?: string): string {
-  if (!dateStr) return "-";
-  if (dateStr.includes("T")) {
-    const [d, t] = dateStr.split("T");
-    return `${d.replace(/-/g, ".")} ${t ? t.slice(0, 5) : ""}`.trim();
-  }
-  return dateStr.replace(/-/g, ".");
-}
+import BoardPageHeader from "@/features/board/components/BoardPageHeader";
+import BoardContentState from "@/features/board/components/BoardContentState";
+import { formatBoardDate } from "@/features/board/utils/boardDisplay";
+import { toBoardAttachmentView } from "@/features/board/utils/boardMappers";
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -237,16 +232,24 @@ export default function BoardDetailPage() {
         menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
       >
       <div className="min-h-screen bg-[#F5FAFC]">
-        <div className="py-12 px-4 text-center">
-          <p className="text-rose-500 font-medium text-sm">유효하지 않은 게시글 번호입니다.</p>
-          <button
-            type="button"
-            onClick={handleGoToList}
-            className="mt-4 inline-block text-[#0F8AA8] text-xs font-semibold no-underline bg-transparent border-none cursor-pointer hover:underline"
-          >
-            목록으로 돌아가기
-          </button>
-        </div>
+        <BoardContentState
+          state="error"
+          message={
+            <p className="text-rose-500 font-medium text-sm">
+              유효하지 않은 게시글 번호입니다.
+            </p>
+          }
+          action={
+            <button
+              type="button"
+              onClick={handleGoToList}
+              className="mt-4 inline-block text-[#0F8AA8] text-xs font-semibold no-underline bg-transparent border-none cursor-pointer hover:underline"
+            >
+              목록으로 돌아가기
+            </button>
+          }
+          className="py-12 px-4"
+        />
       </div>
       </SectionSidebarLayout>
     );
@@ -262,29 +265,38 @@ export default function BoardDetailPage() {
     <div className="min-h-screen bg-[#F5FAFC]">
       <div className="py-12 px-5 sm:px-8">
         <div className="max-w-[900px] mx-auto space-y-6">
-          {/* 헤더 */}
-          <div className="text-center space-y-2 mb-8">
-            <span className="inline-block px-3 py-1 bg-[#E6F4F2] text-[#0F766E] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
-              SSABU CUSTOMER CENTER
-            </span>
-            <h1 className="text-[36px] font-black text-[#123047] tracking-tight">
-              {post?.postType === "NOTICE" ? "공지사항 상세" : "게시판 상세"}
-            </h1>
-            <p className="text-[15px] text-[#6B7280]">
-              {post?.postType === "NOTICE"
+          <BoardPageHeader
+            eyebrow="SSABU CUSTOMER CENTER"
+            title={post?.postType === "NOTICE" ? "공지사항 상세" : "게시판 상세"}
+            description={
+              post?.postType === "NOTICE"
                 ? "싸부(SSABU) 부동산 실거래 및 시세 분석 서비스의 주요 소식을 전해드립니다."
-                : "싸부(SSABU) 이용자들과 부동산 관련 다양한 이야기를 나누는 공간입니다."}
-            </p>
-          </div>
+                : "싸부(SSABU) 이용자들과 부동산 관련 다양한 이야기를 나누는 공간입니다."
+            }
+          />
 
           {/* 상세 카드 박스 */}
           <div className="bg-white border border-[#DCE8ED] rounded-[12px] p-6 md:p-8 space-y-6 shadow-xs">
             {isLoading ? (
-              <div className="py-20 text-center text-[#6B7280] text-[14px]">
-                게시글 정보를 불러오는 중입니다...
-              </div>
+              <BoardContentState
+                state="loading"
+                message="게시글 정보를 불러오는 중입니다..."
+                className="py-20"
+              />
             ) : isError ? (
-              <div className="py-20 text-center space-y-4">
+              <BoardContentState
+                state="error"
+                className="py-20 space-y-4"
+                action={
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate("/board")}
+                    className="h-[42px] px-6 border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[7px]"
+                  >
+                    목록으로 돌아가기
+                  </Button>
+                }
+              >
                 <div className="text-[36px]">🚫</div>
                 <h3 className="text-[18px] font-bold text-[#123047]">
                   존재하지 않거나 삭제된 게시글입니다.
@@ -292,14 +304,7 @@ export default function BoardDetailPage() {
                 <p className="text-rose-500 text-[14px]">
                   {(error as Error)?.message || "게시글 정보를 불러올 수 없습니다."}
                 </p>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate("/board")}
-                  className="h-[42px] px-6 border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[7px]"
-                >
-                  목록으로 돌아가기
-                </Button>
-              </div>
+              </BoardContentState>
             ) : post ? (
               <>
                 {/* 제목 & 메타 정보 */}
@@ -339,24 +344,26 @@ export default function BoardDetailPage() {
                     </div>
                     <div className="space-y-1.5">
                       {attachments.map((file, idx) => {
-                        const fileId = file.attachmentId ?? file.id ?? idx;
-                        const fileName =
-                          file.originalName || file.originalFilename || file.fileName || "첨부파일";
-                        const fileSize = file.size ?? file.fileSize ?? 0;
+                        const attachment = toBoardAttachmentView(file, idx);
                         return (
                           <div
-                            key={fileId}
+                            key={attachment.id}
                             className="flex items-center justify-between p-2.5 bg-white border border-[#DCE8ED] rounded-[8px] text-[13px] gap-2"
                           >
                             <span className="font-medium text-[#13202B] truncate">
-                              {fileName}
+                              {attachment.name}
                               <span className="text-[11px] text-[#6B7280] ml-2 font-normal">
-                                ({(fileSize / 1024).toFixed(1)} KB)
+                                ({(attachment.size / 1024).toFixed(1)} KB)
                               </span>
                             </span>
                             <button
                               type="button"
-                              onClick={() => handleDownload(Number(fileId), fileName)}
+                              onClick={() =>
+                                handleDownload(
+                                  Number(attachment.id),
+                                  attachment.name,
+                                )
+                              }
                               className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[12px] font-bold rounded-[6px] transition-colors cursor-pointer shrink-0 shadow-xs border-none"
                             >
                               <Download className="w-3.5 h-3.5" /> 다운로드
@@ -400,16 +407,24 @@ export default function BoardDetailPage() {
                 </div>
               </>
             ) : (
-              <div className="py-20 text-center space-y-4">
-                <p className="text-[#6B7280] text-[14px]">게시글을 찾을 수 없습니다.</p>
-                <Button
-                  variant="outline"
-                  onClick={handleGoToList}
-                  className="h-[42px] px-6 border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[7px] cursor-pointer"
-                >
-                  목록으로 돌아가기
-                </Button>
-              </div>
+              <BoardContentState
+                state="empty"
+                className="py-20 space-y-4"
+                message={
+                  <p className="text-[#6B7280] text-[14px]">
+                    게시글을 찾을 수 없습니다.
+                  </p>
+                }
+                action={
+                  <Button
+                    variant="outline"
+                    onClick={handleGoToList}
+                    className="h-[42px] px-6 border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[7px] cursor-pointer"
+                  >
+                    목록으로 돌아가기
+                  </Button>
+                }
+              />
             )}
           </div>
 
