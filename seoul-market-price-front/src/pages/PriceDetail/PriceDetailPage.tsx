@@ -1,17 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Building2,
-  Map,
   BarChart3,
-  Layers,
   Search,
   TrendingUp,
   TrendingDown,
   Calendar,
   Sparkles,
-  HelpCircle,
   RotateCcw,
   ChevronRight,
   ChevronDown,
@@ -28,14 +25,18 @@ import {
   type ComplexDetailItem as ComplexInfo,
 } from "@/api/api";
 import styles from "./PriceDetailPage.module.css";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { PRICE_NAVIGATION } from "@/config/sectionNavigation";
 
 /* 사이드바 네비게이션 */
+/*
 const NAV_ITEMS = [
   { label: "지역별 비교(리스트)", to: "/price/compare-list", icon: BarChart3 },
   { label: "지역별 비교(지도)", to: "/region-map", icon: Map },
   { label: "단지별 시세", to: "/price/detail", icon: Building2 },
   { label: "아파트별 비교", to: "/price/compare-apartment", icon: Layers },
 ];
+*/
 
 /* 금액 포맷 유틸리티 (e.g. 348000 -> 34억 8,000만 원) */
 function formatPriceKRW(priceInMan: number): string {
@@ -206,11 +207,16 @@ export default function PriceDetailPage() {
   }, [activePyung]);
 
   return (
+    <SectionSidebarLayout
+      sectionTitle={PRICE_NAVIGATION.sectionTitle}
+      menuItems={PRICE_NAVIGATION.menuItems}
+    >
     <main className={styles.pageContainer}>
       <div className={styles.mainGrid}>
         {/* =========================================
             좌측 사이드바 메뉴
         ========================================= */}
+        {/*
         <aside className={styles.sidebar}>
           <div className={styles.sidebarCard}>
             <h2 className={styles.sidebarTitle}>가격정보</h2>
@@ -241,6 +247,7 @@ export default function PriceDetailPage() {
             </div>
           </div>
         </aside>
+        */}
 
         {/* =========================================
             우측 메인 콘텐츠
@@ -675,5 +682,6 @@ export default function PriceDetailPage() {
         </section>
       </div>
     </main>
+    </SectionSidebarLayout>
   );
 }

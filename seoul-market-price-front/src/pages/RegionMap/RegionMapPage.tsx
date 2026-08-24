@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, Building2, HelpCircle, Map, TrendingUp } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import { TrendingUp } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import {
@@ -21,12 +21,16 @@ import type { PriceMetricType } from "@/features/region-map/services/regionMapSe
 import {
   isSeoulDistrict,
 } from "@/features/region-map/utils/regionSelection";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { PRICE_NAVIGATION } from "@/config/sectionNavigation";
 
+/*
 const NAV_ITEMS = [
   { label: "지역별 비교(리스트)", to: "/price/compare-list", icon: BarChart3 },
   { label: "지역별 비교(지도)", to: "/region-map", icon: Map },
   { label: "단지별 시세", to: "/price/detail", icon: Building2 },
 ];
+*/
 
 export default function RegionMapPage() {
   const authUser = useAuthStore((state) => state.user);
@@ -127,8 +131,13 @@ export default function RegionMapPage() {
   }, [dongNames, fastApiDongPrices, currentDistrictAveragePrice]);
 
   return (
+    <SectionSidebarLayout
+      sectionTitle={PRICE_NAVIGATION.sectionTitle}
+      menuItems={PRICE_NAVIGATION.menuItems}
+    >
     <main className="min-h-screen bg-[#F8FAFC] px-4 py-8 text-[#0F172A] sm:px-6">
-      <div className="mx-auto grid max-w-[1490px] gap-8 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <div className="mx-auto max-w-[1490px]">
+        {/*
         <aside className="h-fit w-full shrink-0 lg:sticky lg:top-[96px] lg:w-[240px]">
           <div className="rounded-[16px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_20px_rgba(15,23,42,0.04)]">
             <h2 className="mb-4 text-[16px] font-black text-[#0F172A]">가격정보</h2>
@@ -172,6 +181,7 @@ export default function RegionMapPage() {
             </div>
           </div>
         </aside>
+        */}
 
         <section className="min-w-0 space-y-5">
           <header className="flex flex-wrap items-center justify-between gap-4">
@@ -183,6 +193,20 @@ export default function RegionMapPage() {
 
           <div className="relative overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white p-3 shadow-[0_4px_24px_rgba(15,23,42,0.04)] sm:p-7">
             <div className="relative mx-auto max-w-[1120px] overflow-hidden rounded-[14px] border border-[#E2E8F0] bg-[#F8FAFC]">
+              <div className="absolute right-3 top-3 z-10 w-[196px] rounded-[14px] border border-[#D7E1EE] bg-white/95 p-4 shadow-[0_8px_24px_rgba(18,48,71,0.10)] backdrop-blur sm:right-5 sm:top-5">
+                <strong className="mb-3 block text-[13px] font-black text-[#123047]">
+                  {hasSelectedDistrict ? "동별" : "구별"} 평균 매매가
+                  <small className="ml-1 text-[10px] font-semibold text-[#94A3B8]">(단위: 억 원)</small>
+                </strong>
+                <div className="space-y-2">
+                  {PRICE_LEGEND.map((item) => (
+                    <div key={item.label} className="flex items-center gap-2 text-[11px] font-semibold text-[#64748B]">
+                      <span className="size-3 rounded-[3px]" style={{ backgroundColor: item.color }} />
+                      {item.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
               <SeoulDistrictMap
                 selectedDistrict={hasSelectedDistrict ? selectedDistrict.name : ""}
                 selectedDistrictCode={selectedSggCode}
@@ -261,5 +285,6 @@ export default function RegionMapPage() {
         </section>
       </div>
     </main>
+    </SectionSidebarLayout>
   );
 }
