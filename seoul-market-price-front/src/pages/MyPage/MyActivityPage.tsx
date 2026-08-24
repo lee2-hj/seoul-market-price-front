@@ -18,6 +18,7 @@ const ACTIVITY_TAB_BASE_CLASS =
 const ACTIVITY_TAB_ACTIVE_CLASS = "bg-[#0F8AA8] border-[#0F8AA8] text-white";
 const ACTIVITY_TAB_INACTIVE_CLASS =
   "bg-white border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA]";
+const MY_ACTIVITY_TAB_KEY_PREFIX = "mypage_activity_tab_";
 
 const normalizeIdentity = (value?: string | null): string =>
   (value || "").trim().toLowerCase();
@@ -32,8 +33,25 @@ async function getMyQnas() {
 export default function MyActivityPage() {
   const isLoggedIn = isLogin();
   const authUser = useAuthStore((state) => state.user);
-  const [activityType, setActivityType] = useState<ActivityType>("POST");
   const currentUserIdentity = normalizeIdentity(authUser?.userId);
+  const activityTabKey = `${MY_ACTIVITY_TAB_KEY_PREFIX}${currentUserIdentity || "guest"}`;
+  const [activityType, setActivityType] = useState<ActivityType>(() => {
+    const savedType = sessionStorage.getItem(activityTabKey);
+    return savedType === "COMMENT" || savedType === "QNA" ? savedType : "POST";
+  });
+
+  useEffect(() => {
+    const savedType = sessionStorage.getItem(activityTabKey);
+    const nextType: ActivityType = savedType === "COMMENT" || savedType === "QNA"
+      ? savedType
+      : "POST";
+    queueMicrotask(() => setActivityType(nextType));
+  }, [activityTabKey]);
+
+  const selectActivityType = (nextType: ActivityType) => {
+    setActivityType(nextType);
+    sessionStorage.setItem(activityTabKey, nextType);
+  };
 
   // 실제 게시판 데이터 조회 (API 연동)
   const {
@@ -243,7 +261,7 @@ export default function MyActivityPage() {
             <button
               key={tab.type}
               type="button"
-              onClick={() => setActivityType(tab.type)}
+              onClick={() => selectActivityType(tab.type)}
               className={`${ACTIVITY_TAB_BASE_CLASS} ${
                 activityType === tab.type
                   ? ACTIVITY_TAB_ACTIVE_CLASS

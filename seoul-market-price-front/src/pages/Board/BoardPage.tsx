@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { getBoardPostsApi } from '@/api/api';
 import { isLogin } from '@/features/auth/utils/auth';
 import type { BoardListItem, BoardSearchType } from '@/features/board/types/board.types';
@@ -28,6 +28,8 @@ import { CUSTOMER_CENTER_NAVIGATION } from '@/config/sectionNavigation';
 import BoardPageHeader from '@/features/board/components/BoardPageHeader';
 import { formatBoardDate } from '@/features/board/utils/boardDisplay';
 
+const BOARD_LIST_SESSION_KEY = 'board_list_query';
+
 // select 반환 타입 정의
 interface BoardPostsSelectResult {
   notices: BoardListItem[];
@@ -50,6 +52,24 @@ export default function BoardPage() {
 
   // 1. URL 쿼리 파라미터 상태 관리 (QueryParamProvider 없이 react-router-dom의 useSearchParams로 대체)
   const [searchParams, setSearchParams] = useSearchParams();
+  const hasRestoredSessionRef = useRef(false);
+
+  useEffect(() => {
+    if (!hasRestoredSessionRef.current) {
+      hasRestoredSessionRef.current = true;
+      if (!searchParams.toString()) {
+        const savedQuery = sessionStorage.getItem(BOARD_LIST_SESSION_KEY);
+        if (savedQuery) {
+          setSearchParams(new URLSearchParams(savedQuery), { replace: true });
+          return;
+        }
+      }
+    }
+
+    if (searchParams.toString()) {
+      sessionStorage.setItem(BOARD_LIST_SESSION_KEY, searchParams.toString());
+    }
+  }, [searchParams, setSearchParams]);
   const getParam = (key: BoardQueryParamKeys): string | null => searchParams.get(key);
 
   const query: BoardQueryState = {
@@ -203,6 +223,7 @@ export default function BoardPage() {
                   type="button"
                   variant="outline"
                   onClick={() => {
+                    sessionStorage.removeItem(BOARD_LIST_SESSION_KEY);
                     setQuery({ page: 1, searchType: 'TITLE', keyword: '' });
                   }}
                   className="h-[44px] px-5 bg-white border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA] text-[14px] font-bold rounded-[7px]"
