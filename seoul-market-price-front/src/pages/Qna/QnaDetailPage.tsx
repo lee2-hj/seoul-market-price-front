@@ -2,9 +2,16 @@ import { useMemo } from "react";
 import axios from "axios";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Paperclip, Download, FileText } from "lucide-react";
 
 import apiMiddleware from "@/api/middleware";
 import { getLoginUser } from "@/features/auth/utils/auth";
+import {
+  downloadQnaAttachmentApi,
+} from "@/api/api";
+import type { AttachmentResponse } from "@/features/board/types/board.types";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
 
 /* 타입 정의 */
 interface QnaDetailResponse {
@@ -29,6 +36,9 @@ interface QnaDetailResponse {
   isPublic?: boolean;
   createdAt?: string | null;
   answeredAt?: string | null;
+  attachments?: AttachmentResponse[] | null;
+  files?: Array<{ id?: number; name?: string; size?: number; url?: string }> | null;
+  attachedFiles?: Array<{ id?: number; name?: string; size?: number; url?: string }> | null;
 }
 
 /* 날짜 포맷 함수 */
@@ -47,9 +57,14 @@ const formatDate = (dateString?: string | null): string => {
 };
 
 /* API 연동 함수: Q&A 상세 조회 */
-async function fetchQnaDetailApi(id: string): Promise<QnaDetailResponse> {
+interface QnaFullDetailResponse {
+  detail: QnaDetailResponse;
+  attachments: AttachmentResponse[];
+}
+
+async function fetchQnaDetailApi(id: string): Promise<QnaFullDetailResponse> {
   try {
-    const response = await apiMiddleware.get<QnaDetailResponse>(`/api/qnas/${id}`);
+    const response = await apiMiddleware.get<QnaFullDetailResponse>(`/api/qnas/${id}/full`);
     if (response.data) return response.data;
   } catch (err) {
     const stored = localStorage.getItem("qnaPosts");
@@ -65,10 +80,14 @@ async function fetchQnaDetailApi(id: string): Promise<QnaDetailResponse> {
         answer?: string;
         publicQuestion?: boolean;
         isPublic?: boolean;
+        attachName?: string;
+        attachPath?: string;
+        files?: Array<{ id?: number; name?: string; size?: number; url?: string }>;
+        attachments?: AttachmentResponse[];
       }>;
       const found = localPosts.find((p) => String(p.id) === String(id));
       if (found) {
-        return {
+        return { detail: {
           id: found.id,
           writerLoginId: found.authorId,
           writerName: found.author,
@@ -79,7 +98,11 @@ async function fetchQnaDetailApi(id: string): Promise<QnaDetailResponse> {
           views: found.views,
           createdAt: found.date,
           publicQuestion: found.publicQuestion ?? found.isPublic ?? true,
-        };
+          attachName: found.attachName,
+          attachPath: found.attachPath,
+          files: found.files,
+          attachments: found.attachments,
+        }, attachments: found.attachments || [] };
       }
     }
     throw err;
@@ -119,7 +142,7 @@ export default function QnaDetailPage() {
   }, [currentUser]);
 
   /* React Query: Q&A 상세 데이터 조회 */
-  const { data: post, isLoading, isError, error } = useQuery({
+  const { data: fullDetail, isLoading, isError, error } = useQuery({
     queryKey: ["qnaDetail", id],
     queryFn: () => {
       if (!id) throw new Error("잘못된 게시글 번호입니다.");
@@ -128,6 +151,236 @@ export default function QnaDetailPage() {
     enabled: !!id,
     retry: 1,
   });
+
+  /* React Query: Q&A 첨부파일 목록 조회 */
+  const post = fullDetail?.detail;
+  const apiAttachments = fullDetail?.attachments ?? [];
+
+  /* 첨부파일 통합 계산 (API 첨부파일 + 본문 내 첨부파일 필드 + 로컬 스토리지) */
+  const allAttachments = useMemo(() => {
+    const list: Array<{
+      id?: number;
+      name: string;
+      size?: number;
+      url?: string;
+    }> = [];
+
+    // 1. 첨부파일 전용 API 결과
+    if (Array.isArray(apiAttachments) && apiAttachments.length > 0) {
+      apiAttachments.forEach((att, idx) => {
+        const attObj = att as {
+          id?: number;
+          attachmentId?: number;
+          originalName?: string;
+          originalFilename?: string;
+          fileName?: string;
+          name?: string;
+          size?: number;
+          fileSize?: number;
+          downloadUrl?: string;
+          fileUrl?: string;
+        };
+        list.push({
+          id: attObj.id ?? attObj.attachmentId ?? idx + 1,
+          name:
+            attObj.originalName ||
+            attObj.originalFilename ||
+            attObj.fileName ||
+            attObj.name ||
+            "첨부파일",
+          size: attObj.fileSize ?? attObj.size,
+          url: attObj.downloadUrl || attObj.fileUrl,
+        });
+      });
+    }
+
+    // 2. 게시글 객체 내 파일 배열 (attachments / files / attachedFiles / fileList / attachmentList)
+    const postFiles =
+      post?.attachments ||
+      post?.files ||
+      post?.attachedFiles ||
+      (post as { fileList?: unknown[] })?.fileList ||
+      (post as { attachmentList?: unknown[] })?.attachmentList;
+
+    if (Array.isArray(postFiles) && postFiles.length > 0) {
+      postFiles.forEach((f: unknown, idx: number) => {
+        const fileObj = f as {
+          id?: number;
+          attachmentId?: number;
+          originalFileName?: string;
+          originalFilename?: string;
+          fileName?: string;
+          name?: string;
+          fileSize?: number;
+          size?: number;
+          fileUrl?: string;
+          url?: string;
+          downloadUrl?: string;
+          attachPath?: string;
+        };
+        const name =
+          fileObj.originalFileName ||
+          fileObj.originalFilename ||
+          fileObj.fileName ||
+          fileObj.name ||
+          "첨부파일";
+        if (!list.some((existing) => existing.name === name)) {
+          list.push({
+            id: fileObj.id ?? fileObj.attachmentId ?? idx,
+            name,
+            size: fileObj.size ?? fileObj.fileSize,
+            url:
+              fileObj.downloadUrl ||
+              fileObj.fileUrl ||
+              fileObj.url ||
+              fileObj.attachPath,
+          });
+        }
+      });
+    }
+
+    // 3. 단일 첨부파일 필드 (attachName, attachPath, originalFileName, attachmentUrl, fileUrl)
+    const singleName =
+      post?.originalFileName || post?.fileName || post?.attachName;
+    const singleUrl =
+      post?.attachmentUrl || post?.fileUrl || post?.attachPath;
+
+    if (singleName && !list.some((existing) => existing.name === singleName)) {
+      list.push({
+        id: 1,
+        name: singleName,
+        size:
+          (post as { fileSize?: number; size?: number })?.fileSize ??
+          (post as { fileSize?: number; size?: number })?.size,
+        url: singleUrl || undefined,
+      });
+    } else if (!singleName && singleUrl && list.length === 0) {
+      list.push({
+        id: 1,
+        name: "첨부파일",
+        url: singleUrl,
+      });
+    }
+
+    // 4. 로컬 스토리지 데이터 병합 (서버 응답 누락 대비)
+    if (list.length === 0 && id) {
+      try {
+        const stored = localStorage.getItem("qnaPosts");
+        if (stored) {
+          const localPosts = JSON.parse(stored) as Array<{
+            id: number | string;
+            title?: string;
+            files?: Array<{ id?: number; name?: string; size?: number; url?: string }>;
+            attachName?: string;
+            attachPath?: string;
+          }>;
+          const match = localPosts.find(
+            (p) => String(p.id) === String(id) || (post?.title && p.title === post.title),
+          );
+          if (match) {
+            if (Array.isArray(match.files)) {
+              match.files.forEach((lf, idx) => {
+                if (lf.name && !list.some((e) => e.name === lf.name)) {
+                  list.push({
+                    id: lf.id ?? idx + 1,
+                    name: lf.name,
+                    size: lf.size,
+                    url: lf.url,
+                  });
+                }
+              });
+            }
+            if (match.attachName && !list.some((e) => e.name === match.attachName)) {
+              list.push({
+                id: 1,
+                name: match.attachName,
+                url: match.attachPath,
+              });
+            }
+          }
+        }
+      } catch {
+        /* 무시 */
+      }
+    }
+
+    return list;
+  }, [apiAttachments, post, id]);
+
+  // 첨부파일 다운로드 핸들러
+  const handleDownload = async (attachment: {
+    id?: number;
+    name: string;
+    url?: string;
+  }) => {
+    try {
+      if (id && attachment.id) {
+        // 1. JSON 형태의 presigned URL 다운로드 시도
+        try {
+          const res = await downloadQnaAttachmentApi(
+            Number(id),
+            Number(attachment.id),
+          );
+          const downloadLink =
+            (res as { downloadUrl?: string; url?: string; fileUrl?: string })?.downloadUrl ||
+            (res as { downloadUrl?: string; url?: string; fileUrl?: string })?.url ||
+            (res as { downloadUrl?: string; url?: string; fileUrl?: string })?.fileUrl ||
+            (typeof res === "string" ? res : null);
+
+          if (downloadLink) {
+            const a = document.createElement("a");
+            a.href = downloadLink;
+            a.download = (res as { originalFilename?: string })?.originalFilename || attachment.name || "download";
+            a.target = "_blank";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            return;
+          }
+        } catch (apiErr) {
+          console.warn("Pre-signed URL 다운로드 실패, 파일 스트림(Blob) 다운로드 시도:", apiErr);
+        }
+
+        // 2. 컨트롤러가 파일 바이너리(Blob/Resource)를 직접 반환하는 경우
+        try {
+          const blobResponse = await apiMiddleware.get(
+            `/api/qnas/${id}/attachments/${attachment.id}/download`,
+            { responseType: "blob" },
+          );
+          if (blobResponse.data) {
+            const blobUrl = window.URL.createObjectURL(new Blob([blobResponse.data]));
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            a.download = attachment.name || "download";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(blobUrl);
+            return;
+          }
+        } catch (blobErr) {
+          console.warn("Blob 다운로드 실패:", blobErr);
+        }
+      }
+
+      // 3. 첨부파일 객체에 직접 url이 있는 경우
+      if (attachment.url) {
+        const a = document.createElement("a");
+        a.href = attachment.url;
+        a.download = attachment.name;
+        a.target = "_blank";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return;
+      }
+
+      alert("다운로드 링크를 찾을 수 없습니다.");
+    } catch (err) {
+      console.error("다운로드 실패:", err);
+      alert("파일 다운로드 중 오류가 발생했습니다.");
+    }
+  };
 
   /* 권한 검사 */
   const isMyPost = useMemo(() => {
@@ -178,9 +431,14 @@ export default function QnaDetailPage() {
 
   if (isLoading) {
     return (
+      <SectionSidebarLayout
+        sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+        menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+      >
       <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8 text-center text-[#6B7280]">
         게시글을 불러오는 중입니다...
       </div>
+      </SectionSidebarLayout>
     );
   }
 
@@ -190,6 +448,10 @@ export default function QnaDetailPage() {
       : (error instanceof Error ? error.message : "게시글을 불러올 수 없습니다.");
 
     return (
+      <SectionSidebarLayout
+        sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+        menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+      >
       <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8">
         <div className="max-w-[800px] mx-auto text-center space-y-6">
           <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
@@ -208,70 +470,29 @@ export default function QnaDetailPage() {
           </div>
         </div>
       </div>
+      </SectionSidebarLayout>
     );
   }
 
-  const attachmentUrl = post.attachmentUrl || post.fileUrl || post.attachPath || "";
-  const attachmentName = post.originalFileName || post.fileName || post.attachName || "첨부파일";
-  const hasAttachment = Boolean(attachmentUrl || post.attachName);
-
   return (
-    <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8">
-      <div className="max-w-[800px] mx-auto space-y-8">
-        {/* 상단 헤더 */}
-        <div className="flex items-center justify-between pb-4 border-b border-[#DCE8ED]">
-          <div>
-            <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
-              CUSTOMER CENTER
-            </span>
-            <div className="flex items-center gap-2">
-              <h1 className="text-[28px] font-black text-[#13202B] tracking-tight">질의응답 상세</h1>
-              {!isPublic && (
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                  비공개
-                </span>
-              )}
-              {post.answerStatus && (
-                <span
-                  className={
-                    post.answerStatus.includes("완료")
-                      ? "px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#EBF5F8] text-[#0F766E] border border-[#7CC9D8]"
-                      : "px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#F5FAFC] text-[#6B7280] border border-[#DCE8ED]"
-                  }
-                >
-                  {post.answerStatus}
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {isMyPost && (
-              <>
-                <button
-                  type="button"
-                  onClick={handleEdit}
-                  className="px-3 py-1.5 bg-white border border-[#DCE8ED] text-[#0F8AA8] text-[13px] font-bold rounded-[6px] hover:bg-[#EBF5F8] cursor-pointer"
-                >
-                  수정
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={deleteMutation.isPending}
-                  className="px-3 py-1.5 bg-white border border-rose-200 text-rose-600 text-[13px] font-bold rounded-[6px] hover:bg-rose-50 cursor-pointer disabled:opacity-50"
-                >
-                  {deleteMutation.isPending ? "삭제 중..." : "삭제"}
-                </button>
-              </>
+    <SectionSidebarLayout
+      sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+      menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+    >
+    <div className="flex min-h-[calc(100vh-200px)] w-full justify-center bg-[#F5FAFC] px-4 py-8 md:px-8 md:py-12">
+      <div className="w-full max-w-4xl space-y-8">
+        {/* 상단 헤더 (가운데 정렬) */}
+        <div className="text-center pb-6 border-b border-[#DCE8ED]">
+          <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
+            CUSTOMER CENTER
+          </span>
+          <div className="flex items-center justify-center gap-2">
+            <h1 className="text-[28px] font-black text-[#13202B] tracking-tight">질의응답 상세</h1>
+            {!isPublic && (
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                비공개
+              </span>
             )}
-            <button
-              type="button"
-              onClick={handleBack}
-              className="px-4 py-1.5 bg-white border border-[#DCE8ED] text-[#6B7280] text-[13px] font-bold rounded-[6px] hover:bg-[#EBF5F8] cursor-pointer"
-            >
-              목록
-            </button>
           </div>
         </div>
 
@@ -302,22 +523,43 @@ export default function QnaDetailPage() {
             {post.questionContent || post.content}
           </article>
 
-          {/* 첨부파일 */}
-          {hasAttachment && (
-            <div className="pt-4 border-t border-[#DCE8ED] flex items-center gap-3 text-[14px]">
-              <span className="font-bold text-[#13202B]">📎 첨부파일</span>
-              {attachmentUrl ? (
-                <a
-                  href={attachmentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[#0F8AA8] hover:underline font-medium"
-                >
-                  {attachmentName}
-                </a>
-              ) : (
-                <span className="text-[#6B7280]">{attachmentName}</span>
-              )}
+          {/* 첨부파일 목록 */}
+          {allAttachments.length > 0 && (
+            <div className="pt-4 border-t border-[#DCE8ED] space-y-2.5">
+              <div className="flex items-center gap-1.5 text-[13px] font-bold text-[#0B5E73]">
+                <Paperclip className="w-4 h-4 text-[#0F8AA8]" />
+                <span>첨부파일 ({allAttachments.length}개)</span>
+              </div>
+              <div className="space-y-2">
+                {allAttachments.map((file, idx) => {
+                  const fileSize = file.size ?? 0;
+                  return (
+                    <div
+                      key={`qna-att-${file.id ?? idx}`}
+                      className="flex items-center justify-between p-3 bg-[#F5FAFC] border border-[#DCE8ED] rounded-[8px] text-[13px] gap-3"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="w-4 h-4 text-[#0F8AA8] shrink-0" />
+                        <span className="font-semibold text-[#13202B] truncate">
+                          {file.name}
+                        </span>
+                        {fileSize > 0 && (
+                          <span className="text-[11px] text-[#6B7280] shrink-0">
+                            ({(fileSize / 1024).toFixed(1)} KB)
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDownload(file)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[12px] font-bold rounded-[6px] transition-colors cursor-pointer shrink-0 shadow-xs border-none"
+                      >
+                        <Download className="w-3.5 h-3.5" /> 다운로드
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -386,5 +628,6 @@ export default function QnaDetailPage() {
         </div>
       </div>
     </div>
+    </SectionSidebarLayout>
   );
 }

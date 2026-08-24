@@ -1,21 +1,37 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Paperclip, Upload, FileText, X } from "lucide-react";
 import axios from "axios";
 
 import apiMiddleware from "@/api/middleware";
+import {
+  getQnaAttachmentsApi,
+  uploadQnaAttachmentsApi,
+  deleteQnaAttachmentApi,
+} from "@/api/api";
 import { getLoginUser, isLogin } from "@/features/auth/utils/auth";
+import type { AttachmentResponse } from "@/features/board/types/board.types";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
 
 /* 타입 정의 */
 interface QnaDetailResponse {
   id: number;
   writerLoginId?: string;
+  authorId?: string;
+  userId?: string | number;
   title: string;
   questionContent?: string;
   content?: string;
   attachName?: string;
   attachPath?: string;
+  attachments?: AttachmentResponse[];
+  attachedFiles?: AttachmentResponse[];
+  files?: AttachmentResponse[];
+  fileList?: AttachmentResponse[];
+  attachmentList?: AttachmentResponse[];
   publicQuestion?: boolean;
   isPublic?: boolean;
 }
@@ -29,7 +45,8 @@ interface UpdateQnaDto {
 }
 
 /* 상수 정의 */
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_COUNT = 5;
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const ALLOWED_FILE_EXTENSIONS = [
   "jpg", "jpeg", "png", "gif", "pdf", "webp",
   "doc", "docx", "xls", "xlsx", "hwp", "hwpx", "txt"
@@ -137,13 +154,151 @@ function useQnaEditAuth(writerLoginId?: string, postId?: number) {
   return { isLoggedIn, currentUserId };
 }
 
-/* 커스텀 훅: 게시글 수정 뮤테이션 */
-function useQnaUpdateMutation(postId: number, formTitle: string, formContent: string, formPublicQuestion: boolean) {
+/* 수정 폼 컴포넌트 */
+interface QnaEditFormProps {
+  post: QnaDetailResponse;
+}
+
+function QnaEditForm({ post }: QnaEditFormProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  return useMutation({
-    mutationFn: (dto: UpdateQnaDto) => updateQnaApi(postId, dto),
+  // 폼 입력 상태
+  const [form, setForm] = useState({
+    title: post.title ?? "",
+    content: post.questionContent ?? post.content ?? "",
+    publicQuestion: post.publicQuestion ?? post.isPublic ?? true,
+  });
+
+  // 새로 추가할 첨부파일 목록
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  // 삭제할 기존 첨부파일 ID 목록
+  const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<number[]>([]);
+
+  // 서버로부터 기존 첨부파일 목록 조회
+  const { data: serverAttachments = [] } = useQuery<AttachmentResponse[]>({
+    queryKey: ["qnaAttachments", post.id],
+    queryFn: () => getQnaAttachmentsApi(post.id),
+    enabled: !!post.id,
+  });
+
+  // 기존 첨부파일 파싱 (서버 API 응답 + 게시글 객체 내 필드 + 폴백)
+  const existingAttachments = useMemo(() => {
+    const list: Array<{
+      id?: number;
+      name: string;
+      size?: number;
+      url?: string;
+    }> = [];
+
+    // 1. 서버 전용 API 첨부파일 목록
+    if (Array.isArray(serverAttachments) && serverAttachments.length > 0) {
+      serverAttachments.forEach((att, idx) => {
+        const attObj = att as {
+          id?: number;
+          attachmentId?: number;
+          originalName?: string;
+          originalFilename?: string;
+          fileName?: string;
+          name?: string;
+          size?: number;
+          fileSize?: number;
+          downloadUrl?: string;
+          fileUrl?: string;
+        };
+        list.push({
+          id: attObj.id ?? attObj.attachmentId ?? idx + 1,
+          name:
+            attObj.originalName ||
+            attObj.originalFilename ||
+            attObj.fileName ||
+            attObj.name ||
+            `첨부파일 ${idx + 1}`,
+          size: attObj.fileSize ?? attObj.size,
+          url: attObj.downloadUrl || attObj.fileUrl,
+        });
+      });
+    }
+
+    // 2. 게시글 객체 내 첨부파일 배열
+    const postFiles =
+      post?.attachments ||
+      post?.files ||
+      post?.attachedFiles ||
+      post?.fileList ||
+      post?.attachmentList;
+
+    if (Array.isArray(postFiles) && postFiles.length > 0) {
+      postFiles.forEach((f: unknown, idx: number) => {
+        const fileObj = f as {
+          id?: number;
+          attachmentId?: number;
+          originalFileName?: string;
+          originalFilename?: string;
+          originalName?: string;
+          fileName?: string;
+          name?: string;
+          fileSize?: number;
+          size?: number;
+          fileUrl?: string;
+          url?: string;
+        };
+        const id = fileObj.id ?? fileObj.attachmentId ?? idx + 1;
+        const name =
+          fileObj.originalName ||
+          fileObj.originalFileName ||
+          fileObj.originalFilename ||
+          fileObj.fileName ||
+          fileObj.name ||
+          `첨부파일 ${idx + 1}`;
+        if (!list.some((existing) => (existing.id && existing.id === id) || existing.name === name)) {
+          list.push({
+            id,
+            name,
+            size: fileObj.fileSize ?? fileObj.size,
+            url: fileObj.fileUrl || fileObj.url,
+          });
+        }
+      });
+    }
+
+    // 3. 단일 파일 필드 폴백
+    if (post.attachName && !list.some((existing) => existing.name === post.attachName)) {
+      list.push({
+        id: 1,
+        name: post.attachName,
+        url: post.attachPath,
+      });
+    }
+
+    // 삭제 목록에 있는 파일 제외
+    return list.filter((att) => !att.id || !deletedAttachmentIds.includes(att.id));
+  }, [serverAttachments, post, deletedAttachmentIds]);
+
+  // 총 첨부파일 수 (기존 유지 파일 + 새로 선택한 파일)
+  const totalFileCount = existingAttachments.length + newFiles.length;
+
+  // 수정 요청 뮤테이션
+  const updateMutation = useMutation({
+    mutationFn: async (dto: UpdateQnaDto) => {
+      // 1. 기존 삭제 대상 첨부파일 API 호출
+      for (const attId of deletedAttachmentIds) {
+        try {
+          await deleteQnaAttachmentApi(post.id, attId);
+        } catch (delErr) {
+          console.warn(`첨부파일 ID ${attId} 삭제 실패 (무시하고 계속):`, delErr);
+        }
+      }
+
+      // 2. 새 첨부파일이 있으면 업로드
+      if (newFiles.length > 0) {
+        await uploadQnaAttachmentsApi(post.id, newFiles);
+      }
+
+      // 3. 게시글 텍스트 수정
+      return await updateQnaApi(post.id, dto);
+    },
     onSuccess: () => {
       // 로컬 스토리지 동기화
       const stored = localStorage.getItem("qnaPosts");
@@ -156,12 +311,12 @@ function useQnaUpdateMutation(postId: number, formTitle: string, formContent: st
             publicQuestion?: boolean;
           }>;
           const updated = localPosts.map((p) =>
-            String(p.id) === String(postId)
+            String(p.id) === String(post.id)
               ? {
                   ...p,
-                  title: formTitle.trim(),
-                  content: formContent.trim(),
-                  publicQuestion: formPublicQuestion,
+                  title: form.title.trim(),
+                  content: form.content.trim(),
+                  publicQuestion: form.publicQuestion,
                 }
               : p
           );
@@ -172,9 +327,10 @@ function useQnaUpdateMutation(postId: number, formTitle: string, formContent: st
       }
 
       alert("질의응답이 수정되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["qnaDetail", String(postId)] });
+      queryClient.invalidateQueries({ queryKey: ["qnaDetail", String(post.id)] });
+      queryClient.invalidateQueries({ queryKey: ["qnaAttachments", post.id] });
       queryClient.invalidateQueries({ queryKey: ["qnasList"] });
-      navigate(`/qna/${postId}`);
+      navigate(`/qna/${post.id}`);
     },
     onError: (err) => {
       if (axios.isAxiosError(err)) {
@@ -186,45 +342,13 @@ function useQnaUpdateMutation(postId: number, formTitle: string, formContent: st
           return alert("수정 권한이 없습니다.");
         }
         if (err.response?.status === 500) {
-          alert("서버 오류가 발생했습니다. (토큰 만료 혹은 데이터 형식 오류일 수 있습니다.) 새로고침 후 다시 시도해주세요.");
+          alert("서버 오류가 발생했습니다. 새로고침 후 다시 시도해주세요.");
           return;
         }
       }
       alert("질의응답 수정에 실패했습니다.");
     },
   });
-}
-
-/* 수정 폼 컴포넌트 */
-interface QnaEditFormProps {
-  post: QnaDetailResponse;
-}
-
-function QnaEditForm({ post }: QnaEditFormProps) {
-  const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  // 폼 입력 상태
-  const [form, setForm] = useState({
-    title: post.title ?? "",
-    content: post.questionContent ?? post.content ?? "",
-    publicQuestion: post.publicQuestion ?? post.isPublic ?? true,
-  });
-
-  // 첨부파일 상태
-  const [currentAttachment, setCurrentAttachment] = useState<{ name: string; path?: string } | null>(
-    post.attachName ? { name: post.attachName, path: post.attachPath } : null
-  );
-  const [attachmentDeleted, setAttachmentDeleted] = useState(false);
-  const [newFile, setNewFile] = useState<File | null>(null);
-
-  // 수정 요청 뮤테이션
-  const updateMutation = useQnaUpdateMutation(
-    post.id,
-    form.title,
-    form.content,
-    form.publicQuestion
-  );
 
   const handleChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -235,38 +359,48 @@ function QnaEditForm({ post }: QnaEditFormProps) {
     setForm((prev) => ({ ...prev, publicQuestion: e.target.checked }));
   }, []);
 
+  // 새 파일 선택 핸들러
   const handleFileChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    if (file.size > MAX_FILE_SIZE) {
-      alert("첨부파일은 최대 10MB까지 등록할 수 있습니다.");
+    if (totalFileCount + files.length > MAX_FILE_COUNT) {
+      alert(`첨부파일은 최대 ${MAX_FILE_COUNT}개까지만 등록할 수 있습니다.`);
       e.target.value = "";
       return;
     }
 
-    const ext = getFileExtension(file.name);
-    if (!ALLOWED_FILE_EXTENSIONS.includes(ext)) {
-      alert("허용되지 않는 파일 형식입니다.");
-      e.target.value = "";
-      return;
+    const validFiles: File[] = [];
+    for (const file of files) {
+      if (file.size > MAX_FILE_SIZE) {
+        alert(`"${file.name}" 파일이 50MB 제한을 초과했습니다.`);
+        e.target.value = "";
+        return;
+      }
+      const ext = getFileExtension(file.name);
+      if (!ALLOWED_FILE_EXTENSIONS.includes(ext)) {
+        alert(`"${file.name}" 파일은 허용되지 않는 파일 형식입니다.`);
+        e.target.value = "";
+        return;
+      }
+      validFiles.push(file);
     }
 
-    setNewFile(file);
-    setAttachmentDeleted(true);
+    setNewFiles((prev) => [...prev, ...validFiles]);
     e.target.value = "";
-  }, []);
+  }, [totalFileCount]);
 
-  const handleDeleteAttachment = useCallback(() => {
-    if (window.confirm("첨부파일을 삭제하시겠습니까?")) {
-      setCurrentAttachment(null);
-      setAttachmentDeleted(true);
-      setNewFile(null);
+  // 기존 파일 삭제 핸들러
+  const handleDeleteExistingAttachment = useCallback((attId?: number) => {
+    if (!attId) return;
+    if (window.confirm("이 첨부파일을 삭제하시겠습니까? (수정 완료 시 반영됩니다)")) {
+      setDeletedAttachmentIds((prev) => [...prev, attId]);
     }
   }, []);
 
-  const handleCancelNewFile = useCallback(() => {
-    setNewFile(null);
+  // 새로 추가된 파일 제거 핸들러
+  const handleRemoveNewFile = useCallback((index: number) => {
+    setNewFiles((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   const handleFileButtonClick = useCallback(() => {
@@ -349,67 +483,126 @@ function QnaEditForm({ post }: QnaEditFormProps) {
       </div>
 
       {/* 첨부파일 영역 */}
-      <div>
-        <label className="block text-[13px] font-bold text-[#13202B] mb-2">첨부파일</label>
+      <div className="p-4 bg-[#F0F7FA] border border-[#DCE8ED] rounded-[12px] space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-[14px] font-bold text-[#0F8AA8]">
+            <Paperclip className="w-4 h-4 text-[#0F8AA8]" />
+            <span>첨부파일 ({totalFileCount}/{MAX_FILE_COUNT})</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleFileButtonClick}
+            disabled={totalFileCount >= MAX_FILE_COUNT}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#E6F4F2] hover:bg-[#d0ece8] text-[#0F766E] text-[13px] font-bold rounded-[8px] transition-colors cursor-pointer border-none shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>파일 선택</span>
+          </button>
+        </div>
+
+        <p className="text-[12px] text-[#6B7280]">
+          최대 {MAX_FILE_COUNT}개, 파일당 50MB까지 첨부할 수 있습니다.
+        </p>
+
         <input
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
-          accept=".jpg,.jpeg,.png,.gif,.pdf"
+          multiple
+          accept=".jpg,.jpeg,.png,.gif,.pdf,.webp,.doc,.docx,.xls,.xlsx,.hwp,.hwpx,.txt"
           className="hidden"
         />
 
-        {currentAttachment && !attachmentDeleted ? (
-          <div className="flex items-center justify-between p-3 bg-[#F5FAFC] border border-[#DCE8ED] rounded-[8px] text-[13px]">
-            <span className="font-medium text-[#13202B]">📎 {currentAttachment.name}</span>
-            <button
-              type="button"
-              onClick={handleDeleteAttachment}
-              className="text-red-500 hover:text-red-700 font-bold cursor-pointer"
-            >
-              삭제
-            </button>
+        {/* 파일 목록 렌더링 */}
+        {(existingAttachments.length > 0 || newFiles.length > 0) && (
+          <div className="pt-2 border-t border-[#DCE8ED]/60 space-y-2">
+            {/* 1. 기존 유지 첨부파일 */}
+            {existingAttachments.map((att, idx) => (
+              <div
+                key={`existing-${att.id ?? idx}`}
+                className="flex items-center justify-between px-3 py-2 bg-white border border-[#DCE8ED] rounded-[8px] text-[13px]"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="w-4 h-4 text-[#0F8AA8] shrink-0" />
+                  <span className="truncate text-[#13202B] font-medium max-w-[450px]">
+                    {att.name}
+                  </span>
+                  {att.size && (
+                    <span className="text-[11px] text-[#6B7280] shrink-0">
+                      ({(att.size / 1024).toFixed(1)} KB)
+                    </span>
+                  )}
+                  <span className="text-[11px] text-[#0F8AA8] bg-[#EBF5F8] px-2 py-0.5 rounded font-bold shrink-0">
+                    기존 파일
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteExistingAttachment(att.id)}
+                  className="text-rose-500 hover:text-rose-700 text-[12px] font-bold cursor-pointer hover:bg-rose-50 px-2 py-0.5 rounded transition-colors"
+                >
+                  삭제
+                </button>
+              </div>
+            ))}
+
+            {/* 2. 새로 추가한 첨부파일 */}
+            {newFiles.map((file, idx) => (
+              <div
+                key={`new-${file.name}-${idx}`}
+                className="flex items-center justify-between px-3 py-2 bg-white border border-[#0F8AA8]/30 rounded-[8px] text-[13px]"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="w-4 h-4 text-[#0F766E] shrink-0" />
+                  <span className="truncate text-[#13202B] font-medium max-w-[450px]">
+                    {file.name}
+                  </span>
+                  <span className="text-[11px] text-[#6B7280] shrink-0">
+                    ({(file.size / 1024).toFixed(1)} KB)
+                  </span>
+                  <span className="text-[11px] text-[#0F766E] bg-[#E6F4F2] px-2 py-0.5 rounded font-bold shrink-0">
+                    새 파일
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveNewFile(idx)}
+                  className="text-rose-500 hover:text-rose-700 text-[12px] font-bold cursor-pointer hover:bg-rose-50 px-2 py-0.5 rounded transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
           </div>
-        ) : newFile ? (
-          <div className="flex items-center justify-between p-3 bg-[#F5FAFC] border border-[#DCE8ED] rounded-[8px] text-[13px]">
-            <span className="font-medium text-[#13202B]">
-              📎 {newFile.name} ({(newFile.size / 1024).toFixed(1)} KB)
-            </span>
-            <button
-              type="button"
-              onClick={handleCancelNewFile}
-              className="text-red-500 hover:text-red-700 font-bold cursor-pointer"
-            >
-              취소
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={handleFileButtonClick}
-            className="px-4 py-2 bg-white border border-[#DCE8ED] rounded-[8px] text-[13px] font-bold text-[#13202B] hover:bg-[#F5FAFC] cursor-pointer"
-          >
-            📎 파일 첨부 / 교체
-          </button>
         )}
       </div>
 
-      {/* 제출 및 취소 버튼 */}
-      <div className="flex justify-end gap-3 pt-4 border-t border-[#DCE8ED]">
+      {/* 하단 액션 버튼 (좌측: 목록으로, 우측: 취소/수정 완료) */}
+      <div className="flex justify-between items-center pt-6 border-t border-[#DCE8ED]">
         <button
           type="button"
-          onClick={handleCancelForm}
-          className="px-6 py-2.5 bg-white border border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[8px] hover:bg-[#F5FAFC] cursor-pointer"
+          onClick={() => navigate("/qna")}
+          className="px-5 py-2.5 bg-white border border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[7px] hover:bg-[#EBF5F8] cursor-pointer transition-colors"
         >
-          취소
+          목록으로
         </button>
-        <button
-          type="submit"
-          disabled={updateMutation.isPending}
-          className="px-8 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[8px] shadow-sm disabled:opacity-50 cursor-pointer"
-        >
-          {updateMutation.isPending ? "저장 중..." : "수정 완료"}
-        </button>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleCancelForm}
+            className="px-5 py-2.5 bg-white border border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[7px] hover:bg-[#F5FAFC] cursor-pointer transition-colors"
+          >
+            취소
+          </button>
+          <button
+            type="submit"
+            disabled={updateMutation.isPending}
+            className="px-6 py-2.5 bg-[#0F8AA8] text-white text-[14px] font-bold rounded-[7px] hover:bg-[#0B5E73] shadow-sm disabled:opacity-50 cursor-pointer transition-colors"
+          >
+            {updateMutation.isPending ? "저장 중..." : "수정 완료"}
+          </button>
+        </div>
       </div>
     </form>
   );
@@ -424,22 +617,30 @@ export default function QnaEditPage() {
   const { data: post, isLoading, isError } = useQnaEditData(id);
 
   // 로그인 및 권한 검증
-  useQnaEditAuth(post?.writerLoginId, post?.id);
+  useQnaEditAuth(post?.writerLoginId || post?.authorId || (post?.userId ? String(post.userId) : undefined), post?.id);
 
   // 헤더 네비게이션 액션
-  const handleCancelHeader = useCallback(() => navigate(`/qna/${id}`), [navigate, id]);
   const handleGoList = useCallback(() => navigate("/qna"), [navigate]);
 
   if (isLoading) {
     return (
+      <SectionSidebarLayout
+        sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+        menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+      >
       <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8 text-center text-[#6B7280]">
         게시글을 불러오는 중입니다...
       </div>
+      </SectionSidebarLayout>
     );
   }
 
   if (isError || !post) {
     return (
+      <SectionSidebarLayout
+        sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+        menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+      >
       <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8 text-center">
         <h2 className="text-[20px] font-bold text-[#13202B]">게시글을 확인할 수 없습니다.</h2>
         <button
@@ -450,32 +651,29 @@ export default function QnaEditPage() {
           목록으로
         </button>
       </div>
+      </SectionSidebarLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8">
-      <div className="max-w-[800px] mx-auto space-y-8">
-        {/* 상단 헤더 */}
-        <div className="flex items-center justify-between pb-4 border-b border-[#DCE8ED]">
-          <div>
-            <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
-              CUSTOMER CENTER
-            </span>
-            <h1 className="text-[28px] font-black text-[#13202B] tracking-tight">질의응답 수정</h1>
-          </div>
-          <button
-            type="button"
-            onClick={handleCancelHeader}
-            className="px-4 py-2 bg-white border border-[#DCE8ED] text-[#6B7280] text-[13px] font-bold rounded-[7px] hover:bg-[#EBF5F8] cursor-pointer"
-          >
-            취소
-          </button>
+    <SectionSidebarLayout
+      sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+      menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+    >
+    <div className="flex min-h-[calc(100vh-200px)] w-full justify-center bg-[#F5FAFC] px-4 py-8 md:px-8 md:py-12">
+      <div className="w-full max-w-4xl space-y-8">
+        {/* 상단 헤더 (가운데 정렬) */}
+        <div className="text-center pb-6 border-b border-[#DCE8ED]">
+          <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase mb-2">
+            CUSTOMER CENTER
+          </span>
+          <h1 className="text-[28px] font-black text-[#13202B] tracking-tight">질의응답 수정</h1>
         </div>
 
         {/* 수정 폼 영역 */}
         <QnaEditForm key={post.id} post={post} />
       </div>
     </div>
+    </SectionSidebarLayout>
   );
 }

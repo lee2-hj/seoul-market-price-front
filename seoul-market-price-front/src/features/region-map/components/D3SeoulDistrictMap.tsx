@@ -63,6 +63,7 @@ interface D3SeoulDistrictMapProps {
   districtAveragePrice: number;
   districtAveragePrices?: Record<string, number>;
   preferredDistrict?: string | null;
+  preferredDong?: string | null;
   onSelect: (district: string) => void;
   onSelectDong: (dong: string) => void;
   onShowAll: () => void;
@@ -92,6 +93,7 @@ export default function D3SeoulDistrictMap({
   districtAveragePrice,
   districtAveragePrices,
   preferredDistrict,
+  preferredDong,
   onSelect,
   onSelectDong,
   onShowAll,
@@ -432,6 +434,19 @@ export default function D3SeoulDistrictMap({
                 transform={`translate(${labelX} ${labelY})`}
                 style={{ transition: isDragging ? "none" : "transform 520ms cubic-bezier(.22,.8,.3,1)" }}
               >
+                {selectedDistrict === preferredDistrict &&
+                  name === preferredDong && (
+                  <text
+                    x="0"
+                    y="-17"
+                    textAnchor="middle"
+                    fill="#E11D48"
+                    fontSize="14"
+                    aria-label="선호 동"
+                  >
+                    ♥
+                  </text>
+                  )}
                 <text textAnchor="middle" y="-2" fill="#17352D" stroke="#FFFFFF" strokeWidth="3" paintOrder="stroke" fontSize="11" fontWeight="900">
                   {name}
                 </text>
@@ -448,7 +463,7 @@ export default function D3SeoulDistrictMap({
           <button
             type="button"
             onClick={onShowAll}
-            className="rounded-[10px] border border-[#CBD5E1] bg-white/95 px-3.5 py-2 text-[12px] font-extrabold text-[#334155] shadow-[0_6px_18px_rgba(15,23,42,.12)] backdrop-blur transition-colors hover:border-[#0F8AA8] hover:text-[#0F8AA8]"
+            className="rounded-[10px] border border-[#CBD5E1] bg-white/95 px-3.5 py-2 text-[12px] font-extrabold text-[#334155] shadow-[0_6px_18px_rgba(15,23,42,.12)] backdrop-blur transition-colors hover:border-[#0F8AA8] hover:text-[#0F8AA8] cursor-pointer"
           >
             서울 전체 보기
           </button>
@@ -456,7 +471,7 @@ export default function D3SeoulDistrictMap({
             <button
               type="button"
               onClick={() => changeUserZoom(userZoom / 1.2)}
-              className="flex size-9 items-center justify-center border-0 bg-transparent text-[19px] font-bold text-[#334155] hover:bg-[#E8F6F9] hover:text-[#0F8AA8]"
+              className="flex size-9 items-center justify-center border-0 bg-transparent text-[19px] font-bold text-[#334155] hover:bg-[#E8F6F9] hover:text-[#0F8AA8] cursor-pointer"
               aria-label="지도 축소"
             >
               −
@@ -464,7 +479,7 @@ export default function D3SeoulDistrictMap({
             <button
               type="button"
               onClick={() => changeUserZoom(userZoom * 1.2)}
-              className="flex size-9 items-center justify-center border-0 border-l border-[#E2E8F0] bg-transparent text-[19px] font-bold text-[#334155] hover:bg-[#E8F6F9] hover:text-[#0F8AA8]"
+              className="flex size-9 items-center justify-center border-0 border-l border-[#E2E8F0] bg-transparent text-[19px] font-bold text-[#334155] hover:bg-[#E8F6F9] hover:text-[#0F8AA8] cursor-pointer"
               aria-label="지도 확대"
             >
               +

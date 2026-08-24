@@ -119,6 +119,7 @@ export interface AttachmentResponse {
   attachmentId?: number;
   id?: number;
   boardId?: number;
+  originalName?: string;
   fileName?: string;
   originalFilename?: string;
   fileSize?: number;
@@ -132,7 +133,8 @@ export interface AttachmentResponse {
  * 첨부파일 다운로드 URL 응답 모델 / DTO
  */
 export interface AttachmentDownloadResponse {
-  downloadUrl: string;
+  url: string;
+  downloadUrl?: string;
   fileName?: string;
   originalFilename?: string;
   expiresAt?: string;

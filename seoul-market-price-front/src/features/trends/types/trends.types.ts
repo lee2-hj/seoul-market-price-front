@@ -7,7 +7,6 @@ export interface GuDongOption {
   gu: string;
   dongs: string[];
 }
-
 export interface MarketSummary {
   period: string; // e.g. "2026년 8월 기준"
   totalTransactions: number; // 총 거래량
@@ -47,4 +46,96 @@ export interface TrendsDataResponse {
   rankings: ComplexRankingItem[];
   monthlyTrends: MonthlyPriceTrendPoint[];
   lastUpdated: string;
+}
+
+export interface ApartmentSearchItem {
+  name: string;
+  gu: string;
+  dong: string;
+  complexId?: string;
+}
+
+export interface ApartmentKPI {
+  totalTradeCount: number;
+  totalTradeCountChangeRate: number;
+  totalTradeAmountEok: number;
+  totalTradeAmountChangeRate: number;
+  avgTradePriceEok: number;
+  avgTradePriceMan: number;
+  avgTradePriceChangeRate: number;
+  maxTradePriceEok: number;
+  maxTradePriceMan: number;
+  maxTradePriceChangeRate: number;
+  tradeVolumeChangeRate: number;
+  periodLabel: string;
+}
+
+export interface MonthlyVolumeAndPricePoint {
+  month: string;
+  volume: number;
+  avgPrice: number;
+}
+
+export interface AreaDistributionItem {
+  range: string;
+  count: number;
+  percentage: number;
+  color: string;
+}
+
+export interface RecentTradeRecord {
+  dealDate: string;
+  area: number;
+  floor: number;
+  price: number;
+}
+
+export interface AreaTradeStat {
+  areaRange: string;
+  dealCount: number;
+  avgPrice: number;
+}
+
+export interface TrendInsight {
+  id: string;
+  iconType: "up" | "chart" | "star";
+  title: string;
+  subtitle: string;
+}
+
+export interface ApartmentTrendDetailResponse {
+  apartment: ApartmentSearchItem;
+  kpi: ApartmentKPI;
+  monthlyTrends: MonthlyVolumeAndPricePoint[];
+  areaDistribution: AreaDistributionItem[];
+  recentTrades: RecentTradeRecord[];
+  areaStats: AreaTradeStat[];
+  insights: TrendInsight[];
+  baseDate: string;
+}
+
+// URL 쿼리 파라미터 키 타입 (BoardPage style)
+export type TrendsQueryParamKeys = "name" | "gu" | "dong" | "complexId" | "period";
+
+// URL 쿼리 상태 인터페이스 (BoardPage style)
+export interface TrendsQueryState {
+  name: string;
+  gu: string;
+  dong: string;
+  complexId: string;
+  period: string;
+}
+
+// select 반환 통합 타입 정의 (BoardPage style)
+export interface ApartmentTrendsSelectResult {
+  apartment: ApartmentSearchItem;
+  kpi?: ApartmentKPI;
+  monthlyTrends: MonthlyVolumeAndPricePoint[];
+  areaDistribution: AreaDistributionItem[];
+  recentTrades: RecentTradeRecord[];
+  areaStats: AreaTradeStat[];
+  insights: TrendInsight[];
+  baseDate: string;
+  complexApartments: ApartmentSearchItem[];
+  apiWarning?: string;
 }

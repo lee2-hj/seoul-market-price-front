@@ -1,768 +1,1251 @@
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import {
-  getMarketTrendsData,
-  formatPriceKorean,
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
+import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import {
+  RotateCcw,
+  TrendingUp,
+  BarChart3,
+  Star,
+  Building2,
+  ChevronRight,
+  Info,
+  AlertCircle,
+} from "lucide-react";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { TRENDS_NAVIGATION } from "@/config/sectionNavigation";
+import {
+  SEOUL_POPULAR_APARTMENTS,
+  getApartmentTrendDetail,
 } from "@/features/trends/services/trendsService";
-import { getDongs, getSggs } from "@/features/location/services/locationService";
-import type { MonthlyPriceTrendPoint } from "@/features/trends/types/trends.types";
-import { AutocompleteInput } from "@/components/ui/autocomplete-input";
-import { getDongPriceAnalysis, getRegionPriceList } from "@/features/trends/services/trendsApiService";
+import { getApartmentComplexesApi, getComplexesApi } from "@/api/api";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
+import type {
+  ApartmentSearchItem,
+  MonthlyVolumeAndPricePoint,
+  AreaDistributionItem,
+  ApartmentKPI,
+  TrendsQueryState,
+  ApartmentTrendsSelectResult,
+  TrendInsight,
+} from "@/features/trends/types/trends.types";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-type AnalysisTab = "RANKING" | "MOVERS" | "AREA";
+const PERIOD_OPTIONS = ["최근 6개월", "최근 1년", "최근 2년", "최근 3년"];
+const SEARCH_DEBOUNCE_MS = 300;
+const DEFAULT_PERIOD = "최근 1년";
+const DEFAULT_APARTMENT = SEOUL_POPULAR_APARTMENTS[0];
 
-const ANALYSIS_TABS: Array<{ value: AnalysisTab; label: string }> = [
-  { value: "RANKING", label: "실거래 순위" },
-  { value: "MOVERS", label: "급상승·급락" },
-  { value: "AREA", label: "평형대 비교" },
-];
+function getTrendsQuery(searchParams: URLSearchParams): TrendsQueryState {
+  const name = searchParams.get("name")?.trim();
+  const gu = searchParams.get("gu")?.trim();
+  const dong = searchParams.get("dong")?.trim();
+  const complexId = searchParams.get("complexId")?.trim();
+  const periodParam = searchParams.get("period")?.trim();
+  const popularApartment = name
+    ? SEOUL_POPULAR_APARTMENTS.find(
+        (item) => item.name === name && (!gu || item.gu === gu),
+      )
+    : undefined;
 
-function getStoredPreferredDistrict(userId?: string): string | null {
-  try {
-    const cleanId = (userId || "").trim().toLowerCase();
-    const key = cleanId ? `myPageSettings_${cleanId}` : "myPageSettings_guest";
-    const saved = localStorage.getItem(key);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (typeof parsed?.preferredDistrict === "string" && parsed.preferredDistrict.trim()) {
-        return parsed.preferredDistrict as string;
-      }
-    }
-  } catch (e) {
-    console.warn("선호지역 로드 오류:", e);
-  }
-  return null;
+  return {
+    name: name || DEFAULT_APARTMENT.name,
+    gu: gu || popularApartment?.gu || DEFAULT_APARTMENT.gu,
+    dong: dong || popularApartment?.dong || DEFAULT_APARTMENT.dong,
+    complexId: complexId || popularApartment?.complexId || "",
+    period:
+      periodParam && PERIOD_OPTIONS.includes(periodParam)
+        ? periodParam
+        : DEFAULT_PERIOD,
+  };
 }
 
-function getInitialGu(userId?: string): string {
-  return getStoredPreferredDistrict(userId) ?? "송파구";
+function getSelectedApartment(query: TrendsQueryState): ApartmentSearchItem {
+  return {
+    name: query.name,
+    gu: query.gu,
+    dong: query.dong,
+    complexId: query.complexId || undefined,
+  };
+}
+
+function formatPrice(eok?: number, man?: number): string {
+  if (eok === undefined || man === undefined || (eok === 0 && man === 0)) return "-";
+  return man === 0 ? `${eok}억원` : `${eok}억 ${man.toLocaleString()}만원`;
+}
+
+interface KpiItemProps {
+  label: string;
+  value: string;
+  changeRate?: number;
+  periodLabel: string;
+  className?: string;
+}
+
+function KpiItem({ label, value, changeRate, periodLabel, className = "" }: KpiItemProps) {
+  const rate = changeRate ?? 0;
+  const isIncrease = rate >= 0;
+
+  return (
+    <div className={`border-b border-[#E2E8F0] p-4 lg:border-b-0 ${className}`}>
+      <span className="block text-[12px] font-medium text-[#6B7280]">{label}</span>
+      <div className="mt-2 text-[21px] font-extrabold tracking-[-0.02em] text-[#0F172A]">
+        {value}
+      </div>
+      <div className={`mt-1 text-[11px] font-medium ${isIncrease ? "text-[#E11D48]" : "text-[#2563EB]"}`}>
+        전년 대비 {isIncrease ? "▲" : "▼"} {Math.abs(rate)}%
+      </div>
+      <span className="mt-0.5 block text-[10px] text-[#9CA3AF]">{periodLabel}</span>
+    </div>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex h-[240px] flex-col items-center justify-center text-[13px] text-[#64748B]">
+      <BarChart3 className="mb-2 size-6 text-[#94A3B8]" />
+      <span>{message}</span>
+    </div>
+  );
+}
+
+function InsightIcon({ type }: { type: TrendInsight["iconType"] }) {
+  const config = {
+    up: { Icon: TrendingUp, className: "bg-[#DCFCE7] text-[#16A34A]" },
+    chart: { Icon: BarChart3, className: "bg-[#DBEAFE] text-[#2563EB]" },
+    star: { Icon: Star, className: "bg-[#F3E8FF] text-[#7C3AED]" },
+  }[type];
+  const { Icon } = config;
+
+  return (
+    <div className={`flex size-7 items-center justify-center rounded-full ${config.className}`}>
+      <Icon className={`size-4 ${type === "star" ? "fill-current" : ""}`} />
+    </div>
+  );
+}
+
+interface DetailCardProps {
+  title: string;
+  buttonLabel: string;
+  onViewAll: () => void;
+  children: ReactNode;
+}
+
+function DetailCard({ title, buttonLabel, onViewAll, children }: DetailCardProps) {
+  return (
+    <Card className="flex flex-col rounded-xl border-[#E2E8F0] shadow-none">
+      <CardHeader className="p-3 pb-1">
+        <CardTitle className="text-[15px] font-semibold text-[#0F172A]">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="grid flex-1 grid-rows-[1fr_auto] p-3 pt-1">
+        {children}
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onViewAll}
+          className="mt-1 h-8 w-full rounded-md border border-[#E2E8F0] bg-white text-[12px] font-semibold text-[#0F8AA8] shadow-none hover:bg-[#F8FAFC] hover:text-[#0B7285]"
+        >
+          {buttonLabel} <ChevronRight className="size-4" />
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface TrendModalProps {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+  maxWidth?: string;
+}
+
+function TrendModal({ open, title, onClose, children, maxWidth = "max-w-2xl" }: TrendModalProps) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={`flex max-h-[85vh] w-full flex-col space-y-4 rounded-2xl border border-[#DCE8ED] bg-white p-6 shadow-2xl ${maxWidth}`}
+      >
+        <header className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
+          <h3 className="text-[18px] font-bold text-[#123047]">{title}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="모달 닫기"
+            className="cursor-pointer text-[20px] font-bold text-[#9CA3AF] hover:text-[#111827]"
+          >
+            ✕
+          </button>
+        </header>
+        {children}
+      </section>
+    </div>
+  );
+}
+
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timerId = window.setTimeout(() => setDebouncedValue(value), delay);
+    return () => window.clearTimeout(timerId);
+  }, [delay, value]);
+
+  return debouncedValue;
 }
 
 export default function MarketTrendsPage() {
-  const loginUser = useAuthStore((state) => state.user);
-  const loginUserId = loginUser?.userId;
+  const isAuthenticated = useAuthStore((state) => state.user !== null);
 
-  // 마이페이지에 저장된 선호지역 감지
-  const preferredDistrict = useMemo(
-    () => getStoredPreferredDistrict(loginUserId),
-    [loginUserId],
+  // 1. URL 쿼리 파라미터 상태 관리 (BoardPage 스타일)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = getTrendsQuery(searchParams);
+  const searchName = searchParams.get("name")?.trim() ?? "";
+  const selectedApartment = getSelectedApartment(query);
+  const selectedPeriod = query.period;
+
+  const setQuery = (updates: Partial<TrendsQueryState>) => {
+    const next: TrendsQueryState = { ...query, ...updates };
+    const params: Record<string, string> = {
+      name: next.name,
+      gu: next.gu,
+      dong: next.dong,
+      period: next.period,
+    };
+    if (next.complexId) {
+      params.complexId = next.complexId;
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  // 2. 검색 입력 및 드롭다운 상태
+  const [searchInput, setSearchInput] = useState(searchName);
+  const [showSelectedApartment, setShowSelectedApartment] = useState(
+    Boolean(searchName),
   );
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isEditingSearch, setIsEditingSearch] = useState(false);
+  const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(-1);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const debouncedSearchInput = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
 
-  const [selectedGu, setSelectedGu] = useState<string>(() =>
-    getInitialGu(loginUserId),
-  );
-  const [selectedDong, setSelectedDong] = useState<string>("전체");
-  const [selectedComplex, setSelectedComplex] = useState<string>("전체");
-  const [guSearch, setGuSearch] = useState<string>(() => getInitialGu(loginUserId));
-  const [dongSearch, setDongSearch] = useState<string>("전체");
-  const [hoveredPoint, setHoveredPoint] = useState<MonthlyPriceTrendPoint | null>(null);
-  const [analysisTab, setAnalysisTab] = useState<AnalysisTab>("RANKING");
+  // 모달 및 차트 호버 툴팁 상태
+  const [isTradesModalOpen, setIsTradesModalOpen] = useState(false);
+  const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
+  const [hoveredMonthIndex, setHoveredMonthIndex] = useState<number | null>(null);
 
-  const {
-    data: sggs = [],
-    isLoading: isSggsLoading,
-    isError: isSggsError,
-  } = useQuery({
-    queryKey: ["location", "sggs"],
-    queryFn: getSggs,
-    staleTime: Infinity,
-  });
+  // 3. 통합 React Query 및 select 단일 정리 (BoardPage style)
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: [
+      "apartmentTrends",
+      query.name,
+      query.gu,
+      query.dong,
+      query.complexId,
+      query.period,
+      isAuthenticated,
+    ],
+    queryFn: async () => {
+      const trendRes = await getApartmentTrendDetail(selectedApartment, query.period);
+      const [complexesResult, complexDetailsResult] = await Promise.allSettled([
+        isAuthenticated && query.gu && query.dong
+          ? getApartmentComplexesApi(query.gu, query.dong)
+          : Promise.resolve([]),
+        isAuthenticated && query.gu && query.dong
+          ? getComplexesApi(query.gu, query.dong)
+          : Promise.resolve([]),
+      ]);
+      const complexesRes = complexesResult.status === "fulfilled" ? complexesResult.value : [];
+      const complexDetailsRes =
+        complexDetailsResult.status === "fulfilled" ? complexDetailsResult.value : [];
+      const hasApiFailure =
+        complexesResult.status === "rejected" || complexDetailsResult.status === "rejected";
 
-  const selectedSggCode =
-    sggs.find((sgg) => sgg.sggNm === selectedGu)?.sggCd ?? "";
-  const {
-    data: dongs = [],
-    isLoading: isDongsLoading,
-    isError: isDongsError,
-  } = useQuery({
-    queryKey: ["location", "dongs", selectedSggCode],
-    queryFn: () => getDongs(selectedSggCode),
-    enabled: Boolean(selectedSggCode),
-    staleTime: Infinity,
-  });
+      const selectedDetail = complexDetailsRes.find(
+        (complex) =>
+          String(complex.id) === query.complexId ||
+          complex.name.trim() === query.name.trim(),
+      );
 
-  // 선택된 구의 동 목록
-  const currentDongList = useMemo(
-    () => ["전체", ...new Set(dongs.map((dong) => dong.dongNm))],
-    [dongs],
-  );
-
-  const guOptions = useMemo(() => sggs.map((sgg) => sgg.sggNm), [sggs]);
-  const selectedDongCode =
-    selectedDong === "전체"
-      ? ""
-      : dongs.find((dong) => dong.dongNm === selectedDong)?.dongCd ?? "";
-
-  const regionPriceQuery = useQuery({
-    queryKey: ["trends", "region-prices", selectedSggCode],
-    queryFn: () => getRegionPriceList(selectedSggCode),
-    enabled: Boolean(selectedSggCode),
-  });
-
-  const dongPriceQuery = useQuery({
-    queryKey: ["trends", "dong-price-analysis", selectedSggCode, selectedDongCode],
-    queryFn: () => getDongPriceAnalysis(selectedSggCode, selectedDongCode),
-    enabled: Boolean(selectedSggCode && selectedDongCode),
-  });
-
-  const { data: trendsData, isLoading } = useQuery({
-    queryKey: ["marketTrends", selectedGu, selectedDong, selectedComplex],
-    queryFn: () =>
-      getMarketTrendsData(selectedGu, selectedDong, selectedComplex),
-  });
-
-  const apiPriceSummary = useMemo(() => {
-    if (selectedDongCode && dongPriceQuery.data) {
-      const highest = dongPriceQuery.data.top[0];
       return {
-        baseDate: dongPriceQuery.data.baseDate,
-        totalTransactions: dongPriceQuery.data.totalCount,
-        averagePyeongPrice: dongPriceQuery.data.averagePyeongPrice,
-        highestName: highest?.name ?? "거래 자료 없음",
-        highestPrice: highest?.averageTradePrice ?? 0,
-        highestLabel: "최고 평균가 단지",
+        trend: trendRes,
+        complexes: complexesRes,
+        selectedDetail,
+        apiWarning: hasApiFailure
+          ? "실제 단지 API 연결에 실패해 미연동 항목은 더미 데이터로 표시합니다."
+          : undefined,
       };
+    },
+    select: ({ trend, complexes, selectedDetail, apiWarning }): ApartmentTrendsSelectResult => {
+      const complexApartments: ApartmentSearchItem[] = complexes.map((complex) => ({
+        name: complex.complexName,
+        gu: complex.sggNm || query.gu,
+        dong: complex.dongNm || query.dong,
+        complexId: String(complex.complexNo),
+      }));
+
+      const apiAveragePrice = selectedDetail?.baseSalePrice ?? 0;
+      const apiHighestPrice = Math.max(
+        apiAveragePrice,
+        ...(selectedDetail?.recentTrades?.map((trade) => trade.price) ?? []),
+        ...(selectedDetail?.pyungs?.map((pyung) => pyung.salePrice) ?? []),
+      );
+
+      const kpi: ApartmentKPI | undefined = trend?.kpi
+        ? {
+            ...trend.kpi,
+            ...(selectedDetail && apiAveragePrice > 0
+              ? {
+                  avgTradePriceEok: Math.floor(apiAveragePrice / 10000),
+                  avgTradePriceMan: apiAveragePrice % 10000,
+                  maxTradePriceEok: Math.floor(apiHighestPrice / 10000),
+                  maxTradePriceMan: apiHighestPrice % 10000,
+                }
+              : {}),
+          }
+        : undefined;
+
+      return {
+        apartment: selectedApartment,
+        kpi,
+        monthlyTrends: trend?.monthlyTrends || [],
+        areaDistribution: trend?.areaDistribution || [],
+        recentTrades: trend?.recentTrades || [],
+        areaStats: trend?.areaStats || [],
+        insights: trend?.insights || [],
+        baseDate: trend?.baseDate || "",
+        complexApartments,
+        apiWarning,
+      };
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // 검색 제안 목록 계산
+  const suggestions = useMemo(() => {
+    const keyword = (isEditingSearch ? debouncedSearchInput : "").trim().toLowerCase();
+    const candidateList = data?.complexApartments || [];
+    const uniqueCandidates = new Map<string, ApartmentSearchItem>();
+    [...candidateList, ...SEOUL_POPULAR_APARTMENTS].forEach((item) => {
+      uniqueCandidates.set(`${item.gu}-${item.dong}-${item.name}`, item);
+    });
+    const allList = [...uniqueCandidates.values()];
+    if (!keyword) {
+      return allList.slice(0, 10);
+    }
+    return allList.filter(
+      (item) =>
+        item.name.toLowerCase().includes(keyword) ||
+        item.gu.toLowerCase().includes(keyword) ||
+        item.dong.toLowerCase().includes(keyword),
+    );
+  }, [data?.complexApartments, debouncedSearchInput, isEditingSearch]);
+
+  // 검색창 외부 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+        setHighlightedSuggestionIndex(-1);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // 아파트 선택 핸들러
+  const handleSelectApartment = (apt: ApartmentSearchItem) => {
+    setSearchInput(apt.name);
+    setShowSelectedApartment(true);
+    setIsDropdownOpen(false);
+    setIsEditingSearch(false);
+    setHighlightedSuggestionIndex(-1);
+    setQuery({
+      name: apt.name,
+      gu: apt.gu,
+      dong: apt.dong,
+      complexId: apt.complexId || "",
+    });
+  };
+
+  // 기간 변경 핸들러
+  const handlePeriodChange = (newPeriod: string) => {
+    setQuery({ period: newPeriod });
+  };
+
+  // 검색 실행 핸들러
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const keyword = searchInput.trim();
+    if (!keyword) {
+      alert("검색할 아파트명을 입력해 주세요.");
+      return;
     }
 
-    const regionData = regionPriceQuery.data;
-    if (!regionData?.groups.length) return null;
-    const totalTransactions = regionData.groups.reduce((sum, item) => sum + item.totalCount, 0);
-    const averagePyeongPrice = totalTransactions
-      ? Math.round(regionData.groups.reduce((sum, item) => sum + item.averagePyeongPrice * item.totalCount, 0) / totalTransactions)
-      : 0;
-    const highest = [...regionData.groups].sort((a, b) => b.averageTradePrice - a.averageTradePrice)[0];
-    return {
-      baseDate: regionData.baseDate,
-      totalTransactions,
-      averagePyeongPrice,
-      highestName: highest?.name ?? "거래 자료 없음",
-      highestPrice: highest?.averageTradePrice ?? 0,
-      highestLabel: "최고 평균가 법정동",
-    };
-  }, [dongPriceQuery.data, regionPriceQuery.data, selectedDongCode]);
+    const normalizedKeyword = keyword.toLowerCase();
+    const matchedApartment = [
+      ...(data?.complexApartments ?? []),
+      ...SEOUL_POPULAR_APARTMENTS,
+    ].find(
+      (item) =>
+        item.name.toLowerCase().includes(normalizedKeyword) ||
+        item.gu.toLowerCase().includes(normalizedKeyword) ||
+        item.dong.toLowerCase().includes(normalizedKeyword),
+    );
 
-  // 구 변경 시 동 및 단지 초기화
-  const handleGuChange = (gu: string) => {
-    setSelectedGu(gu);
-    setGuSearch(gu);
-    setSelectedDong("전체");
-    setSelectedComplex("전체");
-    setDongSearch("전체");
-  };
-
-  // 동 변경 시 단지 초기화
-  const handleDongChange = (dong: string) => {
-    setSelectedDong(dong);
-    setDongSearch(dong);
-    setSelectedComplex("전체");
-  };
-
-  // 차트 계산용 파라미터
-  const chartPoints = trendsData?.monthlyTrends || [];
-  const prices = chartPoints
-    .map((p) => (p.actualAvgPrice !== null ? p.actualAvgPrice : p.predictedAvgPrice || 0))
-    .filter((v) => v > 0);
-  const minPrice = prices.length ? Math.min(...prices) * 0.96 : 100000;
-  const maxPrice = prices.length ? Math.max(...prices) * 1.04 : 350000;
-  const priceRange = maxPrice - minPrice || 1;
-
-  const maxVolume = Math.max(...chartPoints.map((p) => p.txVolume), 500);
-  const rankingItems = trendsData?.rankings ?? [];
-  const risingComplexes = [...rankingItems]
-    .filter((item) => item.changeFromLastMonth > 0)
-    .sort((a, b) => b.changeFromLastMonth - a.changeFromLastMonth)
-    .slice(0, 3);
-  const fallingComplexes = [...rankingItems]
-    .filter((item) => item.changeFromLastMonth < 0)
-    .sort((a, b) => a.changeFromLastMonth - b.changeFromLastMonth)
-    .slice(0, 3);
-  const areaPriceComparison = Array.from(
-    rankingItems.reduce((groups, item) => {
-      const current = groups.get(item.pyeongType) ?? { totalPrice: 0, count: 0 };
-      groups.set(item.pyeongType, {
-        totalPrice: current.totalPrice + item.recentTradePrice,
-        count: current.count + 1,
+    if (matchedApartment) {
+      handleSelectApartment(matchedApartment);
+    } else {
+      handleSelectApartment({
+        name: keyword,
+        gu: "서울시",
+        dong: "주요동",
       });
-      return groups;
-    }, new Map<string, { totalPrice: number; count: number }>()),
-  ).map(([area, value]) => ({
-    area,
-    averagePrice: Math.round(value.totalPrice / value.count),
-    complexCount: value.count,
-  }));
+    }
+  };
+
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setIsDropdownOpen(true);
+      setHighlightedSuggestionIndex((index) =>
+        suggestions.length === 0 ? -1 : (index + 1) % suggestions.length,
+      );
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setIsDropdownOpen(true);
+      setHighlightedSuggestionIndex((index) =>
+        suggestions.length === 0
+          ? -1
+          : index <= 0
+            ? suggestions.length - 1
+            : index - 1,
+      );
+      return;
+    }
+    if (event.key === "Enter" && isDropdownOpen && highlightedSuggestionIndex >= 0) {
+      const suggestion = suggestions[highlightedSuggestionIndex];
+      if (suggestion) {
+        event.preventDefault();
+        handleSelectApartment(suggestion);
+      }
+      return;
+    }
+    if (event.key === "Escape") {
+      setIsDropdownOpen(false);
+      setHighlightedSuggestionIndex(-1);
+    }
+  };
+
+  // 초기화 핸들러
+  const handleReset = () => {
+    setSearchInput("");
+    setShowSelectedApartment(false);
+    setIsDropdownOpen(false);
+    setIsEditingSearch(false);
+    setHighlightedSuggestionIndex(-1);
+    setSearchParams({}, { replace: true });
+  };
+
+  // 4. select 결과에서 가져온 정돈된 데이터
+  const kpi = data?.kpi;
+  const monthlyTrends = data?.monthlyTrends || [];
+  const areaDist = data?.areaDistribution || [];
+  const recentTrades = data?.recentTrades || [];
+  const areaStats = data?.areaStats || [];
+  const insights = data?.insights || [];
+  const isDataLoading = isLoading;
+  const periodLabel = kpi?.periodLabel || `(${selectedPeriod} 기준)`;
+  const kpiItems: KpiItemProps[] = [
+    {
+      label: "총 거래 건수",
+      value: isDataLoading ? "-" : `${kpi?.totalTradeCount ?? 0}건`,
+      changeRate: kpi?.totalTradeCountChangeRate,
+      periodLabel,
+    },
+    {
+      label: "총 거래 금액",
+      value: isDataLoading ? "-" : `${(kpi?.totalTradeAmountEok ?? 0).toLocaleString()}억원`,
+      changeRate: kpi?.totalTradeAmountChangeRate,
+      periodLabel,
+    },
+    {
+      label: "평균 거래가",
+      value: isDataLoading ? "-" : formatPrice(kpi?.avgTradePriceEok, kpi?.avgTradePriceMan),
+      changeRate: kpi?.avgTradePriceChangeRate,
+      periodLabel,
+    },
+    {
+      label: "최고 거래가",
+      value: isDataLoading ? "-" : formatPrice(kpi?.maxTradePriceEok, kpi?.maxTradePriceMan),
+      changeRate: kpi?.maxTradePriceChangeRate,
+      periodLabel,
+    },
+    {
+      label: "거래량 증감률",
+      value: isDataLoading ? "-" : `${kpi?.tradeVolumeChangeRate ?? 0}%`,
+      changeRate: kpi?.tradeVolumeChangeRate,
+      periodLabel,
+      className: "border-b-0",
+    },
+  ];
 
   return (
-    <div className="w-full min-h-screen bg-[#F5FAFC] text-[#13202B] py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-[1140px] mx-auto space-y-8">
-        {/* 상단 타이틀 영역 */}
-        <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[16px] p-6 shadow-xs">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#E6F4F2] text-[#0F766E]">
-                  서울시 25개 자치구 · 법정동 DB 연동
-                </span>
-              </div>
-              <h1 className="text-[24px] sm:text-[28px] font-extrabold text-[#123047] tracking-tight">
-                아파트 거래동향
+    <div className="tw-scope [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
+      <SectionSidebarLayout
+        sectionTitle={TRENDS_NAVIGATION.sectionTitle}
+        menuItems={TRENDS_NAVIGATION.menuItems}
+      >
+            {/* 1. 상단 페이지 타이틀 */}
+            <div className="space-y-1">
+              <h1 className="text-[24px] font-extrabold tracking-[-0.02em] text-[#0F172A]">
+                아파트별 거래동향
               </h1>
-              <p className="text-[14px] text-[#6B7280] mt-1.5 leading-relaxed">
-                지역과 단지를 선택해 실거래 흐름과 예상 시세를 확인하세요.
+              <p className="mt-1 text-[13px] font-medium text-[#64748B]">
+                관심 아파트의 실거래 흐름과 가격 변화를 확인하세요.
               </p>
             </div>
-            <div className="text-right shrink-0">
-              <span className="text-[12px] text-[#6B7280] block">데이터 기준일</span>
-              <span className="text-[13px] font-bold text-[#123047]">
-                {(apiPriceSummary?.baseDate ?? trendsData?.lastUpdated ?? "-").replaceAll("-", ".")} (일일 갱신)
-              </span>
-            </div>
-          </div>
-        </div>
 
-        {/* 3단계 인터랙티브 필터 (구 ➔ 동 ➔ 아파트 단지) */}
-        <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[16px] p-6 shadow-xs space-y-5">
-          <div className="grid gap-5 md:grid-cols-2">
-          {/* 1. 자치구 선택 */}
-          <div>
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
-              <span className="text-[12px] font-bold text-[#6B7280] block">
-                1. 자치구 선택 ({isSggsLoading ? "조회 중" : `${sggs.length}개 자치구`})
-              </span>
-              {preferredDistrict && (
-                <span className="text-[12px] font-bold text-[#0F766E]">
-                  회원님의 관심 선호지역: <strong className="text-[#0F8AA8]">{preferredDistrict}</strong>
+            {/* 오류 발생 시 안내 배너 (BoardPage 스타일) */}
+            {isError && (
+              <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-[13px] font-medium text-rose-600">
+                <AlertCircle className="size-4 shrink-0" />
+                <span>
+                  데이터를 불러오는 중 오류가 발생했습니다:{" "}
+                  {(error as Error)?.message || "네트워크 상태를 확인해 주세요."}
                 </span>
-              )}
-            </div>
-            <div className="max-w-[420px]">
-              {isSggsError && (
-                <p className="mb-2 text-[12px] font-semibold text-rose-500">
-                  자치구 목록을 불러오지 못했습니다.
-                </p>
-              )}
-              <AutocompleteInput
-                value={guSearch}
-                options={guOptions}
-                disabled={isSggsLoading || isSggsError}
-                requiredSelection
-                placeholder="자치구 검색..."
-                onChange={(value) => {
-                  setGuSearch(value);
-                  if (guOptions.includes(value)) handleGuChange(value);
-                }}
-                onInvalidBlur={() => setGuSearch(selectedGu)}
-                className="h-[46px] rounded-[9px] border border-[#DCE8ED] bg-white px-4 text-[14px] font-bold text-[#13202B] outline-none focus:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
-              />
-              <p className="mt-1.5 text-[11px] font-medium text-[#6B7280]">
-                자치구를 선택해 주세요.
-              </p>
-            </div>
-          </div>
-
-          {/* 2. 법정동 선택 */}
-          <div className="border-t border-[#DCE8ED] pt-4 md:border-l md:border-t-0 md:pl-5 md:pt-0">
-            <div className="mb-2.5">
-              <span className="text-[12px] font-bold text-[#6B7280]">
-                2. 법정동 선택 ({selectedGu}, 총 {currentDongList.length - 1}개 동)
-              </span>
-            </div>
-            <div className="max-w-[420px]">
-              {isDongsLoading && (
-                <p className="mb-2 text-[12px] font-semibold text-[#6B7280]">
-                  법정동 목록을 불러오는 중입니다.
-                </p>
-              )}
-              {isDongsError && (
-                <p className="mb-2 text-[12px] font-semibold text-rose-500">
-                  법정동 목록을 불러오지 못했습니다.
-                </p>
-              )}
-              <AutocompleteInput
-                value={dongSearch}
-                options={currentDongList}
-                disabled={!selectedSggCode || isDongsLoading || isDongsError}
-                requiredSelection
-                placeholder="법정동 검색..."
-                onChange={(value) => {
-                  setDongSearch(value);
-                  if (currentDongList.includes(value)) handleDongChange(value);
-                }}
-                onInvalidBlur={() => setDongSearch(selectedDong)}
-                className="h-[46px] rounded-[9px] border border-[#DCE8ED] bg-white px-4 text-[14px] font-bold text-[#13202B] outline-none focus:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
-              />
-              <p className="mt-1.5 text-[11px] font-medium text-[#6B7280]">
-                법정동을 선택해 주세요.
-              </p>
-            </div>
-          </div>
-          </div>
-
-          {/* 3. 아파트 단지 선택 */}
-          {trendsData && trendsData.complexList.length > 0 && (
-            <div className="pt-3.5 border-t border-[#DCE8ED]">
-              <div className="flex items-center justify-between mb-2.5">
-                <span className="text-[12px] font-bold text-[#6B7280]">
-                  3. 아파트 단지 선택 ({selectedGu} {selectedDong})
-                </span>
-                {selectedComplex !== "전체" && (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedComplex("전체")}
-                    className="text-[11px] text-[#0F8AA8] font-bold hover:underline cursor-pointer"
-                  >
-                    전체 단지 보기
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-1.5 max-h-[160px] overflow-y-auto pr-1">
-                {trendsData.complexList.map((cName) => {
-                  const isActive = cName === selectedComplex;
-                  return (
-                    <button
-                      key={cName}
-                      type="button"
-                      onClick={() => setSelectedComplex(cName)}
-                      className={`px-3 py-1.5 rounded-[6px] text-[12px] font-medium transition-all cursor-pointer ${
-                        isActive
-                          ? "bg-[#0B5E73] text-white font-bold shadow-xs"
-                          : "bg-white border border-[#DCE8ED] text-[#13202B] hover:bg-[#F5FAFC]"
-                      }`}
-                    >
-                      {cName}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 주요 핵심 지표 카드 4종 */}
-        {trendsData && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* 카드 1: 이번 달 거래량 */}
-            <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[14px] p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-[12px] font-bold text-[#6B7280]">거래 건수</span>
-              </div>
-              <div className="mt-3">
-                <div className="text-[26px] font-extrabold text-[#123047]">
-                  {(apiPriceSummary?.totalTransactions ?? 0).toLocaleString()}
-                  <span className="text-[14px] font-normal text-[#6B7280] ml-1">건</span>
-                </div>
-                <span className="text-[12px] text-[#6B7280] mt-0.5 block">
-                  {selectedGu} {selectedDong} 기준
-                </span>
-              </div>
-            </div>
-
-            {/* 카드 2: 평균 평당가 */}
-            <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[14px] p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-[12px] font-bold text-[#6B7280]">평균 평당 거래가</span>
-              </div>
-              <div className="mt-3">
-                <div className="text-[26px] font-extrabold text-[#123047]">
-                  {(apiPriceSummary?.averagePyeongPrice ?? 0).toLocaleString()}
-                  <span className="text-[14px] font-normal text-[#6B7280] ml-1">만원 / 평</span>
-                </div>
-                <span className="text-[12px] text-[#6B7280] mt-0.5 block">실거래 데이터 평균</span>
-              </div>
-            </div>
-
-            {/* 카드 3: 최고가 거래 단지 */}
-            <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[14px] p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-[12px] font-bold text-[#6B7280]">{apiPriceSummary?.highestLabel ?? "최고 평균가"}</span>
-              </div>
-              <div className="mt-3">
-                <div className="text-[20px] font-extrabold text-[#123047] truncate">
-                  {apiPriceSummary?.highestName ?? "거래 자료 없음"}
-                </div>
-                <span className="text-[14px] font-bold text-[#0F8AA8] mt-0.5 block">
-                  {formatPriceKorean(apiPriceSummary?.highestPrice ?? 0)}
-                </span>
-              </div>
-            </div>
-
-            {/* 카드 4: AI 시장 심리 지수 */}
-            <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[14px] p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-[12px] font-bold text-[#6B7280]">AI 시세 전망 지수</span>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[#E6F4F2] text-[#0F766E]">
-                  안정적 상승세
-                </span>
-              </div>
-              <div className="mt-3">
-                <div className="text-[22px] font-extrabold text-[#0B5E73]">
-                  매수 심리 우세
-                </div>
-                <span className="text-[12px] text-[#6B7280] mt-0.5 block">
-                  향후 3개월간 완만한 상승 예측
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 가격 추이 & AI 예측 인터랙티브 그래프 */}
-        <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[16px] p-6 sm:p-8 shadow-xs space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-[18px] font-extrabold text-[#123047]">
-                {selectedGu} {selectedDong !== "전체" ? selectedDong : ""} {selectedComplex !== "전체" ? `· ${selectedComplex}` : ""} 월별 실거래가 & AI 예상 시세 추이
-              </h2>
-              <p className="text-[13px] text-[#6B7280] mt-0.5">
-                과거 12개월 실거래 평균가 추이와 향후 3개월간의 머신러닝 예측 가격입니다.
-              </p>
-            </div>
-            {/* 범례 */}
-            <div className="flex items-center gap-4 text-[12px] font-bold">
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full bg-[#0F8AA8]" />
-                <span className="text-[#13202B]">실거래 평균가</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full bg-[#7CC9D8] border border-dashed border-[#0B5E73]" />
-                <span className="text-[#0B5E73]">🔮 AI 예측 시세</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-sm bg-[#DCE8ED]" />
-                <span className="text-[#6B7280]">거래량 (건)</span>
-              </div>
-            </div>
-          </div>
-
-          {/* SVG 차트 컨테이너 */}
-          <div className="relative w-full h-[320px] pt-6 pb-2">
-            {isLoading ? (
-              <div className="w-full h-full flex items-center justify-center text-[#6B7280] text-[14px]">
-                데이터를 분석하고 있습니다...
-              </div>
-            ) : (
-              <div className="w-full h-full relative">
-                {/* 배경 가이드라인 */}
-                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-50">
-                  <div className="border-b border-[#DCE8ED] w-full" />
-                  <div className="border-b border-[#DCE8ED] w-full" />
-                  <div className="border-b border-[#DCE8ED] w-full" />
-                  <div className="border-b border-[#DCE8ED] w-full" />
-                </div>
-
-                {/* SVG 차트 */}
-                <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                  {/* 1. 거래량 바 (배경) */}
-                  {chartPoints.map((pt, idx) => {
-                    const xPercent = (idx / (chartPoints.length - 1)) * 94 + 3;
-                    const barHeight = (pt.txVolume / maxVolume) * 120;
-                    return (
-                      <rect
-                        key={`vol-${pt.month}`}
-                        x={`${xPercent - 1.5}%`}
-                        y={320 - barHeight - 35}
-                        width="3%"
-                        height={barHeight}
-                        rx="3"
-                        fill={pt.isPrediction ? "#E1EFF5" : "#E2EEF2"}
-                        className="transition-all hover:opacity-80"
-                      />
-                    );
-                  })}
-
-                  {/* 2. 실거래가 라인 (과거 12개월) */}
-                  <polyline
-                    fill="none"
-                    stroke="#0F8AA8"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    points={chartPoints
-                      .filter((p) => p.actualAvgPrice !== null)
-                      .map((p, idx) => {
-                        const x = (idx / (chartPoints.length - 1)) * 94 + 3;
-                        const y =
-                          320 -
-                          (((p.actualAvgPrice || 0) - minPrice) / priceRange) * 230 -
-                          45;
-                        return `${(x / 100) * 1000},${y}`;
-                      })
-                      .join(" ")}
-                    viewBox="0 0 1000 320"
-                    vectorEffect="non-scaling-stroke"
-                  />
-
-                  {/* 3. AI 예상가 라인 (연결 점선) */}
-                  <polyline
-                    fill="none"
-                    stroke="#0B5E73"
-                    strokeWidth="3"
-                    strokeDasharray="6 4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    points={chartPoints
-                      .filter((p) => p.predictedAvgPrice !== null)
-                      .map((p) => {
-                        const idx = chartPoints.findIndex((item) => item.month === p.month);
-                        const x = (idx / (chartPoints.length - 1)) * 94 + 3;
-                        const y =
-                          320 -
-                          (((p.predictedAvgPrice || 0) - minPrice) / priceRange) * 230 -
-                          45;
-                        return `${(x / 100) * 1000},${y}`;
-                      })
-                      .join(" ")}
-                    viewBox="0 0 1000 320"
-                    vectorEffect="non-scaling-stroke"
-                  />
-
-                  {/* 4. 데이터 포인트 점 및 호버 트리거 */}
-                  {chartPoints.map((pt, idx) => {
-                    const xPercent = (idx / (chartPoints.length - 1)) * 94 + 3;
-                    const priceVal =
-                      pt.actualAvgPrice !== null ? pt.actualAvgPrice : pt.predictedAvgPrice || 0;
-                    const yPos = 320 - ((priceVal - minPrice) / priceRange) * 230 - 45;
-                    const isPred = pt.isPrediction;
-
-                    return (
-                      <g
-                        key={`pt-${pt.month}`}
-                        onMouseEnter={() => setHoveredPoint(pt)}
-                        onMouseLeave={() => setHoveredPoint(null)}
-                        className="cursor-pointer"
-                      >
-                        <circle
-                          cx={`${xPercent}%`}
-                          cy={yPos}
-                          r={isPred ? "5" : "5.5"}
-                          fill={isPred ? "#7CC9D8" : "#0F8AA8"}
-                          stroke="#ffffff"
-                          strokeWidth="2.5"
-                          className="transition-transform hover:scale-150"
-                        />
-                      </g>
-                    );
-                  })}
-                </svg>
-
-                {/* X축 월 라벨 */}
-                <div className="absolute bottom-0 inset-x-0 flex justify-between px-2 text-[11px] font-medium text-[#6B7280]">
-                  {chartPoints.map((pt) => (
-                    <span
-                      key={`lbl-${pt.month}`}
-                      className={`text-center ${
-                        pt.isPrediction ? "text-[#0B5E73] font-bold" : ""
-                      }`}
-                    >
-                      {pt.month}
-                      {pt.month === "26.08" && " (현재)"}
-                    </span>
-                  ))}
-                </div>
-
-                {/* 툴팁 오버레이 */}
-                {hoveredPoint && (
-                  <div
-                    className="absolute top-2 right-4 bg-[#123047] text-white p-3 rounded-[10px] shadow-lg text-[12px] space-y-1 pointer-events-none z-10"
-                  >
-                    <div className="font-bold flex items-center gap-1.5">
-                      <span>{hoveredPoint.month}월 데이터</span>
-                      {hoveredPoint.isPrediction && (
-                        <span className="px-1.5 py-0.2 rounded bg-[#0F8AA8] text-[10px] font-bold">
-                          AI 예측
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      평균 가격:{" "}
-                      <span className="font-extrabold text-[#7CC9D8]">
-                        {formatPriceKorean(
-                          hoveredPoint.actualAvgPrice || hoveredPoint.predictedAvgPrice || 0
-                        )}
-                      </span>
-                    </div>
-                    <div className="text-[#DCE8ED]">
-                      거래량: <span className="font-bold text-white">{hoveredPoint.txVolume}건</span>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
-          </div>
-        </div>
 
-        {/* 하단 분석 결과 탭 */}
-        <section className="bg-white border border-[#DCE8ED] rounded-[16px] p-2 shadow-xs">
-          <div className="flex gap-1 overflow-x-auto" role="tablist" aria-label="거래 분석 결과">
-            {ANALYSIS_TABS.map((tab) => (
-              <button
-                key={tab.value}
-                type="button"
-                role="tab"
-                aria-selected={analysisTab === tab.value}
-                onClick={() => setAnalysisTab(tab.value)}
-                className={`min-w-max rounded-[9px] border-0 px-5 py-2.5 text-[13px] font-bold transition-colors ${
-                  analysisTab === tab.value
-                    ? "bg-[#123047] text-white"
-                    : "bg-white text-[#6B7280] hover:bg-[#E8F6F9] hover:text-[#0F8AA8]"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </section>
+            {data?.apiWarning && (
+              <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-[13px] font-medium text-amber-700">
+                <AlertCircle className="size-4 shrink-0" />
+                <span>{data.apiWarning}</span>
+              </div>
+            )}
 
-        {/* 구/동별 인기 아파트 단지 실거래 랭킹 TOP 10 */}
-        {analysisTab === "RANKING" && (
-        <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[16px] overflow-hidden shadow-xs">
-          <div className="p-6 border-b border-[#DCE8ED] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h2 className="text-[18px] font-extrabold text-[#123047]">
-                {selectedGu} {selectedDong} 실거래 순위 TOP
-              </h2>
-              <p className="text-[13px] text-[#6B7280] mt-0.5">
-                선택한 법정동의 평균 거래가 상위 단지입니다.
-              </p>
+            {/* 2. 검색 & 필터 바 */}
+            <Card className="rounded-xl border-[#E2E8F0] shadow-none">
+              <CardContent className="p-4 sm:p-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+                {/* 아파트명 입력창 + 자동완성 드롭다운 */}
+                <div ref={searchContainerRef} className="relative flex-1">
+                  <form onSubmit={handleSearchSubmit} className="relative">
+                    <Input
+                      type="text"
+                      value={searchInput}
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-expanded={isDropdownOpen}
+                      aria-controls="apartment-suggestions"
+                      aria-activedescendant={
+                        isDropdownOpen && highlightedSuggestionIndex >= 0
+                          ? `apartment-suggestion-${highlightedSuggestionIndex}`
+                          : undefined
+                      }
+                      onChange={(e) => {
+                        setSearchInput(e.target.value);
+                        setIsDropdownOpen(true);
+                        setIsEditingSearch(true);
+                        setHighlightedSuggestionIndex(-1);
+                      }}
+                      onFocus={() => {
+                        setIsDropdownOpen(true);
+                        setIsEditingSearch(false);
+                        setHighlightedSuggestionIndex(-1);
+                      }}
+                      onKeyDown={handleSearchKeyDown}
+                      placeholder="아파트명을 입력해 주세요"
+                      className="h-11 rounded-lg border-[#CBD5E1] bg-white px-4 text-[14px] shadow-none focus-visible:border-[#0F8AA8] focus-visible:ring-[#0F8AA8]/15"
+                    />
+                  </form>
+
+                  {/* 자동완성 드롭다운 레이어 */}
+                  {isDropdownOpen && (
+                    <div
+                      id="apartment-suggestions"
+                      role="listbox"
+                      className="relative mt-2 max-h-[260px] w-full overflow-y-auto rounded-lg border border-[#E2E8F0] bg-white py-1.5 shadow-sm"
+                    >
+                      {isLoading ? (
+                        <div className="flex items-center justify-center gap-2 py-6 text-[13px] text-[#64748B]">
+                          <div className="size-4 animate-spin rounded-full border-2 border-[#0F8AA8] border-t-transparent" />
+                          <span>단지 목록을 불러오는 중입니다...</span>
+                        </div>
+                      ) : suggestions.length > 0 ? (
+                        suggestions.map((item, idx) => (
+                          <Button
+                            key={`${item.name}-${idx}`}
+                            id={`apartment-suggestion-${idx}`}
+                            type="button"
+                            variant="ghost"
+                            role="option"
+                            aria-selected={idx === highlightedSuggestionIndex}
+                            onClick={() => handleSelectApartment(item)}
+                            onMouseEnter={() => setHighlightedSuggestionIndex(idx)}
+                            className={`h-auto w-full justify-between rounded-none border-0 px-4 py-2.5 text-left text-[14px] shadow-none focus-visible:ring-0 ${
+                              idx === highlightedSuggestionIndex
+                                ? "bg-white text-[#0F8AA8] shadow-[inset_3px_0_0_#0F8AA8]"
+                                : "bg-white hover:bg-white focus-visible:bg-white"
+                            }`}
+                          >
+                            <span className="font-semibold text-[#0F172A]">
+                              {item.name}
+                            </span>
+                            <span className="text-[12px] text-[#6B7280]">
+                              {item.gu} {item.dong}
+                            </span>
+                          </Button>
+                        ))
+                      ) : (
+                        <div className="py-6 px-4 text-center text-[13px] text-[#64748B]">
+                          <Building2 className="mx-auto mb-2 size-6 text-[#94A3B8]" />
+                          <p className="font-semibold text-[#1E293B]">
+                            일치하는 아파트 단지가 없습니다.
+                          </p>
+                          <p className="mt-0.5 text-[12px] text-[#94A3B8]">
+                            단지명 또는 구/동 이름을 확인해 주세요.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 검색 버튼 */}
+                <Button
+                  type="button"
+                  onClick={() => handleSearchSubmit()}
+                  className="h-11 rounded-lg bg-[#0F8AA8] px-6 text-[14px] font-bold text-white shadow-none hover:bg-[#0B7285]"
+                >
+                  검색
+                </Button>
+
+                {/* 기간 선택 드롭다운 */}
+                <Select value={selectedPeriod} onValueChange={handlePeriodChange}>
+                  <SelectTrigger className="h-11 min-w-[140px] rounded-lg border-[#CBD5E1] bg-white px-4 text-[14px] font-medium shadow-none">
+                    <SelectValue aria-label="조회 기간 선택" />
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="start" className="bg-white">
+                    {PERIOD_OPTIONS.map((option) => (
+                      <SelectItem
+                        key={option}
+                        value={option}
+                        className="bg-transparent focus:bg-transparent focus:text-[#0F172A] data-[state=checked]:bg-transparent"
+                      >
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* 초기화 버튼 */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleReset}
+                  className="ml-auto h-11 rounded-lg border-[#CBD5E1] px-4 text-[13px] font-medium text-[#475569] shadow-none hover:bg-[#F8FAFC]"
+                >
+                  <RotateCcw className="size-4" />
+                  초기화
+                </Button>
+              </div>
+
+              {showSelectedApartment && (
+                <div className="mt-4 flex items-center gap-2 border-t border-[#F1F5F9] pt-4">
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-[#F1F5F9] px-3 py-1.5 text-[13px] font-semibold text-[#334155]">
+                    <Building2 className="size-3.5 text-[#0F8AA8]" />
+                    {selectedApartment.name} · {selectedApartment.gu}{" "}
+                    {selectedApartment.dong}
+                  </span>
+                </div>
+              )}
+
+              </CardContent>
+            </Card>
+
+            {/* 3. 5대 KPI 요약 지표 카드 */}
+            <Card className="grid grid-cols-1 overflow-hidden rounded-xl border-[#E2E8F0] shadow-none sm:grid-cols-2 lg:grid-cols-5 lg:divide-x lg:divide-[#E2E8F0]">
+              {kpiItems.map((item) => (
+                <KpiItem key={item.label} {...item} />
+              ))}
+            </Card>
+
+            {/* 4. 시각화 차트 섹션 (2분할 그리드) */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              {/* 좌측 (2열): 거래량 및 평균 거래가 추이 */}
+              <Card className="flex flex-col justify-between rounded-xl border-[#E2E8F0] shadow-none lg:col-span-2">
+                <CardContent className="p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <h3 className="text-[15px] font-semibold text-[#0F172A]">
+                      거래량 및 평균 거래가 추이
+                    </h3>
+                    {/* 범례 */}
+                    <div className="flex items-center gap-4 text-[12px] text-[#6B7280]">
+                      <span className="flex items-center gap-1.5">
+                        <span className="inline-block size-3 rounded-xs bg-[#2563EB]" />
+                        거래량(건)
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="inline-block size-2.5 rounded-full bg-[#16A34A]" />
+                        평균 거래가(만원)
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* SVG 복합 차트 */}
+                  {monthlyTrends.length > 0 ? (
+                    <MonthlyMixedChart
+                      data={monthlyTrends}
+                      hoveredIndex={hoveredMonthIndex}
+                      onHoverIndex={setHoveredMonthIndex}
+                    />
+                  ) : (
+                    <EmptyState message="조회된 월별 거래 데이터가 없습니다." />
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 우측 (1열): 전용면적별 거래 비중 도넛 차트 */}
+              <Card className="flex flex-col rounded-xl border-[#E2E8F0] shadow-none">
+                <CardContent className="p-5">
+                  <h3 className="mb-4 text-[15px] font-semibold text-[#0F172A]">
+                    전용면적별 거래 비중
+                  </h3>
+                  {areaDist.length > 0 ? (
+                    <AreaDonutChart
+                      items={areaDist}
+                      totalCount={kpi?.totalTradeCount || 0}
+                    />
+                  ) : (
+                    <EmptyState message="면적별 통계 데이터가 없습니다." />
+                  )}
+                </CardContent>
+              </Card>
             </div>
-            <span className="text-[12px] font-bold text-[#0F8AA8] px-3 py-1 bg-[#E6F4F2] rounded-full self-start sm:self-auto">
-              정렬: 평균 거래가 순
+
+            {/* 5. 하단 상세 데이터 그리드 (3단 구성) */}
+            <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+              <DetailCard
+                title="최근 실거래 내역"
+                buttonLabel="전체 실거래 내역 보기"
+                onViewAll={() => setIsTradesModalOpen(true)}
+              >
+                    <Table className="h-full text-[13px]">
+                      <TableHeader>
+                        <TableRow className="text-[#6B7280] hover:bg-transparent">
+                          <TableHead className="h-8 border border-[#E2E8F0] px-2 text-center">계약일</TableHead>
+                          <TableHead className="h-8 border border-[#E2E8F0] px-2 text-center">전용면적(㎡)</TableHead>
+                          <TableHead className="h-8 border border-[#E2E8F0] px-2 text-center">층</TableHead>
+                          <TableHead className="h-8 border border-[#E2E8F0] px-2 text-center">거래가(만원)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {recentTrades.length > 0 ? (
+                          recentTrades.slice(0, 5).map((trade, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-center text-[#374151]">
+                                {trade.dealDate}
+                              </TableCell>
+                              <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-center text-[#374151]">
+                                {trade.area.toFixed(2)}
+                              </TableCell>
+                              <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-center text-[#374151]">
+                                {trade.floor}층
+                              </TableCell>
+                              <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-right font-semibold text-[#123047]">
+                                {trade.price.toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={4} className="py-6 text-center text-[13px] text-[#64748B]">
+                              등록된 실거래 내역이 없습니다.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+              </DetailCard>
+
+              <DetailCard
+                title="면적별 거래 현황"
+                buttonLabel="전체 면적별 현황 보기"
+                onViewAll={() => setIsAreaModalOpen(true)}
+              >
+                    <Table className="h-full text-[13px]">
+                      <TableHeader>
+                        <TableRow className="text-[#6B7280] hover:bg-transparent">
+                          <TableHead className="h-8 border border-[#E2E8F0] px-2 text-center">전용면적(㎡)</TableHead>
+                          <TableHead className="h-8 border border-[#E2E8F0] px-2 text-center">거래건수(건)</TableHead>
+                          <TableHead className="h-8 border border-[#E2E8F0] px-2 text-center">평균 거래가(만원)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {areaStats.length > 0 ? (
+                          areaStats.slice(0, 5).map((stat, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-center font-medium text-[#374151]">
+                                {stat.areaRange}
+                              </TableCell>
+                              <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-center text-[#374151]">
+                                {stat.dealCount}
+                              </TableCell>
+                              <TableCell className="border border-[#E2E8F0] px-2 py-1.5 text-right font-semibold text-[#123047]">
+                                {stat.avgPrice.toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={3} className="py-6 text-center text-[13px] text-[#64748B]">
+                              면적별 거래 현황 데이터가 없습니다.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+              </DetailCard>
+
+              {/* 5-3. 거래 동향 요약 (AI 인사이트) */}
+              <Card className="space-y-3 rounded-xl border-[#E2E8F0] shadow-none">
+                <CardHeader className="p-3 pb-1">
+                <CardTitle className="text-[15px] font-semibold text-[#0F172A]">
+                  거래 동향 요약
+                </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-1.5 p-3 pt-1">
+                  {insights.length > 0 ? (
+                    insights.map((insight) => (
+                      <div
+                        key={insight.id}
+                        className="flex items-start gap-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-2.5 transition-colors hover:bg-[#F1F5F9]"
+                      >
+                        <div className="mt-0.5 shrink-0">
+                          <InsightIcon type={insight.iconType} />
+                        </div>
+
+                        {/* 텍스트 */}
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-bold text-[#111827]">
+                            {insight.title}
+                          </p>
+                          <p className="text-[12px] text-[#6B7280] mt-0.5">
+                            {insight.subtitle}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-6 text-center text-[12px] text-[#6B7280]">
+                      <Building2 className="mx-auto mb-1.5 size-5 text-[#94A3B8]" />
+                      <span>실거래 기반 분석 데이터를 준비 중입니다.</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* 6. 하단 데이터 안내 푸터 */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 text-[12px] text-[#6B7280]">
+              <span className="flex items-center gap-1.5">
+                <Info className="size-4 text-[#2563EB]" />
+                본 정보는 국토교통부 실거래가 공개시스템 데이터를 기반으로 제공됩니다.
+              </span>
+              <span>
+                데이터 기준일: {data?.baseDate || "-"}
+              </span>
+            </div>
+      </SectionSidebarLayout>
+
+      <TrendModal
+        open={isTradesModalOpen}
+        title={`${selectedApartment.name} 전체 실거래 내역`}
+        onClose={() => setIsTradesModalOpen(false)}
+      >
+            <div className="overflow-y-auto flex-1">
+              <table className="w-full text-left text-[13px] border-collapse">
+                <thead className="sticky top-0 bg-[#F9FAFB]">
+                  <tr className="border-b border-[#E5E7EB] text-[#6B7280] font-semibold">
+                    <th className="py-2.5 px-3">계약일</th>
+                    <th className="py-2.5 px-3">전용면적(㎡)</th>
+                    <th className="py-2.5 px-3">층</th>
+                    <th className="py-2.5 px-3 text-right">거래가(만원)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F3F4F6]">
+                  {recentTrades.map((trade, idx) => (
+                    <tr key={idx} className="hover:bg-[#F9FAFB]">
+                      <td className="py-2.5 px-3">{trade.dealDate}</td>
+                      <td className="py-2.5 px-3">{trade.area.toFixed(2)}</td>
+                      <td className="py-2.5 px-3">{trade.floor}층</td>
+                      <td className="py-2.5 px-3 text-right font-bold text-[#123047]">
+                        {trade.price.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+      </TrendModal>
+
+      <TrendModal
+        open={isAreaModalOpen}
+        title={`${selectedApartment.name} 면적별 상세 통계`}
+        onClose={() => setIsAreaModalOpen(false)}
+        maxWidth="max-w-lg"
+      >
+            <div>
+              <table className="w-full text-left text-[13px] border-collapse">
+                <thead>
+                  <tr className="border-b border-[#E5E7EB] text-[#6B7280] font-semibold">
+                    <th className="py-2.5 px-3">전용면적(㎡)</th>
+                    <th className="py-2.5 px-3 text-center">거래건수(건)</th>
+                    <th className="py-2.5 px-3 text-right">평균 거래가(만원)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F3F4F6]">
+                  {areaStats.map((stat, idx) => (
+                    <tr key={idx}>
+                      <td className="py-3 px-3 font-medium text-[#374151]">
+                        {stat.areaRange}
+                      </td>
+                      <td className="py-3 px-3 text-center">{stat.dealCount}건</td>
+                      <td className="py-3 px-3 text-right font-bold text-[#123047]">
+                        {stat.avgPrice.toLocaleString()}만원
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+      </TrendModal>
+    </div>
+  );
+}
+
+// ============================================================================
+// SVG 컴포넌트 1: 거래량(바) + 평균 거래가(라인) 복합 차트
+// ============================================================================
+function MonthlyMixedChart({
+  data,
+  hoveredIndex,
+  onHoverIndex,
+}: {
+  data: MonthlyVolumeAndPricePoint[];
+  hoveredIndex: number | null;
+  onHoverIndex: (idx: number | null) => void;
+}) {
+  if (!data || data.length === 0) return null;
+
+  const width = 640;
+  const height = 240;
+  const padding = { top: 20, right: 55, bottom: 35, left: 35 };
+
+  const chartW = width - padding.left - padding.right;
+  const chartH = height - padding.top - padding.bottom;
+
+  const maxVolume = 40;
+  const maxPrice = 400000;
+
+  const xStep = chartW / Math.max(1, data.length - 1);
+
+  // 라인 차트 좌표 계산
+  const linePoints = data.map((d, i) => {
+    const x = padding.left + i * xStep;
+    const y = padding.top + chartH - (d.avgPrice / maxPrice) * chartH;
+    return { x, y, ...d };
+  });
+
+  const linePathD = linePoints.reduce((acc, pt, idx) => {
+    return idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
+  }, "");
+
+  return (
+    <div className="relative w-full overflow-x-auto">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="w-full h-auto min-w-[580px]"
+      >
+        {/* Y축 그리드 라인 & 좌우 라벨 (0, 10, 20, 30, 40 건 / 0, 10만, 20만, 30만, 40만 만원) */}
+        {[0, 10, 20, 30, 40].map((vol) => {
+          const y = padding.top + chartH - (vol / maxVolume) * chartH;
+          const priceLabel = (vol * 10000).toLocaleString();
+
+          return (
+            <g key={vol}>
+              <line
+                x1={padding.left}
+                y1={y}
+                x2={width - padding.right}
+                y2={y}
+                stroke="#F0F2F5"
+                strokeWidth="1"
+              />
+              {/* 좌측 거래량 Y축 라벨 */}
+              <text
+                x={padding.left - 8}
+                y={y + 3.5}
+                textAnchor="end"
+                className="text-[11px] fill-[#9CA3AF]"
+              >
+                {vol}
+              </text>
+              {/* 우측 가격 Y축 라벨 */}
+              <text
+                x={width - padding.right + 8}
+                y={y + 3.5}
+                textAnchor="start"
+                className="text-[11px] fill-[#9CA3AF]"
+              >
+                {priceLabel}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* 바 차트 (거래량 건수) */}
+        {data.map((d, i) => {
+          const x = padding.left + i * xStep - 8;
+          const barH = (d.volume / maxVolume) * chartH;
+          const y = padding.top + chartH - barH;
+          const isHovered = hoveredIndex === i;
+
+          return (
+            <rect
+              key={`bar-${i}`}
+              x={x}
+              y={y}
+              width={16}
+              height={Math.max(2, barH)}
+              rx={3}
+              className={`transition-all cursor-pointer ${
+                isHovered ? "fill-[#1D4ED8]" : "fill-[#2563EB]"
+              }`}
+              onMouseEnter={() => onHoverIndex(i)}
+              onMouseLeave={() => onHoverIndex(null)}
+            />
+          );
+        })}
+
+        {/* 라인 차트 (평균 거래가 추이) */}
+        <path
+          d={linePathD}
+          fill="none"
+          stroke="#16A34A"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* 라인 차트 꼭짓점 포인트 & 인터랙션 */}
+        {linePoints.map((pt, i) => {
+          const isHovered = hoveredIndex === i;
+
+          return (
+            <g key={`pt-${i}`}>
+              <circle
+                cx={pt.x}
+                cy={pt.y}
+                r={isHovered ? 6 : 4}
+                fill="#16A34A"
+                stroke="#FFFFFF"
+                strokeWidth={isHovered ? 2.5 : 1.5}
+                className="cursor-pointer transition-all"
+                onMouseEnter={() => onHoverIndex(i)}
+                onMouseLeave={() => onHoverIndex(null)}
+              />
+            </g>
+          );
+        })}
+
+        {/* X축 월별 라벨 */}
+        {data.map((d, i) => {
+          const x = padding.left + i * xStep;
+          const y = height - 10;
+
+          return (
+            <text
+              key={`month-${i}`}
+              x={x}
+              y={y}
+              textAnchor="middle"
+              className="text-[10px] fill-[#6B7280]"
+            >
+              {d.month}
+            </text>
+          );
+        })}
+
+        {/* 축 단위 라벨 */}
+        <text
+          x={padding.left - 10}
+          y={padding.top - 8}
+          textAnchor="start"
+          className="text-[10px] fill-[#6B7280]"
+        >
+          (건)
+        </text>
+        <text
+          x={width - padding.right + 5}
+          y={padding.top - 8}
+          textAnchor="end"
+          className="text-[10px] fill-[#6B7280]"
+        >
+          (만원)
+        </text>
+      </svg>
+
+      {/* 호버 툴팁 */}
+      {hoveredIndex !== null && data[hoveredIndex] && (
+        <div
+          className="absolute z-20 pointer-events-none rounded-[8px] bg-[#123047] p-2.5 text-white shadow-xl text-[12px] space-y-1"
+          style={{
+            left: `${padding.left + hoveredIndex * xStep + 10}px`,
+            top: "20px",
+          }}
+        >
+          <div className="font-bold text-[#7CC9D8]">
+            {data[hoveredIndex].month}
+          </div>
+          <div>거래량: <span className="font-bold text-white">{data[hoveredIndex].volume}건</span></div>
+          <div>평균가: <span className="font-bold text-white">{data[hoveredIndex].avgPrice.toLocaleString()}만원</span></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// SVG 컴포넌트 2: 전용면적별 거래 비중 도넛 차트
+// ============================================================================
+function AreaDonutChart({
+  items,
+  totalCount,
+}: {
+  items: AreaDistributionItem[];
+  totalCount: number;
+}) {
+  const size = 180;
+  const center = size / 2;
+  const outerR = 75;
+  const innerR = 46;
+
+  // 도넛 세그먼트 각도 계산 (순수 함수 연산)
+  const slices = useMemo(() => {
+    return items.map((item, index) => {
+      const prevPercentageSum = items
+        .slice(0, index)
+        .reduce((sum, prev) => sum + prev.percentage, 0);
+
+      const startAngle = -Math.PI / 2 + (prevPercentageSum / 100) * 2 * Math.PI;
+      const endAngle = startAngle + (item.percentage / 100) * 2 * Math.PI;
+      const angle = (item.percentage / 100) * 2 * Math.PI;
+
+      const x1 = center + outerR * Math.cos(startAngle);
+      const y1 = center + outerR * Math.sin(startAngle);
+      const x2 = center + outerR * Math.cos(endAngle);
+      const y2 = center + outerR * Math.sin(endAngle);
+
+      const x3 = center + innerR * Math.cos(endAngle);
+      const y3 = center + innerR * Math.sin(endAngle);
+      const x4 = center + innerR * Math.cos(startAngle);
+      const y4 = center + innerR * Math.sin(startAngle);
+
+      const largeArc = angle > Math.PI ? 1 : 0;
+
+      const pathData = [
+        `M ${x1} ${y1}`,
+        `A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2} ${y2}`,
+        `L ${x3} ${y3}`,
+        `A ${innerR} ${innerR} 0 ${largeArc} 0 ${x4} ${y4}`,
+        "Z",
+      ].join(" ");
+
+      return {
+        ...item,
+        pathData,
+      };
+    });
+  }, [items, center, outerR, innerR]);
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-center gap-6 py-2">
+      {/* 도넛 SVG */}
+      <div className="relative shrink-0">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          {slices.map((slice, idx) => (
+            <path
+              key={idx}
+              d={slice.pathData}
+              fill={slice.color}
+              stroke="#FFFFFF"
+              strokeWidth="2"
+            />
+          ))}
+        </svg>
+
+        {/* 도넛 중앙 텍스트 */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <span className="text-[11px] font-bold text-[#6B7280]">총 거래</span>
+          <span className="text-[16px] font-black text-[#123047]">
+            {totalCount}건
+          </span>
+        </div>
+      </div>
+
+      {/* 우측 범례 */}
+      <div className="space-y-2 text-[13px] min-w-[130px]">
+        {items.map((item, idx) => (
+          <div key={idx} className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span
+                className="size-3 rounded-full shrink-0"
+                style={{ backgroundColor: item.color }}
+              />
+              <span className="text-[#374151]">{item.range}</span>
+            </div>
+            <span className="font-bold text-[#111827]">
+              {item.percentage.toFixed(1)}%
             </span>
           </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] text-left border-collapse">
-              <thead>
-                <tr className="bg-[#F0F7FA] border-b border-[#DCE8ED] text-[13px] text-[#123047] font-bold">
-                  <th className="py-3.5 px-4 text-center w-[70px]">순위</th>
-                  <th className="py-3.5 px-4">단지명 및 소재지</th>
-                  <th className="py-3.5 px-4 text-center w-[110px]">거래 건수</th>
-                  <th className="py-3.5 px-4 text-right w-[150px]">평균 거래가</th>
-                  <th className="py-3.5 px-4 text-right w-[150px]">평균 평당가</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#DCE8ED] text-[13px]">
-                {selectedDong === "전체" ? (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-[13px] text-[#6B7280]">법정동을 선택하면 실제 단지 순위를 확인할 수 있습니다.</td></tr>
-                ) : dongPriceQuery.isPending ? (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-[13px] text-[#6B7280]">실거래 순위를 불러오는 중입니다.</td></tr>
-                ) : dongPriceQuery.isError ? (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-[13px] text-rose-600">실거래 순위를 불러오지 못했습니다.</td></tr>
-                ) : !dongPriceQuery.data?.top.length ? (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-[13px] text-[#6B7280]">표시할 거래 자료가 없습니다.</td></tr>
-                ) : dongPriceQuery.data.top.map((item, index) => (
-                  <tr key={`${item.name}-${index}`} className="hover:bg-[#F5FAFC] transition-colors">
-                    <td className="py-4 px-4 text-center">
-                      <span
-                        className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[12px] font-extrabold ${
-                          index === 0
-                            ? "bg-[#123047] text-white"
-                            : index === 1
-                            ? "bg-[#0F8AA8] text-white"
-                            : index === 2
-                            ? "bg-[#7CC9D8] text-[#123047]"
-                            : "bg-[#E1EFF5] text-[#123047]"
-                        }`}
-                      >
-                        {index + 1}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 font-bold text-[#13202B]">
-                      <div className="flex items-center gap-2">
-                        <span>{item.name}</span>
-                      </div>
-                      <span className="text-[12px] text-[#6B7280] font-normal block mt-0.5">
-                        {selectedGu} {item.dongName}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="font-extrabold text-[#123047]">{item.dealCount}</span>
-                      <span className="text-[12px] text-[#6B7280]">건</span>
-                    </td>
-                    <td className="py-4 px-4 text-right font-medium text-[#6B7280]">
-                      {formatPriceKorean(item.averageTradePrice)}
-                    </td>
-                    <td className="py-4 px-4 text-right font-extrabold text-[#123047]">
-                      {item.averagePyeongPrice.toLocaleString("ko-KR")}만원/평
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        )}
-
-        {/* 급상승·급락 단지 */}
-        {analysisTab === "MOVERS" && (
-        <section className="bg-white border border-[#DCE8ED] rounded-[16px] p-6 shadow-xs space-y-5">
-          <div>
-            <h2 className="text-[18px] font-extrabold text-[#123047]">급상승·급락 단지</h2>
-            <p className="text-[13px] text-[#6B7280] mt-0.5">
-              선택 지역 단지의 전월 대비 실거래가 변동 폭을 비교합니다.
-            </p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-[12px] border border-[#FECACA] bg-[#FEF2F2] p-4">
-              <strong className="text-[14px] font-extrabold text-[#DC2626]">상승 폭이 큰 단지</strong>
-              <div className="mt-3 space-y-2">
-                {risingComplexes.length > 0 ? risingComplexes.map((item) => (
-                  <div key={`rise-${item.complexName}`} className="flex items-center justify-between gap-3 text-[13px]">
-                    <span className="truncate font-bold text-[#13202B]">{item.complexName}</span>
-                    <span className="shrink-0 font-extrabold text-[#DC2626]">
-                      +{formatPriceKorean(item.changeFromLastMonth)}
-                    </span>
-                  </div>
-                )) : <p className="text-[12px] text-[#6B7280]">상승 단지가 없습니다.</p>}
-              </div>
-            </div>
-            <div className="rounded-[12px] border border-[#7CC9D8] bg-[#E8F6F9] p-4">
-              <strong className="text-[14px] font-extrabold text-[#0B5E73]">하락 폭이 큰 단지</strong>
-              <div className="mt-3 space-y-2">
-                {fallingComplexes.length > 0 ? fallingComplexes.map((item) => (
-                  <div key={`fall-${item.complexName}`} className="flex items-center justify-between gap-3 text-[13px]">
-                    <span className="truncate font-bold text-[#13202B]">{item.complexName}</span>
-                    <span className="shrink-0 font-extrabold text-[#0891B2]">
-                      -{formatPriceKorean(Math.abs(item.changeFromLastMonth))}
-                    </span>
-                  </div>
-                )) : <p className="text-[12px] text-[#6B7280]">하락 단지가 없습니다.</p>}
-              </div>
-            </div>
-          </div>
-        </section>
-        )}
-
-        {/* 평형대별 시세 비교 */}
-        {analysisTab === "AREA" && (
-        <section className="bg-white border border-[#DCE8ED] rounded-[16px] p-6 shadow-xs space-y-5">
-          <div>
-            <h2 className="text-[18px] font-extrabold text-[#123047]">평형대별 시세 비교</h2>
-            <p className="text-[13px] text-[#6B7280] mt-0.5">
-              선택 지역의 단지 실거래가를 전용면적 유형별로 비교합니다.
-            </p>
-          </div>
-          {areaPriceComparison.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {areaPriceComparison.map((item) => (
-                <div key={item.area} className="rounded-[12px] border border-[#DCE8ED] bg-[#F5FAFC] p-4">
-                  <span className="text-[12px] font-bold text-[#6B7280]">{item.area}</span>
-                  <strong className="mt-2 block text-[19px] font-black text-[#123047]">
-                    {formatPriceKorean(item.averagePrice)}
-                  </strong>
-                  <small className="mt-1 block text-[11px] font-semibold text-[#0F8AA8]">
-                    {item.complexCount}개 단지 평균
-                  </small>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="rounded-[10px] bg-[#F5FAFC] p-5 text-center text-[13px] text-[#6B7280]">
-              비교할 단지 데이터가 없습니다.
-            </p>
-          )}
-        </section>
-        )}
+        ))}
       </div>
     </div>
   );

@@ -11,7 +11,9 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import SectionSidebarLayout from '@/components/SectionSidebarLayout';
+import { CUSTOMER_CENTER_NAVIGATION } from '@/config/sectionNavigation';
 
 interface FaqItem {
   id: number;
@@ -30,8 +32,6 @@ interface FaqQueryState {
 }
 
 export default function FaqPage() {
-  const navigate = useNavigate();
-
   // 1. URL 쿼리 파라미터 상태 관리
   const [searchParams, setSearchParams] = useSearchParams();
   const getParam = (key: FaqQueryParamKeys): string | null => searchParams.get(key);
@@ -145,6 +145,10 @@ export default function FaqPage() {
   };
 
   return (
+    <SectionSidebarLayout
+      sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+      menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+    >
     <div className="min-h-screen bg-[#F5FAFC]">
       <div className="py-12 px-5 sm:px-8">
         <div className="max-w-[1000px] mx-auto space-y-8">
@@ -155,32 +159,6 @@ export default function FaqPage() {
             </span>
             <h1 className="text-[36px] font-black text-[#123047] tracking-tight">자주 묻는 질문</h1>
             <p className="text-[15px] text-[#6B7280]">싸부(SSABU) 서비스 이용 관련 자주 묻는 질문과 답변입니다.</p>
-          </div>
-
-          {/* 카테고리 탭 */}
-          <div className="flex justify-center mb-6">
-            <div className="flex items-center gap-2 p-1 bg-white rounded-[10px] border border-[#DCE8ED] shadow-sm">
-              <button
-                type="button"
-                onClick={() => navigate('/board')}
-                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#6B7280] hover:bg-[#F0F7FA]"
-              >
-                게시판
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/qna')}
-                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] text-[#6B7280] hover:bg-[#F0F7FA]"
-              >
-                질의응답
-              </button>
-              <button
-                type="button"
-                className="py-2.5 px-6 text-[14px] font-bold rounded-[8px] bg-[#123047] text-white"
-              >
-                자주 묻는 질문
-              </button>
-            </div>
           </div>
 
           {/* 카테고리 필터 및 검색 영역 */}
@@ -366,6 +344,7 @@ export default function FaqPage() {
         </div>
       </div>
     </div>
+    </SectionSidebarLayout>
   );
 }
 

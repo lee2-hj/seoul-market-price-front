@@ -3,6 +3,13 @@ import type {
   TrendsDataResponse,
   ComplexRankingItem,
   MonthlyPriceTrendPoint,
+  ApartmentSearchItem,
+  ApartmentTrendDetailResponse,
+  MonthlyVolumeAndPricePoint,
+  AreaDistributionItem,
+  RecentTradeRecord,
+  AreaTradeStat,
+  TrendInsight,
 } from "../types/trends.types";
 
 /**
@@ -648,7 +655,6 @@ export async function getMarketTrendsData(
     lastUpdated: new Date().toISOString().slice(0, 10),
   };
 }
-
 /**
  * 지역별(구/동) 실거래 랭킹 대표 데이터 맵
  */
@@ -897,4 +903,218 @@ export function formatPriceKorean(amountInManwon: number): string {
     return `${eok}억원`;
   }
   return `${man.toLocaleString()}만원`;
+}
+
+/**
+ * 서울시 주요 대표 아파트 단지 목록 (자동완성 및 검색용)
+ */
+export const SEOUL_POPULAR_APARTMENTS: ApartmentSearchItem[] = [
+  { name: "래미안대치팰리스", gu: "강남구", dong: "대치동" },
+  { name: "래미안원베일리", gu: "서초구", dong: "반포동" },
+  { name: "헬리오시티", gu: "송파구", dong: "가락동" },
+  { name: "파크리오", gu: "송파구", dong: "신천동" },
+  { name: "잠실엘스", gu: "송파구", dong: "잠실동" },
+  { name: "리센츠", gu: "송파구", dong: "잠실동" },
+  { name: "디에이치퍼스티어아이파크", gu: "강남구", dong: "개포동" },
+  { name: "압구정현대", gu: "강남구", dong: "압구정동" },
+  { name: "아크로리버파크", gu: "서초구", dong: "반포동" },
+  { name: "반포자이", gu: "서초구", dong: "반포동" },
+  { name: "마포래미안푸르지오", gu: "마포구", dong: "아현동" },
+  { name: "DMC파크뷰자이", gu: "서대문구", dong: "남가좌동" },
+  { name: "고덕그라시움", gu: "강동구", dong: "고덕동" },
+  { name: "고덕아르테온", gu: "강동구", dong: "상일동" },
+  { name: "목동신시가지7단지", gu: "양천구", dong: "목동" },
+  { name: "경희궁자이", gu: "종로구", dong: "홍파동" },
+  { name: "텐즈힐", gu: "성동구", dong: "하왕십리동" },
+  { name: "래미안옥수리버젠", gu: "성동구", dong: "옥수동" },
+  { name: "올림픽선수기자촌", gu: "송파구", dong: "방이동" },
+  { name: "도곡렉슬", gu: "강남구", dong: "도곡동" },
+  { name: "은마아파트", gu: "강남구", dong: "대치동" },
+  { name: "트리마제", gu: "성동구", dong: "성수동1가" },
+  { name: "아크로서울포레스트", gu: "성동구", dong: "성수동1가" },
+];
+
+/**
+ * 아파트명 검색 자동완성
+ */
+export function searchApartments(keyword: string): ApartmentSearchItem[] {
+  const q = keyword.trim().toLowerCase();
+  if (!q) return SEOUL_POPULAR_APARTMENTS.slice(0, 5);
+
+  const matched = SEOUL_POPULAR_APARTMENTS.filter(
+    (item) =>
+      item.name.toLowerCase().includes(q) ||
+      item.gu.toLowerCase().includes(q) ||
+      item.dong.toLowerCase().includes(q)
+  );
+
+  return matched.length > 0
+    ? matched
+    : [
+        {
+          name: keyword.trim(),
+          gu: "서울시",
+          dong: "주요동",
+        },
+      ];
+}
+
+const MOCK_PERIOD_MONTHS: Record<string, number> = {
+  "최근 6개월": 6,
+  "최근 1년": 12,
+  "최근 2년": 24,
+  "최근 3년": 36,
+};
+
+function formatMockMonth(date: Date): string {
+  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatMockDate(date: Date): string {
+  return `${formatMockMonth(date)}.${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function addMonths(date: Date, amount: number): Date {
+  return new Date(date.getFullYear(), date.getMonth() + amount, 1);
+}
+
+function addDays(date: Date, amount: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + amount);
+  return result;
+}
+
+/**
+ * 아파트별 거래동향 상세 데이터 조회 (시안 1:1 맞춤형 데이터 생성 및 계산)
+ */
+export async function getApartmentTrendDetail(
+  apt: ApartmentSearchItem = SEOUL_POPULAR_APARTMENTS[0],
+  period: string = "최근 1년"
+): Promise<ApartmentTrendDetailResponse> {
+  // 실제 API 지연 시뮬레이션
+  await new Promise((resolve) => setTimeout(resolve, 60));
+
+  const baseDate = new Date();
+  const periodMonths = MOCK_PERIOD_MONTHS[period] ?? MOCK_PERIOD_MONTHS["최근 1년"];
+  const periodStartDate = addMonths(baseDate, -periodMonths);
+
+  // 아파트 기본 가격 책정 (래미안대치팰리스: 22억대, 원베일리: 35억대, 헬리오시티: 20억대 등)
+  let basePrice = 221900; // 22억 1,900만원
+  let maxPrice = 325000; // 32억 5,000만원
+  let totalCount = 128;
+  let totalAmountEok = 2840;
+
+  if (apt.name.includes("원베일리") || apt.name.includes("아크로리버파크") || apt.name.includes("압구정")) {
+    basePrice = 385000;
+    maxPrice = 540000;
+    totalCount = 94;
+    totalAmountEok = 3619;
+  } else if (apt.name.includes("헬리오시티") || apt.name.includes("파크리오") || apt.name.includes("잠실엘스")) {
+    basePrice = 238000;
+    maxPrice = 285000;
+    totalCount = 186;
+    totalAmountEok = 4426;
+  } else if (apt.name.includes("마포래미안") || apt.name.includes("고덕그라시움") || apt.name.includes("DMC")) {
+    basePrice = 175000;
+    maxPrice = 215000;
+    totalCount = 142;
+    totalAmountEok = 2485;
+  }
+
+  // 기간별 건수 스케일링
+  if (period === "최근 6개월") {
+    totalCount = Math.round(totalCount * 0.55);
+    totalAmountEok = Math.round(totalAmountEok * 0.55);
+  } else if (period === "최근 2년") {
+    totalCount = Math.round(totalCount * 1.85);
+    totalAmountEok = Math.round(totalAmountEok * 1.85);
+  } else if (period === "최근 3년") {
+    totalCount = Math.round(totalCount * 2.7);
+    totalAmountEok = Math.round(totalAmountEok * 2.7);
+  }
+
+  // API 미연동 영역: 현재 월을 기준으로 최근 12개월 더미 추이를 생성한다.
+  const volumes = [23, 25, 21, 22, 28, 24, 32, 25, 21, 24, 21, 27, 24];
+  const priceRates = [0.92, 0.94, 0.93, 0.93, 0.96, 0.95, 0.98, 0.94, 0.94, 0.96, 0.95, 0.98, 1.01];
+  const monthlyTrends: MonthlyVolumeAndPricePoint[] = volumes.map((volume, index) => ({
+    month: formatMockMonth(addMonths(baseDate, index - 12)),
+    volume,
+    avgPrice: Math.round(basePrice * priceRates[index]),
+  }));
+
+  // 전용면적별 거래 비중
+  const areaDistribution: AreaDistributionItem[] = [
+    { range: "59㎡ 이하", count: Math.round(totalCount * 0.125), percentage: 12.5, color: "#2563EB" },
+    { range: "60~84㎡", count: Math.round(totalCount * 0.477), percentage: 47.7, color: "#16A34A" },
+    { range: "85~114㎡", count: Math.round(totalCount * 0.266), percentage: 26.6, color: "#7C3AED" },
+    { range: "115㎡ 이상", count: Math.round(totalCount * 0.132), percentage: 13.2, color: "#D1D5DB" },
+  ];
+
+  // API 미연동 영역: 기준일 직전 5일의 더미 실거래 내역
+  const recentTrades: RecentTradeRecord[] = [
+    { dealDate: formatMockDate(addDays(baseDate, -1)), area: 84.98, floor: 12, price: Math.round(basePrice * 1.08) },
+    { dealDate: formatMockDate(addDays(baseDate, -2)), area: 109.98, floor: 21, price: Math.round(maxPrice * 0.98) },
+    { dealDate: formatMockDate(addDays(baseDate, -3)), area: 76.79, floor: 8, price: Math.round(basePrice * 0.96) },
+    { dealDate: formatMockDate(addDays(baseDate, -4)), area: 59.91, floor: 15, price: Math.round(basePrice * 0.82) },
+    { dealDate: formatMockDate(addDays(baseDate, -5)), area: 59.97, floor: 7, price: Math.round(basePrice * 0.78) },
+  ];
+
+  // 면적별 거래 현황
+  const areaStats: AreaTradeStat[] = [
+    { areaRange: "59㎡ 이하", dealCount: Math.round(totalCount * 0.125), avgPrice: Math.round(basePrice * 0.8) },
+    { areaRange: "60~84㎡", dealCount: Math.round(totalCount * 0.477), avgPrice: Math.round(basePrice * 0.98) },
+    { areaRange: "85~114㎡", dealCount: Math.round(totalCount * 0.266), avgPrice: Math.round(basePrice * 1.16) },
+    { areaRange: "115㎡ 이상", dealCount: Math.round(totalCount * 0.132), avgPrice: Math.round(basePrice * 1.35) },
+  ];
+
+  // AI / 실거래 트렌드 요약 인사이트 3건
+  const insights: TrendInsight[] = [
+    {
+      id: "insight-1",
+      iconType: "up",
+      title: "거래량이 전년 대비 8.7% 증가했어요.",
+      subtitle: "시장이 활발해지고 있어요.",
+    },
+    {
+      id: "insight-2",
+      iconType: "chart",
+      title: "평균 거래가는 전년 대비 3.6% 상승했어요.",
+      subtitle: "지속적인 가격 상승세를 보이고 있어요.",
+    },
+    {
+      id: "insight-3",
+      iconType: "star",
+      title: "85~114㎡ 구간의 거래 비중이 26.6%로 높아요.",
+      subtitle: "중대형 평형에 대한 수요가 꾸준해요.",
+    },
+  ];
+
+  const avgPriceEok = Math.floor(basePrice / 10000);
+  const avgPriceMan = basePrice % 10000;
+  const maxPriceEok = Math.floor(maxPrice / 10000);
+  const maxPriceMan = maxPrice % 10000;
+
+  return {
+    apartment: apt,
+    kpi: {
+      totalTradeCount: totalCount,
+      totalTradeCountChangeRate: 8.7,
+      totalTradeAmountEok: totalAmountEok,
+      totalTradeAmountChangeRate: 12.3,
+      avgTradePriceEok: avgPriceEok,
+      avgTradePriceMan: avgPriceMan,
+      avgTradePriceChangeRate: 3.6,
+      maxTradePriceEok: maxPriceEok,
+      maxTradePriceMan: maxPriceMan,
+      maxTradePriceChangeRate: 5.2,
+      tradeVolumeChangeRate: 8.7,
+      periodLabel: `(${formatMockMonth(periodStartDate)} ~ ${formatMockMonth(baseDate)})`,
+    },
+    monthlyTrends,
+    areaDistribution,
+    recentTrades,
+    areaStats,
+    insights,
+    baseDate: formatMockDate(baseDate),
+  };
 }

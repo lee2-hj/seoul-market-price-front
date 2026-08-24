@@ -1,4 +1,5 @@
 import apiMiddleware from "@/api/middleware";
+import { getDongs, getSggs } from "@/features/location/services/locationService";
 
 export interface RegionPriceSummary {
   code: string;
@@ -25,6 +26,13 @@ export interface ApartmentPriceSummary {
   dealCount: number;
   averageTradePrice: number;
   averagePyeongPrice: number;
+}
+
+export interface ApartmentTrendRegionData extends DongPriceAnalysis {
+  guName: string;
+  dongName: string;
+  guCode: string;
+  dongCode: string;
 }
 
 interface TopAndBottomResponse {
@@ -93,5 +101,27 @@ export async function getDongPriceAnalysis(guCode: string, dongCode: string): Pr
     averagePyeongPrice: data.avg_pyeong_amt,
     top: (data.top ?? []).map(mapItem),
     bottom: (data.bottom ?? []).map(mapItem),
+  };
+}
+
+export async function getApartmentTrendRegionData(
+  guName: string,
+  dongName: string,
+): Promise<ApartmentTrendRegionData | null> {
+  const sggs = await getSggs();
+  const gu = sggs.find((item) => item.sggNm.trim() === guName.trim());
+  if (!gu) return null;
+
+  const dongs = await getDongs(gu.sggCd);
+  const dong = dongs.find((item) => item.dongNm.trim() === dongName.trim());
+  if (!dong) return null;
+
+  const analysis = await getDongPriceAnalysis(gu.sggCd, dong.dongCd);
+  return {
+    ...analysis,
+    guName: gu.sggNm,
+    dongName: dong.dongNm,
+    guCode: gu.sggCd,
+    dongCode: dong.dongCd,
   };
 }

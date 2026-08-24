@@ -22,6 +22,9 @@ import {
 } from '@/components/ui/table';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { maskAuthorName } from '@/lib/utils';
+import SectionSidebarLayout from '@/components/SectionSidebarLayout';
+import { CUSTOMER_CENTER_NAVIGATION } from '@/config/sectionNavigation';
 
 // select 반환 타입 정의
 interface BoardPostsSelectResult {
@@ -69,13 +72,46 @@ export default function BoardPage() {
   // 2. URL 검색 조건이 변경되면 React Query가 자동으로 다시 조회한다.
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['boardPosts', query.page, query.searchType, query.keyword],
-    queryFn: () =>
-      getBoardPostsApi({
+    queryFn: async () => {
+      const currentPageData = await getBoardPostsApi({
         page: query.page,
         size: 10,
         searchType: query.keyword ? (query.searchType as BoardSearchType) : undefined,
         keyword: query.keyword || undefined,
-      }),
+      });
+
+      // 서버는 공지/일반 구분 없이 최신순으로 페이지를 먼저 나눈다.
+      // 따라서 1페이지 응답만으로는 뒤 페이지의 공지를 상단 고정할 수 없어,
+      // 전체 범위에서 최신 공지 2건을 한 번 더 조회한다.
+      if (query.keyword) {
+        const searchItems = [...currentPageData.notices, ...currentPageData.items].sort(
+          (a, b) =>
+            Date.parse(b.createdAt) - Date.parse(a.createdAt) || b.boardId - a.boardId,
+        );
+        return { ...currentPageData, notices: [], items: searchItems };
+      }
+
+      const allPostsData = await getBoardPostsApi({
+        page: 1,
+        size: Math.max(10, currentPageData.totalElements),
+      });
+      const pinnedNotices = allPostsData.notices.slice(0, 2);
+      const pinnedIds = new Set(pinnedNotices.map((notice) => notice.boardId));
+      const orderedPosts = [
+        ...pinnedNotices,
+        ...allPostsData.items.filter((item) => !pinnedIds.has(item.boardId)),
+      ];
+      const pageStart = (query.page - 1) * 10;
+      const pageItems = orderedPosts.slice(pageStart, pageStart + 10);
+
+      return {
+        notices: query.page === 1 ? pageItems.filter((item) => pinnedIds.has(item.boardId)) : [],
+        items: pageItems.filter((item) => !pinnedIds.has(item.boardId)),
+        totalElements: allPostsData.totalElements,
+        totalPages: Math.ceil(allPostsData.totalElements / 10),
+        currentPage: query.page,
+      };
+    },
     select: (res): BoardPostsSelectResult => ({
       notices: (res?.notices || []) as BoardListItem[],
       items: (res?.items || []) as BoardListItem[],
@@ -106,6 +142,10 @@ export default function BoardPage() {
   };
 
   return (
+    <SectionSidebarLayout
+      sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+      menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+    >
     <div className="min-h-screen bg-[#F5FAFC]">
       <div className="py-12 px-5 sm:px-8">
         <div className="max-w-[1000px] mx-auto space-y-8">
@@ -118,26 +158,21 @@ export default function BoardPage() {
             <p className="text-[15px] text-[#6B7280]">싸부(SSABU) 부동산 실거래 및 시세 분석 서비스의 다양한 이야기를 나누는 공간입니다.</p>
           </div>
 
-          {/* 고객센터 이동 탭 */}
-          <div className="flex justify-center mb-6">
-            <div className="flex flex-wrap items-center justify-center gap-2 rounded-[10px] border border-[#DCE8ED] bg-white p-1 shadow-sm">
-              <button type="button" className="rounded-[8px] bg-[#123047] px-6 py-2.5 text-[14px] font-bold text-white">게시판</button>
-              <button type="button" onClick={() => navigate('/qna')} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA]">질의응답</button>
-              <button type="button" onClick={() => navigate('/faq')} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA]">자주 묻는 질문</button>
-              <button type="button" onClick={() => navigate('/report')} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA]">문의사항</button>
-            </div>
-          </div>
-
           {/* 검색 영역 */}
           <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[12px] p-5 mb-6 shadow-xs">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
+                const keyword = (formData.get('keyword') as string).trim();
+                if (!keyword) {
+                  alert('검색어를 입력해 주세요.');
+                  return;
+                }
                 setQuery({
                   page: 1,
                   searchType: formData.get('searchType') as BoardSearchType,
-                  keyword: (formData.get('keyword') as string).trim(),
+                  keyword,
                 });
               }}
               className="flex flex-col md:flex-row items-center gap-3"
@@ -220,47 +255,43 @@ export default function BoardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-[#DCE8ED]">
-                  {/* 1. 상단 고정 공지사항 */}
-                  {data?.notices?.map((notice: BoardListItem, index: number) => (
-                    <TableRow key={`notice-${notice.boardId}`} className="bg-[#F0F7FA] hover:bg-[#E1EFF5] border-b border-[#DCE8ED]">
-                      <TableCell className="w-[9%] text-center text-[#6B7280] font-medium">
-                        {(data?.totalElements ?? 0) + (data?.notices?.length ?? 0) - index}
-                      </TableCell>
-                      <TableCell className="w-[10%] text-center">
-                        <span className="inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]">
-                          공지
-                        </span>
-                      </TableCell>
-                      <TableCell className="w-[43%] text-left max-w-0">
-                        <Link to={`/board/${notice.boardId}`} className="block truncate w-full text-[14px] font-bold text-[#0B5E73] no-underline hover:text-[#0F8AA8]" title={notice.title}>
-                          {notice.title}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="w-[14%] text-center text-[#6B7280]">{notice.authorName}</TableCell>
-                      <TableCell className="w-[15%] text-center text-[#6B7280]">{notice.createdAt?.includes('T') ? `${notice.createdAt.split('T')[0].replace(/-/g, '.')} ${notice.createdAt.split('T')[1]?.slice(0, 5)}` : notice.createdAt?.replace(/-/g, '.') || '-'}</TableCell>
-                      <TableCell className="w-[9%] text-center text-[#6B7280]">{notice.viewCount?.toLocaleString() || 0}</TableCell>
-                    </TableRow>
-                  ))}
-
-                  {/* 2. 일반 게시글 */}
-                  {data?.items?.map((item: BoardListItem, index: number) => {
-                    const displayNo: number = (data?.totalElements || 0) - ((query.page - 1) * 10 + index);
-                    const isNotice: boolean = item.postType === 'NOTICE';
+                  {/* 1페이지의 최신 공지 2개만 상단 고정, 이전 공지는 원래 순서로 노출 */}
+                  {[...(data?.notices || []), ...(data?.items || [])].map((item: BoardListItem, index: number) => {
+                    const displayNo = Math.max(
+                      1,
+                      (data?.totalElements ?? 0) - ((query.page - 1) * 10 + index),
+                    );
+                    const isNotice = item.postType === 'NOTICE' || data?.notices?.some((n) => n.boardId === item.boardId);
 
                     return (
-                      <TableRow key={`item-${item.boardId}`} className={isNotice ? 'bg-[#F0F7FA] hover:bg-[#E1EFF5] border-b border-[#DCE8ED]' : 'bg-white hover:bg-[#F5FAFC] border-b border-[#DCE8ED]'}>
-                        <TableCell className="w-[9%] text-center text-[#6B7280] font-medium">{displayNo}</TableCell>
+                      <TableRow
+                        key={`row-${item.boardId}`}
+                        className={isNotice ? 'bg-[#F0F7FA] hover:bg-[#E1EFF5] border-b border-[#DCE8ED]' : 'bg-white hover:bg-[#F5FAFC] border-b border-[#DCE8ED]'}
+                      >
+                        <TableCell className="w-[9%] text-center text-[#6B7280] font-medium">
+                          {displayNo}
+                        </TableCell>
                         <TableCell className="w-[10%] text-center">
-                          <span className={isNotice ? 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]' : 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#E6F4F2] text-[#0F766E]'}>
+                          <span
+                            className={
+                              isNotice
+                                ? 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]'
+                                : 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#E6F4F2] text-[#0F766E]'
+                            }
+                          >
                             {isNotice ? '공지' : '일반'}
                           </span>
                         </TableCell>
                         <TableCell className="w-[43%] text-left max-w-0">
-                          <Link to={`/board/${item.boardId}`} className={`block truncate w-full text-[14px] no-underline hover:text-[#0F8AA8] ${isNotice ? 'font-bold text-[#0B5E73]' : 'font-semibold text-[#13202B]'}`} title={item.title}>
+                          <Link
+                            to={`/board/${item.boardId}`}
+                            className={`block truncate w-full text-[14px] no-underline hover:text-[#0F8AA8] ${isNotice ? 'font-bold text-[#0B5E73]' : 'font-semibold text-[#13202B]'}`}
+                            title={item.title}
+                          >
                             {item.title}
                           </Link>
                         </TableCell>
-                        <TableCell className="w-[14%] text-center text-[#6B7280]">{item.authorName}</TableCell>
+                        <TableCell className="w-[14%] text-center text-[#6B7280]">{maskAuthorName(item.authorName)}</TableCell>
                         <TableCell className="w-[15%] text-center text-[#6B7280]">{item.createdAt?.includes('T') ? `${item.createdAt.split('T')[0].replace(/-/g, '.')} ${item.createdAt.split('T')[1]?.slice(0, 5)}` : item.createdAt?.replace(/-/g, '.') || '-'}</TableCell>
                         <TableCell className="w-[9%] text-center text-[#6B7280]">{item.viewCount?.toLocaleString() || 0}</TableCell>
                       </TableRow>
@@ -296,5 +327,6 @@ export default function BoardPage() {
         </div>
       </div>
     </div>
+    </SectionSidebarLayout>
   );
 }

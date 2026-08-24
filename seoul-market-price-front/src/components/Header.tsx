@@ -7,6 +7,11 @@ import { getCurrentDistrictApi } from "@/api/api";
 import { logout } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { Button } from "@/components/ui/button";
+import {
+  getDetectedDistrict,
+  isSeoulDistrict,
+  storeDetectedDistrict,
+} from "@/features/region-map/utils/regionSelection";
 
 type MenuLink = { to: string; label: string };
 
@@ -19,9 +24,17 @@ const NAV_ITEMS: Array<{ label: string; to?: string; icon: typeof Search; links?
       { to: "/price/compare-list", label: "지역별 비교(리스트)" },
       { to: "/region-map", label: "지역별 비교(지도)" },
       { to: "/price/detail", label: "단지별 시세" },
+      { to: "/price/compare-apartment", label: "아파트별 비교" },
     ],
   },
-  { label: "가격 추이", to: "/trends", icon: BarChart3 },
+  {
+    label: "거래동향",
+    icon: BarChart3,
+    links: [
+      { to: "/trends/region", label: "지역별 거래동향" },
+      { to: "/trends", label: "아파트별 거래동향" },
+    ],
+  },
   {
     label: "고객센터",
     icon: Headphones,
@@ -29,7 +42,6 @@ const NAV_ITEMS: Array<{ label: string; to?: string; icon: typeof Search; links?
       { to: "/board", label: "게시판" },
       { to: "/qna", label: "질의응답" },
       { to: "/faq", label: "자주 묻는 질문" },
-      { to: "/report", label: "문의사항" },
     ],
   },
 ];
@@ -39,13 +51,6 @@ const MYPAGE_LINKS: MenuLink[] = [
   { to: "/mypage?tab=ACTIVITY", label: "활동 내역" },
 ];
 
-const SEOUL_DISTRICTS = [
-  "강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구", "금천구",
-  "노원구", "도봉구", "동대문구", "동작구", "마포구", "서대문구", "서초구", "성동구",
-  "성북구", "송파구", "양천구", "영등포구", "용산구", "은평구", "종로구", "중구", "중랑구",
-];
-
-const REGION_STORAGE_KEY = "ssabu_selected_region";
 const TEST_LATITUDE_STORAGE_KEY = "latitude";
 const TEST_LONGITUDE_STORAGE_KEY = "longitude";
 
@@ -78,25 +83,19 @@ export default function Header() {
   const user = useAuthStore((state) => state.user);
   const [open, setOpen] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [detectedDistrict, setDetectedDistrict] = useState(getDetectedDistrict);
   const isAuthenticated = user !== null;
+
+  // 헤더에는 오직 '위치서비스(내 위치 찾기)'를 이용했을 때만 현재 위치 자치구가 나타납니다.
   const region =
-    user?.preferredDistrict && SEOUL_DISTRICTS.includes(user.preferredDistrict)
-      ? user.preferredDistrict
-      : "중구";
+    isSeoulDistrict(detectedDistrict)
+      ? detectedDistrict
+      : "";
 
   const handleRegionChange = (nextRegion: string) => {
     const normalizedRegion = nextRegion.trim();
-    sessionStorage.setItem(REGION_STORAGE_KEY, normalizedRegion);
-
-    // 로그인 중 위치 조회 결과를 인증 사용자 상태에도 반영해야
-    // Header가 재렌더링/재마운트되어도 DB 초기값으로 되돌아가지 않는다.
-    if (user) {
-      useAuthStore.getState().setUser({
-        ...user,
-        preferredDistrict: normalizedRegion,
-      });
-    }
-
+    storeDetectedDistrict(normalizedRegion);
+    setDetectedDistrict(normalizedRegion);
   };
 
   const handleLocate = () => {
@@ -116,15 +115,12 @@ export default function Header() {
 
       const { district } = await getCurrentDistrictApi(latitude, longitude);
       console.info("[현재 위치 조회] 변환된 자치구", district);
-      if (!SEOUL_DISTRICTS.includes(district)) {
+      if (!isSeoulDistrict(district)) {
         throw new Error("현재 위치가 서울 지역이 아닙니다.");
       }
       handleRegionChange(district);
     };
 
-    // 개발 모드에서는 데스크톱 위치 정확도에 영향받지 않도록
-    // localStorage에 수동 입력한 테스트 좌표를 사용한다.
-    // 운영 빌드에서는 이 분기를 타지 않고 아래 브라우저 위치 조회를 사용한다.
     if (import.meta.env.DEV) {
       const latitudeValue = localStorage.getItem(TEST_LATITUDE_STORAGE_KEY);
       const longitudeValue = localStorage.getItem(TEST_LONGITUDE_STORAGE_KEY);
@@ -156,7 +152,6 @@ export default function Header() {
       return;
     }
 
-    // 운영 모드에서는 기존 방식대로 브라우저의 실제 현재 위치를 사용한다.
     if (!navigator.geolocation) {
       window.alert("현재 브라우저에서는 위치 정보를 사용할 수 없습니다.");
       return;
@@ -193,8 +188,6 @@ export default function Header() {
           window.alert("현재 위치 정보를 가져올 수 없습니다.");
         }
       },
-      // 이전 위치 캐시나 IP 기반의 대략적인 위치보다 현재 장치가 제공할 수
-      // 있는 가장 정확한 좌표를 요청한다.
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
     );
   };
@@ -223,19 +216,21 @@ export default function Header() {
         </nav>
 
         <div className="hidden shrink-0 items-center gap-2.5 lg:flex">
-          {isAuthenticated && <div className="flex h-[42px] items-center gap-1 text-[#123047]">
-            <span className="text-[20px] font-extrabold">{region}</span>
-            <button
-              type="button"
-              onClick={handleLocate}
-              disabled={locating}
-              aria-label="현재 위치로 자치구 찾기"
-              title="내 위치 보기"
-              className="flex size-8 items-center justify-center rounded-full border-0 bg-transparent text-[#69747C] transition-colors hover:bg-[#E8F6F9] hover:text-[#0F8AA8] disabled:cursor-wait disabled:opacity-60"
-            >
-              {locating ? <LoaderCircle className="size-[18px] animate-spin" /> : <LocateFixed className="size-[18px]" />}
-            </button>
-          </div>}
+          {isAuthenticated && (
+            <div className="flex h-[42px] items-center gap-1 text-[#123047]">
+              {region ? <span className="text-[18px] font-extrabold">{region}</span> : null}
+              <button
+                type="button"
+                onClick={handleLocate}
+                disabled={locating}
+                aria-label="현재 위치로 자치구 찾기"
+                title="내 위치 찾기"
+                className="flex size-8 items-center justify-center rounded-full border-0 bg-transparent text-[#69747C] transition-colors hover:bg-[#E8F6F9] hover:text-[#0F8AA8] disabled:cursor-wait disabled:opacity-60 cursor-pointer"
+              >
+                {locating ? <LoaderCircle className="size-[18px] animate-spin text-[#0F8AA8]" /> : <LocateFixed className="size-[18px]" />}
+              </button>
+            </div>
+          )}
           {isAuthenticated ? (
             <>
               <span className="flex items-center gap-1.5 text-[13px] font-extrabold text-[#263329]"><UserRound className="size-4" />{user?.name}님</span>
@@ -261,13 +256,15 @@ export default function Header() {
               <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>
             ))}
             {isAuthenticated && MYPAGE_LINKS.map((item) => <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>)}
-            {isAuthenticated && <div className="mt-3 flex items-center gap-2 border-t border-[#e5e8e4] pt-3 text-[13px] font-extrabold text-[#344037]">
-              <span>내 지역</span>
-              <span className="ml-auto text-[20px]">{region}</span>
-              <button type="button" onClick={handleLocate} disabled={locating} aria-label="현재 위치로 자치구 찾기" title="내 위치 보기" className="flex size-9 items-center justify-center rounded-full border-0 bg-transparent text-[#69747C] hover:bg-[#E8F6F9] hover:text-[#0F8AA8] disabled:cursor-wait disabled:opacity-60">
-                {locating ? <LoaderCircle className="size-[18px] animate-spin" /> : <LocateFixed className="size-[18px]" />}
-              </button>
-            </div>}
+            {isAuthenticated && (
+              <div className="mt-3 flex items-center gap-2 border-t border-[#e5e8e4] pt-3 text-[13px] font-extrabold text-[#344037]">
+                <span>내 지역</span>
+                <span className="ml-auto text-[20px]">{region || "미설정"}</span>
+                <button type="button" onClick={handleLocate} disabled={locating} aria-label="현재 위치로 자치구 찾기" title="내 위치 찾기" className="flex size-9 items-center justify-center rounded-full border-0 bg-transparent text-[#69747C] hover:bg-[#E8F6F9] hover:text-[#0F8AA8] disabled:cursor-wait disabled:opacity-60 cursor-pointer">
+                  {locating ? <LoaderCircle className="size-[18px] animate-spin text-[#0F8AA8]" /> : <LocateFixed className="size-[18px]" />}
+                </button>
+              </div>
+            )}
             <div className="mt-3 border-t border-[#e5e8e4] pt-3">
               {isAuthenticated ? <Button type="button" variant="outline" onClick={handleLogout} className="h-11 w-full rounded-[8px]">{user?.name}님 · 로그아웃</Button> : <Button asChild className="h-11 w-full rounded-[8px] bg-[#0F8AA8] text-white"><Link to="/login" onClick={() => setOpen(false)} className="no-underline">로그인</Link></Button>}
             </div>

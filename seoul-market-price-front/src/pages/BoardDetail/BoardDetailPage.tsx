@@ -2,16 +2,13 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MessageSquare, Edit2, Trash2, Send, Paperclip, Download } from "lucide-react";
-import type {
-  BoardComment,
-  AttachmentResponse,
-} from "@/features/board/types/board.types";
+import type { BoardComment } from "@/features/board/types/board.types";
 import {
   downloadBoardAttachmentApi,
   getBoardPostApi,
+  getBoardCommentsApi,
   getBoardAttachmentsApi,
   deleteBoardPostApi,
-  getBoardCommentsApi,
   createBoardCommentApi,
   updateBoardCommentApi,
   deleteBoardCommentApi,
@@ -19,6 +16,9 @@ import {
 import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { Button } from "@/components/ui/button";
+import { maskAuthorName } from "@/lib/utils";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
 
 function formatBoardDate(dateStr?: string): string {
   if (!dateStr) return "-";
@@ -63,33 +63,42 @@ export default function BoardDetailPage() {
   const [editingContent, setEditingContent] = useState("");
 
   // 게시글 정보 Query
-  const { data: post, isLoading, isError, error } = useQuery({
-    queryKey: ["board", boardId],
-    queryFn: () => getBoardPostApi(boardId),
+  const { data: fullDetail, isLoading, isError, error } = useQuery({
+    queryKey: ["boardFull", boardId],
+    queryFn: async () => {
+      const [detail, comments, attachments] = await Promise.all([
+        getBoardPostApi(boardId),
+        getBoardCommentsApi(boardId),
+        getBoardAttachmentsApi(boardId),
+      ]);
+
+      return { detail, comments, attachments };
+    },
     enabled: isValidBoardId,
   });
 
   // 댓글 목록 Query
-  const { data: comments = [], isLoading: isCommentsLoading } = useQuery({
-    queryKey: ["boardComments", boardId],
-    queryFn: () => getBoardCommentsApi(boardId),
-    enabled: isValidBoardId,
-  });
+  const post = fullDetail?.detail;
+  const comments = fullDetail?.comments ?? [];
+  const isCommentsLoading = isLoading;
 
   // 첨부파일 목록 Query
-  const { data: attachments = [] } = useQuery<AttachmentResponse[]>({
-    queryKey: ["boardAttachments", boardId],
-    queryFn: () => getBoardAttachmentsApi(boardId),
-    enabled: isValidBoardId,
-  });
+  const attachments = fullDetail?.attachments ?? [];
+
+  const refreshComments = async () => {
+    const nextComments = await getBoardCommentsApi(boardId);
+    queryClient.setQueryData(["boardFull", boardId], (current: typeof fullDetail) =>
+      current ? { ...current, comments: nextComments } : current,
+    );
+  };
 
   // 첨부파일 다운로드 핸들러
   const handleDownload = async (attachmentId: number, originalFilename: string) => {
     try {
       const res = await downloadBoardAttachmentApi(boardId, attachmentId);
-      if (res.downloadUrl) {
+      if (res.url) {
         const a = document.createElement("a");
-        a.href = res.downloadUrl;
+        a.href = res.url;
         a.download = res.originalFilename || originalFilename || "download";
         a.target = "_blank";
         document.body.appendChild(a);
@@ -119,9 +128,9 @@ export default function BoardDetailPage() {
   // 댓글 작성 Mutation
   const createCommentMutation = useMutation({
     mutationFn: (content: string) => createBoardCommentApi(boardId, { content }),
-    onSuccess: () => {
+    onSuccess: async () => {
       setCommentContent("");
-      queryClient.invalidateQueries({ queryKey: ["boardComments", boardId] });
+      await refreshComments();
     },
     onError: (err: unknown) => {
       alert(`댓글 등록 실패: ${getErrorMessage(err, "오류가 발생했습니다.")}`);
@@ -132,10 +141,10 @@ export default function BoardDetailPage() {
   const updateCommentMutation = useMutation({
     mutationFn: ({ commentId, content }: { commentId: number; content: string }) =>
       updateBoardCommentApi(boardId, commentId, { content }),
-    onSuccess: () => {
+    onSuccess: async () => {
       setEditingCommentId(null);
       setEditingContent("");
-      queryClient.invalidateQueries({ queryKey: ["boardComments", boardId] });
+      await refreshComments();
     },
     onError: (err: unknown) => {
       alert(`댓글 수정 실패: ${getErrorMessage(err, "수정 권한이 없거나 오류가 발생했습니다.")}`);
@@ -145,8 +154,8 @@ export default function BoardDetailPage() {
   // 댓글 삭제 Mutation
   const deleteCommentMutation = useMutation({
     mutationFn: (commentId: number) => deleteBoardCommentApi(boardId, commentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["boardComments", boardId] });
+    onSuccess: async () => {
+      await refreshComments();
     },
     onError: (err: unknown) => {
       alert(`댓글 삭제 실패: ${getErrorMessage(err, "삭제 권한이 없거나 오류가 발생했습니다.")}`);
@@ -218,15 +227,15 @@ export default function BoardDetailPage() {
   };
 
   const handleGoToList = () => {
-    if (window.history.length > 1) {
-      navigate(-1);
-    } else {
-      navigate("/board");
-    }
+    navigate("/board");
   };
 
   if (isNaN(boardId) || boardId <= 0) {
     return (
+      <SectionSidebarLayout
+        sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+        menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+      >
       <div className="min-h-screen bg-[#F5FAFC]">
         <div className="py-12 px-4 text-center">
           <p className="text-rose-500 font-medium text-sm">유효하지 않은 게시글 번호입니다.</p>
@@ -239,12 +248,17 @@ export default function BoardDetailPage() {
           </button>
         </div>
       </div>
+      </SectionSidebarLayout>
     );
   }
 
   const safeComments = Array.isArray(comments) ? comments : [];
 
   return (
+    <SectionSidebarLayout
+      sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+      menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+    >
     <div className="min-h-screen bg-[#F5FAFC]">
       <div className="py-12 px-5 sm:px-8">
         <div className="max-w-[900px] mx-auto space-y-6">
@@ -305,7 +319,7 @@ export default function BoardDetailPage() {
                     {post.title}
                   </h2>
                   <div className="flex items-center gap-4 text-[13px] text-[#6B7280]">
-                    <span>작성자: <strong className="text-[#13202B] font-bold">{post.authorName || "-"}</strong></span>
+                    <span>작성자: <strong className="text-[#13202B] font-bold">{maskAuthorName(post.authorName)}</strong></span>
                     <span>작성일: {formatBoardDate(post.createdAt)}</span>
                     <span>조회수: {post.viewCount}</span>
                   </div>
@@ -326,7 +340,8 @@ export default function BoardDetailPage() {
                     <div className="space-y-1.5">
                       {attachments.map((file, idx) => {
                         const fileId = file.attachmentId ?? file.id ?? idx;
-                        const fileName = file.originalFilename || file.fileName || "첨부파일";
+                        const fileName =
+                          file.originalName || file.originalFilename || file.fileName || "첨부파일";
                         const fileSize = file.size ?? file.fileSize ?? 0;
                         return (
                           <div
@@ -457,7 +472,7 @@ export default function BoardDetailPage() {
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <strong className="text-[14px] font-bold text-[#123047]">{authorName}</strong>
+                            <strong className="text-[14px] font-bold text-[#123047]">{maskAuthorName(authorName)}</strong>
                             <span className="text-[12px] text-[#6B7280]">{formatBoardDate(comment.createdAt)}</span>
                           </div>
 
@@ -526,5 +541,6 @@ export default function BoardDetailPage() {
         </div>
       </div>
     </div>
+    </SectionSidebarLayout>
   );
 }

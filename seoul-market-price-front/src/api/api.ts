@@ -17,6 +17,8 @@ import type {
   CommentUpdateRequest,
   PostType,
   NoticeLevel,
+  AttachmentResponse,
+  AttachmentDownloadResponse,
 } from "@/features/board/types/board.types";
 
 // ===============================
@@ -493,6 +495,44 @@ export async function getBoardPostApi(boardId: number): Promise<BoardDetail> {
   };
 }
 
+export interface BoardFullDetailResponse {
+  detail: BoardDetail;
+  comments: BoardComment[];
+  attachments: AttachmentResponse[];
+}
+
+// 겟
+export async function getBoardFullDetailApi(
+  boardId: number,
+): Promise<BoardFullDetailResponse> {
+  const response = await apiMiddleware.get<{
+    detail: RawBoardDetail;
+    comments: BoardComment[];
+    attachments: AttachmentResponse[];
+  }>(`/api/boards/${boardId}/full`);
+  const data = response.data.detail || {};
+
+  return {
+    detail: {
+      boardId: data.boardId || data.id || boardId,
+      title: data.title || data.boardTitle || data.subject || "",
+      content: data.content || data.boardContent || data.body || "",
+      authorName:
+        data.authorName ||
+        data.writerName ||
+        data.writer ||
+        data.userName ||
+        "",
+      authorId: data.authorId || data.writerId || data.userId || "user",
+      createdAt: data.createdAt || data.createDate || data.regDate || "",
+      viewCount: data.viewCount ?? data.hit ?? data.readCount ?? 0,
+      postType: data.postType || (data.type as PostType) || "GENERAL",
+    },
+    comments: response.data.comments || [],
+    attachments: response.data.attachments || [],
+  };
+}
+
 /**
  * 게시글 등록 API (POST /api/boards)
  */
@@ -572,15 +612,6 @@ export async function deleteBoardCommentApi(
 ): Promise<void> {
   await apiMiddleware.delete(`/api/boards/${boardId}/comments/${commentId}`);
 }
-
-/* ==========================================
- 게시판 첨부파일 API (추가 요청용)
-========================================== */
-
-import type {
-  AttachmentResponse,
-  AttachmentDownloadResponse,
-} from "@/features/board/types/board.types";
 
 /**
  * 게시글 첨부파일 다중/단일 업로드 API (POST /api/boards/:boardId/attachments)
@@ -1046,4 +1077,167 @@ export async function getApartmentCompareApi(
     },
   );
   return response.data;
+}
+
+/* Q&A 첨부파일 API  */
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+export type AiSearchResponse = {
+  summary: string;
+  keyPoints: string[];
+  cautions: string[];
+};
+
+export type NaturalRegionCandidate = DongRegionResponse & { slot: number };
+export type NaturalSearchResponse = {
+  status: "SUCCESS" | "NEED_CLARIFICATION" | "ERROR";
+  intent?: "PRICE_COMPARISON" | "SINGLE_REGION" | "TOP_BOTTOM";
+  message?: string;
+  result?: AiSearchResponse;
+  missingFields: string[];
+  candidates: NaturalRegionCandidate[];
+  errorCode?: string;
+};
+
+export async function searchNaturalWithAiApi(question: string): Promise<NaturalSearchResponse> {
+  const response = await apiMiddleware.post<NaturalSearchResponse>("/api/ai/search-natural", { question }, { timeout: 120000 });
+  return response.data;
+}
+
+// ===============================
+// 내 정보 수정
+// ===============================
+
+// 전달된 필드만 선택적으로 변경한다.
+// 휴대전화 번호를 변경할 때는 PASS 본인인증 결과인
+// identityVerificationId를 phone과 함께 전달해야 한다.
+export interface MemberUpdateRequest {
+  password?: string;
+  phone?: string;
+  identityVerificationId?: string;
+  email?: string;
+  zipcode?: string;
+  address?: string;
+  addressDetail?: string;
+}
+
+// 현재 로그인한 회원의 비밀번호, 연락처 및 주소 정보를 수정한다.
+// 인증 대상 회원은 요청 데이터가 아닌 Access Token을 기준으로 식별한다.
+export async function updateMemberMeApi(
+  request: MemberUpdateRequest,
+): Promise<MemberMeResponse> {
+  const response = await apiMiddleware.patch<MemberMeResponse>(
+    "/api/members/me",
+    request,
+  );
+
+  return response.data;
+}
+
+export type DongRegionResponse = {
+  requestedName: string;
+  dongName: string;
+  dongCode: string;
+  sggName: string;
+  sggCode: string;
+};
+export async function resolveDongsApi(
+  dong1: string,
+  dong2: string,
+): Promise<DongRegionResponse[]> {
+  const response = await apiMiddleware.get<DongRegionResponse[]>(
+    "/api/location/resolve-dongs",
+    { params: { dong1, dong2 } },
+  );
+  return response.data;
+}
+
+export async function resolveDongApi(dong: string): Promise<DongRegionResponse[]> {
+  const response = await apiMiddleware.get<DongRegionResponse[]>("/api/location/resolve-dong", { params: { dong } });
+  return response.data;
+}
+
+export async function uploadQnaAttachmentsApi(
+  qnaId: number,
+  files: File[],
+): Promise<AttachmentResponse[]> {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append("files", file);
+  });
+
+  const response = await apiMiddleware.post<AttachmentResponse[]>(
+    `/api/qnas/${qnaId}/attachments`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
+  return response.data;
+}
+
+export async function getQnaAttachmentsApi(
+  qnaId: number,
+): Promise<AttachmentResponse[]> {
+  const response = await apiMiddleware.get<AttachmentResponse[]>(
+    `/api/qnas/${qnaId}/attachments`,
+  );
+  return response.data || [];
+}
+
+export async function downloadQnaAttachmentApi(
+  qnaId: number,
+  attachmentId: number,
+): Promise<AttachmentDownloadResponse> {
+  const response = await apiMiddleware.get<AttachmentDownloadResponse>(
+    `/api/qnas/${qnaId}/attachments/${attachmentId}/download`,
+  );
+  return response.data;
+}
+
+export async function deleteQnaAttachmentApi(
+  qnaId: number,
+  attachmentId: number,
+): Promise<void> {
+  await apiMiddleware.delete(`/api/qnas/${qnaId}/attachments/${attachmentId}`);
+}
+
+/* Q&A 첨부파일 커스텀 훅 */
+
+export function useQnaAttachments(qnaId: number) {
+  return useQuery<AttachmentResponse[]>({
+    queryKey: ["qnaAttachments", qnaId],
+    queryFn: () => getQnaAttachmentsApi(qnaId),
+    enabled: Boolean(qnaId && qnaId > 0),
+  });
+}
+
+export function useUploadQnaAttachments(qnaId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (files: File[]) => uploadQnaAttachmentsApi(qnaId, files),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["qnaAttachments", qnaId] });
+    },
+  });
+}
+
+export function useDeleteQnaAttachment(qnaId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (attachmentId: number) =>
+      deleteQnaAttachmentApi(qnaId, attachmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["qnaAttachments", qnaId] });
+    },
+  });
+}
+
+export interface BoardFullDetailResponse {
+  detail: BoardDetail;
+  comments: BoardComment[];
+  attachments: AttachmentResponse[];
 }

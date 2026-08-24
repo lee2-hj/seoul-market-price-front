@@ -34,10 +34,13 @@ import PricePage from "@/pages/Price/PricePage";
 import PriceCompareListPage from "@/pages/PriceCompareList/PriceCompareListPage";
 import PriceDetailPage from "@/pages/PriceDetail/PriceDetailPage";
 import RegionMapPage from "@/pages/RegionMap/RegionMapPage";
-import MarketTrendsPage from "@/pages/Trends/MarketTrendsPage";
 
 /* 가격정보 아파트별 정보*/
 import PriceCompareAptPage from "../pages/PriceCompareApt/PriceCompareAptPage";
+
+/*아파트별 거래동향 임포트*/
+import MarketTrendsregionPage from "@/pages/Trends/MarketTrendsregionPage";
+import MarketTrendsPage from "@/pages/Trends/MarketTrendsPage";
 
 /* 일반 게시판 목록·작성·수정·상세 화면 */
 import BoardPage from "@/pages/Board/BoardPage";
@@ -51,12 +54,6 @@ import QnaPage from "@/pages/Qna/QnaPage";
 import QnaDetailPage from "@/pages/Qna/QnaDetailPage";
 import QnaEditPage from "@/pages/Qna/QnaEditPage";
 import QnaWritePage from "@/pages/Qna/QnaWritePage";
-
-/* 신고 게시판 목록·작성·수정·상세 화면 */
-import ReportPage from "@/pages/Report/ReportPage";
-import ReportDetailPage from "@/pages/ReportDetail/ReportDetailPage";
-import ReportEditPage from "@/pages/ReportEdit/ReportEditPage";
-import ReportWritePage from "@/pages/ReportWrite/ReportWritePage";
 
 function Router() {
   const isAuthInitialized = useAuthStore((state) => state.isInitialized);
@@ -97,7 +94,6 @@ function Router() {
           {/* 메인: 서비스 홈과 프로젝트 소개 */}
           <Route path="/" element={<MainPage />} />
           <Route path="/about" element={<AboutPage />} />
-
           {/* --------------------------------------------------------------
               가격정보
               시세 메인, 지역별 목록 비교, 지도 비교, 거래 동향을 제공한다.
@@ -113,10 +109,10 @@ function Router() {
           <Route path="/region-map" element={<RegionMapPage />} />
           {/* 부동산 거래 동향을 조회하는 화면 */}
           <Route path="/trends" element={<MarketTrendsPage />} />
-
+          {/* 지역별 거래동향 */}
+          <Route path="/trends/region" element={<MarketTrendsregionPage />} />
           {/* 단지별 시세 상세 */}
           <Route path="/price/detail" element={<PriceDetailPage />} />
-
           {/* --------------------------------------------------------------
               가격정보 아파트별 정보
           -------------------------------------------------------------- */}
@@ -128,7 +124,6 @@ function Router() {
             path="/price/compare-apt"
             element={<Navigate to="/price/compare-apartment" replace />}
           />
-
           {/* --------------------------------------------------------------
               일반 게시판
               목록·작성·상세·수정 화면이며 현재 별도 라우트 권한 제한은 없다.
@@ -141,7 +136,6 @@ function Router() {
           <Route path="/board/:postId/edit" element={<BoardEditPage />} />
           {/* 게시글 상세 조회 */}
           <Route path="/board/:postId" element={<BoardDetailPage />} />
-
           {/* --------------------------------------------------------------
               Q&A 및 FAQ
               Q&A의 목록·작성·상세·수정 화면과 FAQ 목록을 제공한다.
@@ -156,34 +150,6 @@ function Router() {
           <Route path="/qna/:id" element={<QnaDetailPage />} />
           {/* 자주 묻는 질문 목록 */}
           <Route path="/faq" element={<FaqPage />} />
-
-          {/* --------------------------------------------------------------
-              신고 게시판
-              목록·상세는 공개하고 작성·수정은 로그인 사용자만 허용한다.
-          -------------------------------------------------------------- */}
-          {/* 신고 목록 */}
-          <Route path="/report" element={<ReportPage />} />
-          {/* 신고 작성: 로그인 사용자 전용 */}
-          <Route
-            path="/report/write"
-            element={
-              <PrivateRoute>
-                <ReportWritePage />
-              </PrivateRoute>
-            }
-          />
-          {/* 신고 수정: 로그인 사용자 전용 */}
-          <Route
-            path="/report/:reportId/edit"
-            element={
-              <PrivateRoute>
-                <ReportEditPage />
-              </PrivateRoute>
-            }
-          />
-          {/* 신고 상세 조회 */}
-          <Route path="/report/:reportId" element={<ReportDetailPage />} />
-
           {/* --------------------------------------------------------------
               마이페이지
               회원 개인정보를 포함하므로 로그인 사용자만 접근할 수 있다.
