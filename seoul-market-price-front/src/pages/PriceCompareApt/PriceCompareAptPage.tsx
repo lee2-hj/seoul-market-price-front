@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Chart } from "react-google-charts";
 import {
@@ -11,11 +10,9 @@ import {
   Check,
   ChevronDown,
   Coins,
-  HelpCircle,
   Info,
   Layers,
   Loader2,
-  Map,
   MapPin,
   Maximize2,
   RotateCcw,
@@ -26,6 +23,8 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import apiMiddleware from "../../api/middleware";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { PRICE_NAVIGATION } from "@/config/sectionNavigation";
 
 /* 타입 정의 */
 export interface SggLocationItem {
@@ -153,34 +152,73 @@ export interface FastApiTopAndBottomResponse {
 
 function getApartmentBrandImage(complexName: string = ""): string {
   const name = complexName.toLowerCase();
-  if (name.includes("래미안") || name.includes("raemian") || name.includes("원베일리") || name.includes("첼리투스")) {
+  if (
+    name.includes("래미안") ||
+    name.includes("raemian") ||
+    name.includes("원베일리") ||
+    name.includes("첼리투스")
+  ) {
     return "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80";
   }
-  if (name.includes("자이") || name.includes("xi") || name.includes("그랑자이") || name.includes("센트럴자이")) {
+  if (
+    name.includes("자이") ||
+    name.includes("xi") ||
+    name.includes("그랑자이") ||
+    name.includes("센트럴자이")
+  ) {
     return "https://images.unsplash.com/photo-1574362848149-11496d93a7c7?auto=format&fit=crop&w=800&q=80";
   }
-  if (name.includes("디에이치") || name.includes("힐스테이트") || name.includes("the h") || name.includes("hillstate")) {
+  if (
+    name.includes("디에이치") ||
+    name.includes("힐스테이트") ||
+    name.includes("the h") ||
+    name.includes("hillstate")
+  ) {
     return "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80";
   }
-  if (name.includes("푸르지오") || name.includes("prugio") || name.includes("써밋") || name.includes("summit")) {
+  if (
+    name.includes("푸르지오") ||
+    name.includes("prugio") ||
+    name.includes("써밋") ||
+    name.includes("summit")
+  ) {
     return "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80";
   }
-  if (name.includes("아크로") || name.includes("acro") || name.includes("e편한세상") || name.includes("이편한세상")) {
+  if (
+    name.includes("아크로") ||
+    name.includes("acro") ||
+    name.includes("e편한세상") ||
+    name.includes("이편한세상")
+  ) {
     return "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80";
   }
-  if (name.includes("롯데캐슬") || name.includes("lotte") || name.includes("르엘") || name.includes("leel")) {
+  if (
+    name.includes("롯데캐슬") ||
+    name.includes("lotte") ||
+    name.includes("르엘") ||
+    name.includes("leel")
+  ) {
     return "https://images.unsplash.com/photo-1515263487990-61b07816b324?auto=format&fit=crop&w=800&q=80";
   }
   if (name.includes("아이파크") || name.includes("ipark")) {
     return "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80";
   }
-  if (name.includes("더샵") || name.includes("the sharp") || name.includes("thesharp")) {
+  if (
+    name.includes("더샵") ||
+    name.includes("the sharp") ||
+    name.includes("thesharp")
+  ) {
     return "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80";
   }
   if (name.includes("sk") || name.includes("view") || name.includes("드파인")) {
     return "https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80";
   }
-  if (name.includes("센트레빌") || name.includes("호반") || name.includes("우미린") || name.includes("데시앙")) {
+  if (
+    name.includes("센트레빌") ||
+    name.includes("호반") ||
+    name.includes("우미린") ||
+    name.includes("데시앙")
+  ) {
     return "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80";
   }
   return "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80";
@@ -211,17 +249,21 @@ async function fetchSggsApi(): Promise<SggLocationItem[]> {
     const raw = response.data;
     const list = Array.isArray(raw)
       ? raw
-      : ((raw as Record<string, unknown>)?.data ??
+      : (((raw as Record<string, unknown>)?.data ??
           (raw as Record<string, unknown>)?.sggs ??
           (raw as Record<string, unknown>)?.items ??
-          []) as unknown[];
+          []) as unknown[]);
 
     return list.map((item) => {
       if (typeof item === "string") return { sggCd: item, sggNm: item };
       const obj = item as Record<string, unknown>;
       return {
-        sggCd: String(obj.sggCd ?? obj.code ?? obj.sggCode ?? obj.id ?? obj.sggNm ?? ""),
-        sggNm: String(obj.sggNm ?? obj.name ?? obj.sggName ?? obj.label ?? obj.sgg ?? ""),
+        sggCd: String(
+          obj.sggCd ?? obj.code ?? obj.sggCode ?? obj.id ?? obj.sggNm ?? "",
+        ),
+        sggNm: String(
+          obj.sggNm ?? obj.name ?? obj.sggName ?? obj.label ?? obj.sgg ?? "",
+        ),
       };
     });
   } catch (err) {
@@ -242,17 +284,19 @@ async function fetchDongsApi(
     const raw = response.data;
     const list = Array.isArray(raw)
       ? raw
-      : ((raw as Record<string, unknown>)?.data ??
+      : (((raw as Record<string, unknown>)?.data ??
           (raw as Record<string, unknown>)?.dongs ??
           (raw as Record<string, unknown>)?.items ??
-          []) as unknown[];
+          []) as unknown[]);
 
     return list.map((item) => {
       if (typeof item === "string") return { dongNm: item };
       const obj = item as Record<string, unknown>;
       return {
         dongCd: obj.dongCd ? String(obj.dongCd) : undefined,
-        dongNm: String(obj.dongNm ?? obj.name ?? obj.dongName ?? obj.label ?? obj.dong ?? ""),
+        dongNm: String(
+          obj.dongNm ?? obj.name ?? obj.dongName ?? obj.label ?? obj.dong ?? "",
+        ),
         sggCd: obj.sggCd ? String(obj.sggCd) : undefined,
       };
     });
@@ -264,9 +308,12 @@ async function fetchDongsApi(
 
 async function fetchFastApiList(guCode?: string): Promise<FastApiListResponse> {
   try {
-    const response = await apiMiddleware.get<FastApiListResponse>("/fastApi/list", {
-      params: guCode ? { guCode } : {},
-    });
+    const response = await apiMiddleware.get<FastApiListResponse>(
+      "/fastApi/list",
+      {
+        params: guCode ? { guCode } : {},
+      },
+    );
     return response.data;
   } catch (err) {
     console.warn("/fastApi/list 호출 실패:", err);
@@ -288,7 +335,10 @@ async function fetchFastApiTopAndBottom(
     );
     return response.data || {};
   } catch (err) {
-    console.warn(`/fastApi/topandbottom 호출 실패 (metricType: ${metricType}):`, err);
+    console.warn(
+      `/fastApi/topandbottom 호출 실패 (metricType: ${metricType}):`,
+      err,
+    );
     return {};
   }
 }
@@ -306,7 +356,12 @@ async function fetchApartmentsApi(
   try {
     const [complexesRes, apartmentsRes] = await Promise.allSettled([
       apiMiddleware.get<unknown>("/api/location/complexes", {
-        params: { sggNm: district, dongNm: dong || undefined, sggCd: guCode, dongCd: dongCode },
+        params: {
+          sggNm: district,
+          dongNm: dong || undefined,
+          sggCd: guCode,
+          dongCd: dongCode,
+        },
       }),
       apiMiddleware.get<unknown>("/api/location/apartments", {
         params: { district, dong: dong || undefined, guCode, dongCode },
@@ -315,20 +370,20 @@ async function fetchApartmentsApi(
 
     const rawComplexes =
       complexesRes.status === "fulfilled"
-        ? (Array.isArray(complexesRes.value.data)
-            ? complexesRes.value.data
-            : (complexesRes.value.data as Record<string, unknown>)?.items ||
-              (complexesRes.value.data as Record<string, unknown>)?.data ||
-              [])
+        ? Array.isArray(complexesRes.value.data)
+          ? complexesRes.value.data
+          : (complexesRes.value.data as Record<string, unknown>)?.items ||
+            (complexesRes.value.data as Record<string, unknown>)?.data ||
+            []
         : [];
 
     const rawApartments =
       apartmentsRes.status === "fulfilled"
-        ? (Array.isArray(apartmentsRes.value.data)
-            ? apartmentsRes.value.data
-            : (apartmentsRes.value.data as Record<string, unknown>)?.items ||
-              (apartmentsRes.value.data as Record<string, unknown>)?.data ||
-              [])
+        ? Array.isArray(apartmentsRes.value.data)
+          ? apartmentsRes.value.data
+          : (apartmentsRes.value.data as Record<string, unknown>)?.items ||
+            (apartmentsRes.value.data as Record<string, unknown>)?.data ||
+            []
         : [];
 
     const allDbList = [
@@ -348,10 +403,17 @@ async function fetchApartmentsApi(
 
       if (name && !existingNames.has(name)) {
         existingNames.add(name);
-        const households = Number(item.totalHouseholds || item.households || item.householdCount) || 650;
+        const households =
+          Number(
+            item.totalHouseholds || item.households || item.householdCount,
+          ) || 650;
         const year = Number(item.buildYear || item.constructionYear) || 2018;
-        const avgPrice = Number(item.avgThingAmt || item.baseSalePrice || item.avg_thing_amt) || undefined;
-        const pyeongPrice = Number(item.avgPyeongAmt || item.avg_pyeong_amt) || undefined;
+        const avgPrice =
+          Number(
+            item.avgThingAmt || item.baseSalePrice || item.avg_thing_amt,
+          ) || undefined;
+        const pyeongPrice =
+          Number(item.avgPyeongAmt || item.avg_pyeong_amt) || undefined;
         const deals = Number(item.dealCnt || item.deal_cnt) || undefined;
 
         list.push({
@@ -362,7 +424,9 @@ async function fetchApartmentsApi(
           address: String(item.address || `${district} ${dong} ${name}`),
           totalHouseholds: households,
           buildYear: year,
-          imageUrl: (item.imageUrl || item.image || item.thumbnail) as string | undefined,
+          imageUrl: (item.imageUrl || item.image || item.thumbnail) as
+            | string
+            | undefined,
           avgThingAmt: avgPrice,
           avgPyeongAmt: pyeongPrice,
           dealCnt: deals,
@@ -383,7 +447,10 @@ async function fetchApartmentsApi(
         const groups = listData.groups;
         if (dong) {
           const matched = Object.values(groups).find(
-            (g) => g.name === dong || g.name?.includes(dong) || dong.includes(g.name || ""),
+            (g) =>
+              g.name === dong ||
+              g.name?.includes(dong) ||
+              dong.includes(g.name || ""),
           );
           if (matched?.code) {
             targetDongCode = matched.code;
@@ -412,8 +479,10 @@ async function fetchApartmentsApi(
           fetchFastApiTopAndBottom(guCode, dCode, "price"),
         ]);
 
-        const dealTopBottom = dealRes.status === "fulfilled" ? dealRes.value : {};
-        const priceTopBottom = priceRes.status === "fulfilled" ? priceRes.value : {};
+        const dealTopBottom =
+          dealRes.status === "fulfilled" ? dealRes.value : {};
+        const priceTopBottom =
+          priceRes.status === "fulfilled" ? priceRes.value : {};
 
         const allBuildings: BldgDealSummaryDto[] = [
           ...(dealTopBottom.top || []),
@@ -557,56 +626,132 @@ async function fetchApartmentCompareApi(
       if (res.baseDate || res.base_date) {
         apiBaseDate = String(res.baseDate || res.base_date);
       }
-      const data1 = (res.apt1 || res.region1 || res.apartment1 || res.complex1) as Record<string, unknown> | undefined;
-      const data2 = (res.apt2 || res.region2 || res.apartment2 || res.complex2) as Record<string, unknown> | undefined;
+      const data1 = (res.apt1 ||
+        res.region1 ||
+        res.apartment1 ||
+        res.complex1) as Record<string, unknown> | undefined;
+      const data2 = (res.apt2 ||
+        res.region2 ||
+        res.apartment2 ||
+        res.complex2) as Record<string, unknown> | undefined;
       if (data1) {
-        apt1ApiName = (data1.name || data1.complexName || data1.bldg_nm || data1.bldgNm || data1.aptName) as string;
-        apt1ApiImage = (data1.imageUrl || data1.image_url || data1.imgUrl || data1.img_url || data1.image || data1.thumbnail) as string;
+        apt1ApiName = (data1.name ||
+          data1.complexName ||
+          data1.bldg_nm ||
+          data1.bldgNm ||
+          data1.aptName) as string;
+        apt1ApiImage = (data1.imageUrl ||
+          data1.image_url ||
+          data1.imgUrl ||
+          data1.img_url ||
+          data1.image ||
+          data1.thumbnail) as string;
         apt1ApiAddress = (data1.address || data1.addr) as string;
-        apt1ApiHouseholds = (data1.totalHouseholds || data1.households || data1.householdCount) as number;
-        apt1ApiBuildYear = (data1.buildYear || data1.constructionYear) as number;
+        apt1ApiHouseholds = (data1.totalHouseholds ||
+          data1.households ||
+          data1.householdCount) as number;
+        apt1ApiBuildYear = (data1.buildYear ||
+          data1.constructionYear) as number;
         apt1ApiFloorInfo = (data1.floorInfo || data1.floors) as string;
-        const m1 = (data1.metrics || data1) as Record<string, unknown> | undefined;
+        const m1 = (data1.metrics || data1) as
+          | Record<string, unknown>
+          | undefined;
         if (m1?.avgPrice || m1?.avg_thing_amt || m1?.averagePrice) {
-          const raw = Number(m1.avgPrice || m1.avg_thing_amt || m1.averagePrice);
+          const raw = Number(
+            m1.avgPrice || m1.avg_thing_amt || m1.averagePrice,
+          );
           apt1AvgPrice = raw > 1000 ? Number((raw / 10000).toFixed(1)) : raw;
         }
         if (m1?.pricePerPyeong || m1?.avg_pyeong_amt || m1?.avgPyeongPrice) {
-          apt1Pyeong = Number(m1.pricePerPyeong || m1.avg_pyeong_amt || m1.avgPyeongPrice);
+          apt1Pyeong = Number(
+            m1.pricePerPyeong || m1.avg_pyeong_amt || m1.avgPyeongPrice,
+          );
         }
-        if (m1?.recent3MonthVolume || m1?.deal_cnt || m1?.dealCount || m1?.totalCount || m1?.total_count) {
-          apt1Vol = Number(m1.recent3MonthVolume || m1.deal_cnt || m1.dealCount || m1.totalCount || m1.total_count);
+        if (
+          m1?.recent3MonthVolume ||
+          m1?.deal_cnt ||
+          m1?.dealCount ||
+          m1?.totalCount ||
+          m1?.total_count
+        ) {
+          apt1Vol = Number(
+            m1.recent3MonthVolume ||
+              m1.deal_cnt ||
+              m1.dealCount ||
+              m1.totalCount ||
+              m1.total_count,
+          );
         }
       }
       if (data2) {
-        apt2ApiName = (data2.name || data2.complexName || data2.bldg_nm || data2.bldgNm || data2.aptName) as string;
-        apt2ApiImage = (data2.imageUrl || data2.image_url || data2.imgUrl || data2.img_url || data2.image || data2.thumbnail) as string;
+        apt2ApiName = (data2.name ||
+          data2.complexName ||
+          data2.bldg_nm ||
+          data2.bldgNm ||
+          data2.aptName) as string;
+        apt2ApiImage = (data2.imageUrl ||
+          data2.image_url ||
+          data2.imgUrl ||
+          data2.img_url ||
+          data2.image ||
+          data2.thumbnail) as string;
         apt2ApiAddress = (data2.address || data2.addr) as string;
-        apt2ApiHouseholds = (data2.totalHouseholds || data2.households || data2.householdCount) as number;
-        apt2ApiBuildYear = (data2.buildYear || data2.constructionYear) as number;
+        apt2ApiHouseholds = (data2.totalHouseholds ||
+          data2.households ||
+          data2.householdCount) as number;
+        apt2ApiBuildYear = (data2.buildYear ||
+          data2.constructionYear) as number;
         apt2ApiFloorInfo = (data2.floorInfo || data2.floors) as string;
-        const m2 = (data2.metrics || data2) as Record<string, unknown> | undefined;
+        const m2 = (data2.metrics || data2) as
+          | Record<string, unknown>
+          | undefined;
         if (m2?.avgPrice || m2?.avg_thing_amt || m2?.averagePrice) {
-          const raw = Number(m2.avgPrice || m2.avg_thing_amt || m2.averagePrice);
+          const raw = Number(
+            m2.avgPrice || m2.avg_thing_amt || m2.averagePrice,
+          );
           apt2AvgPrice = raw > 1000 ? Number((raw / 10000).toFixed(1)) : raw;
         }
         if (m2?.pricePerPyeong || m2?.avg_pyeong_amt || m2?.avgPyeongPrice) {
-          apt2Pyeong = Number(m2.pricePerPyeong || m2.avg_pyeong_amt || m2.avgPyeongPrice);
+          apt2Pyeong = Number(
+            m2.pricePerPyeong || m2.avg_pyeong_amt || m2.avgPyeongPrice,
+          );
         }
-        if (m2?.recent3MonthVolume || m2?.deal_cnt || m2?.dealCount || m2?.totalCount || m2?.total_count) {
-          apt2Vol = Number(m2.recent3MonthVolume || m2.deal_cnt || m2.dealCount || m2.totalCount || m2.total_count);
+        if (
+          m2?.recent3MonthVolume ||
+          m2?.deal_cnt ||
+          m2?.dealCount ||
+          m2?.totalCount ||
+          m2?.total_count
+        ) {
+          apt2Vol = Number(
+            m2.recent3MonthVolume ||
+              m2.deal_cnt ||
+              m2.dealCount ||
+              m2.totalCount ||
+              m2.total_count,
+          );
         }
       }
       if (Array.isArray(res.yearlyTrends) && res.yearlyTrends.length > 0) {
         backendYearlyTrends = res.yearlyTrends as ApartmentCompareTrendPoint[];
-      } else if (Array.isArray(res.monthlyTrends) && res.monthlyTrends.length > 0) {
-        backendYearlyTrends = (res.monthlyTrends as Array<{ period?: string; date?: string; apt1Price?: number; apt2Price?: number; avgPrice1?: number; avgPrice2?: number }>).map(
-          (item) => ({
-            date: item.period || item.date || "",
-            apt1Price: Number(item.apt1Price || item.avgPrice1 || 0),
-            apt2Price: Number(item.apt2Price || item.avgPrice2 || 0),
-          })
-        );
+      } else if (
+        Array.isArray(res.monthlyTrends) &&
+        res.monthlyTrends.length > 0
+      ) {
+        backendYearlyTrends = (
+          res.monthlyTrends as Array<{
+            period?: string;
+            date?: string;
+            apt1Price?: number;
+            apt2Price?: number;
+            avgPrice1?: number;
+            avgPrice2?: number;
+          }>
+        ).map((item) => ({
+          date: item.period || item.date || "",
+          apt1Price: Number(item.apt1Price || item.avgPrice1 || 0),
+          apt2Price: Number(item.apt2Price || item.avgPrice2 || 0),
+        }));
       }
       if (Array.isArray(res.areaPrices) && res.areaPrices.length > 0) {
         backendAreaPrices = res.areaPrices as ApartmentCompareAreaPrice[];
@@ -618,9 +763,18 @@ async function fetchApartmentCompareApi(
 
   if (guCode1 && dongCode1) {
     try {
-      const topBottom1 = await fetchFastApiTopAndBottom(guCode1, dongCode1, "deal");
-      const matched = [...(topBottom1.top || []), ...(topBottom1.bottom || [])].find(
-        (b) => b.bldg_nm === apt1.complexName || apt1.complexName.includes(b.bldg_nm || ""),
+      const topBottom1 = await fetchFastApiTopAndBottom(
+        guCode1,
+        dongCode1,
+        "deal",
+      );
+      const matched = [
+        ...(topBottom1.top || []),
+        ...(topBottom1.bottom || []),
+      ].find(
+        (b) =>
+          b.bldg_nm === apt1.complexName ||
+          apt1.complexName.includes(b.bldg_nm || ""),
       );
       if (matched?.bldg_nm) {
         apt1ApiName = apt1ApiName || matched.bldg_nm;
@@ -641,9 +795,18 @@ async function fetchApartmentCompareApi(
 
   if (guCode2 && dongCode2) {
     try {
-      const topBottom2 = await fetchFastApiTopAndBottom(guCode2, dongCode2, "deal");
-      const matched = [...(topBottom2.top || []), ...(topBottom2.bottom || [])].find(
-        (b) => b.bldg_nm === apt2.complexName || apt2.complexName.includes(b.bldg_nm || ""),
+      const topBottom2 = await fetchFastApiTopAndBottom(
+        guCode2,
+        dongCode2,
+        "deal",
+      );
+      const matched = [
+        ...(topBottom2.top || []),
+        ...(topBottom2.bottom || []),
+      ].find(
+        (b) =>
+          b.bldg_nm === apt2.complexName ||
+          apt2.complexName.includes(b.bldg_nm || ""),
       );
       if (matched?.bldg_nm) {
         apt2ApiName = apt2ApiName || matched.bldg_nm;
@@ -667,8 +830,20 @@ async function fetchApartmentCompareApi(
       const response = await apiMiddleware.get<{
         base_date?: string;
         baseDate?: string;
-        region1?: { avg_thing_amt?: number; avg_pyeong_amt?: number; total_count?: number; imageUrl?: string; img_url?: string };
-        region2?: { avg_thing_amt?: number; avg_pyeong_amt?: number; total_count?: number; imageUrl?: string; img_url?: string };
+        region1?: {
+          avg_thing_amt?: number;
+          avg_pyeong_amt?: number;
+          total_count?: number;
+          imageUrl?: string;
+          img_url?: string;
+        };
+        region2?: {
+          avg_thing_amt?: number;
+          avg_pyeong_amt?: number;
+          total_count?: number;
+          imageUrl?: string;
+          img_url?: string;
+        };
       }>("/fastApi/compare", {
         params: { guCode1, dongCode1, guCode2, dongCode2 },
       });
@@ -685,20 +860,36 @@ async function fetchApartmentCompareApi(
           apt2ApiImage = apt2ApiImage || reg2.imageUrl || reg2.img_url;
         }
 
-        if (apt1AvgPrice === 12.5 && reg1?.avg_thing_amt && reg1.avg_thing_amt > 0) {
+        if (
+          apt1AvgPrice === 12.5 &&
+          reg1?.avg_thing_amt &&
+          reg1.avg_thing_amt > 0
+        ) {
           apt1AvgPrice = Number((reg1.avg_thing_amt / 10000).toFixed(1));
         }
-        if (apt1Pyeong === 3800 && reg1?.avg_pyeong_amt && reg1.avg_pyeong_amt > 0) {
+        if (
+          apt1Pyeong === 3800 &&
+          reg1?.avg_pyeong_amt &&
+          reg1.avg_pyeong_amt > 0
+        ) {
           apt1Pyeong = reg1.avg_pyeong_amt;
         }
         if (apt1Vol === 8 && reg1?.total_count && reg1.total_count > 0) {
           apt1Vol = Number(reg1.total_count);
         }
 
-        if (apt2AvgPrice === 11.2 && reg2?.avg_thing_amt && reg2.avg_thing_amt > 0) {
+        if (
+          apt2AvgPrice === 11.2 &&
+          reg2?.avg_thing_amt &&
+          reg2.avg_thing_amt > 0
+        ) {
           apt2AvgPrice = Number((reg2.avg_thing_amt / 10000).toFixed(1));
         }
-        if (apt2Pyeong === 3400 && reg2?.avg_pyeong_amt && reg2.avg_pyeong_amt > 0) {
+        if (
+          apt2Pyeong === 3400 &&
+          reg2?.avg_pyeong_amt &&
+          reg2.avg_pyeong_amt > 0
+        ) {
           apt2Pyeong = reg2.avg_pyeong_amt;
         }
         if (apt2Vol === 11 && reg2?.total_count && reg2.total_count > 0) {
@@ -720,12 +911,24 @@ async function fetchApartmentCompareApi(
       if (list1.status === "fulfilled" && list1.value?.groups) {
         apiBaseDate = apiBaseDate || list1.value.base_date;
         const groups: Record<string, FastApiGroupItem> = list1.value.groups;
-        const dData = (dongCode1 && groups[dongCode1]) ||
-          Object.values(groups).find((g: FastApiGroupItem) => g.name === apt1.dong || g.name?.includes(apt1.dong));
-        if (apt1AvgPrice === 12.5 && dData?.avg_thing_amt && dData.avg_thing_amt > 0) {
+        const dData =
+          (dongCode1 && groups[dongCode1]) ||
+          Object.values(groups).find(
+            (g: FastApiGroupItem) =>
+              g.name === apt1.dong || g.name?.includes(apt1.dong),
+          );
+        if (
+          apt1AvgPrice === 12.5 &&
+          dData?.avg_thing_amt &&
+          dData.avg_thing_amt > 0
+        ) {
           apt1AvgPrice = Number((dData.avg_thing_amt / 10000).toFixed(1));
         }
-        if (apt1Pyeong === 3800 && dData?.avg_pyeong_amt && dData.avg_pyeong_amt > 0) {
+        if (
+          apt1Pyeong === 3800 &&
+          dData?.avg_pyeong_amt &&
+          dData.avg_pyeong_amt > 0
+        ) {
           apt1Pyeong = dData.avg_pyeong_amt;
         }
         if (apt1Vol === 8 && dData?.total_count && dData.total_count > 0) {
@@ -736,12 +939,24 @@ async function fetchApartmentCompareApi(
       if (list2.status === "fulfilled" && list2.value?.groups) {
         apiBaseDate = apiBaseDate || list2.value.base_date;
         const groups: Record<string, FastApiGroupItem> = list2.value.groups;
-        const dData = (dongCode2 && groups[dongCode2]) ||
-          Object.values(groups).find((g: FastApiGroupItem) => g.name === apt2.dong || g.name?.includes(apt2.dong));
-        if (apt2AvgPrice === 11.2 && dData?.avg_thing_amt && dData.avg_thing_amt > 0) {
+        const dData =
+          (dongCode2 && groups[dongCode2]) ||
+          Object.values(groups).find(
+            (g: FastApiGroupItem) =>
+              g.name === apt2.dong || g.name?.includes(apt2.dong),
+          );
+        if (
+          apt2AvgPrice === 11.2 &&
+          dData?.avg_thing_amt &&
+          dData.avg_thing_amt > 0
+        ) {
           apt2AvgPrice = Number((dData.avg_thing_amt / 10000).toFixed(1));
         }
-        if (apt2Pyeong === 3400 && dData?.avg_pyeong_amt && dData.avg_pyeong_amt > 0) {
+        if (
+          apt2Pyeong === 3400 &&
+          dData?.avg_pyeong_amt &&
+          dData.avg_pyeong_amt > 0
+        ) {
           apt2Pyeong = dData.avg_pyeong_amt;
         }
         if (apt2Vol === 11 && dData?.total_count && dData.total_count > 0) {
@@ -753,7 +968,8 @@ async function fetchApartmentCompareApi(
     }
   }
 
-  const baseDate = apiBaseDate || new Date().toISOString().slice(0, 10).replace(/-/g, ".");
+  const baseDate =
+    apiBaseDate || new Date().toISOString().slice(0, 10).replace(/-/g, ".");
   const finalApt1Name = apt1ApiName || apt1.complexName || "아파트 1";
   const finalApt2Name = apt2ApiName || apt2.complexName || "아파트 2";
   const finalApt1Image = apt1ApiImage || getApartmentBrandImage(finalApt1Name);
@@ -765,7 +981,8 @@ async function fetchApartmentCompareApi(
       name: finalApt1Name,
       district: apt1.district,
       dong: apt1.dong,
-      address: apt1ApiAddress || `${apt1.district} ${apt1.dong} ${finalApt1Name}`,
+      address:
+        apt1ApiAddress || `${apt1.district} ${apt1.dong} ${finalApt1Name}`,
       totalHouseholds: apt1ApiHouseholds || 850,
       buildYear: apt1ApiBuildYear || 2017,
       floorInfo: apt1ApiFloorInfo || "최고 25층 / 최저 12층",
@@ -784,7 +1001,8 @@ async function fetchApartmentCompareApi(
       name: finalApt2Name,
       district: apt2.district,
       dong: apt2.dong,
-      address: apt2ApiAddress || `${apt2.district} ${apt2.dong} ${finalApt2Name}`,
+      address:
+        apt2ApiAddress || `${apt2.district} ${apt2.dong} ${finalApt2Name}`,
       totalHouseholds: apt2ApiHouseholds || 920,
       buildYear: apt2ApiBuildYear || 2019,
       floorInfo: apt2ApiFloorInfo || "최고 29층 / 최저 15층",
@@ -799,24 +1017,65 @@ async function fetchApartmentCompareApi(
         pricePerPyeong: apt2Pyeong,
       },
     },
-    yearlyTrends: (backendYearlyTrends && backendYearlyTrends.length >= 7)
-      ? backendYearlyTrends
-      : (() => {
-          const labels = getDynamic90DaysBiweeklyLabels(baseDate);
-          return [
-            { date: labels[0], apt1Price: Number((apt1AvgPrice * 0.95).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.94).toFixed(1)) },
-            { date: labels[1], apt1Price: Number((apt1AvgPrice * 0.96).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.95).toFixed(1)) },
-            { date: labels[2], apt1Price: Number((apt1AvgPrice * 0.97).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.96).toFixed(1)) },
-            { date: labels[3], apt1Price: Number((apt1AvgPrice * 0.98).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.97).toFixed(1)) },
-            { date: labels[4], apt1Price: Number((apt1AvgPrice * 0.99).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.98).toFixed(1)) },
-            { date: labels[5], apt1Price: Number((apt1AvgPrice * 0.99).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.99).toFixed(1)) },
-            { date: labels[6], apt1Price: apt1AvgPrice, apt2Price: apt2AvgPrice },
-          ];
-        })(),
+    yearlyTrends:
+      backendYearlyTrends && backendYearlyTrends.length >= 7
+        ? backendYearlyTrends
+        : (() => {
+            const labels = getDynamic90DaysBiweeklyLabels(baseDate);
+            return [
+              {
+                date: labels[0],
+                apt1Price: Number((apt1AvgPrice * 0.95).toFixed(1)),
+                apt2Price: Number((apt2AvgPrice * 0.94).toFixed(1)),
+              },
+              {
+                date: labels[1],
+                apt1Price: Number((apt1AvgPrice * 0.96).toFixed(1)),
+                apt2Price: Number((apt2AvgPrice * 0.95).toFixed(1)),
+              },
+              {
+                date: labels[2],
+                apt1Price: Number((apt1AvgPrice * 0.97).toFixed(1)),
+                apt2Price: Number((apt2AvgPrice * 0.96).toFixed(1)),
+              },
+              {
+                date: labels[3],
+                apt1Price: Number((apt1AvgPrice * 0.98).toFixed(1)),
+                apt2Price: Number((apt2AvgPrice * 0.97).toFixed(1)),
+              },
+              {
+                date: labels[4],
+                apt1Price: Number((apt1AvgPrice * 0.99).toFixed(1)),
+                apt2Price: Number((apt2AvgPrice * 0.98).toFixed(1)),
+              },
+              {
+                date: labels[5],
+                apt1Price: Number((apt1AvgPrice * 0.99).toFixed(1)),
+                apt2Price: Number((apt2AvgPrice * 0.99).toFixed(1)),
+              },
+              {
+                date: labels[6],
+                apt1Price: apt1AvgPrice,
+                apt2Price: apt2AvgPrice,
+              },
+            ];
+          })(),
     areaPrices: backendAreaPrices || [
-      { areaName: "59㎡ (24평)", apt1Price: Number((apt1AvgPrice * 0.75).toFixed(1)), apt2Price: Number((apt2AvgPrice * 0.74).toFixed(1)) },
-      { areaName: "84㎡ (34평)", apt1Price: apt1AvgPrice, apt2Price: apt2AvgPrice },
-      { areaName: "114㎡ (45평)", apt1Price: Number((apt1AvgPrice * 1.32).toFixed(1)), apt2Price: Number((apt2AvgPrice * 1.30).toFixed(1)) },
+      {
+        areaName: "59㎡ (24평)",
+        apt1Price: Number((apt1AvgPrice * 0.75).toFixed(1)),
+        apt2Price: Number((apt2AvgPrice * 0.74).toFixed(1)),
+      },
+      {
+        areaName: "84㎡ (34평)",
+        apt1Price: apt1AvgPrice,
+        apt2Price: apt2AvgPrice,
+      },
+      {
+        areaName: "114㎡ (45평)",
+        apt1Price: Number((apt1AvgPrice * 1.32).toFixed(1)),
+        apt2Price: Number((apt2AvgPrice * 1.3).toFixed(1)),
+      },
     ],
   };
 }
@@ -847,11 +1106,21 @@ function useLocationAndApartmentQuery(
   }, [sggList]);
 
   const r1EffectiveSggCd = useMemo(() => {
-    return r1SggCd || sggOptions.find((s) => s.label === r1District || s.value === r1District)?.code || "";
+    return (
+      r1SggCd ||
+      sggOptions.find((s) => s.label === r1District || s.value === r1District)
+        ?.code ||
+      ""
+    );
   }, [r1SggCd, sggOptions, r1District]);
 
   const r2EffectiveSggCd = useMemo(() => {
-    return r2SggCd || sggOptions.find((s) => s.label === r2District || s.value === r2District)?.code || "";
+    return (
+      r2SggCd ||
+      sggOptions.find((s) => s.label === r2District || s.value === r2District)
+        ?.code ||
+      ""
+    );
   }, [r2SggCd, sggOptions, r2District]);
 
   const { data: r1Dongs = [], isLoading: isR1DongLoading } = useQuery({
@@ -891,14 +1160,28 @@ function useLocationAndApartmentQuery(
   }, [r2DongOptions, r2Dong]);
 
   const { data: r1Apartments = [], isLoading: isR1AptLoading } = useQuery({
-    queryKey: ["locationApartments", r1District, r1Dong, r1EffectiveSggCd, r1DongCd],
-    queryFn: () => fetchApartmentsApi(r1District, r1Dong, r1EffectiveSggCd, r1DongCd),
+    queryKey: [
+      "locationApartments",
+      r1District,
+      r1Dong,
+      r1EffectiveSggCd,
+      r1DongCd,
+    ],
+    queryFn: () =>
+      fetchApartmentsApi(r1District, r1Dong, r1EffectiveSggCd, r1DongCd),
     enabled: !!r1District,
   });
 
   const { data: r2Apartments = [], isLoading: isR2AptLoading } = useQuery({
-    queryKey: ["locationApartments", r2District, r2Dong, r2EffectiveSggCd, r2DongCd],
-    queryFn: () => fetchApartmentsApi(r2District, r2Dong, r2EffectiveSggCd, r2DongCd),
+    queryKey: [
+      "locationApartments",
+      r2District,
+      r2Dong,
+      r2EffectiveSggCd,
+      r2DongCd,
+    ],
+    queryFn: () =>
+      fetchApartmentsApi(r2District, r2Dong, r2EffectiveSggCd, r2DongCd),
     enabled: !!r2District,
   });
 
@@ -956,7 +1239,10 @@ function useApartmentCompareMutation() {
   });
 }
 
-/* UI 컴포넌트 */
+/* 4. UI 서브 컴포넌트 */
+
+/* 사이드바 내비게이션 */
+
 function SidebarNav() {
   return (
     <aside className="w-[240px] shrink-0 max-[900px]:w-full">
@@ -998,7 +1284,9 @@ function SidebarNav() {
             <span>이용 가이드</span>
           </div>
           <p className="text-[11px] leading-relaxed text-[#64748B]">
-            비교할 두 아파트의 자치구를 선택하고 &apos;조회하기&apos; 버튼을 누르면 실거래가, 세대수, 최근 90일 가격 추이와 평형별 시세를 한눈에 비교할 수 있습니다.
+            비교할 두 아파트의 자치구를 선택하고 &apos;조회하기&apos; 버튼을
+            누르면 실거래가, 세대수, 최근 90일 가격 추이와 평형별 시세를 한눈에
+            비교할 수 있습니다.
           </p>
         </div>
       </div>
@@ -1209,7 +1497,9 @@ function AutocompleteSelect({
                   onMouseEnter={() => setHighlightedIndex(idx)}
                   className={cn(
                     "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-[13px] font-medium text-slate-700 transition-all duration-100 cursor-pointer",
-                    isHighlighted && !isSelected && "bg-slate-100 text-slate-900",
+                    isHighlighted &&
+                      !isSelected &&
+                      "bg-slate-100 text-slate-900",
                     isSelected ? selectedBg : "hover:bg-slate-50",
                   )}
                 >
@@ -1384,15 +1674,22 @@ function ApartmentProfileComparison({
   apt1,
   apt2,
 }: ApartmentProfileComparisonProps) {
-  const { avgDiff, recentDiff, volDiff, householdDiff, yearDiff } = useMemo(() => {
-    return {
-      avgDiff: Number((apt1.metrics.avgPrice - apt2.metrics.avgPrice).toFixed(1)),
-      recentDiff: Number((apt1.metrics.recentPrice - apt2.metrics.recentPrice).toFixed(1)),
-      volDiff: apt1.metrics.recent3MonthVolume - apt2.metrics.recent3MonthVolume,
-      householdDiff: apt1.metrics.totalHouseholds - apt2.metrics.totalHouseholds,
-      yearDiff: apt1.metrics.buildYear - apt2.metrics.buildYear,
-    };
-  }, [apt1.metrics, apt2.metrics]);
+  const { avgDiff, recentDiff, volDiff, householdDiff, yearDiff } =
+    useMemo(() => {
+      return {
+        avgDiff: Number(
+          (apt1.metrics.avgPrice - apt2.metrics.avgPrice).toFixed(1),
+        ),
+        recentDiff: Number(
+          (apt1.metrics.recentPrice - apt2.metrics.recentPrice).toFixed(1),
+        ),
+        volDiff:
+          apt1.metrics.recent3MonthVolume - apt2.metrics.recent3MonthVolume,
+        householdDiff:
+          apt1.metrics.totalHouseholds - apt2.metrics.totalHouseholds,
+        yearDiff: apt1.metrics.buildYear - apt2.metrics.buildYear,
+      };
+    }, [apt1.metrics, apt2.metrics]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -1443,7 +1740,9 @@ function ApartmentProfileComparison({
                 </span>
                 <div className="mt-1 flex items-baseline gap-1 text-[18px] font-black text-slate-900">
                   {apt1.totalHouseholds.toLocaleString()}
-                  <span className="text-[12px] font-bold text-slate-500">세대</span>
+                  <span className="text-[12px] font-bold text-slate-500">
+                    세대
+                  </span>
                 </div>
               </div>
               <div className="rounded-[12px] border border-slate-100 bg-slate-50 p-3.5">
@@ -1452,7 +1751,9 @@ function ApartmentProfileComparison({
                 </span>
                 <div className="mt-1 flex items-baseline gap-1 text-[18px] font-black text-slate-900">
                   {apt1.buildYear}
-                  <span className="text-[12px] font-bold text-slate-500">년</span>
+                  <span className="text-[12px] font-bold text-slate-500">
+                    년
+                  </span>
                 </div>
               </div>
             </div>
@@ -1505,7 +1806,9 @@ function ApartmentProfileComparison({
                 </span>
                 <div className="mt-1 flex items-baseline gap-1 text-[18px] font-black text-slate-900">
                   {apt2.totalHouseholds.toLocaleString()}
-                  <span className="text-[12px] font-bold text-slate-500">세대</span>
+                  <span className="text-[12px] font-bold text-slate-500">
+                    세대
+                  </span>
                 </div>
               </div>
               <div className="rounded-[12px] border border-slate-100 bg-slate-50 p-3.5">
@@ -1514,7 +1817,9 @@ function ApartmentProfileComparison({
                 </span>
                 <div className="mt-1 flex items-baseline gap-1 text-[18px] font-black text-slate-900">
                   {apt2.buildYear}
-                  <span className="text-[12px] font-bold text-slate-500">년</span>
+                  <span className="text-[12px] font-bold text-slate-500">
+                    년
+                  </span>
                 </div>
               </div>
             </div>
@@ -1589,7 +1894,13 @@ function ApartmentProfileComparison({
                 <span className="font-semibold text-slate-400">-</span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 text-[13px] font-black">
-                  <span className={avgDiff > 0 ? "text-blue-600 truncate max-w-[130px]" : "text-emerald-600 truncate max-w-[130px]"}>
+                  <span
+                    className={
+                      avgDiff > 0
+                        ? "text-blue-600 truncate max-w-[130px]"
+                        : "text-emerald-600 truncate max-w-[130px]"
+                    }
+                  >
                     {avgDiff > 0 ? apt1.name : apt2.name}
                   </span>
                   <span className="text-slate-950">
@@ -1598,7 +1909,9 @@ function ApartmentProfileComparison({
                       : Math.round(Math.abs(avgDiff) * 10000)
                     ).toLocaleString()}
                   </span>
-                  <span className="text-[12px] font-black text-rose-600">▲</span>
+                  <span className="text-[12px] font-black text-rose-600">
+                    ▲
+                  </span>
                 </span>
               )}
             </div>
@@ -1634,7 +1947,13 @@ function ApartmentProfileComparison({
                 <span className="font-semibold text-slate-400">-</span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 text-[13px] font-black">
-                  <span className={recentDiff > 0 ? "text-blue-600 truncate max-w-[130px]" : "text-emerald-600 truncate max-w-[130px]"}>
+                  <span
+                    className={
+                      recentDiff > 0
+                        ? "text-blue-600 truncate max-w-[130px]"
+                        : "text-emerald-600 truncate max-w-[130px]"
+                    }
+                  >
                     {recentDiff > 0 ? apt1.name : apt2.name}
                   </span>
                   <span className="text-slate-950">
@@ -1643,7 +1962,9 @@ function ApartmentProfileComparison({
                       : Math.round(Math.abs(recentDiff) * 10000)
                     ).toLocaleString()}
                   </span>
-                  <span className="text-[12px] font-black text-rose-600">▲</span>
+                  <span className="text-[12px] font-black text-rose-600">
+                    ▲
+                  </span>
                 </span>
               )}
             </div>
@@ -1673,11 +1994,19 @@ function ApartmentProfileComparison({
                 <span className="font-semibold text-slate-400">-</span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 text-[13px] font-black">
-                  <span className={volDiff > 0 ? "text-blue-600 truncate max-w-[130px]" : "text-emerald-600 truncate max-w-[130px]"}>
+                  <span
+                    className={
+                      volDiff > 0
+                        ? "text-blue-600 truncate max-w-[130px]"
+                        : "text-emerald-600 truncate max-w-[130px]"
+                    }
+                  >
                     {volDiff > 0 ? apt1.name : apt2.name}
                   </span>
                   <span className="text-slate-950">{Math.abs(volDiff)}</span>
-                  <span className="text-[12px] font-black text-rose-600">▲</span>
+                  <span className="text-[12px] font-black text-rose-600">
+                    ▲
+                  </span>
                 </span>
               )}
             </div>
@@ -1707,11 +2036,21 @@ function ApartmentProfileComparison({
                 <span className="font-semibold text-slate-400">-</span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 text-[13px] font-black">
-                  <span className={householdDiff > 0 ? "text-blue-600 truncate max-w-[130px]" : "text-emerald-600 truncate max-w-[130px]"}>
+                  <span
+                    className={
+                      householdDiff > 0
+                        ? "text-blue-600 truncate max-w-[130px]"
+                        : "text-emerald-600 truncate max-w-[130px]"
+                    }
+                  >
                     {householdDiff > 0 ? apt1.name : apt2.name}
                   </span>
-                  <span className="text-slate-950">{Math.abs(householdDiff).toLocaleString()}</span>
-                  <span className="text-[12px] font-black text-rose-600">▲</span>
+                  <span className="text-slate-950">
+                    {Math.abs(householdDiff).toLocaleString()}
+                  </span>
+                  <span className="text-[12px] font-black text-rose-600">
+                    ▲
+                  </span>
                 </span>
               )}
             </div>
@@ -1741,10 +2080,18 @@ function ApartmentProfileComparison({
                 <span className="font-semibold text-slate-400">동일 연식</span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 text-[13px] font-black">
-                  <span className={yearDiff > 0 ? "text-blue-600 truncate max-w-[130px]" : "text-emerald-600 truncate max-w-[130px]"}>
+                  <span
+                    className={
+                      yearDiff > 0
+                        ? "text-blue-600 truncate max-w-[130px]"
+                        : "text-emerald-600 truncate max-w-[130px]"
+                    }
+                  >
                     {yearDiff > 0 ? apt1.name : apt2.name}
                   </span>
-                  <span className="text-slate-950">{Math.abs(yearDiff)}년 신축</span>
+                  <span className="text-slate-950">
+                    {Math.abs(yearDiff)}년 신축
+                  </span>
                 </span>
               )}
             </div>
@@ -1769,7 +2116,11 @@ function renderTrendRateBadge(rateNum: number) {
   return (
     <span className="font-bold text-slate-700">
       ({Math.abs(rateNum).toFixed(1)}%{" "}
-      <span className={isUp ? "font-black text-rose-600" : "font-black text-blue-600"}>
+      <span
+        className={
+          isUp ? "font-black text-rose-600" : "font-black text-blue-600"
+        }
+      >
         {isUp ? "▲" : "▼"}
       </span>
       )
@@ -1777,11 +2128,7 @@ function renderTrendRateBadge(rateNum: number) {
   );
 }
 
-function PriceTrendChart({
-  apt1,
-  apt2,
-  yearlyTrends,
-}: PriceTrendChartProps) {
+function PriceTrendChart({ apt1, apt2, yearlyTrends }: PriceTrendChartProps) {
   const p1Start = yearlyTrends[0]?.apt1Price || 1;
   const p1End = yearlyTrends[yearlyTrends.length - 1]?.apt1Price || 1;
   const p1Rate = Number((((p1End - p1Start) / p1Start) * 100).toFixed(1));
@@ -1944,8 +2291,14 @@ function AreaPriceComparison({
   apt2,
   areaPrices,
 }: AreaPriceComparisonProps) {
-  const apt1Label = apt1?.name || `${apt1?.district || ""} ${apt1?.dong || ""}`.trim() || "지역 1";
-  const apt2Label = apt2?.name || `${apt2?.district || ""} ${apt2?.dong || ""}`.trim() || "지역 2";
+  const apt1Label =
+    apt1?.name ||
+    `${apt1?.district || ""} ${apt1?.dong || ""}`.trim() ||
+    "지역 1";
+  const apt2Label =
+    apt2?.name ||
+    `${apt2?.district || ""} ${apt2?.dong || ""}`.trim() ||
+    "지역 2";
 
   const chartData = useMemo(() => {
     const header = ["면적", apt1Label, apt2Label];
@@ -2010,11 +2363,15 @@ function AreaPriceComparison({
         <div className="flex items-center gap-3 text-[11px] font-bold">
           <div className="flex items-center gap-1">
             <span className="size-2.5 rounded-[3px] bg-[#2563EB]" />
-            <span className="text-[#1E40AF] truncate max-w-[110px]">{apt1Label}</span>
+            <span className="text-[#1E40AF] truncate max-w-[110px]">
+              {apt1Label}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <span className="size-2.5 rounded-[3px] bg-[#16A34A]" />
-            <span className="text-[#15803D] truncate max-w-[110px]">{apt2Label}</span>
+            <span className="text-[#15803D] truncate max-w-[110px]">
+              {apt2Label}
+            </span>
           </div>
         </div>
       </div>
@@ -2047,14 +2404,22 @@ function AreaPriceComparison({
                 key={`area-tag-${idx}`}
                 className="flex flex-wrap items-center justify-between gap-1.5 rounded-lg bg-slate-50 px-3 py-1.5 text-[11px]"
               >
-                <span className="font-extrabold text-slate-700">{item.areaName}</span>
+                <span className="font-extrabold text-slate-700">
+                  {item.areaName}
+                </span>
                 <div className="flex items-center gap-2 text-[11px]">
                   <span className="font-bold text-[#2563EB]">
-                    {apt1Label}: <span className="font-black text-[12px]">{p1 > 0 ? `${p1.toFixed(1)}억` : "-"}</span>
+                    {apt1Label}:{" "}
+                    <span className="font-black text-[12px]">
+                      {p1 > 0 ? `${p1.toFixed(1)}억` : "-"}
+                    </span>
                   </span>
                   <span className="text-slate-300 font-bold">vs</span>
                   <span className="font-bold text-[#16A34A]">
-                    {apt2Label}: <span className="font-black text-[12px]">{p2 > 0 ? `${p2.toFixed(1)}억` : "-"}</span>
+                    {apt2Label}:{" "}
+                    <span className="font-black text-[12px]">
+                      {p2 > 0 ? `${p2.toFixed(1)}억` : "-"}
+                    </span>
                   </span>
                 </div>
               </div>
@@ -2076,7 +2441,8 @@ function QuickVerdict({ apt1, apt2 }: QuickVerdictProps) {
     return {
       pyeongDiff: apt1.metrics.pricePerPyeong - apt2.metrics.pricePerPyeong,
       ageDiff: apt1.metrics.buildYear - apt2.metrics.buildYear,
-      volDiff: apt1.metrics.recent3MonthVolume - apt2.metrics.recent3MonthVolume,
+      volDiff:
+        apt1.metrics.recent3MonthVolume - apt2.metrics.recent3MonthVolume,
     };
   }, [apt1.metrics, apt2.metrics]);
 
@@ -2140,16 +2506,19 @@ function QuickVerdict({ apt1, apt2 }: QuickVerdictProps) {
             <div className="text-[14.5px] font-black leading-normal text-slate-950">
               {volDiff >= 0 ? (
                 <>
-                  <span className="text-blue-700">{apt1.name}</span> 최근 거래 활발 ({apt1.metrics.recent3MonthVolume}건)
+                  <span className="text-blue-700">{apt1.name}</span> 최근 거래
+                  활발 ({apt1.metrics.recent3MonthVolume}건)
                 </>
               ) : (
                 <>
-                  <span className="text-emerald-700">{apt2.name}</span> 최근 거래 활발 ({apt2.metrics.recent3MonthVolume}건)
+                  <span className="text-emerald-700">{apt2.name}</span> 최근
+                  거래 활발 ({apt2.metrics.recent3MonthVolume}건)
                 </>
               )}
             </div>
             <p className="mt-1.5 text-[12.5px] leading-relaxed text-slate-600">
-              최근 3개월간 실거래 회전율이 더 높아 향후 환금성에서 우위를 점합니다.
+              최근 3개월간 실거래 회전율이 더 높아 향후 환금성에서 우위를
+              점합니다.
             </p>
           </div>
 
@@ -2161,11 +2530,13 @@ function QuickVerdict({ apt1, apt2 }: QuickVerdictProps) {
             <div className="text-[14.5px] font-black leading-normal text-slate-950">
               {ageDiff > 0 ? (
                 <>
-                  <span className="text-blue-700">{apt1.name}</span> 신축 프리미엄 ({apt1.metrics.buildYear}년식)
+                  <span className="text-blue-700">{apt1.name}</span> 신축
+                  프리미엄 ({apt1.metrics.buildYear}년식)
                 </>
               ) : ageDiff < 0 ? (
                 <>
-                  <span className="text-emerald-700">{apt2.name}</span> 신축 프리미엄 ({apt2.metrics.buildYear}년식)
+                  <span className="text-emerald-700">{apt2.name}</span> 신축
+                  프리미엄 ({apt2.metrics.buildYear}년식)
                 </>
               ) : (
                 `동일 연식 (${apt1.metrics.buildYear}년)`
@@ -2219,21 +2590,27 @@ export default function PriceCompareAptPage() {
 
   const compareMutation = useApartmentCompareMutation();
 
-  const handleR1DistrictChange = useCallback((district: string, opt?: AutocompleteOption) => {
-    setR1District(district);
-    setR1SggCd(opt?.code || "");
-    setR1Dong("");
-    setR1DongCd("");
-    setR1Complex("");
-  }, []);
+  const handleR1DistrictChange = useCallback(
+    (district: string, opt?: AutocompleteOption) => {
+      setR1District(district);
+      setR1SggCd(opt?.code || "");
+      setR1Dong("");
+      setR1DongCd("");
+      setR1Complex("");
+    },
+    [],
+  );
 
-  const handleR2DistrictChange = useCallback((district: string, opt?: AutocompleteOption) => {
-    setR2District(district);
-    setR2SggCd(opt?.code || "");
-    setR2Dong("");
-    setR2DongCd("");
-    setR2Complex("");
-  }, []);
+  const handleR2DistrictChange = useCallback(
+    (district: string, opt?: AutocompleteOption) => {
+      setR2District(district);
+      setR2SggCd(opt?.code || "");
+      setR2Dong("");
+      setR2DongCd("");
+      setR2Complex("");
+    },
+    [],
+  );
 
   const handleCompare = useCallback(() => {
     if (!r1District) {
@@ -2246,9 +2623,13 @@ export default function PriceCompareAptPage() {
     }
 
     const effectiveR1Complex =
-      r1Complex || (r1AptOptions[0]?.label || `${r1District} ${r1Dong || "대표단지"}`);
+      r1Complex ||
+      r1AptOptions[0]?.label ||
+      `${r1District} ${r1Dong || "대표단지"}`;
     const effectiveR2Complex =
-      r2Complex || (r2AptOptions[0]?.label || `${r2District} ${r2Dong || "대표단지"}`);
+      r2Complex ||
+      r2AptOptions[0]?.label ||
+      `${r2District} ${r2Dong || "대표단지"}`;
 
     compareMutation.mutate({
       apt1: {
@@ -2256,14 +2637,16 @@ export default function PriceCompareAptPage() {
         dong: r1Dong,
         complexName: r1Complex || effectiveR1Complex,
         guCode: r1SggCd,
-        dongCode: r1DongCd || r1DongOptions.find((d) => d.label === r1Dong)?.code,
+        dongCode:
+          r1DongCd || r1DongOptions.find((d) => d.label === r1Dong)?.code,
       },
       apt2: {
         district: r2District,
         dong: r2Dong,
         complexName: r2Complex || effectiveR2Complex,
         guCode: r2SggCd,
-        dongCode: r2DongCd || r2DongOptions.find((d) => d.label === r2Dong)?.code,
+        dongCode:
+          r2DongCd || r2DongOptions.find((d) => d.label === r2Dong)?.code,
       },
     });
   }, [
@@ -2305,19 +2688,17 @@ export default function PriceCompareAptPage() {
   const resultData = compareMutation.data;
 
   return (
-    <div className={cn("tw-scope w-full bg-[#F8FAFC]")}>
-      <main className="py-8">
-        <div
-          className={cn(
-            "mx-auto flex w-[min(1490px,calc(100%-48px))] gap-8",
-            "max-[1240px]:w-[min(980px,calc(100%-36px))]",
-            "max-[760px]:w-[calc(100%-24px)]",
-            "max-[900px]:flex-col",
-          )}
-        >
-          <SidebarNav />
+    <SectionSidebarLayout
+      sectionTitle={PRICE_NAVIGATION.sectionTitle}
+      menuItems={PRICE_NAVIGATION.menuItems}
+    >
+      <div className={cn("tw-scope min-w-0 w-full bg-[#F8FAFC]")}>
+        <main className="py-8">
+          {/* 사이드바 영역 */}
 
-          <section className="min-w-0 flex-1">
+          {/* 메인 콘텐츠 영역 */}
+          <section className="min-w-0">
+            {/* 상단 타이틀 & 초기화 버튼 */}
             <div className="mb-6 flex items-start justify-between">
               <div>
                 <h1 className="text-[24px] font-black text-[#0F172A]">
@@ -2392,7 +2773,9 @@ export default function PriceCompareAptPage() {
                   <button
                     type="button"
                     onClick={handleCompare}
-                    disabled={!canCompare || compareMutation.isPending || isSggLoading}
+                    disabled={
+                      !canCompare || compareMutation.isPending || isSggLoading
+                    }
                     className="flex h-[110px] w-full min-w-[135px] flex-col items-center justify-center gap-2 rounded-[12px] bg-[#2563EB] p-4 text-white shadow-[0_6px_20px_rgba(37,99,235,0.3)] transition-all duration-200 hover:bg-[#1D4ED8] hover:shadow-[0_8px_24px_rgba(37,99,235,0.4)] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
                   >
                     {compareMutation.isPending ? (
@@ -2442,14 +2825,16 @@ export default function PriceCompareAptPage() {
                   <Layers className="size-8" />
                 </div>
                 <h3 className="text-[18px] font-black text-[#0F172A]">
-                  비교할 두 아파트 단지를 선택하고 &apos;단지 비교하기&apos; 버튼을 눌러주세요
+                  비교할 두 아파트 단지를 선택하고 &apos;단지 비교하기&apos;
+                  버튼을 눌러주세요
                 </h3>
                 <p className="mx-auto mt-2 max-w-[420px] text-[13px] font-medium leading-relaxed text-[#64748B]">
                   두 아파트 단지를 지정한 뒤{" "}
                   <span className="font-extrabold text-[#0F8AA8]">
                     &apos;단지 비교하기&apos;
                   </span>{" "}
-                  버튼을 클릭하면 단지 프로필, 3개년 가격 추이, 평형별 매매가 분석 결과가 나타납니다.
+                  버튼을 클릭하면 단지 프로필, 3개년 가격 추이, 평형별 매매가
+                  분석 결과가 나타납니다.
                 </p>
               </div>
             ) : (
@@ -2490,7 +2875,8 @@ export default function PriceCompareAptPage() {
                   <div className="flex items-center gap-1.5">
                     <Info className="size-3.5 text-[#0F8AA8]" />
                     <span>
-                      본 정보는 서울시 열린데이터광장 부동산 실거래가 공개시스템 데이터를 기반으로 제공됩니다.
+                      본 정보는 서울시 열린데이터광장 부동산 실거래가 공개시스템
+                      데이터를 기반으로 제공됩니다.
                     </span>
                   </div>
                   <span>데이터 기준일: {resultData.baseDate}</span>
@@ -2498,8 +2884,8 @@ export default function PriceCompareAptPage() {
               </div>
             )}
           </section>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </SectionSidebarLayout>
   );
 }
