@@ -12,7 +12,7 @@ import {
   type MemberUpdateRequest,
 } from "@/api/api";
 import apiMiddleware from "@/api/middleware";
-import { getDongs, getSggs } from "@/features/location/services/locationService";
+import { getSggs } from "@/features/location/services/locationService";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { REGION_STORAGE_KEY } from "@/features/region-map/utils/regionSelection";
 
@@ -99,7 +99,6 @@ type Profile = {
 type MyPageSettings = {
   profile: Partial<Profile>;
   preferredDistrict: string;
-  preferredDong?: string;
   favoriteItems?: string[];
   notificationSettings?: Record<string, boolean>;
   priceAlerts?: unknown[];
@@ -123,13 +122,11 @@ type ProfileDraft = {
   address: string;
   detailAddress: string;
   preferredDistrict: string;
-  preferredDong: string;
 };
 
 type MemberUpdateVariables = {
   formData: Profile;
   preferredDistrict: string;
-  preferredDong: string;
 };
 
 const normalizeIdentity = (value?: string | null): string =>
@@ -211,9 +208,7 @@ function isProfileDraft(value: unknown): value is ProfileDraft {
     "detailAddress" in value &&
     typeof value.detailAddress === "string" &&
     "preferredDistrict" in value &&
-    typeof value.preferredDistrict === "string" &&
-    "preferredDong" in value &&
-    typeof value.preferredDong === "string"
+    typeof value.preferredDistrict === "string"
   );
 }
 
@@ -296,26 +291,9 @@ export default function MyProfilePage() {
     const saved = getStoredMyPageSettings(authUser?.userId);
     return saved?.preferredDistrict ?? "";
   });
-  const [preferredDong, setPreferredDong] = useState(() => {
-    const saved = getStoredMyPageSettings(authUser?.userId);
-    return saved?.preferredDong ?? "";
-  });
-
-  const selectedSgg = useMemo(
-    () => sggs.find((sgg) => sgg.sggNm === preferredDistrict),
-    [preferredDistrict, sggs],
-  );
-  const { data: dongs = [], isLoading: isDongsLoading } = useQuery({
-    queryKey: ["location", "dongs", selectedSgg?.sggCd],
-    queryFn: () => getDongs(selectedSgg?.sggCd ?? ""),
-    enabled: Boolean(selectedSgg),
-    staleTime: Infinity,
-  });
-
   // 원본 스냅샷 (변경 취소 시 복구할 기준 데이터)
   const [originalProfile, setOriginalProfile] = useState<Profile>(profile);
   const [originalDistrict, setOriginalDistrict] = useState<string>(preferredDistrict);
-  const [originalDong, setOriginalDong] = useState<string>(preferredDong);
   const initializedDraftUserRef = useRef<string | null>(null);
 
   // 인증 관련 State
@@ -451,9 +429,6 @@ export default function MyProfilePage() {
   const districtOptions = useMemo(() => {
     return ["선택 안 함", ...sggs.map((sgg) => sgg.sggNm)];
   }, [sggs]);
-  const dongOptions = useMemo(() => {
-    return ["선택 안 함", ...dongs.map((dong) => dong.dongNm)];
-  }, [dongs]);
 
   // 소셜 로그인 감지 및 공급자명 판별
   const rawUserId = authUser?.userId || profile.userId || "";
@@ -497,7 +472,6 @@ export default function MyProfilePage() {
       };
 
       const nextDistrict = saved?.preferredDistrict ?? "";
-      const nextDong = saved?.preferredDong ?? "";
 
       queueMicrotask(() => {
         if (!isActive) return;
@@ -516,8 +490,6 @@ export default function MyProfilePage() {
         reset(displayedProfile);
         setPreferredDistrict(latestDraft?.preferredDistrict ?? nextDistrict);
         setOriginalDistrict(nextDistrict);
-        setPreferredDong(latestDraft?.preferredDong ?? nextDong);
-        setOriginalDong(nextDong);
         initializedDraftUserRef.current = normalizeIdentity(authUserId);
       });
 
@@ -536,7 +508,6 @@ export default function MyProfilePage() {
       address: formValues.address ?? "",
       detailAddress: formValues.detailAddress ?? "",
       preferredDistrict,
-      preferredDong,
     };
     sessionStorage.setItem(getProfileDraftKey(userId), JSON.stringify(draft));
   }, [
@@ -545,7 +516,6 @@ export default function MyProfilePage() {
     formValues.address,
     formValues.detailAddress,
     preferredDistrict,
-    preferredDong,
   ]);
 
   const updateMemberMutation = useMutation({
@@ -575,12 +545,12 @@ export default function MyProfilePage() {
           : "LOCAL",
       };
       const previousSettings = getStoredMyPageSettings(response.userId);
-      const settingsToSave: MyPageSettings = {
+      const settingsToSave: MyPageSettings & { preferredDong?: unknown } = {
         ...previousSettings,
         profile: getLocalProfileSettings(updatedProfile),
         preferredDistrict: variables.preferredDistrict,
-        preferredDong: variables.preferredDong,
       };
+      delete settingsToSave.preferredDong;
 
       queryClient.invalidateQueries({ queryKey: ["member", "me"] });
       localStorage.setItem(
@@ -592,8 +562,6 @@ export default function MyProfilePage() {
       setOriginalProfile(updatedProfile);
       setPreferredDistrict(variables.preferredDistrict);
       setOriginalDistrict(variables.preferredDistrict);
-      setPreferredDong(variables.preferredDong);
-      setOriginalDong(variables.preferredDong);
 
       if (authUser) {
         useAuthStore.getState().setUser({
@@ -602,7 +570,7 @@ export default function MyProfilePage() {
           name: response.name,
           myGu: variables.preferredDistrict || null,
           preferredDistrict: variables.preferredDistrict || undefined,
-          myDong: variables.preferredDong || null,
+          myDong: null,
         });
       }
 
@@ -636,8 +604,7 @@ export default function MyProfilePage() {
       (formValues.detailAddress ?? "") !== (originalProfile.detailAddress ?? "");
 
     const isDistrictChanged = preferredDistrict !== originalDistrict;
-    const isDongChanged = preferredDong !== originalDong;
-    return isProfileChanged || isDistrictChanged || isDongChanged;
+    return isProfileChanged || isDistrictChanged;
   }, [
     formValues.name,
     formValues.phone,
@@ -647,8 +614,6 @@ export default function MyProfilePage() {
     originalProfile,
     preferredDistrict,
     originalDistrict,
-    preferredDong,
-    originalDong,
   ]);
 
   // [변경 취소] 버튼 클릭 핸들러
@@ -657,7 +622,6 @@ export default function MyProfilePage() {
     reset(originalProfile);
     setProfile(originalProfile);
     setPreferredDistrict(originalDistrict);
-    setPreferredDong(originalDong);
     setPhoneVerified(false);
     setIdentityVerificationId("");
   };
@@ -678,7 +642,6 @@ export default function MyProfilePage() {
     updateMemberMutation.mutate({
       formData: { ...profile, ...formData },
       preferredDistrict,
-      preferredDong,
     });
   };
 
@@ -910,49 +873,24 @@ export default function MyProfilePage() {
                       </div>
                     </div>
 
-                    {/* ROW 6: 선호 지역 구·동 설정 */}
+                    {/* ROW 6: 선호 자치구 설정 */}
                     <div className="space-y-1.5 w-full">
-                      <label className="text-[14px] font-bold text-[#13202B] block">선호 지역 설정</label>
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <label className="text-[14px] font-bold text-[#13202B] block">선호 자치구 설정</label>
+                      <div>
                         <AutocompleteInput
                           value={preferredDistrict}
                           options={districtOptions}
                           disabled={!isLoggedIn || isSggsLoading}
-                          onChange={(value) => {
-                            setPreferredDistrict(value === "선택 안 함" ? "" : value);
-                            setPreferredDong("");
-                          }}
-                          onInvalidBlur={() => {
-                            setPreferredDistrict(originalDistrict);
-                            setPreferredDong(originalDong);
-                          }}
+                          onChange={(value) =>
+                            setPreferredDistrict(value === "선택 안 함" ? "" : value)
+                          }
+                          onInvalidBlur={() => setPreferredDistrict(originalDistrict)}
                           placeholder="자치구를 선택하거나 입력해 주세요"
                           className={!preferredDistrict ? "text-[#64748B]" : "text-[#13202B]"}
                         />
-                        <AutocompleteInput
-                          value={preferredDong}
-                          options={dongOptions}
-                          disabled={!isLoggedIn || !selectedSgg || isDongsLoading}
-                          onChange={(value) =>
-                            setPreferredDong(value === "선택 안 함" ? "" : value)
-                          }
-                          onInvalidBlur={() =>
-                            setPreferredDong(
-                              preferredDistrict === originalDistrict
-                                ? originalDong
-                                : "",
-                            )
-                          }
-                          placeholder={
-                            selectedSgg
-                              ? "동을 선택하거나 입력해 주세요"
-                              : "자치구를 먼저 선택해 주세요"
-                          }
-                          className={!preferredDong ? "text-[#64748B]" : "text-[#13202B]"}
-                        />
                       </div>
                       <p className="text-[12px] text-[#6B7280]">
-                        자치구와 동은 모두 선택하지 않을 수 있으며, 동은 자치구를 선택한 뒤 설정할 수 있습니다.
+                        선호 자치구는 선택하지 않아도 되며, 선택한 자치구를 기준으로 관심 지역을 표시합니다.
                       </p>
                     </div>
                   </div>
