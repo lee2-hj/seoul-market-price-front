@@ -15,18 +15,74 @@ import {
   Loader2,
   MapPin,
 } from "lucide-react";
-
+import apiMiddleware from "@/api/middleware";
 import {
   getSggsApi,
   getDongsApi,
   getComplexesApi,
   type SggItem,
   type DongItem,
-  type ComplexDetailItem as ComplexInfo,
+  type ComplexDetailItem,
 } from "@/api/api";
 import styles from "./PriceDetailPage.module.css";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { PRICE_NAVIGATION } from "@/config/sectionNavigation";
+
+export interface AptTypeCompareRequest {
+  apt_name: string;
+  aptName: string;
+  guCode: string;
+  dongCode: string;
+  mno: string;
+  sno: string;
+  sgg_cd: string;
+  dong_cd: string;
+  sgg_nm: string;
+  dong_nm: string;
+  type: "PYUNG" | "FLOOR";
+  targetA: string;
+  targetB: string;
+  pyung1?: string;
+  pyung2?: string;
+  floor1?: string;
+  floor2?: string;
+}
+
+export interface AptTypeCompareResponse {
+  priceA?: number;
+  priceB?: number;
+  avgPriceA?: number;
+  avgPriceB?: number;
+  recentPriceA?: number;
+  recentPriceB?: number;
+  dealCountA?: number;
+  dealCountB?: number;
+  avgPyeongAmtA?: number;
+  avgPyeongAmtB?: number;
+  recentFloorA?: string | number;
+  recentFloorB?: string | number;
+  recentSupplyPyeongA?: string;
+  recentSupplyPyeongB?: string;
+  recentExclusiveAreaA?: string | number;
+  recentExclusiveAreaB?: string | number;
+  recentDealDateA?: string;
+  recentDealDateB?: string;
+}
+
+async function callAptTypeCompareApi(
+  params: AptTypeCompareRequest,
+): Promise<AptTypeCompareResponse | null> {
+  try {
+    const response = await apiMiddleware.get<AptTypeCompareResponse>(
+      "/api/price/apt-type-compare",
+      { params },
+    );
+    return response.data;
+  } catch (error) {
+    console.warn("Failed to fetch apt type comparison:", error);
+    return null;
+  }
+}
 
 /* 사이드바 네비게이션 */
 /*
@@ -102,11 +158,15 @@ export default function PriceDetailPage() {
   const [selectedComplexId, setSelectedComplexId] = useState<string | null>(null);
   const [selectedPyungIndex, setSelectedPyungIndex] = useState(1); // Default 84㎡
 
-  /* 3. 아파트 단지 목록 DB API 조회 */
-  const { data: apiComplexes = [], isLoading: isComplexesLoading } = useQuery<ComplexInfo[]>({
-    queryKey: ["locationComplexes", selectedSgg?.sggNm, selectedDongNm],
-    queryFn: () => getComplexesApi(selectedSgg?.sggNm || "", selectedDongNm),
-    enabled: Boolean(selectedSgg?.sggNm && selectedDongNm),
+  /* 3. 자치동 관할 아파트 단지 목록 조회 API (검색 버튼 클릭 시에만 호출) */
+  const { data: complexList = [], isLoading: isComplexLoading } = useQuery<ComplexDetailItem[]>({
+    queryKey: ["locationComplexes", searchQuery?.sggNm, searchQuery?.dongNm],
+    queryFn: () =>
+      getComplexesApi(
+        searchQuery?.sggNm || "",
+        searchQuery?.dongNm || "",
+      ),
+    enabled: Boolean(searchQuery?.sggCd && searchQuery?.dongNm),
     staleTime: 1000 * 60 * 10,
   });
 
@@ -144,18 +204,49 @@ export default function PriceDetailPage() {
     }
   };
 
-  /* 콤보 박스: 자치동 변경 이벤트 */
-  const handleDongChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const nextDongNm = e.target.value;
-    setSelectedDongNm(nextDongNm);
-    setSelectedComplexId(null);
-    setSelectedPyungIndex(1);
+  /* 선택된 아파트 단지 객체 */
+  const selectedComplex = useMemo(
+    () => complexList.find((c) => c.name === selectedAptName) || null,
+    [complexList, selectedAptName],
+  );
 
-    if (selectedSgg) {
-      if (nextDongNm) {
-        setSearchParams({ sgg: selectedSgg.sggNm, dong: nextDongNm });
-      } else {
-        setSearchParams({ sgg: selectedSgg.sggNm });
+  /* 비교 버튼 클릭 핸들러 (사용자가 [비교]를 눌러야만 결과가 나옴) */
+  const handleCompareClick = () => {
+    if (!selectedAptName) {
+      alert("먼저 아파트를 선택해 주세요.");
+      return;
+    }
+    const guCode = selectedSggCd || (selectedComplex as any)?.sggCd || "";
+    const dongCode = selectedDongObj?.dongCd || (selectedComplex as any)?.dongCd || "";
+    const mno = (selectedComplex as any)?.mno || (selectedComplex as any)?.bonbun || "";
+    const sno = (selectedComplex as any)?.sno || (selectedComplex as any)?.bubun || "";
+
+    if (searchType === "PYUNG") {
+      if (!selectedPyungA || !selectedPyungB) {
+        alert("비교할 2가지 평형을 모두 선택해 주세요.");
+        return;
+      }
+      setCompareTrigger({
+        apt_name: selectedAptName,
+        aptName: selectedAptName,
+        guCode,
+        dongCode,
+        mno,
+        sno,
+        sgg_cd: guCode,
+        dong_cd: dongCode,
+        sgg_nm: selectedSgg?.sggNm || "",
+        dong_nm: selectedDongNm,
+        type: "PYUNG",
+        targetA: `${selectedPyungA}평형대`,
+        targetB: `${selectedPyungB}평형대`,
+        pyung1: selectedPyungA,
+        pyung2: selectedPyungB,
+      });
+    } else if (searchType === "FLOOR") {
+      if (!selectedFloorA || !selectedFloorB) {
+        alert("비교할 2가지 층수를 모두 선택해 주세요.");
+        return;
       }
     }
   };
@@ -349,13 +440,49 @@ export default function PriceDetailPage() {
             </div>
           </div>
 
-          {/* =========================================
-              지역 선택 미완료 시 안내 카드
-          ========================================= */}
-          {(!selectedSggCd || !selectedDongNm) ? (
-            <div className={styles.emptyCard}>
-              <div className={styles.emptyIconCircle}>
-                <Building2 className="size-7" />
+            {/* 2행: 아파트 선택 영역 */}
+            <div className={styles.aptSectionUnified}>
+              <div className={styles.fieldLabelRow}>
+                <span className={styles.fieldTitle}>아파트</span>
+                <span className={styles.optionalTag}>
+                  {selectedAptName ? "선택 완료" : "단지 선택"}
+                </span>
+                {searchQuery && !selectedAptName && (
+                  <span className={styles.aptCountBadge}>
+                    총 {complexList.length}개 단지
+                  </span>
+                )}
+                {isComplexLoading && (
+                  <Loader2 className="inline size-3 animate-spin text-[#0F8AA8]" />
+                )}
+              </div>
+
+              <div className={styles.selectWrapper}>
+                <select
+                  value={selectedAptName}
+                  onChange={(e) => {
+                    setSelectedAptName(e.target.value);
+                    setCompareTrigger(null);
+                  }}
+                  disabled={!searchQuery || isComplexLoading || complexList.length === 0}
+                  className={`${styles.selectInput} ${(!searchQuery || complexList.length === 0) ? styles.selectInputDisabled : ""}`}
+                >
+                  <option value="">
+                    {!searchQuery
+                      ? "자치구와 자치동을 선택한 후 [검색] 버튼을 눌러주세요"
+                      : isComplexLoading
+                        ? "아파트 단지 목록을 불러오는 중입니다..."
+                        : complexList.length === 0
+                          ? "해당 자치동에 등록된 아파트 단지가 없습니다"
+                          : "아파트 단지를 선택해 주세요"}
+                  </option>
+                  {complexList.map((apt) => (
+                    <option key={apt.id} value={apt.name}>
+                      {apt.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className={styles.selectArrowIcon} />
               </div>
               <h3 className={styles.emptyTitle}>자치구와 자치동을 선택해 주세요</h3>
               <p className={styles.emptySubtitle}>
@@ -529,151 +656,165 @@ export default function PriceDetailPage() {
                       <div className="mt-1 text-[11px] font-medium text-[#64748B]">전용면적 기준</div>
                     </div>
 
-                    {/* 카드가 5: 전세가율 */}
-                    <div className={styles.metricCard}>
-                      <div className={styles.metricTitle}>전세가율</div>
-                      <div className={styles.metricValueBlue}>
-                        {activePyung ? `${((activePyung.rentPrice / activePyung.salePrice) * 100).toFixed(1)}%` : "-"}
+                return (
+                  <div className={styles.metricsCompareGrid}>
+                    {/* 대상 A */}
+                    <div className={styles.metricCardA}>
+                      <div className={styles.metricCardLabel}>
+                        {compareTrigger.targetA}
                       </div>
-                      <div className="mt-1 text-[11px] font-medium text-[#64748B]">안정적 시세 형성</div>
-                    </div>
-                  </div>
-
-                  {/* 12개월 시세 추이 차트 카드 */}
-                  <div className={styles.chartCard}>
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F1F5F9] pb-4">
-                      <div>
-                        <h3 className="flex items-center gap-2 text-[16px] font-black text-[#0F172A]">
-                          <BarChart3 className="size-4 text-[#0F8AA8]" />
-                          <span>12개월 매매 / 전세 시세 추이</span>
-                        </h3>
-                        <p className="mt-0.5 text-[12px] font-medium text-[#64748B]">
-                          {currentComplex.name} · {activePyung?.name} 월별 가격 흐름
-                        </p>
+                      <div className={styles.metricCardPrice}>
+                        {hasDataA ? (
+                          formatPriceKorean(compareResult.priceA || compareResult.avgPriceA || compareResult.recentPriceA)
+                        ) : (
+                          <span className={styles.noDataPrice}>실거래 데이터 없음</span>
+                        )}
+                      </div>
+                      <div className={styles.metricSubInfo}>
+                        <span>{searchType === "PYUNG" ? "90일 이내 평균 실거래가" : "90일 이내 층별 평균 실거래가"}</span>
                       </div>
 
-                      <div className="flex items-center gap-4 text-[12px] font-bold">
-                        <div className="flex items-center gap-1.5">
-                          <span className="inline-block size-3 rounded-full bg-[#0F8AA8]" />
-                          <span>매매가</span>
+                      <div className={styles.metricDetailList}>
+                        <div className={styles.metricDetailItem}>
+                          <span>최근 거래일</span>
+                          <span className={styles.metricDetailVal}>
+                            {compareResult.recentDealDateA || <span className={styles.noDataVal}>데이터 없음</span>}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="inline-block size-3 rounded-full bg-[#F59E0B]" />
-                          <span>전세가</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* SVG 차트 바/라인 표현 */}
-                    <div className="pt-2">
-                      <div className="relative h-[220px] w-full border-b border-[#E2E8F0] pb-6 pt-4">
-                        {/* 차트 가이드선 */}
-                        <div className="absolute inset-x-0 top-0 border-b border-dashed border-[#F1F5F9]" />
-                        <div className="absolute inset-x-0 top-1/2 border-b border-dashed border-[#F1F5F9]" />
-
-                        {/* 차트 바 및 데이터 포인트 */}
-                        <div className="flex h-full items-end justify-between px-2">
-                          {chartPoints.map((pt) => {
-                            const maxSale = chartPoints[chartPoints.length - 1].sale * 1.1;
-                            const saleHeightPercent = Math.max(20, (pt.sale / maxSale) * 100);
-                            const rentHeightPercent = Math.max(10, (pt.rent / maxSale) * 100);
-
-                            return (
-                              <div key={pt.month} className="group relative flex flex-col items-center flex-1 h-full justify-end">
-                                {/* 툴팁 */}
-                                <div className="absolute -top-12 z-20 hidden rounded-md bg-[#123047] px-2.5 py-1 text-[11px] font-extrabold text-white shadow-md group-hover:block whitespace-nowrap">
-                                  <div>매매: {formatPriceKRW(pt.sale)}</div>
-                                  <div>전세: {formatPriceKRW(pt.rent)}</div>
-                                </div>
-
-                                <div className="flex items-end gap-1 w-full justify-center">
-                                  {/* 매매 막대 */}
-                                  <div
-                                    style={{ height: `${saleHeightPercent}%` }}
-                                    className="w-2.5 sm:w-3.5 rounded-t-sm bg-[#0F8AA8] transition-all group-hover:bg-[#0D7E99]"
-                                  />
-                                  {/* 전세 막대 */}
-                                  <div
-                                    style={{ height: `${rentHeightPercent}%` }}
-                                    className="w-2.5 sm:w-3.5 rounded-t-sm bg-[#F59E0B] transition-all group-hover:bg-[#D97706]"
-                                  />
-                                </div>
-                                <span className="mt-2 text-[10px] font-bold text-[#64748B]">{pt.month}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 최근 실거래가 내역 테이블 */}
-                  <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-6 shadow-[0_4px_24px_rgba(15,23,42,0.04)] space-y-4">
-                    <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-4">
-                      <h3 className="flex items-center gap-2 text-[16px] font-black text-[#0F172A]">
-                        <Calendar className="size-4 text-[#0F8AA8]" />
-                        <span>최근 실거래 신고 내역</span>
-                      </h3>
-                      <span className="text-[12px] font-medium text-[#64748B]">국토교통부 실거래가 공개시스템 기준</span>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-[13px]">
-                        <thead>
-                          <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC] text-[12px] font-extrabold text-[#475569]">
-                            <th className="py-3 px-4">계약일</th>
-                            <th className="py-3 px-4">층수</th>
-                            <th className="py-3 px-4">거래 유형</th>
-                            <th className="py-3 px-4">거래 금액</th>
-                            <th className="py-3 px-4">직전 거래 대비</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#F1F5F9] font-medium">
-                          {recentTrades.map((trade, i) => (
-                            <tr key={i} className="hover:bg-[#F8FAFC]/80 transition-colors">
-                              <td className="py-3 px-4 text-[#64748B]">{trade.date}</td>
-                              <td className="py-3 px-4 text-[#0F172A] font-bold">{trade.floor}</td>
-                              <td className="py-3 px-4">
-                                <span
-                                  className={`rounded-md px-2 py-0.5 text-[11px] font-extrabold ${trade.type === "매매" ? "bg-[#E8F6F9] text-[#0F8AA8]" : "bg-[#FEF3C7] text-[#D97706]"
-                                    }`}
-                                >
-                                  {trade.type}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4 font-black text-[#0F172A]">{formatPriceKRW(trade.price)}</td>
-                              <td className="py-3 px-4">
-                                {trade.isUp === true && (
-                                  <span className="flex items-center gap-1 font-bold text-[#059669]">
-                                    <TrendingUp className="size-3" />
-                                    {trade.change}
+                        <div className={styles.metricDetailItem}>
+                          <span>최근 거래가</span>
+                          <span className={styles.metricDetailVal}>
+                            {compareResult.recentPriceA ? (
+                              <>
+                                {recentPriceDiff > 0 && (
+                                  <span className={styles.higherDiffBadge}>
+                                    +{formatPriceKorean(recentPriceDiff)}
                                   </span>
                                 )}
-                                {trade.isUp === false && (
-                                  <span className="flex items-center gap-1 font-bold text-[#DC2626]">
-                                    <TrendingDown className="size-3" />
-                                    {trade.change}
+                                {formatPriceKorean(compareResult.recentPriceA)}
+                              </>
+                            ) : (
+                              <span className={styles.noDataVal}>데이터 없음</span>
+                            )}
+                          </span>
+                        </div>
+                        <div className={styles.metricDetailItem}>
+                          <span>거래평형 · 층수</span>
+                          <span className={styles.metricDetailVal}>
+                            {areaTextA || <span className={styles.noDataVal}>데이터 없음</span>}
+                          </span>
+                        </div>
+                        <div className={styles.metricDetailItem}>
+                          <span>평균 평단가</span>
+                          <span className={styles.metricDetailVal}>
+                            {compareResult.avgPyeongAmtA ? (
+                              <>
+                                {avgPyeongDiff > 0 && (
+                                  <span className={styles.higherDiffBadge}>
+                                    +{avgPyeongDiff.toLocaleString()}만원/평
                                   </span>
                                 )}
-                                {trade.isUp === null && <span className="font-bold text-[#64748B]">{trade.change}</span>}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                                {compareResult.avgPyeongAmtA.toLocaleString()}만원/평
+                              </>
+                            ) : (
+                              <span className={styles.noDataVal}>데이터 없음</span>
+                            )}
+                          </span>
+                        </div>
+                        <div className={styles.metricDetailItem}>
+                          <span>거래 건수</span>
+                          <span className={styles.metricDetailVal}>
+                            {compareResult.dealCountA !== undefined ? `${compareResult.dealCountA}건` : <span className={styles.noDataVal}>0건</span>}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* VS 뱃지 */}
+                    <div className={styles.vsBadgeCol}>
+                      <div className={styles.vsBadgeCircle}>VS</div>
+                    </div>
+
+                    {/* 대상 B */}
+                    <div className={styles.metricCardB}>
+                      <div className={styles.metricCardLabel}>
+                        {compareTrigger.targetB}
+                      </div>
+                      <div className={styles.metricCardPrice}>
+                        {hasDataB ? (
+                          formatPriceKorean(compareResult.priceB || compareResult.avgPriceB || compareResult.recentPriceB)
+                        ) : (
+                          <span className={styles.noDataPrice}>실거래 데이터 없음</span>
+                        )}
+                      </div>
+                      <div className={styles.metricSubInfo}>
+                        <span>{searchType === "PYUNG" ? "90일 이내 평균 실거래가" : "90일 이내 층별 평균 실거래가"}</span>
+                      </div>
+
+                      <div className={styles.metricDetailList}>
+                        <div className={styles.metricDetailItem}>
+                          <span>최근 거래일</span>
+                          <span className={styles.metricDetailVal}>
+                            {compareResult.recentDealDateB || <span className={styles.noDataVal}>데이터 없음</span>}
+                          </span>
+                        </div>
+                        <div className={styles.metricDetailItem}>
+                          <span>최근 거래가</span>
+                          <span className={styles.metricDetailVal}>
+                            {compareResult.recentPriceB ? (
+                              <>
+                                {recentPriceDiff < 0 && (
+                                  <span className={styles.higherDiffBadge}>
+                                    +{formatPriceKorean(Math.abs(recentPriceDiff))}
+                                  </span>
+                                )}
+                                {formatPriceKorean(compareResult.recentPriceB)}
+                              </>
+                            ) : (
+                              <span className={styles.noDataVal}>데이터 없음</span>
+                            )}
+                          </span>
+                        </div>
+                        <div className={styles.metricDetailItem}>
+                          <span>거래평형 · 층수</span>
+                          <span className={styles.metricDetailVal}>
+                            {areaTextB || <span className={styles.noDataVal}>데이터 없음</span>}
+                          </span>
+                        </div>
+                        <div className={styles.metricDetailItem}>
+                          <span>평균 평단가</span>
+                          <span className={styles.metricDetailVal}>
+                            {compareResult.avgPyeongAmtB ? (
+                              <>
+                                {avgPyeongDiff < 0 && (
+                                  <span className={styles.higherDiffBadge}>
+                                    +{Math.abs(avgPyeongDiff).toLocaleString()}만원/평
+                                  </span>
+                                )}
+                                {compareResult.avgPyeongAmtB.toLocaleString()}만원/평
+                              </>
+                            ) : (
+                              <span className={styles.noDataVal}>데이터 없음</span>
+                            )}
+                          </span>
+                        </div>
+                        <div className={styles.metricDetailItem}>
+                          <span>거래 건수</span>
+                          <span className={styles.metricDetailVal}>
+                            {compareResult.dealCountB !== undefined ? `${compareResult.dealCountB}건` : <span className={styles.noDataVal}>0건</span>}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-
-                  {/* 싸부 AI 시세 인사이트 */}
-                  <div className={styles.aiReportCard}>
-                    <div className="flex items-center gap-2 text-[14px] font-black text-[#0F8AA8]">
-                      <Sparkles className="size-4" />
-                      <span>싸부(SSABU) AI 시세 분석 리포트</span>
-                    </div>
-                    <p className="mt-2 text-[13px] leading-relaxed text-[#334155]">
-                      <strong>{currentComplex.name}</strong> 단지는 <strong>{selectedSgg?.sggNm} {selectedDongNm}</strong> 내 우수한 상권과 대중교통 접근성을 갖추고 있으며,
-                      최근 6개월간 거래량이 꾸준히 증가하며 상승세를 유지하고 있습니다. {activePyung?.name} 기준 실거래가는 동일 평형 지역 평균 대비 약 <strong>3.4% 높은 수준</strong>에 형성되어 있습니다.
-                    </p>
+                );
+              })() : (
+                <div className={styles.resultEmptyState}>
+                  <div className={styles.emptyIconCircle}>
+                    <Search className="size-6 text-slate-400" />
+                  </div>
+                  <div className={styles.emptyTitle}>
+                    {compareTrigger.targetA} vs {compareTrigger.targetB} 실거래 데이터 없음
                   </div>
                 </div>
               ) : null}
