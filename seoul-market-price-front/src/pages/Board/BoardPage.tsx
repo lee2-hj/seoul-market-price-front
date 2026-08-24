@@ -23,6 +23,8 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { maskAuthorName } from '@/lib/utils';
+import SectionSidebarLayout from '@/components/SectionSidebarLayout';
+import { CUSTOMER_CENTER_NAVIGATION } from '@/config/sectionNavigation';
 
 // select 반환 타입 정의
 interface BoardPostsSelectResult {
@@ -140,6 +142,10 @@ export default function BoardPage() {
   };
 
   return (
+    <SectionSidebarLayout
+      sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+      menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+    >
     <div className="min-h-screen bg-[#F5FAFC]">
       <div className="py-12 px-5 sm:px-8">
         <div className="max-w-[1000px] mx-auto space-y-8">
@@ -150,15 +156,6 @@ export default function BoardPage() {
             </span>
             <h1 className="text-[36px] font-black text-[#123047] tracking-tight">게시판</h1>
             <p className="text-[15px] text-[#6B7280]">싸부(SSABU) 부동산 실거래 및 시세 분석 서비스의 다양한 이야기를 나누는 공간입니다.</p>
-          </div>
-
-          {/* 고객센터 이동 탭 */}
-          <div className="flex justify-center mb-6">
-            <div className="flex flex-wrap items-center justify-center gap-2 rounded-[10px] border border-[#DCE8ED] bg-white p-1 shadow-sm">
-              <button type="button" className="rounded-[8px] bg-[#123047] px-6 py-2.5 text-[14px] font-bold text-white">게시판</button>
-              <button type="button" onClick={() => navigate('/qna')} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA]">질의응답</button>
-              <button type="button" onClick={() => navigate('/faq')} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA]">자주 묻는 질문</button>
-            </div>
           </div>
 
           {/* 검색 영역 */}
@@ -330,5 +327,6 @@ export default function BoardPage() {
         </div>
       </div>
     </div>
+    </SectionSidebarLayout>
   );
 }

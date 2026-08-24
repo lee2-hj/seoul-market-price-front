@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
 import { Card, CardContent } from "@/components/ui/card";
 import type { SectionMenuItem } from "@/config/sectionNavigation";
@@ -16,6 +16,8 @@ export default function SectionSidebarLayout({
   menuItems,
   children,
 }: SectionSidebarLayoutProps) {
+  const location = useLocation();
+
   return (
     <div className="tw-scope min-h-screen bg-[#F8FAFC] text-[#0F172A] [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]">
       <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6">
@@ -27,24 +29,34 @@ export default function SectionSidebarLayout({
                   {sectionTitle}
                 </h2>
                 <nav className="flex flex-col gap-1" aria-label={`${sectionTitle} 메뉴`}>
-                  {menuItems.map(({ label, to, icon: Icon, end }) => (
-                    <NavLink
-                      key={to}
-                      to={to}
-                      end={end}
-                      className={({ isActive }) =>
-                        cn(
-                          "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors no-underline",
-                          isActive
-                            ? "bg-[#E8F6F9] font-bold text-[#0F8AA8]"
-                            : "text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]",
-                        )
-                      }
-                    >
-                      <Icon aria-hidden="true" className="size-4 shrink-0 stroke-[1.8]" />
-                      <span>{label}</span>
-                    </NavLink>
-                  ))}
+                  {menuItems.map(({ label, to, icon: Icon, end, isActive }) => {
+                    const customIsActive = isActive?.(location);
+
+                    return (
+                      <NavLink
+                        key={to}
+                        to={to}
+                        end={end}
+                        aria-current={
+                          isActive ? (customIsActive ? "page" : false) : undefined
+                        }
+                        className={({ isActive: isPathActive }) =>
+                          cn(
+                            "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors no-underline",
+                            (customIsActive ?? isPathActive)
+                              ? "bg-[#E8F6F9] font-bold text-[#0F8AA8]"
+                              : "text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]",
+                          )
+                        }
+                      >
+                        <Icon
+                          aria-hidden="true"
+                          className="size-4 shrink-0 stroke-[1.8]"
+                        />
+                        <span>{label}</span>
+                      </NavLink>
+                    );
+                  })}
                 </nav>
               </CardContent>
             </Card>

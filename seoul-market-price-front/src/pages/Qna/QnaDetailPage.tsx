@@ -10,6 +10,8 @@ import {
   downloadQnaAttachmentApi,
 } from "@/api/api";
 import type { AttachmentResponse } from "@/features/board/types/board.types";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
 
 /* 타입 정의 */
 interface QnaDetailResponse {
@@ -429,9 +431,14 @@ export default function QnaDetailPage() {
 
   if (isLoading) {
     return (
+      <SectionSidebarLayout
+        sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+        menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+      >
       <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8 text-center text-[#6B7280]">
         게시글을 불러오는 중입니다...
       </div>
+      </SectionSidebarLayout>
     );
   }
 
@@ -441,6 +448,10 @@ export default function QnaDetailPage() {
       : (error instanceof Error ? error.message : "게시글을 불러올 수 없습니다.");
 
     return (
+      <SectionSidebarLayout
+        sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+        menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+      >
       <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8">
         <div className="max-w-[800px] mx-auto text-center space-y-6">
           <span className="inline-block px-3 py-1 bg-[#EBF5F8] text-[#0F8AA8] text-[11px] font-extrabold tracking-wider rounded-full uppercase">
@@ -459,10 +470,15 @@ export default function QnaDetailPage() {
           </div>
         </div>
       </div>
+      </SectionSidebarLayout>
     );
   }
 
   return (
+    <SectionSidebarLayout
+      sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+      menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+    >
     <div className="flex min-h-[calc(100vh-200px)] w-full justify-center bg-[#F5FAFC] px-4 py-8 md:px-8 md:py-12">
       <div className="w-full max-w-4xl space-y-8">
         {/* 상단 헤더 (가운데 정렬) */}
@@ -612,5 +628,6 @@ export default function QnaDetailPage() {
         </div>
       </div>
     </div>
+    </SectionSidebarLayout>
   );
 }

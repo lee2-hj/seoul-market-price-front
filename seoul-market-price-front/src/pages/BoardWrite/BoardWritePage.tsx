@@ -12,6 +12,8 @@ import {
 import { isLogin } from "@/features/auth/utils/auth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
 
 interface BoardWriteFormData {
   title: string;
@@ -176,6 +178,10 @@ export default function BoardWritePage() {
   };
 
   return (
+    <SectionSidebarLayout
+      sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+      menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+    >
     <div className="min-h-screen bg-[#F5FAFC] py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto space-y-8">
         {/* 상단 헤더 */}
@@ -323,5 +329,6 @@ export default function BoardWritePage() {
         </div>
       </div>
     </div>
+    </SectionSidebarLayout>
   );
 }
