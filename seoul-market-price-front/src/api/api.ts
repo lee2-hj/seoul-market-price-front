@@ -1087,21 +1087,91 @@ export type AiSearchResponse = {
   summary: string;
   keyPoints: string[];
   cautions: string[];
+  criteria?: RankingCriteria;
+};
+
+export type RankingCriteria = {
+  metric: string;
+  unit: string;
+  period: string;
+  minimumTradeCount: number;
+  sortDirection: string;
+};
+
+export type TradeVolumeRankingResponse = {
+  regionName: string;
+  periodStart: string;
+  periodEnd: string;
+  totalDealCount: number;
+  criteria: RankingCriteria;
+  items: Array<{
+    rank: number;
+    regionName?: string;
+    apartmentName: string;
+    mainAddressNumber?: string;
+    subAddressNumber?: string;
+    dealCount: number;
+    averageTradeAmount?: number;
+  }>;
+};
+
+export type PriceRankingResponse = {
+  regionName: string;
+  metricType: "pyeong" | "thing_amt";
+  baseDate?: string;
+  criteria: RankingCriteria;
+  items: Array<{
+    rank: number;
+    regionName?: string;
+    apartmentName: string;
+    metricValue?: number;
+    dealCount: number;
+  }>;
+};
+
+export type DistrictRankingResponse = {
+  regionName: string;
+  metricType: "district_pyeong";
+  baseDate?: string;
+  criteria: RankingCriteria;
+  items: Array<{
+    rank: number;
+    districtName: string;
+    averagePyeongAmount: number;
+    dealCount: number;
+  }>;
 };
 
 export type NaturalRegionCandidate = DongRegionResponse & { slot: number };
 export type NaturalSearchResponse = {
   status: "SUCCESS" | "NEED_CLARIFICATION" | "ERROR";
-  intent?: "PRICE_COMPARISON" | "SINGLE_REGION" | "TOP_BOTTOM";
+  intent?:
+    | "PRICE_COMPARISON"
+    | "SINGLE_REGION"
+    | "DISTRICT_SUMMARY"
+    | "DISTRICT_RANKING"
+    | "TOP_BOTTOM"
+    | "RANKING_SEARCH"
+    | "TRADE_TREND";
   message?: string;
-  result?: AiSearchResponse;
+  result?:
+    | AiSearchResponse
+    | TradeVolumeRankingResponse
+    | PriceRankingResponse
+    | DistrictRankingResponse;
   missingFields: string[];
   candidates: NaturalRegionCandidate[];
   errorCode?: string;
 };
 
-export async function searchNaturalWithAiApi(question: string): Promise<NaturalSearchResponse> {
-  const response = await apiMiddleware.post<NaturalSearchResponse>("/api/ai/search-natural", { question }, { timeout: 120000 });
+export async function searchNaturalWithAiApi(
+  question: string,
+): Promise<NaturalSearchResponse> {
+  const response = await apiMiddleware.post<NaturalSearchResponse>(
+    "/api/ai/search-natural",
+    { question },
+    { timeout: 120000 },
+  );
   return response.data;
 }
 
@@ -1153,8 +1223,13 @@ export async function resolveDongsApi(
   return response.data;
 }
 
-export async function resolveDongApi(dong: string): Promise<DongRegionResponse[]> {
-  const response = await apiMiddleware.get<DongRegionResponse[]>("/api/location/resolve-dong", { params: { dong } });
+export async function resolveDongApi(
+  dong: string,
+): Promise<DongRegionResponse[]> {
+  const response = await apiMiddleware.get<DongRegionResponse[]>(
+    "/api/location/resolve-dong",
+    { params: { dong } },
+  );
   return response.data;
 }
 
@@ -1240,4 +1315,26 @@ export interface BoardFullDetailResponse {
   detail: BoardDetail;
   comments: BoardComment[];
   attachments: AttachmentResponse[];
+}
+
+/**
+ * 쿼리 파라미터 방어 로직: null, undefined, 빈 문자열("") 항목을 제거하여 백엔드의 400 Bad Request / 500 오류 방지
+ */
+export function cleanParams<T extends Record<string, any>>(
+  params: T,
+): Record<string, any> {
+  const cleaned: Record<string, any> = {};
+  if (!params || typeof params !== "object") return cleaned;
+
+  Object.keys(params).forEach((key) => {
+    const val = params[key];
+    if (val !== undefined && val !== null) {
+      const strVal = String(val).trim();
+      if (strVal !== "") {
+        cleaned[key] = typeof val === "string" ? strVal : val;
+      }
+    }
+  });
+
+  return cleaned;
 }
