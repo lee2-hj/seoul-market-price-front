@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -10,18 +10,32 @@ import {
   deleteBoardPostApi,
 } from "@/api/api";
 import { isLogin } from "@/features/auth/utils/auth";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
+import {
+  getBoardWriteDraftKey,
+  hasBoardTextDraft,
+  loadBoardDraftFiles,
+  loadBoardTextDraft,
+  removeBoardDraftFiles,
+  removeBoardTextDraft,
+  saveBoardDraftFiles,
+  saveBoardTextDraft,
+} from "@/features/board/utils/boardDraftStorage";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
+import BoardPageHeader from "@/features/board/components/BoardPageHeader";
+import {
+  BOARD_MAX_FILE_COUNT,
+  validateBoardFiles,
+} from "@/features/board/utils/boardFileValidation";
 
 interface BoardWriteFormData {
   title: string;
   content: string;
 }
 
-const MAX_FILE_COUNT = 5;
-const MAX_SINGLE_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 const ALLOWED_FILE_EXTENSIONS =
   ".jpg,.jpeg,.png,.gif,.webp,.pdf,.zip,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv";
 
@@ -30,19 +44,31 @@ export default function BoardWritePage() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [textReadyDraftKey, setTextReadyDraftKey] = useState<string | null>(null);
+  const [filesReadyDraftKey, setFilesReadyDraftKey] = useState<string | null>(null);
+  const loginUser = useAuthStore((state) => state.user);
+  const isAuthInitialized = useAuthStore((state) => state.isInitialized);
+  const draftKey = loginUser?.userId
+    ? getBoardWriteDraftKey(loginUser.userId)
+    : null;
+  const initializedDraftKeyRef = useRef<string | null>(null);
+  const fileDraftErrorShownRef = useRef(false);
+  const textDraftErrorShownRef = useRef(false);
 
   // 비로그인 접근 방어
   useEffect(() => {
+    if (!isAuthInitialized) return;
     if (!isLogin()) {
       alert("로그인이 필요한 서비스입니다.");
       navigate("/login", { replace: true });
     }
-  }, [navigate]);
+  }, [isAuthInitialized, navigate]);
 
   const {
     register,
     handleSubmit,
     control,
+    reset,
     formState: { errors },
   } = useForm<BoardWriteFormData>({
     defaultValues: {
@@ -52,47 +78,88 @@ export default function BoardWritePage() {
   });
 
   const titleValue = useWatch({ control, name: "title" }) || "";
+  const contentValue = useWatch({ control, name: "content" }) || "";
+
+  const showFileDraftError = useCallback((error: unknown) => {
+    console.error("첨부파일 초안 처리 실패:", error);
+    if (fileDraftErrorShownRef.current) return;
+    fileDraftErrorShownRef.current = true;
+    alert(
+      error instanceof Error
+        ? `${error.message}\n제목과 본문 초안은 계속 저장됩니다.`
+        : "첨부파일 초안을 저장하지 못했습니다. 제목과 본문 초안은 계속 저장됩니다.",
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!draftKey || initializedDraftKeyRef.current === draftKey) return;
+
+    const hasSavedDraft = hasBoardTextDraft(draftKey);
+    const savedDraft = loadBoardTextDraft(draftKey);
+    if (savedDraft) reset(savedDraft);
+    initializedDraftKeyRef.current = draftKey;
+    setTextReadyDraftKey(draftKey);
+
+    let isActive = true;
+    (hasSavedDraft ? loadBoardDraftFiles(draftKey) : Promise.resolve([]))
+      .then((files) => {
+        if (isActive) setSelectedFiles(files.slice(0, BOARD_MAX_FILE_COUNT));
+      })
+      .catch(showFileDraftError)
+      .finally(() => {
+        if (isActive) setFilesReadyDraftKey(draftKey);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [draftKey, reset, showFileDraftError]);
+
+  useEffect(() => {
+    if (!draftKey || textReadyDraftKey !== draftKey) return;
+    try {
+      saveBoardTextDraft(draftKey, {
+        title: titleValue,
+        content: contentValue,
+      });
+    } catch (error) {
+      console.error("게시글 본문 초안 저장 실패:", error);
+      if (!textDraftErrorShownRef.current) {
+        textDraftErrorShownRef.current = true;
+        alert("게시글 제목과 본문 초안을 저장하지 못했습니다.");
+      }
+    }
+  }, [contentValue, draftKey, textReadyDraftKey, titleValue]);
+
+  useEffect(() => {
+    if (!draftKey || filesReadyDraftKey !== draftKey) return;
+    saveBoardDraftFiles(draftKey, selectedFiles).catch(showFileDraftError);
+  }, [draftKey, filesReadyDraftKey, selectedFiles, showFileDraftError]);
+
+  const clearCurrentDraft = useCallback(async () => {
+    if (!draftKey) return;
+    removeBoardTextDraft(draftKey);
+    try {
+      await removeBoardDraftFiles(draftKey);
+    } catch (error) {
+      showFileDraftError(error);
+    }
+  }, [draftKey, showFileDraftError]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawFiles = Array.from(e.target.files || []);
     if (rawFiles.length === 0) return;
 
-    // 1. 개별 파일 용량 검증 (100MB)
-    const oversizedFiles = rawFiles.filter(
-      (file) => file.size > MAX_SINGLE_FILE_SIZE,
-    );
-    if (oversizedFiles.length > 0) {
-      alert(
-        `파일당 최대 용량은 100MB입니다.\n초과된 파일: ${oversizedFiles.map((f) => f.name).join(", ")}`,
-      );
-    }
+    const { acceptedFiles, messages } = validateBoardFiles({
+      incomingFiles: rawFiles,
+      selectedFileCount: selectedFiles.length,
+      existingFileCount: 0,
+      fullCountMessage: `첨부파일은 최대 ${BOARD_MAX_FILE_COUNT}개까지 등록 가능합니다.`,
+    });
+    messages.forEach((message) => alert(message));
 
-    const validFiles = rawFiles.filter(
-      (file) => file.size <= MAX_SINGLE_FILE_SIZE,
-    );
-    if (validFiles.length === 0) {
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
-    }
-
-    // 2. 최대 개수 검증 (5개)
-    const availableSlots = MAX_FILE_COUNT - selectedFiles.length;
-    if (availableSlots <= 0) {
-      alert(`첨부파일은 최대 ${MAX_FILE_COUNT}개까지 등록 가능합니다.`);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
-    }
-
-    if (validFiles.length > availableSlots) {
-      alert(
-        `최대 ${MAX_FILE_COUNT}개까지만 등록할 수 있어 ${availableSlots}개 파일만 추가되었습니다.`,
-      );
-      setSelectedFiles((prev) => [
-        ...prev,
-        ...validFiles.slice(0, availableSlots),
-      ]);
-    } else {
-      setSelectedFiles((prev) => [...prev, ...validFiles]);
+    if (acceptedFiles.length > 0) {
+      setSelectedFiles((prev) => [...prev, ...acceptedFiles]);
     }
 
     if (fileInputRef.current) {
@@ -144,13 +211,15 @@ export default function BoardWritePage() {
             err?.response?.data?.message ||
               err?.message ||
               "첨부파일 업로드 중 오류가 발생했습니다.",
+            { cause: uploadErr },
           );
         }
       }
 
       return { boardId: newBoardId };
     },
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
+      await clearCurrentDraft();
       alert("게시글이 성공적으로 등록되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["boardPosts"] });
       if (res.boardId && res.boardId > 0) {
@@ -177,6 +246,10 @@ export default function BoardWritePage() {
     });
   };
 
+  const handleGoToList = () => {
+    navigate("/board");
+  };
+
   return (
     <SectionSidebarLayout
       sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
@@ -184,18 +257,11 @@ export default function BoardWritePage() {
     >
     <div className="min-h-screen bg-[#F5FAFC] py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto space-y-8">
-        {/* 상단 헤더 */}
-        <div className="text-center space-y-2">
-          <div className="inline-block px-3 py-1 bg-[#E6F4F2] text-[#0F766E] text-[11px] font-extrabold tracking-widest uppercase rounded-full">
-            CREATE POST
-          </div>
-          <h1 className="text-3xl font-extrabold text-[#123047] tracking-tight">
-            게시글 작성
-          </h1>
-          <p className="text-sm text-[#6B7280]">
-            싸부(SSABU) 게시판에 새로운 글을 등록합니다.
-          </p>
-        </div>
+        <BoardPageHeader
+          eyebrow="CREATE POST"
+          title="게시글 작성"
+          description="싸부(SSABU) 게시판에 새로운 글을 등록합니다."
+        />
 
         {/* 둥근 카드 폼 컨테이너 */}
         <div className="bg-white rounded-2xl shadow-xs border border-[#DCE8ED] p-6 md:p-8">
@@ -256,7 +322,7 @@ export default function BoardWritePage() {
                   <Paperclip className="w-4 h-4 text-[#0F8AA8]" />
                   <span>첨부파일</span>
                   <span className="text-[#0F8AA8] font-semibold">
-                    ({selectedFiles.length}/{MAX_FILE_COUNT})
+                    ({selectedFiles.length}/{BOARD_MAX_FILE_COUNT})
                   </span>
                 </div>
                 <label className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#E6F4F2] hover:bg-[#d0ece8] text-[#0F766E] text-xs font-bold rounded-md cursor-pointer transition-colors">
@@ -267,7 +333,7 @@ export default function BoardWritePage() {
                     type="file"
                     multiple
                     accept={ALLOWED_FILE_EXTENSIONS}
-                    disabled={selectedFiles.length >= MAX_FILE_COUNT}
+                    disabled={selectedFiles.length >= BOARD_MAX_FILE_COUNT}
                     onChange={handleFileChange}
                     className="hidden"
                   />
@@ -301,7 +367,7 @@ export default function BoardWritePage() {
                 </div>
               ) : (
                 <p className="text-xs text-[#9CA3AF]">
-                  최대 {MAX_FILE_COUNT}개까지 파일을 첨부할 수 있습니다. (다중
+                  최대 {BOARD_MAX_FILE_COUNT}개까지 파일을 첨부할 수 있습니다. (다중
                   선택 가능)
                 </p>
               )}
@@ -319,10 +385,10 @@ export default function BoardWritePage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate("/board")}
+                onClick={handleGoToList}
                 className="h-10 w-28 border-[#DCE8ED] text-xs text-[#6B7280] hover:bg-[#F0F7FA] rounded-lg cursor-pointer"
               >
-                글목록
+                목록으로
               </Button>
             </div>
           </form>

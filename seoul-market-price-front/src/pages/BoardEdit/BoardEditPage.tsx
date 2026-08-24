@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,14 +21,28 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
+import BoardPageHeader from "@/features/board/components/BoardPageHeader";
+import { toBoardAttachmentView } from "@/features/board/utils/boardMappers";
+import {
+  BOARD_MAX_FILE_COUNT,
+  validateBoardFiles,
+} from "@/features/board/utils/boardFileValidation";
+import {
+  getBoardEditDraftKey,
+  hasBoardTextDraft,
+  loadBoardDraftFiles,
+  loadBoardTextDraft,
+  removeBoardDraftFiles,
+  removeBoardTextDraft,
+  saveBoardDraftFiles,
+  saveBoardTextDraft,
+} from "@/features/board/utils/boardDraftStorage";
 
 interface BoardEditFormData {
   title: string;
   content: string;
 }
 
-const MAX_FILE_COUNT = 5;
-const MAX_SINGLE_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 const ALLOWED_FILE_EXTENSIONS =
   ".jpg,.jpeg,.png,.gif,.webp,.pdf,.zip,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv";
 
@@ -38,10 +52,18 @@ export default function BoardEditPage() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [textReadyDraftKey, setTextReadyDraftKey] = useState<string | null>(null);
+  const [filesReadyDraftKey, setFilesReadyDraftKey] = useState<string | null>(null);
 
   const boardId = Number(postId);
   const loginUser = useAuthStore((state) => state.user);
   const isAuthInitialized = useAuthStore((state) => state.isInitialized);
+  const draftKey = loginUser?.userId && boardId
+    ? getBoardEditDraftKey(boardId, loginUser.userId)
+    : null;
+  const initializedDraftKeyRef = useRef<string | null>(null);
+  const fileDraftErrorShownRef = useRef(false);
+  const textDraftErrorShownRef = useRef(false);
 
   // 비로그인 접근 방어 (인증 초기화 완료 후 체크)
   useEffect(() => {
@@ -66,6 +88,18 @@ export default function BoardEditPage() {
   });
 
   const titleValue = useWatch({ control, name: "title" }) || "";
+  const contentValue = useWatch({ control, name: "content" }) || "";
+
+  const showFileDraftError = useCallback((draftError: unknown) => {
+    console.error("첨부파일 초안 처리 실패:", draftError);
+    if (fileDraftErrorShownRef.current) return;
+    fileDraftErrorShownRef.current = true;
+    alert(
+      draftError instanceof Error
+        ? `${draftError.message}\n제목과 본문 초안은 계속 저장됩니다.`
+        : "첨부파일 초안을 저장하지 못했습니다. 제목과 본문 초안은 계속 저장됩니다.",
+    );
+  }, []);
 
   const { data: post, isLoading, isError, error } = useQuery({
     queryKey: ["board", boardId],
@@ -110,54 +144,89 @@ export default function BoardEditPage() {
         return;
       }
 
-      reset({
-        title: post.title,
-        content: post.content,
-      });
+      if (!draftKey || initializedDraftKeyRef.current === draftKey) return;
+
+      const hasSavedDraft = hasBoardTextDraft(draftKey);
+      const savedDraft = loadBoardTextDraft(draftKey);
+      reset(
+        savedDraft ?? {
+          title: post.title,
+          content: post.content,
+        },
+      );
+      initializedDraftKeyRef.current = draftKey;
+      setTextReadyDraftKey(draftKey);
+
+      let isActive = true;
+      (hasSavedDraft ? loadBoardDraftFiles(draftKey) : Promise.resolve([]))
+        .then((files) => {
+          if (isActive) setSelectedFiles(files.slice(0, BOARD_MAX_FILE_COUNT));
+        })
+        .catch(showFileDraftError)
+        .finally(() => {
+          if (isActive) setFilesReadyDraftKey(draftKey);
+        });
+
+      return () => {
+        isActive = false;
+      };
     }
-  }, [post, isAuthInitialized, loginUser, boardId, navigate, reset]);
+  }, [
+    post,
+    isAuthInitialized,
+    loginUser,
+    boardId,
+    draftKey,
+    navigate,
+    reset,
+    showFileDraftError,
+  ]);
+
+  useEffect(() => {
+    if (!draftKey || textReadyDraftKey !== draftKey) return;
+    try {
+      saveBoardTextDraft(draftKey, {
+        title: titleValue,
+        content: contentValue,
+      });
+    } catch (draftError) {
+      console.error("게시글 본문 초안 저장 실패:", draftError);
+      if (!textDraftErrorShownRef.current) {
+        textDraftErrorShownRef.current = true;
+        alert("게시글 제목과 본문 초안을 저장하지 못했습니다.");
+      }
+    }
+  }, [contentValue, draftKey, textReadyDraftKey, titleValue]);
+
+  useEffect(() => {
+    if (!draftKey || filesReadyDraftKey !== draftKey) return;
+    saveBoardDraftFiles(draftKey, selectedFiles).catch(showFileDraftError);
+  }, [draftKey, filesReadyDraftKey, selectedFiles, showFileDraftError]);
+
+  const clearCurrentDraft = useCallback(async () => {
+    if (!draftKey) return;
+    removeBoardTextDraft(draftKey);
+    try {
+      await removeBoardDraftFiles(draftKey);
+    } catch (draftError) {
+      showFileDraftError(draftError);
+    }
+  }, [draftKey, showFileDraftError]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawFiles = Array.from(e.target.files || []);
     if (rawFiles.length === 0) return;
 
-    // 1. 개별 파일 용량 검증 (100MB)
-    const oversizedFiles = rawFiles.filter(
-      (file) => file.size > MAX_SINGLE_FILE_SIZE,
-    );
-    if (oversizedFiles.length > 0) {
-      alert(
-        `파일당 최대 용량은 100MB입니다.\n초과된 파일: ${oversizedFiles.map((f) => f.name).join(", ")}`,
-      );
-    }
+    const { acceptedFiles, messages } = validateBoardFiles({
+      incomingFiles: rawFiles,
+      selectedFileCount: selectedFiles.length,
+      existingFileCount: attachments.length,
+      fullCountMessage: `첨부파일은 최대 ${BOARD_MAX_FILE_COUNT}개까지만 등록 가능합니다.`,
+    });
+    messages.forEach((message) => alert(message));
 
-    const validFiles = rawFiles.filter(
-      (file) => file.size <= MAX_SINGLE_FILE_SIZE,
-    );
-    if (validFiles.length === 0) {
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
-    }
-
-    // 2. 최대 개수 검증 (5개)
-    const currentTotal = attachments.length + selectedFiles.length;
-    const availableSlots = MAX_FILE_COUNT - currentTotal;
-    if (availableSlots <= 0) {
-      alert(`첨부파일은 최대 ${MAX_FILE_COUNT}개까지만 등록 가능합니다.`);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
-    }
-
-    if (validFiles.length > availableSlots) {
-      alert(
-        `최대 ${MAX_FILE_COUNT}개까지만 등록할 수 있어 ${availableSlots}개 파일만 추가되었습니다.`,
-      );
-      setSelectedFiles((prev) => [
-        ...prev,
-        ...validFiles.slice(0, availableSlots),
-      ]);
-    } else {
-      setSelectedFiles((prev) => [...prev, ...validFiles]);
+    if (acceptedFiles.length > 0) {
+      setSelectedFiles((prev) => [...prev, ...acceptedFiles]);
     }
 
     if (fileInputRef.current) {
@@ -189,10 +258,11 @@ export default function BoardEditPage() {
       }
       return { uploadFailed };
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       if (result?.uploadFailed) {
         alert("게시글은 수정되었으나 첨부파일 업로드 중 오류가 발생했습니다.");
       } else {
+        await clearCurrentDraft();
         alert("게시글이 성공적으로 수정되었습니다.");
       }
       queryClient.invalidateQueries({ queryKey: ["board", boardId] });
@@ -235,6 +305,10 @@ export default function BoardEditPage() {
     }
   };
 
+  const handleGoToList = () => {
+    navigate("/board");
+  };
+
   return (
     <SectionSidebarLayout
       sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
@@ -242,17 +316,11 @@ export default function BoardEditPage() {
     >
     <div className="min-h-screen bg-[#F5FAFC] py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto space-y-8">
-        <div className="text-center space-y-2">
-          <div className="inline-block px-3 py-1 bg-[#E6F4F2] text-[#0F766E] text-[11px] font-extrabold tracking-widest uppercase rounded-full">
-            EDIT POST
-          </div>
-          <h1 className="text-3xl font-extrabold text-[#123047] tracking-tight">
-            게시글 수정
-          </h1>
-          <p className="text-sm text-[#6B7280]">
-            등록하신 게시글 내용을 수정합니다.
-          </p>
-        </div>
+        <BoardPageHeader
+          eyebrow="EDIT POST"
+          title="게시글 수정"
+          description="등록하신 게시글 내용을 수정합니다."
+        />
 
         <div className="bg-white rounded-2xl shadow-xs border border-[#DCE8ED] p-6 md:p-8">
           {isLoading ? (
@@ -326,26 +394,25 @@ export default function BoardEditPage() {
                   </div>
                   <div className="space-y-1.5">
                     {attachments.map((att: AttachmentResponse) => {
-                      const attId = att.attachmentId ?? att.id ?? 0;
-                      const attName =
-                        att.originalName || att.originalFilename || att.fileName || "첨부파일";
-                      const attSize = att.fileSize ?? att.size ?? 0;
+                      const attachment = toBoardAttachmentView(att);
                       return (
                         <div
-                          key={attId}
+                          key={attachment.id}
                           className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-[#DCE8ED] text-xs"
                         >
                           <span className="text-[#13202B] font-medium truncate max-w-[80%]">
-                            {attName}
+                            {attachment.name}
                             <span className="text-[11px] text-[#6B7280] ml-2 font-normal">
-                              ({(attSize / 1024).toFixed(1)} KB)
+                              ({(attachment.size / 1024).toFixed(1)} KB)
                             </span>
                           </span>
                           <button
                             type="button"
                             onClick={() => {
                               if (window.confirm("이 첨부파일을 삭제하시겠습니까?")) {
-                                deleteAttachmentMutation.mutate(Number(attId));
+                                deleteAttachmentMutation.mutate(
+                                  Number(attachment.id),
+                                );
                               }
                             }}
                             className="text-rose-500 hover:text-rose-700 font-semibold px-2 py-1 text-[11px] rounded hover:bg-rose-50 transition-colors cursor-pointer border-none bg-transparent"
@@ -365,7 +432,7 @@ export default function BoardEditPage() {
                     <Paperclip className="w-4 h-4 text-[#0F8AA8]" />
                     <span>새 첨부파일 추가</span>
                     <span className="text-[#0F8AA8] font-semibold">
-                      (총 {attachments.length + selectedFiles.length}/{MAX_FILE_COUNT})
+                      (총 {attachments.length + selectedFiles.length}/{BOARD_MAX_FILE_COUNT})
                     </span>
                   </div>
                   <label className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#E6F4F2] hover:bg-[#d0ece8] text-[#0F766E] text-xs font-bold rounded-md cursor-pointer transition-colors">
@@ -376,7 +443,7 @@ export default function BoardEditPage() {
                       type="file"
                       multiple
                       accept={ALLOWED_FILE_EXTENSIONS}
-                      disabled={attachments.length + selectedFiles.length >= MAX_FILE_COUNT}
+                      disabled={attachments.length + selectedFiles.length >= BOARD_MAX_FILE_COUNT}
                       onChange={handleFileChange}
                       className="hidden"
                     />
@@ -409,7 +476,7 @@ export default function BoardEditPage() {
                   </div>
                 ) : (
                   <p className="text-xs text-[#9CA3AF]">
-                    기존 파일을 포함하여 최대 {MAX_FILE_COUNT}개까지 추가할 수 있습니다.
+                    기존 파일을 포함하여 최대 {BOARD_MAX_FILE_COUNT}개까지 추가할 수 있습니다.
                   </p>
                 )}
               </div>
@@ -426,7 +493,7 @@ export default function BoardEditPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => navigate("/board")}
+                    onClick={handleGoToList}
                     className="h-9 w-24 border-[#DCE8ED] text-xs text-[#6B7280] hover:bg-[#F0F7FA] rounded-lg cursor-pointer"
                   >
                     목록으로

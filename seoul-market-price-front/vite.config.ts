@@ -35,6 +35,27 @@ export default defineConfig({
                 changeOrigin: true,
                 secure: false,
             },
+            "/aptcompare": {
+                target: "http://localhost:8081",
+                changeOrigin: true,
+                secure: false,
+            },
+            "/fastApi": {
+                target: "http://localhost:8081",
+                changeOrigin: true,
+                secure: false,
+            },
+            "/elasticSearch": {
+                target: "http://localhost:8081",
+                changeOrigin: true,
+                secure: false,
+            },
+            "/fastapi-direct": {
+                target: "http://100.98.111.49:8000",
+                changeOrigin: true,
+                secure: false,
+                rewrite: (path) => path.replace(/^\/fastapi-direct/, ""),
+            },
         },
 
     },
