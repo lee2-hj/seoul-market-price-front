@@ -24,6 +24,9 @@ import {
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { PRICE_NAVIGATION } from "@/config/sectionNavigation";
 
+const REGION_MAP_SESSION_KEY = "region_map_query";
+const REGION_MAP_METRIC_SESSION_KEY = "region_map_price_metric";
+
 /*
 const NAV_ITEMS = [
   { label: "지역별 비교(리스트)", to: "/price/compare-list", icon: BarChart3 },
@@ -45,8 +48,39 @@ export default function RegionMapPage() {
       ? rawPreferred.trim()
       : "";
   const [searchParams, setSearchParams] = useSearchParams();
+  const hasRestoredSessionRef = useRef(false);
   const rankingSectionRef = useRef<HTMLDivElement | null>(null);
-  const [priceMetric, setPriceMetric] = useState<PriceMetricType>("thing_amt");
+  const [priceMetric, setPriceMetric] = useState<PriceMetricType>(() =>
+    sessionStorage.getItem(REGION_MAP_METRIC_SESSION_KEY) === "pyeong"
+      ? "pyeong"
+      : "thing_amt",
+  );
+
+  useEffect(() => {
+    sessionStorage.setItem(REGION_MAP_METRIC_SESSION_KEY, priceMetric);
+  }, [priceMetric]);
+
+  useEffect(() => {
+    if (!hasRestoredSessionRef.current) {
+      hasRestoredSessionRef.current = true;
+      if (!searchParams.toString()) {
+        const savedQuery = sessionStorage.getItem(REGION_MAP_SESSION_KEY);
+        if (savedQuery) {
+          setSearchParams(new URLSearchParams(savedQuery), { replace: true });
+          return;
+        }
+      }
+    }
+
+    if (searchParams.toString()) {
+      sessionStorage.setItem(REGION_MAP_SESSION_KEY, searchParams.toString());
+    }
+  }, [searchParams, setSearchParams]);
+
+  const showAllRegions = useCallback(() => {
+    sessionStorage.removeItem(REGION_MAP_SESSION_KEY);
+    setSearchParams({});
+  }, [setSearchParams]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
@@ -217,7 +251,7 @@ export default function RegionMapPage() {
                 preferredDistrict={preferredDistrict}
                 onSelect={setRegion}
                 onSelectDong={(dong) => setRegion(selectedDistrict.name, dong)}
-                onShowAll={() => setSearchParams({})}
+                onShowAll={showAllRegions}
               />
             </div>
             {hasSelectedDistrict && <div className="absolute bottom-5 left-5 hidden items-center gap-3 rounded-[14px] border border-white/80 bg-white/90 px-4 py-3 shadow-[0_10px_25px_rgba(18,48,71,.12)] backdrop-blur md:flex">

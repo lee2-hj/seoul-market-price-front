@@ -31,12 +31,18 @@ export default function SectionSidebarLayout({
                 <nav className="flex flex-col gap-1" aria-label={`${sectionTitle} 메뉴`}>
                   {menuItems.map(({ label, to, icon: Icon, end, isActive }) => {
                     const customIsActive = isActive?.(location);
+                    const isItemActive = customIsActive ?? (location.pathname === to);
 
                     return (
                       <NavLink
                         key={to}
                         to={to}
                         end={end}
+                        onClick={(e) => {
+                          if (isItemActive) {
+                            e.preventDefault();
+                          }
+                        }}
                         aria-current={
                           isActive ? (customIsActive ? "page" : false) : undefined
                         }
