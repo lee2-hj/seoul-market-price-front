@@ -1,5 +1,13 @@
 import type { LucideIcon } from "lucide-react";
-import { Activity, Building2, MapPin, UserRound } from "lucide-react";
+import {
+  Activity,
+  Building2,
+  CircleHelp,
+  ClipboardList,
+  MapPin,
+  MessageSquareText,
+  UserRound,
+} from "lucide-react";
 import type { Location } from "react-router-dom";
 
 export interface SectionMenuItem {
@@ -51,6 +59,32 @@ export const MYPAGE_NAVIGATION: SectionNavigation = {
       isActive: ({ pathname, search }) =>
         pathname === "/mypage" &&
         new URLSearchParams(search).get("tab") === "ACTIVITY",
+    },
+  ],
+};
+
+export const CUSTOMER_CENTER_NAVIGATION: SectionNavigation = {
+  sectionTitle: "고객센터",
+  menuItems: [
+    {
+      label: "게시판",
+      to: "/board",
+      icon: ClipboardList,
+      isActive: ({ pathname }) =>
+        pathname === "/board" || pathname.startsWith("/board/"),
+    },
+    {
+      label: "질의응답",
+      to: "/qna",
+      icon: MessageSquareText,
+      isActive: ({ pathname }) =>
+        pathname === "/qna" || pathname.startsWith("/qna/"),
+    },
+    {
+      label: "자주 묻는 질문",
+      to: "/faq",
+      icon: CircleHelp,
+      isActive: ({ pathname }) => pathname === "/faq",
     },
   ],
 };

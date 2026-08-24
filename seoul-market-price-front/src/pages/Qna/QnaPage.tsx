@@ -23,6 +23,8 @@ import {
   PaginationPrevious,
   PaginationNext,
 } from "@/components/ui/pagination";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
 
 /* 타입 정의 */
 interface QnaPost {
@@ -313,6 +315,10 @@ export default function QnaPage() {
   };
 
   return (
+    <SectionSidebarLayout
+      sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+      menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+    >
     <div className={cn('min-h-screen', 'bg-[#F5FAFC]', 'py-12', 'px-5', 'sm:px-8')}>
       <div className={cn('max-w-[1000px]', 'mx-auto', 'space-y-8')}>
         {/* 헤더 */}
@@ -327,32 +333,6 @@ export default function QnaPage() {
             서비스 이용에 대한 궁금한 점을 질문해 주시면 성심성의껏 답변해
             드립니다.
           </p>
-        </div>
-
-        {/* 카테고리 탭 */}
-        <div className={cn('flex', 'justify-center', 'mb-6')}>
-          <div className={cn('flex', 'items-center', 'gap-2', 'p-1', 'bg-white', 'rounded-[10px]', 'border', 'border-[#DCE8ED]', 'shadow-sm')}>
-            <button
-              type="button"
-              onClick={() => navigate("/board")}
-              className={cn('py-2.5', 'px-6', 'text-[14px]', 'font-bold', 'rounded-[8px]', 'text-[#6B7280]', 'hover:bg-[#F0F7FA]')}
-            >
-              게시판
-            </button>
-            <button
-              type="button"
-              className={cn('py-2.5', 'px-6', 'text-[14px]', 'font-bold', 'rounded-[8px]', 'bg-[#123047]', 'text-white')}
-            >
-              질의응답
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/faq")}
-              className={cn('py-2.5', 'px-6', 'text-[14px]', 'font-bold', 'rounded-[8px]', 'text-[#6B7280]', 'hover:bg-[#F0F7FA]')}
-            >
-              자주 묻는 질문
-            </button>
-          </div>
         </div>
 
         {/* 검색 영역 */}
@@ -535,5 +515,6 @@ export default function QnaPage() {
         )}
       </div>
     </div>
+    </SectionSidebarLayout>
   );
 }

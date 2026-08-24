@@ -17,6 +17,8 @@ import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 import { maskAuthorName } from "@/lib/utils";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
 
 function formatBoardDate(dateStr?: string): string {
   if (!dateStr) return "-";
@@ -230,6 +232,10 @@ export default function BoardDetailPage() {
 
   if (isNaN(boardId) || boardId <= 0) {
     return (
+      <SectionSidebarLayout
+        sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+        menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+      >
       <div className="min-h-screen bg-[#F5FAFC]">
         <div className="py-12 px-4 text-center">
           <p className="text-rose-500 font-medium text-sm">유효하지 않은 게시글 번호입니다.</p>
@@ -242,12 +248,17 @@ export default function BoardDetailPage() {
           </button>
         </div>
       </div>
+      </SectionSidebarLayout>
     );
   }
 
   const safeComments = Array.isArray(comments) ? comments : [];
 
   return (
+    <SectionSidebarLayout
+      sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+      menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+    >
     <div className="min-h-screen bg-[#F5FAFC]">
       <div className="py-12 px-5 sm:px-8">
         <div className="max-w-[900px] mx-auto space-y-6">
@@ -530,5 +541,6 @@ export default function BoardDetailPage() {
         </div>
       </div>
     </div>
+    </SectionSidebarLayout>
   );
 }

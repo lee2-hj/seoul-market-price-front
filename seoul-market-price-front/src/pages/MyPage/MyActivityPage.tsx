@@ -35,7 +35,11 @@ export default function MyActivityPage() {
   const [activityType, setActivityType] = useState<ActivityType>("POST");
 
   // 실제 게시판 데이터 조회 (API 연동)
-  const { data: boardData, isLoading: isBoardLoading } = useQuery({
+  const {
+    data: boardData,
+    isLoading: isBoardLoading,
+    isError: isBoardError,
+  } = useQuery({
     queryKey: ["myBoardPosts"],
     queryFn: () => getBoardPostsApi({ page: 1, size: 100 }),
     enabled: isLoggedIn,
@@ -76,13 +80,18 @@ export default function MyActivityPage() {
     }>
   >([]);
   const [isCommentsLoading, setIsCommentsLoading] = useState(false);
+  const [commentRequestFailureCount, setCommentRequestFailureCount] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
 
     if (!isLoggedIn || !authUser || !boardData?.items || boardData.items.length === 0) {
       queueMicrotask(() => {
-        if (isMounted) setMyComments([]);
+        if (isMounted) {
+          setMyComments([]);
+          setIsCommentsLoading(false);
+          setCommentRequestFailureCount(0);
+        }
       });
       return () => {
         isMounted = false;
@@ -101,9 +110,9 @@ export default function MyActivityPage() {
       boardData.items.slice(0, 30).map(async (post) => {
         try {
           const comments = await getBoardCommentsApi(post.boardId);
-          if (!Array.isArray(comments)) return [];
+          if (!Array.isArray(comments)) return { comments: [], failed: false };
 
-          return comments
+          const matchedComments = comments
             .filter((c) => {
               const cAuthorName = normalizeIdentity(c.writerName || c.name);
               const cAuthorId = normalizeIdentity(String(c.writerId || ""));
@@ -121,20 +130,29 @@ export default function MyActivityPage() {
               content: c.content || "",
               createdAt: c.createdAt || "",
             }));
+          return { comments: matchedComments, failed: false };
         } catch {
-          return [];
+          return { comments: [], failed: true };
         }
       })
     )
       .then((results) => {
         if (isMounted) {
-          const flat = results.flat().sort((a, b) => (b.commentId || 0) - (a.commentId || 0));
+          const flat = results
+            .flatMap((result) => result.comments)
+            .sort((a, b) => (b.commentId || 0) - (a.commentId || 0));
           setMyComments(flat);
+          setCommentRequestFailureCount(
+            results.filter((result) => result.failed).length,
+          );
           setIsCommentsLoading(false);
         }
       })
       .catch(() => {
-        if (isMounted) setIsCommentsLoading(false);
+        if (isMounted) {
+          setCommentRequestFailureCount(boardData.items.slice(0, 30).length);
+          setIsCommentsLoading(false);
+        }
       });
 
     return () => {
@@ -188,6 +206,15 @@ export default function MyActivityPage() {
               {isBoardLoading ? (
                 <div className="p-12 text-center text-[#6B7280] text-[14px]">
                   내가 작성한 게시글을 불러오는 중입니다...
+                </div>
+              ) : isBoardError ? (
+                <div className="p-12 text-center space-y-2">
+                  <p className="text-[15px] font-bold text-[#123047]">
+                    게시글 내역을 불러오지 못했습니다.
+                  </p>
+                  <p className="text-[13px] text-[#6B7280]">
+                    잠시 후 다시 시도해 주세요.
+                  </p>
                 </div>
               ) : myPosts.length > 0 ? (
                 myPosts.map((post) => {
@@ -248,38 +275,65 @@ export default function MyActivityPage() {
                 <div className="p-12 text-center text-[#6B7280] text-[14px]">
                   내가 작성한 댓글을 불러오는 중입니다...
                 </div>
+              ) : isBoardError ? (
+                <div className="p-12 text-center space-y-2">
+                  <p className="text-[15px] font-bold text-[#123047]">
+                    댓글 내역을 불러오지 못했습니다.
+                  </p>
+                  <p className="text-[13px] text-[#6B7280]">
+                    게시글 조회에 실패했습니다. 잠시 후 다시 시도해 주세요.
+                  </p>
+                </div>
+              ) : commentRequestFailureCount > 0 &&
+                commentRequestFailureCount ===
+                  Math.min(boardData?.items.length ?? 0, 30) ? (
+                <div className="p-12 text-center space-y-2">
+                  <p className="text-[15px] font-bold text-[#123047]">
+                    댓글 내역을 불러오지 못했습니다.
+                  </p>
+                  <p className="text-[13px] text-[#6B7280]">
+                    잠시 후 다시 시도해 주세요.
+                  </p>
+                </div>
               ) : myComments.length > 0 ? (
-                myComments.map((comment) => {
-                  const formattedDate = comment.createdAt?.includes("T")
-                    ? `${comment.createdAt.split("T")[0].replace(/-/g, ".")} ${comment.createdAt.split("T")[1].slice(0, 5)}`
-                    : comment.createdAt || "-";
+                <>
+                  {commentRequestFailureCount > 0 && (
+                    <div className="bg-[#FFF8E6] px-5 py-3 text-[13px] text-[#B47500]">
+                      일부 댓글을 불러오지 못했습니다. 표시된 내역은 정상적으로 조회된 결과입니다.
+                    </div>
+                  )}
+                  {myComments.map((comment) => {
+                    const formattedDate = comment.createdAt?.includes("T")
+                      ? `${comment.createdAt.split("T")[0].replace(/-/g, ".")} ${comment.createdAt.split("T")[1].slice(0, 5)}`
+                      : comment.createdAt || "-";
 
-                  return (
-                    <Link
-                      key={`${comment.boardId}-${comment.commentId}`}
-                      to={`/board/${comment.boardId}`}
-                      className="flex items-center justify-between p-5 hover:bg-[#F0F7FA] transition-colors group no-underline text-inherit"
-                      style={{ textDecoration: "none", color: "inherit" }}
-                    >
-                      <div className="min-w-0 pr-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-extrabold px-2 py-0.5 bg-[#E6F4F2] text-[#0F766E] rounded-full shrink-0 no-underline">
-                            댓글
+                    return (
+                      <Link
+                        key={`${comment.boardId}-${comment.commentId}`}
+                        to={`/board/${comment.boardId}`}
+                        className="flex items-center justify-between p-5 hover:bg-[#F0F7FA] transition-colors group no-underline text-inherit"
+                        style={{ textDecoration: "none", color: "inherit" }}
+                      >
+                        <div className="min-w-0 pr-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-extrabold px-2 py-0.5 bg-[#E6F4F2] text-[#0F766E] rounded-full shrink-0 no-underline">
+                              댓글
+                            </span>
+                            <strong className="text-[15px] font-bold text-[#123047] group-hover:text-[#0F8AA8] transition-colors block truncate no-underline">
+                              {comment.content}
+                            </strong>
+                          </div>
+                          <span className="text-[13px] text-[#6B7280] block mt-1.5 no-underline">
+                            원문 글: {comment.boardTitle} · 작성일 {formattedDate}
                           </span>
-                          <strong className="text-[15px] font-bold text-[#123047] group-hover:text-[#0F8AA8] transition-colors block truncate no-underline">
-                            {comment.content}
-                          </strong>
                         </div>
-                        <span className="text-[13px] text-[#6B7280] block mt-1.5 no-underline">
-                          원문 글: {comment.boardTitle} · 작성일 {formattedDate}
-                        </span>
-                      </div>
-                      <b aria-hidden="true" className="text-[#0F8AA8] text-[24px] font-normal leading-none shrink-0 group-hover:translate-x-1 transition-transform no-underline">
-                        ›
-                      </b>
-                    </Link>
-                  );
-                })
+                        <b aria-hidden="true" className="text-[#0F8AA8] text-[24px] font-normal leading-none shrink-0 group-hover:translate-x-1 transition-transform no-underline">
+                          ›
+                        </b>
+                      </Link>
+                    );
+                  })}
+                </>
               ) : (
                 <div className="p-12 text-center space-y-3">
                   <div className="text-[32px]">💬</div>

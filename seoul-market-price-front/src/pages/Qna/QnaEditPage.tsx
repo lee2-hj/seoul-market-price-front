@@ -13,6 +13,8 @@ import {
 } from "@/api/api";
 import { getLoginUser, isLogin } from "@/features/auth/utils/auth";
 import type { AttachmentResponse } from "@/features/board/types/board.types";
+import SectionSidebarLayout from "@/components/SectionSidebarLayout";
+import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
 
 /* 타입 정의 */
 interface QnaDetailResponse {
@@ -622,14 +624,23 @@ export default function QnaEditPage() {
 
   if (isLoading) {
     return (
+      <SectionSidebarLayout
+        sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+        menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+      >
       <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8 text-center text-[#6B7280]">
         게시글을 불러오는 중입니다...
       </div>
+      </SectionSidebarLayout>
     );
   }
 
   if (isError || !post) {
     return (
+      <SectionSidebarLayout
+        sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+        menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+      >
       <div className="min-h-screen bg-[#F5FAFC] py-12 px-5 sm:px-8 text-center">
         <h2 className="text-[20px] font-bold text-[#13202B]">게시글을 확인할 수 없습니다.</h2>
         <button
@@ -640,10 +651,15 @@ export default function QnaEditPage() {
           목록으로
         </button>
       </div>
+      </SectionSidebarLayout>
     );
   }
 
   return (
+    <SectionSidebarLayout
+      sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
+      menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
+    >
     <div className="flex min-h-[calc(100vh-200px)] w-full justify-center bg-[#F5FAFC] px-4 py-8 md:px-8 md:py-12">
       <div className="w-full max-w-4xl space-y-8">
         {/* 상단 헤더 (가운데 정렬) */}
@@ -658,5 +674,6 @@ export default function QnaEditPage() {
         <QnaEditForm key={post.id} post={post} />
       </div>
     </div>
+    </SectionSidebarLayout>
   );
 }

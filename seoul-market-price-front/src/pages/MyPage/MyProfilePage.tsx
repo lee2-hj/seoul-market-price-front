@@ -197,7 +197,7 @@ function getLocalProfileSettings(profile: Profile): Partial<Profile> {
 }
 
 function getProfileDraftKey(userId: string): string {
-  return `myPageProfileDraft_${normalizeIdentity(userId)}`;
+  return `mypage_draft_${normalizeIdentity(userId)}`;
 }
 
 function isProfileDraft(value: unknown): value is ProfileDraft {
@@ -226,10 +226,9 @@ function getStoredProfileDraft(userId: string): ProfileDraft | null {
     const parsed: unknown = JSON.parse(saved);
     if (isProfileDraft(parsed)) return parsed;
   } catch {
-    // 손상된 초안은 아래에서 제거한다.
+    // 파싱에 실패해도 저장된 초안은 임의로 삭제하지 않는다.
   }
 
-  sessionStorage.removeItem(key);
   return null;
 }
 
@@ -386,7 +385,6 @@ export default function MyProfilePage() {
       // 로컬 스토리지 및 세션 초기화
       const userKey = getStorageKey(authUser?.userId || profile.userId);
       localStorage.removeItem(userKey);
-      removeStoredProfileDraft(authUser?.userId);
       useAuthStore.getState().clearSession();
       alert("회원 탈퇴가 완료되었습니다. 그동안 서비스를 이용해 주셔서 감사합니다.");
       window.location.href = "/";
@@ -493,15 +491,6 @@ export default function MyProfilePage() {
               detailAddress: memberData.addressDetail ?? "",
             }
           : saved?.profile || {}),
-        ...(typeof saved?.profile?.email === "string"
-          ? { email: saved.profile.email }
-          : {}),
-        ...(typeof saved?.profile?.address === "string"
-          ? { address: saved.profile.address }
-          : {}),
-        ...(typeof saved?.profile?.detailAddress === "string"
-          ? { detailAddress: saved.profile.detailAddress }
-          : {}),
         name: resolvedName,
         userId: resolvedUserId,
         loginType: isSocial ? "SOCIAL" : "LOCAL",
@@ -549,18 +538,6 @@ export default function MyProfilePage() {
       preferredDistrict,
       preferredDong,
     };
-    const matchesOriginal =
-      draft.email === originalProfile.email &&
-      draft.address === originalProfile.address &&
-      draft.detailAddress === originalProfile.detailAddress &&
-      draft.preferredDistrict === originalDistrict &&
-      draft.preferredDong === originalDong;
-
-    if (matchesOriginal) {
-      removeStoredProfileDraft(userId);
-      return;
-    }
-
     sessionStorage.setItem(getProfileDraftKey(userId), JSON.stringify(draft));
   }, [
     authUser?.userId,
@@ -569,11 +546,6 @@ export default function MyProfilePage() {
     formValues.detailAddress,
     preferredDistrict,
     preferredDong,
-    originalProfile.email,
-    originalProfile.address,
-    originalProfile.detailAddress,
-    originalDistrict,
-    originalDong,
   ]);
 
   const updateMemberMutation = useMutation({
