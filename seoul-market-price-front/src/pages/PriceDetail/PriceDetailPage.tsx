@@ -13,18 +13,72 @@ import {
   Search,
   ArrowRightLeft,
 } from "lucide-react";
+import apiMiddleware from "@/api/middleware";
 import {
   getSggsApi,
   getDongsApi,
   getComplexesApi,
-  callAptTypeCompareApi,
   type SggItem,
   type DongItem,
   type ComplexDetailItem,
-  type AptTypeCompareRequest,
-  type AptTypeCompareResponse,
 } from "@/api/api";
 import styles from "./PriceDetailPage.module.css";
+
+export interface AptTypeCompareRequest {
+  apt_name: string;
+  aptName: string;
+  guCode: string;
+  dongCode: string;
+  mno: string;
+  sno: string;
+  sgg_cd: string;
+  dong_cd: string;
+  sgg_nm: string;
+  dong_nm: string;
+  type: "PYUNG" | "FLOOR";
+  targetA: string;
+  targetB: string;
+  pyung1?: string;
+  pyung2?: string;
+  floor1?: string;
+  floor2?: string;
+}
+
+export interface AptTypeCompareResponse {
+  priceA?: number;
+  priceB?: number;
+  avgPriceA?: number;
+  avgPriceB?: number;
+  recentPriceA?: number;
+  recentPriceB?: number;
+  dealCountA?: number;
+  dealCountB?: number;
+  avgPyeongAmtA?: number;
+  avgPyeongAmtB?: number;
+  recentFloorA?: string | number;
+  recentFloorB?: string | number;
+  recentSupplyPyeongA?: string;
+  recentSupplyPyeongB?: string;
+  recentExclusiveAreaA?: string | number;
+  recentExclusiveAreaB?: string | number;
+  recentDealDateA?: string;
+  recentDealDateB?: string;
+}
+
+async function callAptTypeCompareApi(
+  params: AptTypeCompareRequest,
+): Promise<AptTypeCompareResponse | null> {
+  try {
+    const response = await apiMiddleware.get<AptTypeCompareResponse>(
+      "/api/price/apt-type-compare",
+      { params },
+    );
+    return response.data;
+  } catch (error) {
+    console.warn("Failed to fetch apt type comparison:", error);
+    return null;
+  }
+}
 
 /* 사이드바 네비게이션 */
 const NAV_ITEMS = [
@@ -105,13 +159,11 @@ export default function PriceDetailPage() {
 
   /* 3. 자치동 관할 아파트 단지 목록 조회 API (검색 버튼 클릭 시에만 호출) */
   const { data: complexList = [], isLoading: isComplexLoading } = useQuery<ComplexDetailItem[]>({
-    queryKey: ["locationComplexes", searchQuery?.sggNm, searchQuery?.dongNm, searchQuery?.dongCd, searchQuery?.sggCd],
+    queryKey: ["locationComplexes", searchQuery?.sggNm, searchQuery?.dongNm],
     queryFn: () =>
       getComplexesApi(
         searchQuery?.sggNm || "",
         searchQuery?.dongNm || "",
-        searchQuery?.dongCd,
-        searchQuery?.sggCd,
       ),
     enabled: Boolean(searchQuery?.sggCd && searchQuery?.dongNm),
     staleTime: 1000 * 60 * 10,
@@ -154,8 +206,8 @@ export default function PriceDetailPage() {
       alert("먼저 아파트를 선택해 주세요.");
       return;
     }
-    const guCode = selectedSggCd || selectedComplex?.sggCd || "";
-    const dongCode = selectedDongObj?.dongCd || selectedComplex?.dongCd || "";
+    const guCode = selectedSggCd || (selectedComplex as any)?.sggCd || "";
+    const dongCode = selectedDongObj?.dongCd || (selectedComplex as any)?.dongCd || "";
     const mno = (selectedComplex as any)?.mno || (selectedComplex as any)?.bonbun || "";
     const sno = (selectedComplex as any)?.sno || (selectedComplex as any)?.bubun || "";
 
@@ -437,10 +489,10 @@ export default function PriceDetailPage() {
                     {!searchQuery
                       ? "자치구와 자치동을 선택한 후 [검색] 버튼을 눌러주세요"
                       : isComplexLoading
-                      ? "아파트 단지 목록을 불러오는 중입니다..."
-                      : complexList.length === 0
-                      ? "해당 자치동에 등록된 아파트 단지가 없습니다"
-                      : "아파트 단지를 선택해 주세요"}
+                        ? "아파트 단지 목록을 불러오는 중입니다..."
+                        : complexList.length === 0
+                          ? "해당 자치동에 등록된 아파트 단지가 없습니다"
+                          : "아파트 단지를 선택해 주세요"}
                   </option>
                   {complexList.map((apt) => (
                     <option key={apt.id} value={apt.name}>
@@ -705,157 +757,158 @@ export default function PriceDetailPage() {
                 ].filter(Boolean).join(" · ");
 
                 return (
-                <div className={styles.metricsCompareGrid}>
-                  {/* 대상 A */}
-                  <div className={styles.metricCardA}>
-                    <div className={styles.metricCardLabel}>
-                      {compareTrigger.targetA}
-                    </div>
-                    <div className={styles.metricCardPrice}>
-                      {hasDataA ? (
-                        formatPriceKorean(compareResult.priceA || compareResult.avgPriceA || compareResult.recentPriceA)
-                      ) : (
-                        <span className={styles.noDataPrice}>실거래 데이터 없음</span>
-                      )}
-                    </div>
-                    <div className={styles.metricSubInfo}>
-                      <span>{searchType === "PYUNG" ? "90일 이내 평균 실거래가" : "90일 이내 층별 평균 실거래가"}</span>
+                  <div className={styles.metricsCompareGrid}>
+                    {/* 대상 A */}
+                    <div className={styles.metricCardA}>
+                      <div className={styles.metricCardLabel}>
+                        {compareTrigger.targetA}
+                      </div>
+                      <div className={styles.metricCardPrice}>
+                        {hasDataA ? (
+                          formatPriceKorean(compareResult.priceA || compareResult.avgPriceA || compareResult.recentPriceA)
+                        ) : (
+                          <span className={styles.noDataPrice}>실거래 데이터 없음</span>
+                        )}
+                      </div>
+                      <div className={styles.metricSubInfo}>
+                        <span>{searchType === "PYUNG" ? "90일 이내 평균 실거래가" : "90일 이내 층별 평균 실거래가"}</span>
+                      </div>
+
+                      <div className={styles.metricDetailList}>
+                        <div className={styles.metricDetailItem}>
+                          <span>최근 거래일</span>
+                          <span className={styles.metricDetailVal}>
+                            {compareResult.recentDealDateA || <span className={styles.noDataVal}>데이터 없음</span>}
+                          </span>
+                        </div>
+                        <div className={styles.metricDetailItem}>
+                          <span>최근 거래가</span>
+                          <span className={styles.metricDetailVal}>
+                            {compareResult.recentPriceA ? (
+                              <>
+                                {recentPriceDiff > 0 && (
+                                  <span className={styles.higherDiffBadge}>
+                                    +{formatPriceKorean(recentPriceDiff)}
+                                  </span>
+                                )}
+                                {formatPriceKorean(compareResult.recentPriceA)}
+                              </>
+                            ) : (
+                              <span className={styles.noDataVal}>데이터 없음</span>
+                            )}
+                          </span>
+                        </div>
+                        <div className={styles.metricDetailItem}>
+                          <span>거래평형 · 층수</span>
+                          <span className={styles.metricDetailVal}>
+                            {areaTextA || <span className={styles.noDataVal}>데이터 없음</span>}
+                          </span>
+                        </div>
+                        <div className={styles.metricDetailItem}>
+                          <span>평균 평단가</span>
+                          <span className={styles.metricDetailVal}>
+                            {compareResult.avgPyeongAmtA ? (
+                              <>
+                                {avgPyeongDiff > 0 && (
+                                  <span className={styles.higherDiffBadge}>
+                                    +{avgPyeongDiff.toLocaleString()}만원/평
+                                  </span>
+                                )}
+                                {compareResult.avgPyeongAmtA.toLocaleString()}만원/평
+                              </>
+                            ) : (
+                              <span className={styles.noDataVal}>데이터 없음</span>
+                            )}
+                          </span>
+                        </div>
+                        <div className={styles.metricDetailItem}>
+                          <span>거래 건수</span>
+                          <span className={styles.metricDetailVal}>
+                            {compareResult.dealCountA !== undefined ? `${compareResult.dealCountA}건` : <span className={styles.noDataVal}>0건</span>}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className={styles.metricDetailList}>
-                      <div className={styles.metricDetailItem}>
-                        <span>최근 거래일</span>
-                        <span className={styles.metricDetailVal}>
-                          {compareResult.recentDealDateA || <span className={styles.noDataVal}>데이터 없음</span>}
-                        </span>
+                    {/* VS 뱃지 */}
+                    <div className={styles.vsBadgeCol}>
+                      <div className={styles.vsBadgeCircle}>VS</div>
+                    </div>
+
+                    {/* 대상 B */}
+                    <div className={styles.metricCardB}>
+                      <div className={styles.metricCardLabel}>
+                        {compareTrigger.targetB}
                       </div>
-                      <div className={styles.metricDetailItem}>
-                        <span>최근 거래가</span>
-                        <span className={styles.metricDetailVal}>
-                          {compareResult.recentPriceA ? (
-                            <>
-                              {recentPriceDiff > 0 && (
-                                <span className={styles.higherDiffBadge}>
-                                  +{formatPriceKorean(recentPriceDiff)}
-                                </span>
-                              )}
-                              {formatPriceKorean(compareResult.recentPriceA)}
-                            </>
-                          ) : (
-                            <span className={styles.noDataVal}>데이터 없음</span>
-                          )}
-                        </span>
+                      <div className={styles.metricCardPrice}>
+                        {hasDataB ? (
+                          formatPriceKorean(compareResult.priceB || compareResult.avgPriceB || compareResult.recentPriceB)
+                        ) : (
+                          <span className={styles.noDataPrice}>실거래 데이터 없음</span>
+                        )}
                       </div>
-                      <div className={styles.metricDetailItem}>
-                        <span>거래평형 · 층수</span>
-                        <span className={styles.metricDetailVal}>
-                          {areaTextA || <span className={styles.noDataVal}>데이터 없음</span>}
-                        </span>
+                      <div className={styles.metricSubInfo}>
+                        <span>{searchType === "PYUNG" ? "90일 이내 평균 실거래가" : "90일 이내 층별 평균 실거래가"}</span>
                       </div>
-                      <div className={styles.metricDetailItem}>
-                        <span>평균 평단가</span>
-                        <span className={styles.metricDetailVal}>
-                          {compareResult.avgPyeongAmtA ? (
-                            <>
-                              {avgPyeongDiff > 0 && (
-                                <span className={styles.higherDiffBadge}>
-                                  +{avgPyeongDiff.toLocaleString()}만원/평
-                                </span>
-                              )}
-                              {compareResult.avgPyeongAmtA.toLocaleString()}만원/평
-                            </>
-                          ) : (
-                            <span className={styles.noDataVal}>데이터 없음</span>
-                          )}
-                        </span>
-                      </div>
-                      <div className={styles.metricDetailItem}>
-                        <span>거래 건수</span>
-                        <span className={styles.metricDetailVal}>
-                          {compareResult.dealCountA !== undefined ? `${compareResult.dealCountA}건` : <span className={styles.noDataVal}>0건</span>}
-                        </span>
+
+                      <div className={styles.metricDetailList}>
+                        <div className={styles.metricDetailItem}>
+                          <span>최근 거래일</span>
+                          <span className={styles.metricDetailVal}>
+                            {compareResult.recentDealDateB || <span className={styles.noDataVal}>데이터 없음</span>}
+                          </span>
+                        </div>
+                        <div className={styles.metricDetailItem}>
+                          <span>최근 거래가</span>
+                          <span className={styles.metricDetailVal}>
+                            {compareResult.recentPriceB ? (
+                              <>
+                                {recentPriceDiff < 0 && (
+                                  <span className={styles.higherDiffBadge}>
+                                    +{formatPriceKorean(Math.abs(recentPriceDiff))}
+                                  </span>
+                                )}
+                                {formatPriceKorean(compareResult.recentPriceB)}
+                              </>
+                            ) : (
+                              <span className={styles.noDataVal}>데이터 없음</span>
+                            )}
+                          </span>
+                        </div>
+                        <div className={styles.metricDetailItem}>
+                          <span>거래평형 · 층수</span>
+                          <span className={styles.metricDetailVal}>
+                            {areaTextB || <span className={styles.noDataVal}>데이터 없음</span>}
+                          </span>
+                        </div>
+                        <div className={styles.metricDetailItem}>
+                          <span>평균 평단가</span>
+                          <span className={styles.metricDetailVal}>
+                            {compareResult.avgPyeongAmtB ? (
+                              <>
+                                {avgPyeongDiff < 0 && (
+                                  <span className={styles.higherDiffBadge}>
+                                    +{Math.abs(avgPyeongDiff).toLocaleString()}만원/평
+                                  </span>
+                                )}
+                                {compareResult.avgPyeongAmtB.toLocaleString()}만원/평
+                              </>
+                            ) : (
+                              <span className={styles.noDataVal}>데이터 없음</span>
+                            )}
+                          </span>
+                        </div>
+                        <div className={styles.metricDetailItem}>
+                          <span>거래 건수</span>
+                          <span className={styles.metricDetailVal}>
+                            {compareResult.dealCountB !== undefined ? `${compareResult.dealCountB}건` : <span className={styles.noDataVal}>0건</span>}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-
-                  {/* VS 뱃지 */}
-                  <div className={styles.vsBadgeCol}>
-                    <div className={styles.vsBadgeCircle}>VS</div>
-                  </div>
-
-                  {/* 대상 B */}
-                  <div className={styles.metricCardB}>
-                    <div className={styles.metricCardLabel}>
-                      {compareTrigger.targetB}
-                    </div>
-                    <div className={styles.metricCardPrice}>
-                      {hasDataB ? (
-                        formatPriceKorean(compareResult.priceB || compareResult.avgPriceB || compareResult.recentPriceB)
-                      ) : (
-                        <span className={styles.noDataPrice}>실거래 데이터 없음</span>
-                      )}
-                    </div>
-                    <div className={styles.metricSubInfo}>
-                      <span>{searchType === "PYUNG" ? "90일 이내 평균 실거래가" : "90일 이내 층별 평균 실거래가"}</span>
-                    </div>
-
-                    <div className={styles.metricDetailList}>
-                      <div className={styles.metricDetailItem}>
-                        <span>최근 거래일</span>
-                        <span className={styles.metricDetailVal}>
-                          {compareResult.recentDealDateB || <span className={styles.noDataVal}>데이터 없음</span>}
-                        </span>
-                      </div>
-                      <div className={styles.metricDetailItem}>
-                        <span>최근 거래가</span>
-                        <span className={styles.metricDetailVal}>
-                          {compareResult.recentPriceB ? (
-                            <>
-                              {recentPriceDiff < 0 && (
-                                <span className={styles.higherDiffBadge}>
-                                  +{formatPriceKorean(Math.abs(recentPriceDiff))}
-                                </span>
-                              )}
-                              {formatPriceKorean(compareResult.recentPriceB)}
-                            </>
-                          ) : (
-                            <span className={styles.noDataVal}>데이터 없음</span>
-                          )}
-                        </span>
-                      </div>
-                      <div className={styles.metricDetailItem}>
-                        <span>거래평형 · 층수</span>
-                        <span className={styles.metricDetailVal}>
-                          {areaTextB || <span className={styles.noDataVal}>데이터 없음</span>}
-                        </span>
-                      </div>
-                      <div className={styles.metricDetailItem}>
-                        <span>평균 평단가</span>
-                        <span className={styles.metricDetailVal}>
-                          {compareResult.avgPyeongAmtB ? (
-                            <>
-                              {avgPyeongDiff < 0 && (
-                                <span className={styles.higherDiffBadge}>
-                                  +{Math.abs(avgPyeongDiff).toLocaleString()}만원/평
-                                </span>
-                              )}
-                              {compareResult.avgPyeongAmtB.toLocaleString()}만원/평
-                            </>
-                          ) : (
-                            <span className={styles.noDataVal}>데이터 없음</span>
-                          )}
-                        </span>
-                      </div>
-                      <div className={styles.metricDetailItem}>
-                        <span>거래 건수</span>
-                        <span className={styles.metricDetailVal}>
-                          {compareResult.dealCountB !== undefined ? `${compareResult.dealCountB}건` : <span className={styles.noDataVal}>0건</span>}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ); })() : (
+                );
+              })() : (
                 <div className={styles.resultEmptyState}>
                   <div className={styles.emptyIconCircle}>
                     <Search className="size-6 text-slate-400" />
