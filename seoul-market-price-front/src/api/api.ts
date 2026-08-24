@@ -1320,6 +1320,79 @@ export interface BoardFullDetailResponse {
 /**
  * 쿼리 파라미터 방어 로직: null, undefined, 빈 문자열("") 항목을 제거하여 백엔드의 400 Bad Request / 500 오류 방지
  */
+export interface ApartmentAutocompleteRequest {
+  aptName?: string;
+  sggCd?: string;
+  dongCd?: string;
+}
+
+export interface ApartmentAutocompleteItem {
+  aptName: string;
+  dongCd: string;
+  dongNm: string;
+  sggCd: string;
+  sggNm: string;
+  mno: string;
+  sno: string;
+}
+
+export async function searchApartmentAutocompleteApi(
+  request: ApartmentAutocompleteRequest = {},
+): Promise<ApartmentAutocompleteItem[]> {
+  const response = await apiMiddleware.get<
+    Array<{
+      apt_name?: string;
+      dong_cd?: string;
+      dong_nm?: string;
+      sgg_cd?: string;
+      sgg_nm?: string;
+      mno?: string | number;
+      sno?: string | number;
+    }>
+  >("/elasticSearch/aptname", {
+    params: {
+      apt_name: request.aptName ?? "",
+      sgg_cd: request.sggCd ?? "",
+      dong_cd: request.dongCd ?? "",
+    },
+  });
+
+  return response.data.map((item) => ({
+    aptName: item.apt_name ?? "",
+    dongCd: item.dong_cd ?? "",
+    dongNm: item.dong_nm ?? "",
+    sggCd: item.sgg_cd ?? "",
+    sggNm: item.sgg_nm ?? "",
+    mno: String(item.mno ?? ""),
+    sno: String(item.sno ?? ""),
+  }));
+}
+
+export interface ApartmentMarketTrendRequest {
+  guCode: string;
+  dongCode: string;
+  aptName: string;
+  mno: string;
+  sno: string;
+}
+
+export interface ApartmentMarketTrendItem {
+  [key: string]: unknown;
+}
+
+export type ApartmentMarketTrendResponse = ApartmentMarketTrendItem[];
+
+export async function getApartmentMarketTrendApi(
+  request: ApartmentMarketTrendRequest,
+): Promise<ApartmentMarketTrendResponse> {
+  const response = await apiMiddleware.get<ApartmentMarketTrendResponse>(
+    "/fastApi/aptmkt",
+    { params: request },
+  );
+
+  return response.data;
+}
+
 export function cleanParams<T extends Record<string, any>>(
   params: T,
 ): Record<string, any> {
