@@ -1336,6 +1336,7 @@ export interface ApartmentAutocompleteItem {
   sggNm: string;
 }
 
+// apart
 interface ApartmentAutocompleteApiItem {
   apt_name: string;
   mno: string;
