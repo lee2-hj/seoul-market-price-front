@@ -30,7 +30,6 @@ import {
   BOARD_MAX_FILE_COUNT,
   validateBoardFiles,
 } from "@/features/board/utils/boardFileValidation";
-import { getCreatedBoardId } from "@/features/board/utils/boardMappers";
 
 interface BoardWriteFormData {
   title: string;
@@ -186,7 +185,8 @@ export default function BoardWritePage() {
         content: data.content,
       });
 
-      const newBoardId = getCreatedBoardId(postRes);
+      const rawRes = postRes as unknown as { boardId?: number; id?: number };
+      const newBoardId = rawRes?.boardId || rawRes?.id;
 
       if (!newBoardId) {
         throw new Error("게시글 번호를 받아오지 못했습니다.");
@@ -211,6 +211,7 @@ export default function BoardWritePage() {
             err?.response?.data?.message ||
               err?.message ||
               "첨부파일 업로드 중 오류가 발생했습니다.",
+            { cause: uploadErr },
           );
         }
       }

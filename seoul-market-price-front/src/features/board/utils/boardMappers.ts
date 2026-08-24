@@ -6,17 +6,6 @@ export interface BoardAttachmentView {
   size: number;
 }
 
-interface CreatedBoardResponse {
-  boardId?: number;
-  id?: number;
-}
-
-export function getCreatedBoardId(
-  response: CreatedBoardResponse,
-): number | undefined {
-  return response.boardId || response.id;
-}
-
 export function toBoardAttachmentView(
   attachment: AttachmentResponse,
   fallbackId = 0,

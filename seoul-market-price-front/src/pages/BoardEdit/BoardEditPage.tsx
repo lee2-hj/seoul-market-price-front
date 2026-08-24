@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
 import BoardPageHeader from "@/features/board/components/BoardPageHeader";
-import BoardContentState from "@/features/board/components/BoardContentState";
 import { toBoardAttachmentView } from "@/features/board/utils/boardMappers";
 import {
   BOARD_MAX_FILE_COUNT,
@@ -325,31 +324,22 @@ export default function BoardEditPage() {
 
         <div className="bg-white rounded-2xl shadow-xs border border-[#DCE8ED] p-6 md:p-8">
           {isLoading ? (
-            <BoardContentState
-              state="loading"
-              message="게시글 정보를 불러오는 중입니다..."
-              className="py-20 text-xs"
-            />
+            <div className="py-20 text-center text-[#6B7280] text-xs">
+              게시글 정보를 불러오는 중입니다...
+            </div>
           ) : isError ? (
-            <BoardContentState
-              state="error"
-              className="py-20 text-xs space-y-4"
-              message={
-                <p className="text-rose-500 text-xs">
-                  오류가 발생했습니다:{" "}
-                  {(error as Error)?.message || "게시글 정보를 불러올 수 없습니다."}
-                </p>
-              }
-              action={
-                <Button
-                  variant="outline"
-                  className="text-xs"
-                  onClick={() => navigate(`/board/${boardId}`)}
-                >
-                  상세보기로 돌아가기
-                </Button>
-              }
-            />
+            <div className="py-20 text-center space-y-4">
+              <p className="text-rose-500 text-xs">
+                오류가 발생했습니다: {(error as Error)?.message || "게시글 정보를 불러올 수 없습니다."}
+              </p>
+              <Button
+                variant="outline"
+                className="text-xs"
+                onClick={() => navigate(`/board/${boardId}`)}
+              >
+                상세보기로 돌아가기
+              </Button>
+            </div>
           ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               <div className="space-y-2">
