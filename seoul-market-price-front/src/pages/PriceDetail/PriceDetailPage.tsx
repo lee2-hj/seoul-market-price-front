@@ -1,20 +1,17 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Building2,
-  BarChart3,
   Search,
   TrendingUp,
   TrendingDown,
-  Calendar,
   Sparkles,
   RotateCcw,
   ChevronRight,
   ChevronDown,
   Loader2,
   MapPin,
-  Check,
 } from "lucide-react";
 import {
   getSggsApi,
@@ -50,6 +47,7 @@ export default function PriceDetailPage() {
 
   /* 콤보박스 선택 상태 */
   const [selectedSggCd, setSelectedSggCd] = useState<string>("");
+  const [selectedDongCd, setSelectedDongCd] = useState<string>("");
   const [selectedDongNm, setSelectedDongNm] = useState<string>("");
 
   /* URL 파라미터가 있을 경우 초기값 설정 */
@@ -61,9 +59,7 @@ export default function PriceDetailPage() {
       if (foundSgg) {
         queueMicrotask(() => {
           setSelectedSggCd(foundSgg.sggCd);
-          if (paramDong) {
-            setSelectedDongNm(paramDong);
-          }
+          if (paramDong) setSelectedDongNm(paramDong);
         });
       }
     }
@@ -83,6 +79,20 @@ export default function PriceDetailPage() {
     staleTime: 1000 * 60 * 30,
   });
 
+  useEffect(() => {
+    const paramDong = searchParams.get("dong");
+    if (!paramDong || selectedDongCd || dongList.length === 0) return;
+    const foundDong = dongList.find(
+      (dong) => dong.dongNm === paramDong || dong.dongCd === paramDong,
+    );
+    if (foundDong) {
+      queueMicrotask(() => {
+        setSelectedDongCd(foundDong.dongCd);
+        setSelectedDongNm(foundDong.dongNm);
+      });
+    }
+  }, [dongList, searchParams, selectedDongCd]);
+
   /* 검색 키워드 & 선택된 단지 및 평형 */
   const [keyword, setKeyword] = useState("");
   const [selectedComplexId, setSelectedComplexId] = useState<string | null>(null);
@@ -90,9 +100,15 @@ export default function PriceDetailPage() {
 
   /* 3. 자치동 관할 아파트 단지 목록 조회 API */
   const { data: complexList = [], isLoading: isComplexesLoading } = useQuery<ComplexDetailItem[]>({
-    queryKey: ["locationComplexes", selectedSgg?.sggNm, selectedDongNm],
-    queryFn: () => getComplexesApi(selectedSgg?.sggNm || "", selectedDongNm),
-    enabled: Boolean(selectedSgg?.sggNm && selectedDongNm),
+    queryKey: ["locationComplexes", selectedSggCd, selectedDongCd],
+    queryFn: () =>
+      getComplexesApi(
+        selectedSggCd,
+        selectedDongCd,
+        selectedSgg?.sggNm || "",
+        selectedDongNm,
+      ),
+    enabled: Boolean(selectedSggCd && selectedDongCd),
     staleTime: 1000 * 60 * 10,
   });
 
@@ -115,9 +131,10 @@ export default function PriceDetailPage() {
   }, [selectedComplexId, complexList, filteredComplexes]);
 
   /* 콤보 박스: 자치구 변경 이벤트 */
-  const handleSggChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleSggChange = (e: ChangeEvent<HTMLSelectElement>) => {
     const nextSggCd = e.target.value;
     setSelectedSggCd(nextSggCd);
+    setSelectedDongCd("");
     setSelectedDongNm(""); // 동 선택 초기화
     setSelectedComplexId(null);
     setSelectedPyungIndex(0);
@@ -131,8 +148,11 @@ export default function PriceDetailPage() {
   };
 
   /* 콤보 박스: 자치동 변경 이벤트 */
-  const handleDongChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const nextDongNm = e.target.value;
+  const handleDongChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    const nextDongCd = e.target.value;
+    const nextDong = dongList.find((dong) => dong.dongCd === nextDongCd);
+    const nextDongNm = nextDong?.dongNm || nextDongCd;
+    setSelectedDongCd(nextDongCd);
     setSelectedDongNm(nextDongNm);
     setSelectedComplexId(null);
     setSelectedPyungIndex(0);
@@ -156,7 +176,7 @@ export default function PriceDetailPage() {
     setSearchParams({});
   };
 
-  const activePyung = currentComplex?.pyungs?.[selectedPyungIndex] || currentComplex?.pyungs?.[0];
+  const activePyung = currentComplex?.pyungs?.[selectedPyungIndex] ?? currentComplex?.pyungs?.[0];
 
   /* 12개월 시세 추이 데이터 계산 */
   const chartPoints = useMemo(() => {
@@ -294,7 +314,7 @@ export default function PriceDetailPage() {
                   <div className={styles.selectWrapper}>
                     <select
                       id="dong-select"
-                      value={selectedDongNm}
+                    value={selectedDongCd}
                       onChange={handleDongChange}
                       disabled={!selectedSggCd}
                       className={`${styles.selectInput} ${!selectedSggCd ? styles.selectInputDisabled : ""}`}
@@ -303,7 +323,7 @@ export default function PriceDetailPage() {
                         {selectedSggCd ? "자치동을 선택해 주세요" : "자치구를 먼저 선택해 주세요"}
                       </option>
                       {dongList.map((dong) => (
-                        <option key={dong.dongCd || dong.dongNm} value={dong.dongNm}>
+                        <option key={dong.dongCd || dong.dongNm} value={dong.dongCd || dong.dongNm}>
                           {dong.dongNm}
                         </option>
                       ))}
