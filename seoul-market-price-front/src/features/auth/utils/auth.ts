@@ -135,6 +135,7 @@ export async function logout() {
   // 서버에 로그인 여부를 다시 묻지 않고 곧바로 비로그인으로
   // 확정하도록 표시를 남긴다.
   try {
+    sessionStorage.clear();
     sessionStorage.setItem(JUST_LOGGED_OUT_KEY, "1");
   } catch {
     // sessionStorage에 접근할 수 없는 환경은 무시한다.
