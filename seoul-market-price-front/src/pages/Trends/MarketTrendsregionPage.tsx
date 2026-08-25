@@ -1,17 +1,16 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, type KeyboardEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { Chart } from "react-google-charts";
 import {
   RotateCcw,
   Search,
-  ChevronDown,
   TrendingUp,
   BarChart2,
   ArrowUpDown,
   Info,
   ChevronRight,
   X,
-  Check,
 } from "lucide-react";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { TRENDS_NAVIGATION } from "@/config/sectionNavigation";
@@ -25,15 +24,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import {
-  getSggs,
-  getDongs,
-} from "@/features/location/services/locationService";
+import { getSggsApi, getDongsApi } from "@/api/api";
 import { getRegionPriceList } from "@/features/trends/services/trendsApiService";
 import apiMiddleware from "@/api/middleware";
 
 /* 타입 및 상수 정의 */
+const PIE_COLORS = ["#2563eb", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4"];
 interface MonthlyPoint {
   period: string;
   volume: number;
@@ -179,7 +177,12 @@ interface RttSummaryResponse {
   data?: FastApiGuGroupItem[];
 }
 
+
+
 /* 유틸리티 함수 */
+const formatPyeong = (pyeong: number | null | undefined) =>
+  pyeong == null || Number.isNaN(Number(pyeong)) ? "-" : `${pyeong}평`;
+
 function formatYearMonth(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -291,22 +294,8 @@ function useCountUp(target: number, duration: number = 900): number {
   return count;
 }
 
-/* React Query 커스텀 훅 */
-function useSggList() {
-  return useQuery({
-    queryKey: ["location", "sggs"],
-    queryFn: getSggs,
-    staleTime: Infinity,
-  });
-}
-
-function useDongList(guCode: string) {
-  return useQuery({
-    queryKey: ["location", "dongs", guCode],
-    queryFn: () => getDongs(guCode),
-    enabled: Boolean(guCode),
-    staleTime: Infinity,
-  });
+function EmptyState({ message }: { message: string }) {
+  return <div className="flex h-[200px] items-center justify-center text-[13px] text-[#64748B]">{message}</div>;
 }
 
 function useDongPriceAnalysis(
@@ -328,18 +317,22 @@ function useDongPriceAnalysis(
         const topItems: FastApiTopBottomItem[] = [];
         const bottomItems: FastApiTopBottomItem[] = [];
 
-        /* 1. 백엔드 API /api/v1/rtt/summary 조회 */
+        /* 1. FastAPI /fastApi/rtt 지역별 거래동향 조회 */
         let hasRttSummaryData = false;
         let backendAreaDist: AreaItem[] | undefined = undefined;
+        const formattedDongCode = dongCode
+          ? dongCode.length === 5
+            ? `${guCode}${dongCode}`
+            : dongCode
+          : undefined;
+
         try {
           const { data: rttData } = await apiMiddleware.get<RttSummaryResponse>(
-            "/api/v1/rtt/summary",
+            "/fastApi/rtt",
             {
               params: {
                 guCode,
-                dongCode: dongCode || undefined,
-                sggCd: guCode,
-                dongCd: dongCode || undefined,
+                dongCode: formattedDongCode,
               },
             },
           );
@@ -377,7 +370,7 @@ function useDongPriceAnalysis(
             }
           }
         } catch (rttErr) {
-          console.warn("/api/v1/rtt/summary 조회 폴백 진행:", rttErr);
+          console.warn("/fastApi/rtt 조회 폴백 진행:", rttErr);
         }
 
         /* 2. FastAPI /fastApi/list 보조/폴백 조회 */
@@ -476,7 +469,7 @@ function useDongPriceAnalysis(
         }
 
         /* 2. FastAPI /fastApi/topandbottom 조회 */
-        if (dongCode) {
+        if (formattedDongCode) {
           try {
             const { data: topBottomData } =
               await apiMiddleware.get<FastApiTopBottomResponse>(
@@ -484,7 +477,7 @@ function useDongPriceAnalysis(
                 {
                   params: {
                     guCode,
-                    dongCode,
+                    dongCode: formattedDongCode,
                     metricType: "thing_amt",
                   },
                 },
@@ -581,165 +574,156 @@ function useRegionPriceListQuery(guCode: string) {
   });
 }
 
+
+
 /* 지역별 거래동향 메인 컴포넌트 */
 export default function MarketTrendsregionPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const { data: sggList = [] } = useSggList();
-  const urlGu = searchParams.get("gu") || "";
-  const urlDong = searchParams.get("dong") || "";
-
-  const [customGuCode, setCustomGuCode] = useState<string | null>(null);
-  const [customDongCode, setCustomDongCode] = useState<string | null>(null);
-  const [typedGuText, setTypedGuText] = useState<string | null>(null);
-  const [typedDongText, setTypedDongText] = useState<string | null>(null);
-  const [isGuDropdownOpen, setIsGuDropdownOpen] = useState<boolean>(false);
-  const [isDongDropdownOpen, setIsDongDropdownOpen] = useState<boolean>(false);
-  const [isAllTradesModalOpen, setIsAllTradesModalOpen] =
-    useState<boolean>(false);
+  /* 구/동 선택 상태 */
+  const [sggCd, setSggCd] = useState(searchParams.get("sggCd") ?? "");
+  const [dongCd, setDongCd] = useState(searchParams.get("dongCd") ?? "");
+  const [guInput, setGuInput] = useState("");
+  const [isGuDropdownOpen, setIsGuDropdownOpen] = useState(false);
+  const [guHighlight, setGuHighlight] = useState(-1);
+  const [dongInput, setDongInput] = useState("");
+  const [isDongDropdownOpen, setIsDongDropdownOpen] = useState(false);
+  const [dongHighlight, setDongHighlight] = useState(-1);
+  const guContainerRef = useRef<HTMLDivElement>(null);
+  const dongContainerRef = useRef<HTMLDivElement>(null);
+  const [isAllTradesModalOpen, setIsAllTradesModalOpen] = useState<boolean>(false);
 
   const todayFormatted = useMemo(() => formatYearMonthDay(new Date()), []);
-  const guDropdownRef = useRef<HTMLDivElement>(null);
-  const dongDropdownRef = useRef<HTMLDivElement>(null);
+
+  /* 구/동 목록 조회 */
+  const { data: sggs = [] } = useQuery({ queryKey: ["regionSggs"], queryFn: getSggsApi, staleTime: 1800000 });
+  const { data: dongs = [] } = useQuery({
+    queryKey: ["regionDongs", sggCd], queryFn: () => getDongsApi(sggCd), enabled: Boolean(sggCd), staleTime: 1800000,
+  });
+
+  const selectedGuName = sggs.find((item) => item.sggCd === sggCd)?.sggNm ?? "";
+  const selectedDongName = dongs.find((item) => item.dongCd.slice(-5) === dongCd)?.dongNm ?? "";
+
+  const filteredSggs = useMemo(() => {
+    const query = guInput.trim().toLowerCase();
+    return query ? sggs.filter((item) => item.sggNm.toLowerCase().includes(query)) : sggs;
+  }, [guInput, sggs]);
+
+  const filteredDongs = useMemo(() => {
+    const query = dongInput.trim().toLowerCase();
+    return query ? dongs.filter((item) => item.dongNm.toLowerCase().includes(query)) : dongs;
+  }, [dongInput, dongs]);
 
   /* 외부 클릭 시 드롭다운 닫기 */
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        guDropdownRef.current &&
-        !guDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsGuDropdownOpen(false);
-      }
-      if (
-        dongDropdownRef.current &&
-        !dongDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsDongDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    const closeDropdown = (event: MouseEvent) => {
+      if (guContainerRef.current && !guContainerRef.current.contains(event.target as Node)) setIsGuDropdownOpen(false);
+      if (dongContainerRef.current && !dongContainerRef.current.contains(event.target as Node)) setIsDongDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", closeDropdown);
+    return () => document.removeEventListener("mousedown", closeDropdown);
   }, []);
 
-  const selectedGuCode = useMemo(() => {
-    if (customGuCode !== null) return customGuCode;
-    if (urlGu && sggList.length > 0) {
-      const found = sggList.find((g) => g.sggNm === urlGu || g.sggCd === urlGu);
-      if (found) return found.sggCd;
-    }
-    return "";
-  }, [customGuCode, sggList, urlGu]);
-
-  const guSearchText = useMemo(() => {
-    if (typedGuText !== null) return typedGuText;
-    if (selectedGuCode) {
-      return sggList.find((g) => g.sggCd === selectedGuCode)?.sggNm || "";
-    }
-    return "";
-  }, [typedGuText, selectedGuCode, sggList]);
-
-  const { data: dongList = [] } = useDongList(selectedGuCode);
-
-  const selectedDongCode = useMemo(() => {
-    if (customDongCode !== null) return customDongCode;
-    if (urlDong && dongList.length > 0) {
-      const found = dongList.find(
-        (d) => d.dongNm === urlDong || d.dongCd === urlDong,
-      );
-      if (found) return found.dongCd;
-    }
-    return "";
-  }, [customDongCode, dongList, urlDong]);
-
-  const dongSearchText = useMemo(() => {
-    if (typedDongText !== null) return typedDongText;
-    if (selectedDongCode) {
-      return dongList.find((d) => d.dongCd === selectedDongCode)?.dongNm || "";
-    }
-    if (selectedGuCode) {
-      return "전체 (구 전체)";
-    }
-    return "";
-  }, [typedDongText, selectedDongCode, dongList, selectedGuCode]);
-
-  const selectedGuName = useMemo(() => {
-    return (
-      sggList.find((g) => g.sggCd === selectedGuCode)?.sggNm || guSearchText
-    );
-  }, [sggList, selectedGuCode, guSearchText]);
-
-  const selectedDongName = useMemo(() => {
-    return (
-      dongList.find((d) => d.dongCd === selectedDongCode)?.dongNm ||
-      (selectedDongCode ? dongSearchText : "")
-    );
-  }, [dongList, selectedDongCode, dongSearchText]);
-
+  /* URL 파라미터 초기 복원 */
   const isInitialUrlSyncedRef = useRef<boolean>(false);
   const [searchedGuCode, setSearchedGuCode] = useState<string>("");
   const [searchedDongCode, setSearchedDongCode] = useState<string>("");
 
-  /* URL 파라미터 초기 1회 동기화 */
   useEffect(() => {
     if (isInitialUrlSyncedRef.current) return;
-    if (urlGu && sggList.length > 0) {
-      const found = sggList.find((g) => g.sggNm === urlGu || g.sggCd === urlGu);
-      if (found) {
-        queueMicrotask(() => {
-          setSearchedGuCode(found.sggCd);
-        });
-        isInitialUrlSyncedRef.current = true;
+    const urlSggCd = searchParams.get("sggCd") ?? "";
+    const urlDongCd = searchParams.get("dongCd") ?? "";
+    if (urlSggCd) {
+      setSggCd(urlSggCd);
+      setSearchedGuCode(urlSggCd);
+      if (urlDongCd) {
+        setDongCd(urlDongCd);
+        setSearchedDongCode(urlDongCd);
       }
+      isInitialUrlSyncedRef.current = true;
     }
-  }, [urlGu, sggList]);
+  }, [searchParams]);
 
-  useEffect(() => {
-    if (!isInitialUrlSyncedRef.current) return;
-    if (urlDong && dongList.length > 0 && !searchedDongCode) {
-      const found = dongList.find(
-        (d) => d.dongNm === urlDong || d.dongCd === urlDong,
-      );
-      if (found) {
-        queueMicrotask(() => {
-          setSearchedDongCode(found.dongCd);
-        });
-      }
+  /* 구/동 이름 (검색 결과 표시용) */
+  const searchedGuName = useMemo(() => sggs.find((g) => g.sggCd === searchedGuCode)?.sggNm ?? "", [sggs, searchedGuCode]);
+  const searchedDongName = useMemo(() => dongs.find((d) => d.dongCd.slice(-5) === searchedDongCode)?.dongNm ?? "", [dongs, searchedDongCode]);
+
+  /* 구 선택 핸들러 */
+  const chooseGu = (value: string) => {
+    setSggCd(value);
+    setDongCd("");
+    setDongInput("");
+    setIsDongDropdownOpen(false);
+    setDongHighlight(-1);
+  };
+  const selectGu = (code: string, name: string) => {
+    setGuInput(name);
+    setIsGuDropdownOpen(false);
+    setGuHighlight(-1);
+    chooseGu(code);
+  };
+  const handleGuKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown") { event.preventDefault(); setIsGuDropdownOpen(true); setGuHighlight((i) => filteredSggs.length ? (i + 1) % filteredSggs.length : -1); }
+    else if (event.key === "ArrowUp") { event.preventDefault(); setIsGuDropdownOpen(true); setGuHighlight((i) => filteredSggs.length ? (i <= 0 ? filteredSggs.length - 1 : i - 1) : -1); }
+    else if (event.key === "Enter" && guHighlight >= 0 && filteredSggs[guHighlight]) { event.preventDefault(); selectGu(filteredSggs[guHighlight].sggCd, filteredSggs[guHighlight].sggNm); }
+    else if (event.key === "Escape") { setIsGuDropdownOpen(false); setGuHighlight(-1); }
+  };
+
+  /* 동 선택 핸들러 */
+  const chooseDong = (value: string) => {
+    setDongCd(value);
+  };
+  const selectDong = (code: string, name: string) => {
+    setDongInput(name);
+    setIsDongDropdownOpen(false);
+    setDongHighlight(-1);
+    chooseDong(code);
+  };
+  const handleDongKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown") { event.preventDefault(); setIsDongDropdownOpen(true); setDongHighlight((i) => filteredDongs.length ? (i + 1) % filteredDongs.length : -1); }
+    else if (event.key === "ArrowUp") { event.preventDefault(); setIsDongDropdownOpen(true); setDongHighlight((i) => filteredDongs.length ? (i <= 0 ? filteredDongs.length - 1 : i - 1) : -1); }
+    else if (event.key === "Enter" && dongHighlight >= 0 && filteredDongs[dongHighlight]) { event.preventDefault(); const d = filteredDongs[dongHighlight]; selectDong(d.dongCd.slice(-5), d.dongNm); }
+    else if (event.key === "Escape") { setIsDongDropdownOpen(false); setDongHighlight(-1); }
+  };
+
+  /* 검색/초기화 */
+  const syncToUrl = useCallback(
+    (guCode: string, dongCode: string) => {
+      const params: Record<string, string> = {};
+      if (guCode) params.sggCd = guCode;
+      if (dongCode) params.dongCd = dongCode;
+      setSearchParams(params, { replace: true });
+    },
+    [setSearchParams],
+  );
+
+  const [isTrendChartReady, setIsTrendChartReady] = useState(false);
+  const [isPieChartReady, setIsPieChartReady] = useState(false);
+
+  const handleSearch = () => {
+    if (!sggCd) {
+      alert("조회할 자치구를 선택해주세요.");
+      return;
     }
-  }, [urlDong, dongList, searchedDongCode]);
+    setIsTrendChartReady(false);
+    setIsPieChartReady(false);
+    setSearchedGuCode(sggCd);
+    setSearchedDongCode(dongCd);
+    syncToUrl(sggCd, dongCd);
+  };
 
-  const searchedGuName = useMemo(() => {
-    return (
-      sggList.find((g) => g.sggCd === searchedGuCode)?.sggNm || selectedGuName
-    );
-  }, [sggList, searchedGuCode, selectedGuName]);
-
-  const searchedDongName = useMemo(() => {
-    return (
-      dongList.find((d) => d.dongCd === searchedDongCode)?.dongNm ||
-      (searchedDongCode ? selectedDongName : "")
-    );
-  }, [dongList, searchedDongCode, selectedDongName]);
-
-  const filteredSggList = useMemo(() => {
-    if (!typedGuText || !typedGuText.trim()) return sggList;
-    return sggList.filter((sgg) =>
-      sgg.sggNm.toLowerCase().includes(typedGuText.trim().toLowerCase()),
-    );
-  }, [sggList, typedGuText]);
-
-  const filteredDongList = useMemo(() => {
-    if (
-      !typedDongText ||
-      !typedDongText.trim() ||
-      typedDongText === "전체 (구 전체)"
-    ) {
-      return dongList;
-    }
-    return dongList.filter((dong) =>
-      dong.dongNm.toLowerCase().includes(typedDongText.trim().toLowerCase()),
-    );
-  }, [dongList, typedDongText]);
+  const handleReset = () => {
+    isInitialUrlSyncedRef.current = true;
+    setSggCd("");
+    setDongCd("");
+    setGuInput("");
+    setDongInput("");
+    setSearchedGuCode("");
+    setSearchedDongCode("");
+    setIsTrendChartReady(false);
+    setIsPieChartReady(false);
+    setSearchParams(new URLSearchParams(), { replace: true });
+  };
 
   /* 백엔드 API 연동 쿼리 */
   const { data: dongAnalysis, isLoading: isAllTradesLoading } =
@@ -755,41 +739,6 @@ export default function MarketTrendsregionPage() {
     const past90 = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
     return `${formatYearMonth(past90)} ~ ${formatYearMonth(now)}`;
   }, []);
-
-  const syncToUrl = useCallback(
-    (gu: string, dong: string) => {
-      const params = new URLSearchParams();
-      if (gu) params.set("gu", gu);
-      if (dong) params.set("dong", dong);
-      setSearchParams(params, { replace: true });
-    },
-    [setSearchParams],
-  );
-
-  const [chartAnimKey, setChartAnimKey] = useState(0);
-
-  const handleSearch = () => {
-    if (!selectedGuCode) {
-      alert("조회할 자치구를 선택해주세요.");
-      return;
-    }
-    setSearchedGuCode(selectedGuCode);
-    setSearchedDongCode(selectedDongCode);
-    setChartAnimKey((prev) => prev + 1);
-    syncToUrl(selectedGuName, selectedDongName);
-  };
-
-  const handleReset = () => {
-    isInitialUrlSyncedRef.current = true;
-    setCustomGuCode("");
-    setCustomDongCode("");
-    setTypedGuText("");
-    setTypedDongText("");
-    setSearchedGuCode("");
-    setSearchedDongCode("");
-    setChartAnimKey((prev) => prev + 1);
-    setSearchParams(new URLSearchParams(), { replace: true });
-  };
 
   /* 통계 및 시계열 트렌드 데이터 산출 */
   const currentData = useMemo<TrendDataset>(() => {
@@ -888,14 +837,22 @@ export default function MarketTrendsregionPage() {
       `${searchedDongName || searchedGuName} 아이파크`,
     ];
 
+    /* 거래량 상위 단지 TOP5: 최근 90일 거래량 높은 순 */
+    const combinedForTop = [
+      ...(dongAnalysis?.top || []),
+      ...(dongAnalysis?.bottom || []),
+    ];
     const topComplexesList = !searchedGuCode
       ? []
-      : dongAnalysis?.top && dongAnalysis.top.length > 0
-        ? dongAnalysis.top.slice(0, 5).map((item, idx) => ({
-            rank: idx + 1,
-            complexName: item.name,
-            count: item.dealCount || Math.max(38 - idx * 6, 5),
-          }))
+      : combinedForTop.length > 0
+        ? [...combinedForTop]
+            .sort((a, b) => (b.dealCount || 0) - (a.dealCount || 0))
+            .slice(0, 5)
+            .map((item, idx) => ({
+              rank: idx + 1,
+              complexName: item.name,
+              count: item.dealCount || Math.max(38 - idx * 6, 5),
+            }))
         : regionPriceData?.groups && regionPriceData.groups.length > 0
           ? [...regionPriceData.groups]
               .sort((a, b) => (b.totalCount || 0) - (a.totalCount || 0))
@@ -924,32 +881,19 @@ export default function MarketTrendsregionPage() {
     ];
     const sampleRecentFloors = ["15층", "8층", "22층", "5층", "12층"];
 
+    /* 최근 실거래 내역 TOP5: 최근 90일 실거래가 높은 순 */
+    const combinedForRecent = [
+      ...(dongAnalysis?.top || []),
+      ...(dongAnalysis?.bottom || []),
+    ];
     const recentTradesList = !searchedGuCode
       ? []
-      : dongAnalysis?.top && dongAnalysis.top.length > 0
-        ? dongAnalysis.top.slice(0, 5).map((item, idx) => {
-            const p = item.averageTradePrice;
-            const priceText =
-              p > 0
-                ? p >= 10000
-                  ? `${Math.floor(p / 10000)}억 ${(p % 10000).toLocaleString()}`
-                  : `${p.toLocaleString()}만원`
-                : "-";
-            return {
-              contractDate: sampleRecentDates[idx % sampleRecentDates.length],
-              complexName: item.name,
-              area:
-                item.area || sampleRecentAreas[idx % sampleRecentAreas.length],
-              floor:
-                item.floor ||
-                sampleRecentFloors[idx % sampleRecentFloors.length],
-              status: "거래 완료",
-              price: priceText,
-            };
-          })
-        : regionPriceData?.groups && regionPriceData.groups.length > 0
-          ? [...regionPriceData.groups].slice(0, 5).map((item, idx) => {
-              const p = item.averageTradePrice || guAvgPrice || 120000;
+      : combinedForRecent.length > 0
+        ? [...combinedForRecent]
+            .sort((a, b) => (b.averageTradePrice || 0) - (a.averageTradePrice || 0))
+            .slice(0, 5)
+            .map((item, idx) => {
+              const p = item.averageTradePrice;
               const priceText =
                 p > 0
                   ? p >= 10000
@@ -958,13 +902,37 @@ export default function MarketTrendsregionPage() {
                   : "-";
               return {
                 contractDate: sampleRecentDates[idx % sampleRecentDates.length],
-                complexName: `${item.name} 래미안`,
-                area: sampleRecentAreas[idx % sampleRecentAreas.length],
-                floor: sampleRecentFloors[idx % sampleRecentFloors.length],
+                complexName: item.name,
+                area:
+                  item.area || sampleRecentAreas[idx % sampleRecentAreas.length],
+                floor:
+                  item.floor ||
+                  sampleRecentFloors[idx % sampleRecentFloors.length],
                 status: "거래 완료",
                 price: priceText,
               };
             })
+        : regionPriceData?.groups && regionPriceData.groups.length > 0
+          ? [...regionPriceData.groups]
+              .sort((a, b) => (b.averageTradePrice || 0) - (a.averageTradePrice || 0))
+              .slice(0, 5)
+              .map((item, idx) => {
+                const p = item.averageTradePrice || guAvgPrice || 120000;
+                const priceText =
+                  p > 0
+                    ? p >= 10000
+                      ? `${Math.floor(p / 10000)}억 ${(p % 10000).toLocaleString()}`
+                      : `${p.toLocaleString()}만원`
+                    : "-";
+                return {
+                  contractDate: sampleRecentDates[idx % sampleRecentDates.length],
+                  complexName: `${item.name} 래미안`,
+                  area: sampleRecentAreas[idx % sampleRecentAreas.length],
+                  floor: sampleRecentFloors[idx % sampleRecentFloors.length],
+                  status: "거래 완료",
+                  price: priceText,
+                };
+              })
           : regionalFallbackComplexNames.map((name, idx) => {
               const p = avgPriceMillion > 0 ? avgPriceMillion : 125000;
               const priceText =
@@ -999,190 +967,76 @@ export default function MarketTrendsregionPage() {
           : `${maxTopPrice.toLocaleString()}만원`
         : "-";
 
-    const areaColors = {
-      small: "#3B82F6",
-      medium: "#10B981",
-      large: "#F59E0B",
-      extraLarge: "#8B5CF6",
-    };
-
     let calculatedAreaDistribution: AreaItem[];
+
     if (!searchedGuCode) {
-      calculatedAreaDistribution = [
-        {
-          name: "59㎡ 이하",
-          percentage: 0,
-          count: 0,
-          color: areaColors.small,
-        },
-        {
-          name: "60~84㎡",
-          percentage: 0,
-          count: 0,
-          color: areaColors.medium,
-        },
-        {
-          name: "85~114㎡",
-          percentage: 0,
-          count: 0,
-          color: areaColors.large,
-        },
-        {
-          name: "115㎡ 이상",
-          percentage: 0,
-          count: 0,
-          color: areaColors.extraLarge,
-        },
-      ];
-    } else if (
-      dongAnalysis?.areaDistribution &&
-      dongAnalysis.areaDistribution.length > 0
-    ) {
-      calculatedAreaDistribution = dongAnalysis.areaDistribution;
+      calculatedAreaDistribution = [18, 23, 26, 35].map((p, idx) => ({
+        name: formatPyeong(p),
+        percentage: 0,
+        count: 0,
+        color: PIE_COLORS[idx % PIE_COLORS.length],
+      }));
     } else {
-      /* 1. 조회된 백엔드 API 데이터(dongAnalysis, regionPriceData, recentTrades)로부터 실제 거래 면적 및 가중치 수집 */
-      const targetTotalCount =
-        dongAnalysis?.totalCount || (guTotalCount > 0 ? guTotalCount : 0);
+      /* 실제 데이터에서 개별 평형별(18평, 23평, 26평 등) 거래 건수 집계 */
+      const dealCounts = new Map<number, number>();
 
-      const collectedAreas: number[] = [];
-
-      // dongAnalysis (FastAPI top & bottom) 연동 (실제 거래건수 가중치 적용)
-      (dongAnalysis?.top || []).forEach((item) => {
-        if (item.area) {
-          const num = parseFloat(String(item.area).replace(/[^0-9.]/g, ""));
-          if (!isNaN(num) && num > 0) {
-            const weight = Math.max(1, Math.min(item.dealCount || 1, 10));
-            for (let i = 0; i < weight; i++) collectedAreas.push(num);
+      const addAreaDeal = (areaVal: unknown, weight: number = 1) => {
+        if (!areaVal) return;
+        const num = parseFloat(String(areaVal).replace(/[^0-9.]/g, ""));
+        if (!isNaN(num) && num > 0) {
+          // 전용면적(㎡)을 평형으로 환산 (예: 59.98㎡ -> 18평, 76.40㎡ -> 23평, 84.95㎡ -> 26평, 114.85㎡ -> 35평)
+          const pyeong = num <= 50 && Number.isInteger(num) ? num : Math.round(num * 0.3025);
+          if (pyeong > 0) {
+            dealCounts.set(pyeong, (dealCounts.get(pyeong) ?? 0) + Math.max(1, weight));
           }
         }
-      });
+      };
 
-      (dongAnalysis?.bottom || []).forEach((item) => {
-        if (item.area) {
-          const num = parseFloat(String(item.area).replace(/[^0-9.]/g, ""));
-          if (!isNaN(num) && num > 0) {
-            const weight = Math.max(1, Math.min(item.dealCount || 1, 10));
-            for (let i = 0; i < weight; i++) collectedAreas.push(num);
-          }
-        }
-      });
-
-      // regionPriceData (Spring Boot groups) 연동
+      (dongAnalysis?.top || []).forEach((item) => addAreaDeal(item.area, item.dealCount || 1));
+      (dongAnalysis?.bottom || []).forEach((item) => addAreaDeal(item.area, item.dealCount || 1));
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (regionPriceData?.groups || []).forEach((g: any) => {
-        if (g.area || g.arch_area) {
-          const num = parseFloat(
-            String(g.area || g.arch_area).replace(/[^0-9.]/g, ""),
-          );
-          if (!isNaN(num) && num > 0) collectedAreas.push(num);
-        }
-      });
+      (regionPriceData?.groups || []).forEach((g: any) => addAreaDeal(g.area || g.arch_area, g.totalCount || 1));
+      (recentTradesList || []).forEach((t) => addAreaDeal(t.area, 1));
 
-      // recentTradesList 실거래 리스트 연동
-      (recentTradesList || []).forEach((t) => {
-        if (t.area) {
-          const num = parseFloat(String(t.area).replace(/[^0-9.]/g, ""));
-          if (!isNaN(num) && num > 0) collectedAreas.push(num);
-        }
-      });
-
-      let cntSmall = 0; // <= 59㎡
-      let cntMedium = 0; // 60~84㎡
-      let cntLarge = 0; // 85~114㎡
-      let cntExtraLarge = 0; // >= 115㎡
-
-      if (collectedAreas.length > 0) {
-        collectedAreas.forEach((area) => {
-          if (area <= 59.9) cntSmall++;
-          else if (area <= 84.99) cntMedium++;
-          else if (area <= 114.99) cntLarge++;
-          else cntExtraLarge++;
-        });
-      } else {
-        // 조회된 지역의 백엔드 시세(평균가/평단가)에 기반한 동적 통계 분배
-        const currentAvgPrice =
-          avgPriceMillion > 0 ? avgPriceMillion : guAvgPrice;
+      // 데이터가 없는 경우 대표 평형(18평, 23평, 26평, 35평) 현실적 분포 적용
+      if (dealCounts.size === 0) {
+        const currentAvgPrice = avgPriceMillion > 0 ? avgPriceMillion : guAvgPrice;
         if (currentAvgPrice >= 180000) {
-          // 초고가 지역 (강남, 서초, 용산 등)
-          cntSmall = 20;
-          cntMedium = 45;
-          cntLarge = 22;
-          cntExtraLarge = 13;
+          dealCounts.set(18, 20);
+          dealCounts.set(23, 30);
+          dealCounts.set(26, 35);
+          dealCounts.set(35, 15);
         } else if (currentAvgPrice >= 120000) {
-          // 준고가 지역 (송파, 마포, 성동, 광진 등)
-          cntSmall = 28;
-          cntMedium = 50;
-          cntLarge = 15;
-          cntExtraLarge = 7;
+          dealCounts.set(18, 25);
+          dealCounts.set(23, 35);
+          dealCounts.set(26, 30);
+          dealCounts.set(35, 10);
         } else {
-          // 중저가/실수요 밀집 지역
-          cntSmall = 40;
-          cntMedium = 48;
-          cntLarge = 9;
-          cntExtraLarge = 3;
+          dealCounts.set(18, 35);
+          dealCounts.set(23, 40);
+          dealCounts.set(26, 20);
+          dealCounts.set(35, 5);
         }
       }
 
-      const totalCollected = cntSmall + cntMedium + cntLarge + cntExtraLarge;
-      let pctSmall = Math.round((cntSmall / totalCollected) * 100);
-      let pctMedium = Math.round((cntMedium / totalCollected) * 100);
-      let pctLarge = Math.round((cntLarge / totalCollected) * 100);
-      let pctExtraLarge = Math.round((cntExtraLarge / totalCollected) * 100);
+      const totalDeals = [...dealCounts.values()].reduce((sum, c) => sum + c, 0);
+      const sortedPyeongs = [...dealCounts.entries()]
+        .filter(([_, count]) => count > 0)
+        .sort(([a], [b]) => a - b);
 
-      // 합계 100% 보정
-      const sumPct = pctSmall + pctMedium + pctLarge + pctExtraLarge;
-      if (sumPct !== 100 && sumPct > 0) {
-        pctMedium += 100 - sumPct;
-      }
+      const targetTotalCount =
+        dongAnalysis?.totalCount || (guTotalCount > 0 ? guTotalCount : totalDeals);
 
-      // 실제 총 거래 건수가 있는 경우, 각 평형별 건수도 총 거래량에 정확히 비례 연동
-      const finalCountSmall =
-        targetTotalCount > 0
-          ? Math.round((pctSmall / 100) * targetTotalCount)
-          : cntSmall;
-      const finalCountMedium =
-        targetTotalCount > 0
-          ? Math.round((pctMedium / 100) * targetTotalCount)
-          : cntMedium;
-      const finalCountLarge =
-        targetTotalCount > 0
-          ? Math.round((pctLarge / 100) * targetTotalCount)
-          : cntLarge;
-      const finalCountExtraLarge =
-        targetTotalCount > 0
-          ? Math.max(
-              0,
-              targetTotalCount -
-                (finalCountSmall + finalCountMedium + finalCountLarge),
-            )
-          : cntExtraLarge;
-
-      calculatedAreaDistribution = [
-        {
-          name: "59㎡ 이하",
-          percentage: Math.max(0, pctSmall),
-          count: finalCountSmall,
-          color: areaColors.small,
-        },
-        {
-          name: "60~84㎡",
-          percentage: Math.max(0, pctMedium),
-          count: finalCountMedium,
-          color: areaColors.medium,
-        },
-        {
-          name: "85~114㎡",
-          percentage: Math.max(0, pctLarge),
-          count: finalCountLarge,
-          color: areaColors.large,
-        },
-        {
-          name: "115㎡ 이상",
-          percentage: Math.max(0, pctExtraLarge),
-          count: finalCountExtraLarge,
-          color: areaColors.extraLarge,
-        },
-      ];
+      calculatedAreaDistribution = sortedPyeongs.map(([pyeong, count], idx) => {
+        const rawPct = totalDeals > 0 ? (count / totalDeals) * 100 : 0;
+        const finalCount = targetTotalCount > 0 ? Math.round((rawPct / 100) * targetTotalCount) : count;
+        return {
+          name: formatPyeong(pyeong),
+          percentage: Number(rawPct.toFixed(1)),
+          count: finalCount,
+          color: PIE_COLORS[idx % PIE_COLORS.length],
+        };
+      });
     }
 
     const calculatedTotalAmt =
@@ -1332,6 +1186,36 @@ export default function MarketTrendsregionPage() {
   ]);
 
   const animatedTotalCount = useCountUp(currentData.summary.totalCount, 800);
+
+  /* Google Charts용 데이터 */
+  const comboChartData = useMemo(() => {
+    const rows = (currentData.monthlyTrends || []).map((pt) => [
+      pt.period,
+      pt.volume,
+      { v: pt.avgPrice, f: pt.avgPrice > 0 ? `${(pt.avgPrice / 10000).toFixed(1)}억` : "-" },
+    ]);
+    return [["기간", "거래량", "평균 거래가"], ...rows];
+  }, [currentData.monthlyTrends]);
+
+  const averagePriceAxisTicks = useMemo(() => {
+    const maxAvgPrice = Math.max(0, ...(currentData.monthlyTrends || []).map((pt) => pt.avgPrice || 0));
+    if (maxAvgPrice === 0) return [{ v: 0, f: "0.0억" }];
+    return Array.from({ length: 5 }, (_, i) => {
+      const value = Math.round((maxAvgPrice * i) / 4);
+      return { v: value, f: `${(value / 10000).toFixed(1)}억` };
+    });
+  }, [currentData.monthlyTrends]);
+
+  const pieChartData = useMemo(() => {
+    const validRows = (currentData.areaDistribution || []).filter((item) => item.percentage > 0);
+    return [
+      ["평형", "거래 건수"],
+      ...validRows.map((item) => [
+        item.name,
+        { v: item.count ?? item.percentage, f: item.count != null ? `${item.count}건` : `${item.percentage}%` },
+      ]),
+    ];
+  }, [currentData.areaDistribution]);
 
   /* 전체 실거래 내역 리스트 산출 (최근 90일간의 백엔드 실거래 연동 데이터) */
   const allTradesList = useMemo<RegionalRecentTrade[]>(() => {
@@ -1530,1174 +1414,303 @@ export default function MarketTrendsregionPage() {
           </div>
 
           {/* 필터 선택 바 */}
-          <Card
-            className={cn(
-              "border-[#E2E8F0]",
-              "bg-white",
-              "shadow-xs",
-              "rounded-xl",
-            )}
-          >
-            <CardContent className={cn("p-3.5", "sm:p-4")}>
-              <div className={cn("flex", "flex-wrap", "items-center", "gap-3")}>
-                {/* 자치구 검색 및 선택 */}
-                <div
-                  ref={guDropdownRef}
-                  className={cn(
-                    "flex",
-                    "items-center",
-                    "gap-2",
-                    "flex-1",
-                    "min-w-[170px]",
-                    "relative",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "flex",
-                      "items-center",
-                      "gap-1.5",
-                      "text-[13px]",
-                      "font-bold",
-                      "text-slate-700",
-                      "shrink-0",
-                    )}
-                  >
-                    <span>자치구 선택</span>
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-700">
-                      필수
-                    </span>
-                  </span>
-                  <div className={cn("relative", "flex-1")}>
-                    <input
-                      type="text"
-                      value={guSearchText}
-                      placeholder="자치구 입력 (예: 강남구)"
-                      onClick={() => {
-                        setTypedGuText(null);
-                        setIsGuDropdownOpen(true);
-                      }}
-                      onFocus={() => {
-                        setTypedGuText(null);
-                        setIsGuDropdownOpen(true);
-                      }}
-                      onChange={(e) => {
-                        setTypedGuText(e.target.value);
-                        setIsGuDropdownOpen(true);
-                        setCustomGuCode("");
-                        setCustomDongCode("");
-                        setTypedDongText("");
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          setIsGuDropdownOpen(false);
-                          handleSearch();
+          <Card className="rounded-xl border-[#E2E8F0] shadow-none">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex flex-col gap-3 lg:flex-row">
+                {/* 자치구 선택 */}
+                <div ref={guContainerRef} className="w-full lg:w-[180px]">
+                  <Input
+                    value={guInput || selectedGuName}
+                    onClick={() => {
+                      setIsGuDropdownOpen((prev) => {
+                        if (!prev) {
+                          setGuInput("");
+                          setGuHighlight(-1);
+                          return true;
                         }
-                      }}
-                      className={cn(
-                        "w-full",
-                        "h-9",
-                        "pl-3",
-                        "pr-8",
-                        "bg-slate-100/90",
-                        "hover:bg-slate-100",
-                        "rounded-lg",
-                        "text-[13px]",
-                        "font-medium",
-                        "text-[#0F172A]",
-                        "outline-none",
-                        "border-0",
-                      )}
-                    />
-                    <ChevronDown
-                      onClick={() => {
-                        setIsGuDropdownOpen((prev) => {
-                          if (!prev) setTypedGuText(null);
-                          return !prev;
-                        });
-                      }}
-                      className={cn(
-                        "size-4",
-                        "text-[#64748B]",
-                        "absolute",
-                        "right-2.5",
-                        "top-1/2",
-                        "-translate-y-1/2",
-                        "cursor-pointer",
-                      )}
-                    />
-
-                    {isGuDropdownOpen && (
-                      <div
-                        className={cn(
-                          "absolute",
-                          "z-50",
-                          "top-full",
-                          "left-0",
-                          "right-0",
-                          "mt-1",
-                          "max-h-56",
-                          "overflow-y-auto",
-                          "bg-white",
-                          "border",
-                          "border-[#CBD5E1]",
-                          "rounded-lg",
-                          "shadow-lg",
-                          "py-1",
-                        )}
-                      >
-                        {filteredSggList.length > 0 ? (
-                          filteredSggList.map((sgg) => {
-                            const isSelected = selectedGuCode === sgg.sggCd;
-                            return (
-                              <button
-                                key={sgg.sggCd}
-                                type="button"
-                                onClick={() => {
-                                  setCustomGuCode(sgg.sggCd);
-                                  setTypedGuText(null);
-                                  setIsGuDropdownOpen(false);
-                                  setCustomDongCode("");
-                                  setTypedDongText(null);
-                                }}
-                                className={cn(
-                                  "flex w-full items-center justify-between px-3 py-2 text-left text-[13px] text-slate-700 hover:bg-[#EFF6FF] hover:text-[#2563EB] cursor-pointer",
-                                  isSelected &&
-                                    "bg-[#EFF6FF] text-[#2563EB] font-bold",
-                                )}
-                              >
-                                <span>{sgg.sggNm}</span>
-                                {isSelected && (
-                                  <Check className="size-3.5 stroke-[3] text-[#2563EB] shrink-0" />
-                                )}
-                              </button>
-                            );
-                          })
-                        ) : (
-                          <div
-                            className={cn(
-                              "px-3",
-                              "py-2",
-                              "text-xs",
-                              "text-[#94A3B8]",
-                              "text-center",
-                            )}
-                          >
-                            일치하는 자치구가 없습니다.
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                        return false;
+                      });
+                    }}
+                    onChange={(e) => { setGuInput(e.target.value); setIsGuDropdownOpen(true); setGuHighlight(-1); if (e.target.value !== selectedGuName) chooseGu(""); }}
+                    onKeyDown={handleGuKeyDown}
+                    placeholder="구 선택"
+                    className="h-11 rounded-lg border-[#DCE8ED] bg-white focus-visible:border-[#0F8AA8] focus-visible:ring-[#0F8AA8]/20 cursor-pointer"
+                  />
+                  {isGuDropdownOpen && (
+                    <div className="mt-2 max-h-[260px] overflow-y-auto rounded-lg border border-[#E2E8F0] bg-white py-1 shadow-sm">
+                      <Button type="button" variant="ghost" onClick={() => { setGuInput(""); chooseGu(""); setIsGuDropdownOpen(false); }} className={`h-auto w-full justify-between rounded-none border-x-0 border-b border-t-0 border-[#F1F5F9] px-4 py-2.5 last:border-b-0 hover:bg-[#EFF6FF] ${!sggCd ? "bg-[#EFF6FF]" : ""}`}>선택 안 함</Button>
+                      {sggs.length === 0
+                        ? <EmptyState message="구 목록을 불러오는 중입니다." />
+                        : filteredSggs.length
+                          ? filteredSggs.map((item, index) => (
+                            <Button key={item.sggCd} type="button" variant="ghost" onMouseEnter={() => setGuHighlight(index)} onClick={() => selectGu(item.sggCd, item.sggNm)} className={`h-auto w-full justify-between rounded-none border-x-0 border-b border-t-0 border-[#F1F5F9] px-4 py-2.5 last:border-b-0 hover:bg-[#EFF6FF] ${index === guHighlight || item.sggCd === sggCd ? "bg-[#EFF6FF]" : ""}`}>{item.sggNm}</Button>
+                          ))
+                          : <EmptyState message="검색 조건에 맞는 구가 없습니다." />}
+                    </div>
+                  )}
                 </div>
 
-                {/* 자치동 검색 및 선택 */}
-                <div
-                  ref={dongDropdownRef}
-                  className={cn(
-                    "flex",
-                    "items-center",
-                    "gap-2",
-                    "flex-1",
-                    "min-w-[170px]",
-                    "relative",
+                {/* 자치동 선택 */}
+                <div ref={dongContainerRef} className="w-full lg:w-[180px]">
+                  <Input
+                    disabled={!sggCd}
+                    value={dongInput || selectedDongName}
+                    onClick={() => {
+                      if (!sggCd) return;
+                      setIsDongDropdownOpen((prev) => {
+                        if (!prev) {
+                          setDongInput("");
+                          setDongHighlight(-1);
+                          return true;
+                        }
+                        return false;
+                      });
+                    }}
+                    onChange={(e) => { setDongInput(e.target.value); setIsDongDropdownOpen(true); setDongHighlight(-1); if (e.target.value !== selectedDongName) chooseDong(""); }}
+                    onKeyDown={handleDongKeyDown}
+                    placeholder={sggCd ? "동 선택 (전체)" : "구를 먼저 선택해 주세요"}
+                    className="h-11 rounded-lg border-[#DCE8ED] bg-white focus-visible:border-[#0F8AA8] focus-visible:ring-[#0F8AA8]/20 cursor-pointer"
+                  />
+                  {isDongDropdownOpen && sggCd && (
+                    <div className="mt-2 max-h-[260px] overflow-y-auto rounded-lg border border-[#E2E8F0] bg-white py-1 shadow-sm">
+                      <Button type="button" variant="ghost" onClick={() => { setDongInput(""); chooseDong(""); setIsDongDropdownOpen(false); }} className={`h-auto w-full justify-between rounded-none border-x-0 border-b border-t-0 border-[#F1F5F9] px-4 py-2.5 last:border-b-0 hover:bg-[#EFF6FF] ${!dongCd ? "bg-[#EFF6FF]" : ""}`}>선택 안 함 (구 전체)</Button>
+                      {filteredDongs.length
+                        ? filteredDongs.map((item, index) => (
+                          <Button key={item.dongCd} type="button" variant="ghost" onMouseEnter={() => setDongHighlight(index)} onClick={() => selectDong(item.dongCd.slice(-5), item.dongNm)} className={`h-auto w-full justify-between rounded-none border-x-0 border-b border-t-0 border-[#F1F5F9] px-4 py-2.5 last:border-b-0 hover:bg-[#EFF6FF] ${index === dongHighlight || item.dongCd.slice(-5) === dongCd ? "bg-[#EFF6FF]" : ""}`}>{item.dongNm}</Button>
+                        ))
+                        : <EmptyState message="검색 조건에 맞는 동이 없습니다." />}
+                    </div>
                   )}
-                >
-                  <span
-                    className={cn(
-                      "flex",
-                      "items-center",
-                      "gap-1.5",
-                      "text-[13px]",
-                      "font-bold",
-                      "text-slate-700",
-                      "shrink-0",
-                    )}
-                  >
-                    <span>자치동 선택</span>
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-                      선택
-                    </span>
-                  </span>
-                  <div className={cn("relative", "flex-1")}>
-                    <input
-                      type="text"
-                      value={dongSearchText}
-                      placeholder={
-                        selectedGuCode
-                          ? "전체 (구 전체)"
-                          : "자치구를 먼저 선택하세요"
-                      }
-                      disabled={!selectedGuCode}
-                      onClick={() => {
-                        if (selectedGuCode) setIsDongDropdownOpen(true);
-                      }}
-                      onFocus={() => {
-                        if (selectedGuCode) setIsDongDropdownOpen(true);
-                      }}
-                      onChange={(e) => {
-                        setTypedDongText(e.target.value);
-                        setIsDongDropdownOpen(true);
-                        setCustomDongCode("");
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          setIsDongDropdownOpen(false);
-                          handleSearch();
-                        }
-                      }}
-                      className={cn(
-                        "w-full",
-                        "h-9",
-                        "pl-3",
-                        "pr-8",
-                        "bg-slate-100/90",
-                        "hover:bg-slate-100",
-                        "rounded-lg",
-                        "text-[13px]",
-                        "font-medium",
-                        "text-[#0F172A]",
-                        "outline-none",
-                        "border-0",
-                        "disabled:bg-slate-100/60",
-                        "disabled:text-[#94A3B8]",
-                        "disabled:cursor-not-allowed",
-                      )}
-                    />
-                    <ChevronDown
-                      onClick={() => {
-                        if (selectedGuCode) {
-                          setIsDongDropdownOpen((prev) => {
-                            if (!prev) setTypedDongText(null);
-                            return !prev;
-                          });
-                        }
-                      }}
-                      className={cn(
-                        "size-4",
-                        "text-[#64748B]",
-                        "absolute",
-                        "right-2.5",
-                        "top-1/2",
-                        "-translate-y-1/2",
-                        "cursor-pointer",
-                      )}
-                    />
-
-                    {isDongDropdownOpen && selectedGuCode && (
-                      <div
-                        className={cn(
-                          "absolute",
-                          "z-50",
-                          "top-full",
-                          "left-0",
-                          "right-0",
-                          "mt-1",
-                          "max-h-56",
-                          "overflow-y-auto",
-                          "bg-white",
-                          "border",
-                          "border-[#CBD5E1]",
-                          "rounded-lg",
-                          "shadow-lg",
-                          "py-1",
-                        )}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCustomDongCode("");
-                            setTypedDongText(null);
-                            setIsDongDropdownOpen(false);
-                          }}
-                          className={cn(
-                            "flex w-full items-center justify-between px-3 py-2 text-left text-[13px] text-slate-700 hover:bg-[#EFF6FF] hover:text-[#2563EB] cursor-pointer",
-                            !selectedDongCode &&
-                              "bg-[#EFF6FF] text-[#2563EB] font-bold",
-                          )}
-                        >
-                          <span>전체 (구 전체)</span>
-                          {!selectedDongCode && (
-                            <Check className="size-3.5 stroke-[3] text-[#2563EB] shrink-0" />
-                          )}
-                        </button>
-                        {filteredDongList.length > 0 ? (
-                          filteredDongList.map((dong) => {
-                            const isSelected = selectedDongCode === dong.dongCd;
-                            return (
-                              <button
-                                key={dong.dongCd}
-                                type="button"
-                                onClick={() => {
-                                  setCustomDongCode(dong.dongCd);
-                                  setTypedDongText(null);
-                                  setIsDongDropdownOpen(false);
-                                }}
-                                className={cn(
-                                  "flex w-full items-center justify-between px-3 py-2 text-left text-[13px] text-slate-700 hover:bg-[#EFF6FF] hover:text-[#2563EB] cursor-pointer",
-                                  isSelected &&
-                                    "bg-[#EFF6FF] text-[#2563EB] font-bold",
-                                )}
-                              >
-                                <span>{dong.dongNm}</span>
-                                {isSelected && (
-                                  <Check className="size-3.5 stroke-[3] text-[#2563EB] shrink-0" />
-                                )}
-                              </button>
-                            );
-                          })
-                        ) : (
-                          <div
-                            className={cn(
-                              "px-3",
-                              "py-2",
-                              "text-xs",
-                              "text-[#94A3B8]",
-                              "text-center",
-                            )}
-                          >
-                            일치하는 동이 없습니다.
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
                 </div>
 
                 {/* 조회하기 버튼 */}
-                <Button
-                  type="button"
-                  onClick={handleSearch}
-                  className={cn(
-                    "h-9",
-                    "px-4",
-                    "gap-1.5",
-                    "rounded-lg",
-                    "bg-[#2563EB]",
-                    "text-white",
-                    "text-[13px]",
-                    "font-bold",
-                    "shadow-xs",
-                    "hover:bg-[#1D4ED8]",
-                    "cursor-pointer",
-                  )}
-                >
+                <Button type="button" onClick={handleSearch} className="h-11 bg-[#0F8AA8] px-6">
                   <Search className="size-4" />
-                  <span>조회하기</span>
+                  조회하기
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-          {/* 상단 5개 핵심 지표 카드 */}
-          <div
-            className={cn(
-              "grid",
-              "grid-cols-2",
-              "sm:grid-cols-5",
-              "gap-3",
-              "sm:gap-4",
-            )}
-          >
-            {/* 1. 총 거래 건수 */}
-            <Card
-              className={cn(
-                "border-[#E2E8F0]",
-                "bg-white",
-                "rounded-xl",
-                "p-4",
-                "shadow-xs",
-              )}
-            >
-              <span
-                className={cn("text-[12px]", "font-semibold", "text-[#64748B]")}
-              >
-                총 거래 건수
-              </span>
-              <div
-                className={cn(
-                  "mt-1.5",
-                  "text-[20px]",
-                  "font-black",
-                  "text-[#0F172A]",
-                )}
-              >
-                {!searchedGuCode
-                  ? "-"
-                  : `${animatedTotalCount.toLocaleString()}건`}
-              </div>
-              <div
-                className={cn(
-                  "mt-1 text-[11px] font-bold flex items-center gap-1",
-                  !searchedGuCode
-                    ? "text-[#94A3B8]"
-                    : currentData.summary.totalCountDiff >= 0
-                      ? "text-red-500"
-                      : "text-blue-500",
-                )}
-              >
-                <span className={cn("text-[#64748B]", "font-medium")}>
-                  이전 90일 대비
-                </span>
-                <span>
-                  {!searchedGuCode
-                    ? "-"
-                    : currentData.summary.totalCountDiff >= 0
-                      ? `▲ ${currentData.summary.totalCountDiff}%`
-                      : `▼ ${Math.abs(currentData.summary.totalCountDiff)}%`}
-                </span>
-              </div>
-              <div
-                className={cn(
-                  "mt-0.5",
-                  "text-[10px]",
-                  "text-[#94A3B8]",
-                  "font-medium",
-                )}
-              >
-                ({ninetyDaysRangeText})
-              </div>
-            </Card>
+          {/* 상단 핵심 지표 - 하나의 카드로 통합 */}
+          <Card className="rounded-xl border-[#E2E8F0] bg-white shadow-xs">
+            <CardContent className="p-0">
+              <div className="grid grid-cols-2 divide-x divide-y divide-[#F1F5F9] sm:grid-cols-5 sm:divide-y-0">
 
-            {/* 2. 총 거래 금액 */}
-            <Card
-              className={cn(
-                "border-[#E2E8F0]",
-                "bg-white",
-                "rounded-xl",
-                "p-4",
-                "shadow-xs",
-              )}
-            >
-              <span
-                className={cn("text-[12px]", "font-semibold", "text-[#64748B]")}
-              >
-                총 거래 금액
-              </span>
-              <div
-                className={cn(
-                  "mt-1.5",
-                  "text-[20px]",
-                  "font-black",
-                  "text-[#0F172A]",
-                )}
-              >
-                {!searchedGuCode ? "-" : currentData.summary.totalAmountText}
-              </div>
-              <div
-                className={cn(
-                  "mt-1 text-[11px] font-bold flex items-center gap-1",
-                  !searchedGuCode
-                    ? "text-[#94A3B8]"
-                    : currentData.summary.totalAmountDiff >= 0
-                      ? "text-red-500"
-                      : "text-blue-500",
-                )}
-              >
-                <span className={cn("text-[#64748B]", "font-medium")}>
-                  이전 90일 대비
-                </span>
-                <span>
-                  {!searchedGuCode
-                    ? "-"
-                    : currentData.summary.totalAmountDiff >= 0
-                      ? `▲ ${currentData.summary.totalAmountDiff}%`
-                      : `▼ ${Math.abs(currentData.summary.totalAmountDiff)}%`}
-                </span>
-              </div>
-              <div
-                className={cn(
-                  "mt-0.5",
-                  "text-[10px]",
-                  "text-[#94A3B8]",
-                  "font-medium",
-                )}
-              >
-                ({ninetyDaysRangeText})
-              </div>
-            </Card>
+                {/* 1. 총 거래 건수 */}
+                <div className="p-4">
+                  <span className="text-[12px] font-semibold text-[#64748B]">총 거래 건수</span>
+                  <div className="mt-1.5 text-[20px] font-black text-[#0F172A]">
+                    {!searchedGuCode ? "-" : `${animatedTotalCount.toLocaleString()}건`}
+                  </div>
+                  <div className={cn("mt-1 flex items-center gap-1 text-[11px] font-bold", !searchedGuCode ? "text-[#94A3B8]" : currentData.summary.totalCountDiff >= 0 ? "text-red-500" : "text-blue-500")}>
+                    <span className="font-medium text-[#64748B]">이전 90일 대비</span>
+                    <span>{!searchedGuCode ? "-" : currentData.summary.totalCountDiff >= 0 ? `▲ ${currentData.summary.totalCountDiff}%` : `▼ ${Math.abs(currentData.summary.totalCountDiff)}%`}</span>
+                  </div>
+                  <div className="mt-0.5 text-[10px] font-medium text-[#94A3B8]">({ninetyDaysRangeText})</div>
+                </div>
 
-            {/* 3. 평균 거래가 */}
-            <Card
-              className={cn(
-                "border-[#E2E8F0]",
-                "bg-white",
-                "rounded-xl",
-                "p-4",
-                "shadow-xs",
-              )}
-            >
-              <span
-                className={cn("text-[12px]", "font-semibold", "text-[#64748B]")}
-              >
-                평균 거래가
-              </span>
-              <div
-                className={cn(
-                  "mt-1.5",
-                  "text-[20px]",
-                  "font-black",
-                  "text-[#0F172A]",
-                )}
-              >
-                {!searchedGuCode ? "-" : currentData.summary.avgPriceText}
-              </div>
-              <div
-                className={cn(
-                  "mt-1 text-[11px] font-bold flex items-center gap-1",
-                  !searchedGuCode
-                    ? "text-[#94A3B8]"
-                    : currentData.summary.avgPriceDiff >= 0
-                      ? "text-red-500"
-                      : "text-blue-500",
-                )}
-              >
-                <span className={cn("text-[#64748B]", "font-medium")}>
-                  이전 90일 대비
-                </span>
-                <span>
-                  {!searchedGuCode
-                    ? "-"
-                    : currentData.summary.avgPriceDiff >= 0
-                      ? `▲ ${currentData.summary.avgPriceDiff}%`
-                      : `▼ ${Math.abs(currentData.summary.avgPriceDiff)}%`}
-                </span>
-              </div>
-              <div
-                className={cn(
-                  "mt-0.5",
-                  "text-[10px]",
-                  "text-[#94A3B8]",
-                  "font-medium",
-                )}
-              >
-                ({ninetyDaysRangeText})
-              </div>
-            </Card>
+                {/* 2. 총 거래 금액 */}
+                <div className="p-4">
+                  <span className="text-[12px] font-semibold text-[#64748B]">총 거래 금액</span>
+                  <div className="mt-1.5 text-[20px] font-black text-[#0F172A]">
+                    {!searchedGuCode ? "-" : currentData.summary.totalAmountText}
+                  </div>
+                  <div className={cn("mt-1 flex items-center gap-1 text-[11px] font-bold", !searchedGuCode ? "text-[#94A3B8]" : currentData.summary.totalAmountDiff >= 0 ? "text-red-500" : "text-blue-500")}>
+                    <span className="font-medium text-[#64748B]">이전 90일 대비</span>
+                    <span>{!searchedGuCode ? "-" : currentData.summary.totalAmountDiff >= 0 ? `▲ ${currentData.summary.totalAmountDiff}%` : `▼ ${Math.abs(currentData.summary.totalAmountDiff)}%`}</span>
+                  </div>
+                  <div className="mt-0.5 text-[10px] font-medium text-[#94A3B8]">({ninetyDaysRangeText})</div>
+                </div>
 
-            {/* 4. 최고 거래가 */}
-            <Card
-              className={cn(
-                "border-[#E2E8F0]",
-                "bg-white",
-                "rounded-xl",
-                "p-4",
-                "shadow-xs",
-              )}
-            >
-              <span
-                className={cn("text-[12px]", "font-semibold", "text-[#64748B]")}
-              >
-                최고 거래가
-              </span>
-              <div
-                className={cn(
-                  "mt-1.5",
-                  "text-[20px]",
-                  "font-black",
-                  "text-[#0F172A]",
-                )}
-              >
-                {!searchedGuCode ? "-" : currentData.summary.maxPriceText}
-              </div>
-              <div
-                className={cn(
-                  "mt-1 text-[11px] font-bold flex items-center gap-1",
-                  !searchedGuCode
-                    ? "text-[#94A3B8]"
-                    : currentData.summary.maxPriceDiff >= 0
-                      ? "text-red-500"
-                      : "text-blue-500",
-                )}
-              >
-                <span className={cn("text-[#64748B]", "font-medium")}>
-                  이전 90일 대비
-                </span>
-                <span>
-                  {!searchedGuCode
-                    ? "-"
-                    : currentData.summary.maxPriceDiff >= 0
-                      ? `▲ ${currentData.summary.maxPriceDiff}%`
-                      : `▼ ${Math.abs(currentData.summary.maxPriceDiff)}%`}
-                </span>
-              </div>
-              <div
-                className={cn(
-                  "mt-0.5",
-                  "text-[10px]",
-                  "text-[#94A3B8]",
-                  "font-medium",
-                )}
-              >
-                ({ninetyDaysRangeText})
-              </div>
-            </Card>
+                {/* 3. 평균 거래가 */}
+                <div className="p-4">
+                  <span className="text-[12px] font-semibold text-[#64748B]">평균 거래가</span>
+                  <div className="mt-1.5 text-[20px] font-black text-[#0F172A]">
+                    {!searchedGuCode ? "-" : currentData.summary.avgPriceText}
+                  </div>
+                  <div className={cn("mt-1 flex items-center gap-1 text-[11px] font-bold", !searchedGuCode ? "text-[#94A3B8]" : currentData.summary.avgPriceDiff >= 0 ? "text-red-500" : "text-blue-500")}>
+                    <span className="font-medium text-[#64748B]">이전 90일 대비</span>
+                    <span>{!searchedGuCode ? "-" : currentData.summary.avgPriceDiff >= 0 ? `▲ ${currentData.summary.avgPriceDiff}%` : `▼ ${Math.abs(currentData.summary.avgPriceDiff)}%`}</span>
+                  </div>
+                  <div className="mt-0.5 text-[10px] font-medium text-[#94A3B8]">({ninetyDaysRangeText})</div>
+                </div>
 
-            {/* 5. 거래량 증감률 */}
-            <Card
-              className={cn(
-                "border-[#E2E8F0]",
-                "bg-white",
-                "rounded-xl",
-                "p-4",
-                "shadow-xs",
-                "col-span-2",
-                "sm:col-span-1",
-              )}
-            >
-              <span
-                className={cn("text-[12px]", "font-semibold", "text-[#64748B]")}
-              >
-                거래량 증감률
-              </span>
-              <div
-                className={cn(
-                  "mt-1.5 text-[20px] font-black",
-                  !searchedGuCode
-                    ? "text-[#2563EB]"
-                    : currentData.summary.volumeGrowthRate >= 0
-                      ? "text-red-500"
-                      : "text-blue-500",
-                )}
-              >
-                {!searchedGuCode
-                  ? "-"
-                  : currentData.summary.volumeGrowthRate >= 0
-                    ? `+${currentData.summary.volumeGrowthRate}%`
-                    : `${currentData.summary.volumeGrowthRate}%`}
-              </div>
-              <div
-                className={cn(
-                  "mt-1 text-[11px] font-bold flex items-center gap-1",
-                  !searchedGuCode
-                    ? "text-[#94A3B8]"
-                    : currentData.summary.volumeGrowthDiff >= 0
-                      ? "text-red-500"
-                      : "text-blue-500",
-                )}
-              >
-                <span className={cn("text-[#64748B]", "font-medium")}>
-                  이전 90일 대비
-                </span>
-                <span>
-                  {!searchedGuCode
-                    ? "-"
-                    : currentData.summary.volumeGrowthDiff >= 0
-                      ? `▲ ${currentData.summary.volumeGrowthDiff}%`
-                      : `▼ ${Math.abs(currentData.summary.volumeGrowthDiff)}%`}
-                </span>
-              </div>
-              <div
-                className={cn(
-                  "mt-0.5",
-                  "text-[10px]",
-                  "text-[#94A3B8]",
-                  "font-medium",
-                )}
-              >
-                ({ninetyDaysRangeText})
-              </div>
-            </Card>
-          </div>
+                {/* 4. 최고 거래가 */}
+                <div className="p-4">
+                  <span className="text-[12px] font-semibold text-[#64748B]">최고 거래가</span>
+                  <div className="mt-1.5 text-[20px] font-black text-[#0F172A]">
+                    {!searchedGuCode ? "-" : currentData.summary.maxPriceText}
+                  </div>
+                  <div className={cn("mt-1 flex items-center gap-1 text-[11px] font-bold", !searchedGuCode ? "text-[#94A3B8]" : currentData.summary.maxPriceDiff >= 0 ? "text-red-500" : "text-blue-500")}>
+                    <span className="font-medium text-[#64748B]">이전 90일 대비</span>
+                    <span>{!searchedGuCode ? "-" : currentData.summary.maxPriceDiff >= 0 ? `▲ ${currentData.summary.maxPriceDiff}%` : `▼ ${Math.abs(currentData.summary.maxPriceDiff)}%`}</span>
+                  </div>
+                  <div className="mt-0.5 text-[10px] font-medium text-[#94A3B8]">({ninetyDaysRangeText})</div>
+                </div>
 
+                {/* 5. 거래량 증감률 */}
+                <div className="col-span-2 p-4 sm:col-span-1">
+                  <span className="text-[12px] font-semibold text-[#64748B]">거래량 증감률</span>
+                  <div className={cn("mt-1.5 text-[20px] font-black", !searchedGuCode ? "text-[#2563EB]" : currentData.summary.volumeGrowthRate >= 0 ? "text-red-500" : "text-blue-500")}>
+                    {!searchedGuCode ? "-" : currentData.summary.volumeGrowthRate >= 0 ? `+${currentData.summary.volumeGrowthRate}%` : `${currentData.summary.volumeGrowthRate}%`}
+                  </div>
+                  <div className={cn("mt-1 flex items-center gap-1 text-[11px] font-bold", !searchedGuCode ? "text-[#94A3B8]" : currentData.summary.volumeGrowthDiff >= 0 ? "text-red-500" : "text-blue-500")}>
+                    <span className="font-medium text-[#64748B]">이전 90일 대비</span>
+                    <span>{!searchedGuCode ? "-" : currentData.summary.volumeGrowthDiff >= 0 ? `▲ ${currentData.summary.volumeGrowthDiff}%` : `▼ ${Math.abs(currentData.summary.volumeGrowthDiff)}%`}</span>
+                  </div>
+                  <div className="mt-0.5 text-[10px] font-medium text-[#94A3B8]">({ninetyDaysRangeText})</div>
+                </div>
+
+              </div>
+            </CardContent>
+          </Card>
           {/* 중단 2단 차트 영역 */}
-          <div
-            className={cn(
-              "grid",
-              "grid-cols-1",
-              "lg:grid-cols-[1fr_360px]",
-              "gap-5",
-            )}
-          >
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {/* 1. 거래량 및 평균 거래가 추이 콤보 차트 */}
-            <Card
-              className={cn(
-                "border-[#E2E8F0]",
-                "bg-white",
-                "rounded-xl",
-                "p-5",
-                "shadow-xs",
-                "relative",
-                "overflow-hidden",
-              )}
-            >
-              <div
-                className={cn(
-                  "flex",
-                  "items-center",
-                  "justify-between",
-                  "pb-3",
-                )}
-              >
-                <div className={cn("flex", "flex-col", "gap-0.5")}>
-                  <h3
-                    className={cn("text-[15px]", "font-bold", "text-[#0F172A]")}
-                  >
-                    거래량 및 평균 거래가 추이
-                  </h3>
-                  <span
-                    className={cn(
-                      "text-[11px]",
-                      "font-medium",
-                      "text-[#64748B]",
-                    )}
-                  >
-                    최근 90일 기준
-                  </span>
-                </div>
-                <div
-                  className={cn(
-                    "flex",
-                    "items-center",
-                    "gap-4",
-                    "text-xs",
-                    "font-medium",
-                  )}
-                >
-                  <div className={cn("flex", "items-center", "gap-1.5")}>
-                    <span
-                      className={cn("size-2.5", "rounded-xs", "bg-[#2563EB]")}
-                    />
-                    <span className="text-[#475569]">거래량(건)</span>
+            <Card className="rounded-xl border-[#E2E8F0] bg-white shadow-xs lg:col-span-2">
+              <CardContent className="p-5">
+                <div className="mb-4 flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+                  <div>
+                    <h3 className="text-[15px] font-bold text-[#0F172A]">거래량 및 평균 거래가 추이</h3>
+                    <span className="text-[11px] font-medium text-[#64748B]">최근 90일 기준</span>
                   </div>
-                  <div className={cn("flex", "items-center", "gap-1.5")}>
-                    <span
-                      className={cn("size-2.5", "rounded-full", "bg-[#16A34A]")}
-                    />
-                    <span className="text-[#475569]">평균 거래가(만원)</span>
+                  <div className="flex gap-4 text-xs font-medium text-[#475569]">
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-2.5 rounded-xs bg-[#2563EB]" />
+                      거래량(건)
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-2.5 rounded-full bg-[#16A34A]" />
+                      평균 거래가(만원)
+                    </span>
                   </div>
                 </div>
-              </div>
-
-              <div
-                key={`combo-chart-container-${chartAnimKey}-${searchedGuCode}-${searchedDongCode}`}
-                className="relative h-[250px] w-full pt-1"
-              >
-                <style>
-                  {`
-                    @keyframes comboBarGrow {
-                      from {
-                        transform: scaleY(0);
+                {comboChartData.length > 1 ? (
+                  <>
+                    <style>{`
+                      @keyframes trendsChartReveal {
+                        from { clip-path: inset(0 100% 0 0); opacity: 0; }
+                        to { clip-path: inset(0 0 0 0); opacity: 1; }
                       }
-                      to {
-                        transform: scaleY(1);
+                      .trends-chart-reveal { clip-path: inset(0 100% 0 0); opacity: 0; }
+                      .trends-chart-reveal.is-ready { animation: trendsChartReveal 800ms ease-out forwards; }
+                      @media (prefers-reduced-motion: reduce) {
+                        .trends-chart-reveal, .trends-chart-reveal.is-ready { clip-path: none; opacity: 1; animation: none; }
                       }
-                    }
-                    @keyframes comboLineDraw {
-                      from {
-                        stroke-dashoffset: 800;
-                      }
-                      to {
-                        stroke-dashoffset: 0;
-                      }
-                    }
-                    @keyframes comboDotPop {
-                      0% {
-                        transform: scale(0);
-                        opacity: 0;
-                      }
-                      70% {
-                        transform: scale(1.3);
-                      }
-                      100% {
-                        transform: scale(1);
-                        opacity: 1;
-                      }
-                    }
-                    .animate-combo-bar {
-                      transform-origin: bottom;
-                      animation: comboBarGrow 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                    }
-                    .animate-combo-line {
-                      stroke-dasharray: 800;
-                      stroke-dashoffset: 800;
-                      animation: comboLineDraw 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.25s forwards;
-                    }
-                    .animate-combo-dot {
-                      transform-box: fill-box;
-                      transform-origin: center;
-                      animation: comboDotPop 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                    }
-                  `}
-                </style>
-
-                {(() => {
-                  const trends = currentData.monthlyTrends || [];
-                  const count = trends.length || 7;
-                  const maxV = Math.max(...trends.map((t) => t.volume || 0), 10);
-                  const maxVolAxis = Math.ceil((maxV * 1.25) / 5) * 5 || 25;
-
-                  const maxP = Math.max(...trends.map((t) => t.avgPrice || 0), 50000);
-                  const maxPriceAxis = Math.ceil((maxP * 1.2) / 10000) * 10000 || 150000;
-
-                  const leftPad = 45;
-                  const rightPad = 50;
-                  const topPad = 20;
-                  const botPad = 35;
-                  const chartW = 560;
-                  const chartH = 220;
-                  const plotW = chartW - leftPad - rightPad;
-                  const plotH = chartH - topPad - botPad;
-
-                  /* 각 데이터 포인트 좌표 계산 */
-                  const points = trends.map((item, idx) => {
-                    const x = leftPad + (idx + 0.5) * (plotW / count);
-                    const vH = Math.max(((item.volume || 0) / maxVolAxis) * plotH, 0);
-                    const yBar = topPad + plotH - vH;
-                    const yPrice =
-                      topPad + plotH - Math.max(((item.avgPrice || 0) / maxPriceAxis) * plotH, 0);
-                    return {
-                      period: item.period,
-                      volume: item.volume,
-                      avgPrice: item.avgPrice,
-                      x,
-                      yBar,
-                      vH,
-                      yPrice: Number.isFinite(yPrice) ? yPrice : topPad + plotH,
-                    };
-                  });
-
-                  /* 라인 패스 생성 */
-                  const pathD = points.reduce((acc, pt, idx) => {
-                    return idx === 0
-                      ? `M ${pt.x} ${pt.yPrice}`
-                      : `${acc} L ${pt.x} ${pt.yPrice}`;
-                  }, "");
-
-                  return (
-                    <svg
-                      viewBox={`0 0 ${chartW} ${chartH}`}
-                      className="w-full h-full select-none"
-                    >
-                      {/* 가로 그리드 라인 & 좌/우 Y축 레이블 */}
-                      {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-                        const y = topPad + plotH * (1 - ratio);
-                        const volVal = Math.round(maxVolAxis * ratio);
-                        const priceVal = Math.round(maxPriceAxis * ratio);
-                        return (
-                          <g key={`grid-${ratio}`}>
-                            <line
-                              x1={leftPad}
-                              y1={y}
-                              x2={leftPad + plotW}
-                              y2={y}
-                              stroke="#F1F5F9"
-                              strokeWidth="1"
-                              strokeDasharray={ratio === 0 ? undefined : "3 3"}
-                            />
-                            {/* 좌측 Y축: 거래량(건) */}
-                            <text
-                              x={leftPad - 6}
-                              y={y + 3.5}
-                              textAnchor="end"
-                              className="text-[9px] fill-[#94A3B8] font-medium"
-                            >
-                              {volVal}
-                            </text>
-                            {/* 우측 Y축: 평균 거래가(만원) */}
-                            <text
-                              x={leftPad + plotW + 6}
-                              y={y + 3.5}
-                              textAnchor="start"
-                              className="text-[9px] fill-[#94A3B8] font-medium"
-                            >
-                              {priceVal >= 10000
-                                ? `${(priceVal / 10000).toFixed(1)}억`
-                                : `${priceVal.toLocaleString()}`}
-                            </text>
-                          </g>
-                        );
-                      })}
-
-                      {/* 하단 X축 기준선 */}
-                      <line
-                        x1={leftPad}
-                        y1={topPad + plotH}
-                        x2={leftPad + plotW}
-                        y2={topPad + plotH}
-                        stroke="#CBD5E1"
-                        strokeWidth="1.5"
-                      />
-
-                      {/* 거래량 막대 (Bars) - 바닥에서 차오르는 모션 */}
-                      {points.map((pt, idx) => {
-                        const barWidth = Math.min(plotW / count - 16, 26);
-                        return (
-                          <g key={`bar-${idx}`}>
-                            <rect
-                              x={pt.x - barWidth / 2}
-                              y={pt.yBar}
-                              width={barWidth}
-                              height={pt.vH}
-                              fill="#2563EB"
-                              rx="3"
-                              className="animate-combo-bar hover:fill-[#1D4ED8] transition-colors cursor-pointer"
-                              style={{
-                                transformOrigin: `${pt.x}px ${topPad + plotH}px`,
-                                animationDelay: `${idx * 0.14}s`,
-                              }}
-                            >
-                              <title>{`${pt.period} 거래량: ${pt.volume.toLocaleString()}건`}</title>
-                            </rect>
-                            {/* X축 기간 라벨 */}
-                            <text
-                              x={pt.x}
-                              y={topPad + plotH + 16}
-                              textAnchor="middle"
-                              className="text-[10px] fill-[#64748B] font-bold"
-                            >
-                              {pt.period}
-                            </text>
-                          </g>
-                        );
-                      })}
-
-                      {/* 평균 거래가 라인 (Line) - 좌측에서 우측으로 촥 그려지는 모션 */}
-                      {pathD && (
-                        <path
-                          d={pathD}
-                          fill="none"
-                          stroke="#16A34A"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="animate-combo-line"
-                        />
-                      )}
-
-                      {/* 라인 위의 데이터 점 (Dots) - 퐁퐁 솟아오르는 모션 */}
-                      {points.map((pt, idx) => (
-                        <g key={`dot-${idx}`}>
-                          <circle
-                            cx={pt.x}
-                            cy={pt.yPrice}
-                            r="4.5"
-                            fill="#FFFFFF"
-                            stroke="#16A34A"
-                            strokeWidth="2.5"
-                            className="animate-combo-dot hover:r-6 transition-all cursor-pointer"
-                            style={{
-                              animationDelay: `${0.5 + idx * 0.16}s`,
-                            }}
-                          >
-                            <title>{`${pt.period} 평균가: ${pt.avgPrice >= 10000 ? `${Math.floor(pt.avgPrice / 10000)}억 ${(pt.avgPrice % 10000).toLocaleString()}` : pt.avgPrice.toLocaleString()}만원`}</title>
-                          </circle>
-                        </g>
-                      ))}
-                    </svg>
-                  );
-                })()}
-              </div>
-            </Card>
-
-            {/* 2. 전용면적별 거래 비중 도넛 차트 */}
-            <Card
-              className={cn(
-                "border-[#E2E8F0]",
-                "bg-white",
-                "rounded-xl",
-                "p-5",
-                "shadow-xs",
-                "flex",
-                "flex-col",
-                "justify-between",
-                "overflow-hidden",
-              )}
-            >
-              <div
-                className={cn(
-                  "flex",
-                  "items-center",
-                  "justify-between",
-                  "pb-2",
-                )}
-              >
-                <div className={cn("flex", "flex-col", "gap-0.5")}>
-                  <h3
-                    className={cn("text-[15px]", "font-bold", "text-[#0F172A]")}
-                  >
-                    전용면적별 거래 비중
-                  </h3>
-                  <span
-                    className={cn(
-                      "text-[11px]",
-                      "font-medium",
-                      "text-[#64748B]",
-                    )}
-                  >
-                    최근 90일 기준
-                  </span>
-                </div>
-                <span
-                  className={cn(
-                    "text-[10px]",
-                    "font-semibold",
-                    "text-[#64748B]",
-                    "bg-[#F1F5F9]",
-                    "px-2",
-                    "py-0.5",
-                    "rounded-full",
-                  )}
-                >
-                  면적별 분석
-                </span>
-              </div>
-
-              <div
-                className={cn(
-                  "flex",
-                  "items-center",
-                  "justify-between",
-                  "gap-4",
-                  "py-3",
-                  "flex-1",
-                )}
-              >
-                <div
-                  key={`donut-chart-container-${chartAnimKey}-${searchedGuCode}-${searchedDongCode}`}
-                  className="relative size-[160px] shrink-0 flex items-center justify-center"
-                >
-                  <style>
-                    {`
-                      @keyframes donutSegmentFill {
-                        0% {
-                          stroke-dasharray: 0 364.42;
-                        }
-                      }
-                      .animate-donut-slice {
-                        animation: donutSegmentFill 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                      }
-                    `}
-                  </style>
-                  <svg
-                    viewBox="0 0 160 160"
-                    className="size-[160px] -rotate-90 origin-center"
-                  >
-                    <circle
-                      cx="80"
-                      cy="80"
-                      r="58"
-                      fill="transparent"
-                      stroke="#F1F5F9"
-                      strokeWidth="22"
-                    />
-                    {currentData.areaDistribution.reduce<
-                      Array<{
-                        name: string;
-                        color: string;
-                        percentage: number;
-                        strokeDash: number;
-                        rotation: number;
-                        delay: number;
-                      }>
-                    >((acc, item, idx) => {
-                      const c = 2 * Math.PI * 58; // 364.42
-                      const prevRotation = acc.reduce(
-                        (sum, cur) => sum + (cur.percentage / 100) * 360,
-                        0,
-                      );
-                      const strokeDash = (item.percentage / 100) * c;
-                      acc.push({
-                        name: item.name,
-                        color: item.color,
-                        percentage: item.percentage,
-                        strokeDash,
-                        rotation: prevRotation,
-                        delay: idx * 0.16,
-                      });
-                      return acc;
-                    }, []).map((slice) => (
-                      <circle
-                        key={slice.name}
-                        cx="80"
-                        cy="80"
-                        r="58"
-                        fill="transparent"
-                        stroke={slice.color}
-                        strokeWidth="22"
-                        strokeDasharray={`${slice.strokeDash} 364.42`}
-                        strokeDashoffset={0}
-                        transform={`rotate(${slice.rotation} 80 80)`}
-                        className="animate-donut-slice transition-all"
-                        style={{
-                          animationDelay: `${slice.delay}s`,
+                    `}</style>
+                    <div className={`trends-chart-reveal ${isTrendChartReady ? "is-ready" : ""}`}>
+                      <Chart
+                        chartType="ComboChart"
+                        width="100%"
+                        height="280px"
+                        data={comboChartData}
+                        chartEvents={[{ eventName: "ready" as const, callback: () => setIsTrendChartReady(true) }]}
+                        options={{
+                          backgroundColor: "transparent",
+                          seriesType: "bars",
+                          series: {
+                            0: { type: "bars", targetAxisIndex: 0, color: "#2563eb" },
+                            1: { type: "line", targetAxisIndex: 1, color: "#16a34a", lineWidth: 3, pointSize: 6 },
+                          },
+                          vAxes: {
+                            0: { title: "거래량(건)", minValue: 0, format: "0" },
+                            1: { title: "평균 거래가(만원)", minValue: 0, ticks: averagePriceAxisTicks },
+                          },
+                          hAxis: { slantedText: false },
+                          legend: { position: "none" },
                         }}
                       />
-                    ))}
-                  </svg>
-                  <div
-                    className={cn(
-                      "absolute",
-                      "inset-[45px]",
-                      "bg-white",
-                      "rounded-full",
-                      "flex",
-                      "flex-col",
-                      "items-center",
-                      "justify-center",
-                      "text-center",
-                      "shadow-xs",
-                      "pointer-events-none",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "text-[9px]",
-                        "font-semibold",
-                        "text-[#64748B]",
-                      )}
-                    >
-                      총 거래
-                    </span>
-                    <span
-                      className={cn(
-                        "text-[12px]",
-                        "font-black",
-                        "text-[#0F172A]",
-                      )}
-                    >
-                      {animatedTotalCount.toLocaleString()}건
-                    </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex h-[240px] items-center justify-center text-[13px] text-[#64748B]">
+                    거래 추이 데이터가 없습니다.
                   </div>
-                </div>
+                )}
+              </CardContent>
+            </Card>
 
-                {/* 우측 평형/면적별 범례 */}
-                <div className={cn("flex-1", "space-y-2.5")}>
-                  {currentData.areaDistribution.map((item) => (
-                    <div
-                      key={item.name}
-                      className={cn(
-                        "flex",
-                        "items-center",
-                        "justify-between",
-                        "text-[12px]",
-                      )}
-                    >
-                      <div className={cn("flex", "items-center", "gap-1.5")}>
-                        <span
-                          className={cn("size-2.5", "rounded-xs", "shrink-0")}
-                          style={{ backgroundColor: item.color }}
+            {/* 2. 평형별 거래 비중 파이 차트 */}
+            <Card className="rounded-xl border-[#E2E8F0] bg-white shadow-xs">
+              <CardContent className="p-5">
+                <h3 className="mb-4 border-b border-[#E2E8F0] pb-3 text-[15px] font-bold text-[#0F172A]">
+                  평형별 거래 비중
+                </h3>
+                {pieChartData.length > 1 ? (
+                  <>
+                    <style>{`
+                      @keyframes donutFanReveal {
+                        0%   { opacity: 0; transform: scale(0.88); clip-path: polygon(50% 50%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%); }
+                        25%  { opacity: 1; clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 50%, 100% 50%, 100% 50%, 100% 50%); }
+                        50%  { clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 50% 100%, 50% 100%, 50% 100%); }
+                        75%  { clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 50%, 0% 50%); }
+                        100% { opacity: 1; transform: scale(1); clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 0%); }
+                      }
+                      .pie-chart-reveal { opacity: 0; }
+                      .pie-chart-reveal.is-ready { animation: donutFanReveal 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+                      .pie-chart-reveal svg path { stroke: transparent !important; }
+                      @keyframes legendItemSlideIn {
+                        from { opacity: 0; transform: translateX(8px); }
+                        to   { opacity: 1; transform: translateX(0); }
+                      }
+                      .legend-item-reveal { opacity: 0; animation: legendItemSlideIn 450ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+                      @media (prefers-reduced-motion: reduce) {
+                        .pie-chart-reveal, .pie-chart-reveal.is-ready { clip-path: none; opacity: 1; transform: none; animation: none; }
+                        .legend-item-reveal { opacity: 1; animation: none; }
+                      }
+                    `}</style>
+                    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-stretch">
+                      <div className={`h-[240px] w-full sm:w-[58%] pie-chart-reveal ${isPieChartReady ? "is-ready" : ""}`}>
+                        <Chart
+                          chartType="PieChart"
+                          width="100%"
+                          height="100%"
+                          data={pieChartData}
+                          chartEvents={[{ eventName: "ready" as const, callback: () => setIsPieChartReady(true) }]}
+                          options={{
+                            backgroundColor: "transparent",
+                            is3D: false,
+                            pieHole: 0.45,
+                            pieSliceBorderColor: "transparent",
+                            pieSliceText: "value",
+                            pieSliceTextStyle: { color: "#ffffff", fontSize: 12, bold: true },
+                            sliceVisibilityThreshold: 0,
+                            legend: "none",
+                            chartArea: { left: 10, top: 20, width: "82%", height: "82%" },
+                            colors: PIE_COLORS,
+                          }}
                         />
-                        <span className={cn("text-[#334155]", "font-medium")}>
-                          {item.name}
-                        </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {typeof item.count === "number" && item.count > 0 && (
-                          <span className="text-[11px] font-medium text-[#64748B]">
-                            {item.count}건
-                          </span>
-                        )}
-                        <span className={cn("font-bold", "text-[#0F172A]")}>
-                          {item.percentage}%
-                        </span>
+                      <div className="w-full space-y-2 self-center text-[13px] sm:w-[42%]">
+                        <p className="border-b border-[#E2E8F0] pb-2 font-semibold text-[#0F172A]">
+                          총 거래 건수 {animatedTotalCount.toLocaleString()}건
+                        </p>
+                        {currentData.areaDistribution.map((item, index) => (
+                          <div
+                            key={item.name}
+                            className={`flex items-center justify-between gap-3 ${isPieChartReady ? "legend-item-reveal" : "opacity-0"}`}
+                            style={{ animationDelay: `${index * 80 + 350}ms` }}
+                          >
+                            <span className="flex items-center gap-2 text-[#334155]">
+                              <i className="size-2.5 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />
+                              {item.name}
+                            </span>
+                            <strong className="text-[#0F172A]">{Number(item.percentage).toFixed(1)}%</strong>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </>
+                ) : (
+                  <div className="flex h-[240px] items-center justify-center text-[13px] text-[#64748B]">
+                    평형별 거래 비중 데이터가 없습니다.
+                  </div>
+                )}
+              </CardContent>
             </Card>
           </div>
+
 
           {/* 하단 3개 카드 영역 */}
           <div className={cn("grid", "grid-cols-1", "lg:grid-cols-3", "gap-6")}>
