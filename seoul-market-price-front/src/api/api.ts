@@ -1481,6 +1481,40 @@ export async function getApartmentMarketTrendApi(
   return response.data;
 }
 
+/** 지역별 시세 비교 요청 DTO (GET /fastApi/compare) */
+export interface RegionCompareRequest {
+  guCode1: string;
+  dongCode1: string;
+  guCode2: string;
+  dongCode2: string;
+}
+
+export interface RegionCompareSummary {
+  cgg_cd: string;
+  stdg_cd: string;
+  total_count: number;
+  avg_thing_amt: number;
+  avg_pyeong_amt: number;
+}
+
+export interface RegionCompareResponse {
+  base_date: string;
+  region1: RegionCompareSummary;
+  region2: RegionCompareSummary;
+}
+
+/** 지역별 시세 비교 조회 API (GET /fastApi/compare) */
+export async function getRegionCompareApi(
+  request: RegionCompareRequest,
+): Promise<RegionCompareResponse> {
+  const response = await apiMiddleware.get<RegionCompareResponse>(
+    "/fastApi/compare",
+    { params: request },
+  );
+
+  return response.data;
+}
+
 export function cleanParams<T extends Record<string, any>>(
   params: T,
 ): Record<string, any> {

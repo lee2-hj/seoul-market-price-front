@@ -18,6 +18,10 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import apiMiddleware from "../../api/middleware";
+import {
+  getRegionCompareApi,
+  type RegionCompareResponse,
+} from "@/api/api";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { PRICE_NAVIGATION } from "@/config/sectionNavigation";
 
@@ -40,19 +44,6 @@ interface CompareResponse {
 
 
 
-
-interface FastApiListSummaryDto {
-  code?: string;
-  name?: string;
-  total_count?: number;
-  avg_thing_amt?: number;
-  avg_pyeong_amt?: number;
-}
-
-interface FastApiListResponse {
-  base_date?: string;
-  groups?: Record<string, FastApiListSummaryDto>;
-}
 
 interface SelectedRegion {
   district: string;
@@ -174,151 +165,37 @@ async function fetchDongsApi(sggCd: string): Promise<DongItem[]> {
   }
 }
 
-/* fastApi 지역별 평균가 목록 조회 (GET /fastApi/list) */
-async function fetchFastApiList(guCode?: string): Promise<FastApiListResponse> {
-  const response = await apiMiddleware.get<FastApiListResponse>("/fastApi/list", {
-    params: guCode ? { guCode } : {},
-  });
-  return response.data;
-}
-
-/* 가격 비교 데이터 조회 API (Elasticsearch 기반 FastAPI /fastApi/compare, /fastApi/list 및 /api/v1 연동) */
+/* 가격 비교 데이터 조회 API (/fastApi/compare) */
 async function fetchPriceCompareApi(payload: {
   r1: SelectedRegion;
   r2: SelectedRegion;
 }): Promise<CompareResponse> {
   const { r1, r2 } = payload;
-  const guCode1 = r1.sggCd || "";
-  const dongCode1 = r1.dongCd || "";
-  const guCode2 = r2.sggCd || "";
-  const dongCode2 = r2.dongCd || "";
-
-  // 1. Elasticsearch 기반 /fastApi/list 그룹 집계 조회
-  try {
-    const [list1, list2] = await Promise.allSettled([
-      guCode1 ? fetchFastApiList(guCode1) : Promise.resolve(null),
-      guCode2 ? fetchFastApiList(guCode2) : Promise.resolve(null),
-    ]);
-
-    let r1Data: FastApiListSummaryDto | undefined;
-    let r2Data: FastApiListSummaryDto | undefined;
-    let baseDate: string | undefined;
-
-    if (list1.status === "fulfilled" && list1.value?.groups) {
-      baseDate = list1.value.base_date;
-      const groups: Record<string, FastApiListSummaryDto> = list1.value.groups;
-      if (dongCode1 || r1.dong) {
-        r1Data = (dongCode1 && groups[dongCode1]) ||
-          Object.values(groups).find((g: FastApiListSummaryDto) => g.name === r1.dong || g.name?.includes(r1.dong));
-      }
-      if (!r1Data) {
-        const groupList = Object.values(groups);
-        const valid = groupList.filter((g) => (g.avg_thing_amt || 0) > 0);
-        const avgThing = valid.length > 0
-          ? Math.round(valid.reduce((sum, g) => sum + (g.avg_thing_amt || 0), 0) / valid.length)
-          : 0;
-        const validPyeong = groupList.filter((g) => (g.avg_pyeong_amt || 0) > 0);
-        const avgPyeong = validPyeong.length > 0
-          ? Math.round(validPyeong.reduce((sum, g) => sum + (g.avg_pyeong_amt || 0), 0) / validPyeong.length)
-          : 0;
-        const totCount = groupList.reduce((sum, g) => sum + (g.total_count || 0), 0);
-        r1Data = {
-          name: r1.district,
-          avg_thing_amt: avgThing,
-          avg_pyeong_amt: avgPyeong,
-          total_count: totCount,
-        };
-      }
-    }
-
-    if (list2.status === "fulfilled" && list2.value?.groups) {
-      baseDate = baseDate || list2.value.base_date;
-      const groups: Record<string, FastApiListSummaryDto> = list2.value.groups;
-      if (dongCode2 || r2.dong) {
-        r2Data = (dongCode2 && groups[dongCode2]) ||
-          Object.values(groups).find((g: FastApiListSummaryDto) => g.name === r2.dong || g.name?.includes(r2.dong));
-      }
-      if (!r2Data) {
-        const groupList = Object.values(groups);
-        const valid = groupList.filter((g) => (g.avg_thing_amt || 0) > 0);
-        const avgThing = valid.length > 0
-          ? Math.round(valid.reduce((sum, g) => sum + (g.avg_thing_amt || 0), 0) / valid.length)
-          : 0;
-        const validPyeong = groupList.filter((g) => (g.avg_pyeong_amt || 0) > 0);
-        const avgPyeong = validPyeong.length > 0
-          ? Math.round(validPyeong.reduce((sum, g) => sum + (g.avg_pyeong_amt || 0), 0) / validPyeong.length)
-          : 0;
-        const totCount = groupList.reduce((sum, g) => sum + (g.total_count || 0), 0);
-        r2Data = {
-          name: r2.district,
-          avg_thing_amt: avgThing,
-          avg_pyeong_amt: avgPyeong,
-          total_count: totCount,
-        };
-      }
-    }
-
-    if (r1Data || r2Data) {
-      const r1Avg = (r1Data?.avg_thing_amt ?? 0) > 0
-        ? Number(((r1Data?.avg_thing_amt ?? 0) / 10000).toFixed(2))
-        : 0;
-      const r2Avg = (r2Data?.avg_thing_amt ?? 0) > 0
-        ? Number(((r2Data?.avg_thing_amt ?? 0) / 10000).toFixed(2))
-        : 0;
-
-      return {
-        baseDate,
-        r1: {
-          avgPrice: r1Avg,
-          recentPrice: r1Avg,
-          avgJeonsePrice: Number((r1Avg * 0.6).toFixed(2)),
-          recentJeonsePrice: Number((r1Avg * 0.6).toFixed(2)),
-          avgPyeongPrice: r1Data?.avg_pyeong_amt,
-          totalCount: r1Data?.total_count,
-        },
-        r2: {
-          avgPrice: r2Avg,
-          recentPrice: r2Avg,
-          avgJeonsePrice: Number((r2Avg * 0.6).toFixed(2)),
-          recentJeonsePrice: Number((r2Avg * 0.6).toFixed(2)),
-          avgPyeongPrice: r2Data?.avg_pyeong_amt,
-          totalCount: r2Data?.total_count,
-        },
-      };
-    }
-  } catch (listErr) {
-    console.warn("/fastApi/list Elasticsearch 조회 실패:", listErr);
+  if (!r1.sggCd || !r1.dongCd || !r2.sggCd || !r2.dongCd) {
+    throw new Error('비교할 두 지역의 자치구 코드와 법정동 코드가 필요합니다.');
   }
 
-  // 3. 백엔드 /api/v1/price/compare 및 /api/v1/region-apt-compare 폴백
-  try {
-    const response = await apiMiddleware.get<CompareResponse>(
-      "/api/v1/price/compare",
-      {
-        params: {
-          guCode1,
-          dongCode1: dongCode1 || undefined,
-          guCode2,
-          dongCode2: dongCode2 || undefined,
-          sggCd1: guCode1 || undefined,
-          dongCd1: dongCode1 || undefined,
-          sggCd2: guCode2 || undefined,
-          dongCd2: dongCode2 || undefined,
-          r1Gu: r1.district,
-          r1Dong: r1.dong || undefined,
-          r2Gu: r2.district,
-          r2Dong: r2.dong || undefined,
-        },
-      },
-    );
-    return response.data;
-  } catch {
-    return {
-      baseDate: new Date().toISOString().slice(0, 10).replace(/-/g, "."),
-      r1: { avgPrice: 0, recentPrice: 0, avgJeonsePrice: 0, recentJeonsePrice: 0 },
-      r2: { avgPrice: 0, recentPrice: 0, avgJeonsePrice: 0, recentJeonsePrice: 0 },
-    };
-  }
+  const response: RegionCompareResponse = await getRegionCompareApi({
+    guCode1: r1.sggCd,
+    dongCode1: r1.dongCd,
+    guCode2: r2.sggCd,
+    dongCode2: r2.dongCd,
+  });
+
+  const toMetric = (region: RegionCompareResponse['region1']): MetricResult => ({
+    avgPrice: region.avg_thing_amt / 10000,
+    recentPrice: region.avg_thing_amt / 10000,
+    avgJeonsePrice: 0,
+    recentJeonsePrice: 0,
+    avgPyeongPrice: region.avg_pyeong_amt,
+    totalCount: region.total_count,
+  });
+
+  return {
+    baseDate: response.base_date,
+    r1: toMetric(response.region1),
+    r2: toMetric(response.region2),
+  };
 }
 
 /* 3. 커스텀 훅 (Data Hooks) */
@@ -1816,7 +1693,7 @@ export default function PriceCompareListPage() {
                   시세 비교 데이터를 불러오는 데 실패했습니다.
                 </p>
                 <p className="mt-1 text-xs text-red-400">
-                  백엔드 서버(/api/v1/price/compare) 상태를 확인해 주세요.
+                  백엔드 서버(/fastApi/compare) 상태를 확인해 주세요.
                 </p>
               </div>
             ) : !appliedRegions || !r1Metrics || !r2Metrics ? (
