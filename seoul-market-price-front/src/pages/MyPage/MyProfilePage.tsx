@@ -115,6 +115,8 @@ interface MyMemberResponse {
   email: string | null;
   socialId: string | null;
   userType: string;
+  preferredDistrict?: string | null;
+  myGu?: string | null;
 }
 
 type ProfileDraft = {
