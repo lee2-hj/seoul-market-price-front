@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { BarChart3, ChevronDown, Headphones, LoaderCircle, LocateFixed, LogIn, Map, Menu, Search, UserRound, X } from "lucide-react";
 
@@ -7,9 +7,11 @@ import { getCurrentDistrictApi } from "@/api/api";
 import { logout } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { Button } from "@/components/ui/button";
+import { getLocalPreferredDistrict } from "@/features/member/utils/preferredDistrictStorage";
 import {
   getDetectedDistrict,
   isSeoulDistrict,
+  REGION_CHANGED_EVENT,
   storeDetectedDistrict,
 } from "@/features/region-map/utils/regionSelection";
 
@@ -85,12 +87,30 @@ export default function Header() {
   const [locating, setLocating] = useState(false);
   const [detectedDistrict, setDetectedDistrict] = useState(getDetectedDistrict);
   const isAuthenticated = user !== null;
+  const localPreferredDistrict = getLocalPreferredDistrict(user?.userId);
 
-  // 헤더에는 오직 '위치서비스(내 위치 찾기)'를 이용했을 때만 현재 위치 자치구가 나타납니다.
-  const region =
-    isSeoulDistrict(detectedDistrict)
-      ? detectedDistrict
-      : "";
+  // 헤더 지역 표시 우선순위:
+  // 현재 위치 조회 결과 → 회원 기본 지역 → 회원 선호 지역 → 로컬 선호 지역
+  const region = [
+    detectedDistrict,
+    user?.myGu,
+    user?.preferredDistrict,
+    localPreferredDistrict,
+  ].find((district): district is string =>
+    typeof district === "string" && isSeoulDistrict(district),
+  ) ?? "";
+
+  useEffect(() => {
+    const handleDetectedDistrictChange = (event: Event) => {
+      const district = (event as CustomEvent<string>).detail;
+      setDetectedDistrict(isSeoulDistrict(district) ? district : "");
+    };
+
+    window.addEventListener(REGION_CHANGED_EVENT, handleDetectedDistrictChange);
+    return () => {
+      window.removeEventListener(REGION_CHANGED_EVENT, handleDetectedDistrictChange);
+    };
+  }, []);
 
   const handleRegionChange = (nextRegion: string) => {
     const normalizedRegion = nextRegion.trim();
