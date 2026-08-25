@@ -613,6 +613,42 @@ export async function deleteBoardCommentApi(
   await apiMiddleware.delete(`/api/boards/${boardId}/comments/${commentId}`);
 }
 
+/** 마이페이지 내 댓글 단건 응답 */
+export interface MyCommentResponse {
+  id: number;
+  parentId: number | null;
+  boardType: string;
+  postId: number;
+  postTitle: string;
+  name: string;
+  content: string;
+  visible: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+/** 마이페이지 내 댓글 페이징 응답 */
+export interface MyCommentPageResponse {
+  content: MyCommentResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+/** 내가 작성한 댓글 목록 조회 API (GET /api/comments/me) */
+export async function getMyCommentsApi(
+  params: { page?: number; size?: number } = { page: 0, size: 100 },
+): Promise<MyCommentPageResponse> {
+  const { data } = await apiMiddleware.get<MyCommentPageResponse>(
+    "/api/comments/me",
+    {
+      params,
+    },
+  );
+  return data;
+}
+
 /**
  * 게시글 첨부파일 다중/단일 업로드 API (POST /api/boards/:boardId/attachments)
  */
