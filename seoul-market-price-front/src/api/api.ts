@@ -1481,6 +1481,123 @@ export async function getApartmentMarketTrendApi(
   return response.data;
 }
 
+/** Elasticsearch 아파트 단지 목록 항목 */
+export interface PriceDetailComplexItem {
+  id: string;
+  name: string;
+  sggNm: string;
+  dongNm: string;
+  sggCd: string;
+  dongCd: string;
+  mno: string;
+  sno: string;
+  address: string;
+  baseSalePrice?: number;
+  pyungs: Array<{
+    name: string;
+    area?: number;
+    salePrice?: number;
+    rentPrice?: number;
+    pricePerPyung?: number;
+  }>;
+}
+
+/** Elasticsearch 아파트 단지 목록 조회 API (GET /elasticSearch/aptname) */
+export async function getPriceDetailComplexesApi(
+  sggCd: string,
+  dongCd: string,
+  sggNm = "",
+  dongNm = "",
+  aptName = "",
+): Promise<PriceDetailComplexItem[]> {
+  if (!sggCd || !dongCd) return [];
+
+  const response = await apiMiddleware.get<unknown>("/elasticSearch/aptname", {
+    params: { apt_name: aptName, sgg_cd: sggCd, dong_cd: dongCd },
+    silentAuthCheck: true,
+  } as RetryableRequestConfig);
+  const payload = response.data as { data?: unknown } | unknown[];
+  const rawList = Array.isArray(payload) ? payload : (payload.data ?? []);
+  if (!Array.isArray(rawList)) return [];
+
+  const complexes = new Map<string, PriceDetailComplexItem>();
+  rawList.forEach((raw) => {
+    if (!raw || typeof raw !== "object") return;
+    const item = raw as Record<string, unknown>;
+    const name = String(item.apt_name ?? item.aptName ?? "").trim();
+    if (!name || complexes.has(name)) return;
+    const itemSggCd = String(item.sgg_cd ?? sggCd);
+    const itemDongCd = String(item.dong_cd ?? dongCd);
+    const mno = String(item.mno ?? "");
+    const sno = String(item.sno ?? "");
+    complexes.set(name, {
+      id: `${itemSggCd}-${itemDongCd}-${name}-${mno}-${sno}`,
+      name,
+      sggCd: itemSggCd,
+      sggNm: String(item.sgg_nm ?? sggNm),
+      dongCd: itemDongCd,
+      dongNm: String(item.dong_nm ?? dongNm),
+      mno,
+      sno,
+      address: String(item.address ?? item.roadNmAddr ?? item.jibunAddr ?? `${sggNm} ${dongNm}`),
+      baseSalePrice: Number(item.baseSalePrice ?? 0) || undefined,
+      pyungs: Array.isArray(item.pyungs) ? item.pyungs as PriceDetailComplexItem["pyungs"] : [],
+    });
+  });
+
+  return Array.from(complexes.values()).sort((a, b) =>
+    a.name.localeCompare(b.name, "ko"),
+  );
+}
+
+/** 아파트 유형 비교 요청 DTO (GET /fastApi/aptcompare) */
+export interface AptCompareRequest {
+  guCode: string;
+  dongCode: string;
+  aptName: string;
+  mno: string;
+  sno: string;
+  queryType: "floor" | "pyeong";
+  selectGroup1: string;
+  selectGroup2: string;
+}
+
+export interface AptCompareGroup {
+  pyeong_grp: string | null;
+  flr_grp: string | null;
+  deal_cnt: number | null;
+  avg_thing_amt: number | null;
+  avg_pyeong_amt: number | null;
+  recent_thing_amt: number | null;
+  recent_pyeong_amt: number | null;
+  recent_deal_date: string | null;
+  recent_supply_pyeong: number | null;
+  recent_floor: number | null;
+}
+
+export interface AptCompareResponse {
+  base_date: string;
+  cgg_cd: string;
+  cgg_nm: string;
+  stdg_cd: string;
+  stdg_nm: string;
+  bldg_nm: string;
+  grp: AptCompareGroup | null;
+  grp2: AptCompareGroup | null;
+}
+
+/** 아파트 유형 비교 조회 API (GET /fastApi/aptcompare) */
+export async function getAptCompareApi(
+  request: AptCompareRequest,
+): Promise<AptCompareResponse> {
+  const response = await apiMiddleware.get<AptCompareResponse>(
+    "/fastApi/aptcompare",
+    { params: request },
+  );
+
+  return response.data;
+}
+
 /** 지역별 시세 비교 요청 DTO (GET /fastApi/compare) */
 export interface RegionCompareRequest {
   guCode1: string;
