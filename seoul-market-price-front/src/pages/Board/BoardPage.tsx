@@ -102,9 +102,9 @@ export default function BoardPage() {
         keyword: query.keyword || undefined,
       });
 
-      // 서버는 공지/일반 구분 없이 최신순으로 페이지를 먼저 나눈다.
-      // 따라서 1페이지 응답만으로는 뒤 페이지의 공지를 상단 고정할 수 없어,
-      // 전체 범위에서 최신 공지 2건을 한 번 더 조회한다.
+      // 서버는 공지/일반 구분 없이 최신순으로 페이지를 먼저 나눈다
+      // 따라서 1페이지 응답만으로는 뒤 페이지의 공지를 상단 고정할 수 없어
+
       if (query.keyword) {
         const searchItems = [...currentPageData.notices, ...currentPageData.items].sort(
           (a, b) =>
@@ -168,185 +168,185 @@ export default function BoardPage() {
       sectionTitle={CUSTOMER_CENTER_NAVIGATION.sectionTitle}
       menuItems={CUSTOMER_CENTER_NAVIGATION.menuItems}
     >
-    <div className="min-h-screen bg-[#F5FAFC]">
-      <div className="py-12 px-5 sm:px-8">
-        <div className="max-w-[1000px] mx-auto space-y-8">
-          <BoardPageHeader
-            eyebrow="SSABU CUSTOMER CENTER"
-            title="게시판"
-            description="싸부(SSABU) 부동산 실거래 및 시세 분석 서비스의 다양한 이야기를 나누는 공간입니다."
-          />
+      <div className="min-h-screen bg-[#F5FAFC]">
+        <div className="py-12 px-5 sm:px-8">
+          <div className="max-w-[1000px] mx-auto space-y-8">
+            <BoardPageHeader
+              eyebrow="SSABU CUSTOMER CENTER"
+              title="게시판"
+              description="싸부(SSABU) 부동산 실거래 및 시세 분석 서비스의 다양한 이야기를 나누는 공간입니다."
+            />
 
-          {/* 검색 영역 */}
-          <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[12px] p-5 mb-6 shadow-xs">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const keyword = (formData.get('keyword') as string).trim();
-                if (!keyword) {
-                  alert('검색어를 입력해 주세요.');
-                  return;
-                }
-                setQuery({
-                  page: 1,
-                  searchType: formData.get('searchType') as BoardSearchType,
-                  keyword,
-                });
-              }}
-              className="flex flex-col md:flex-row items-center gap-3"
-            >
-              <select
-                name="searchType"
-                key={`select-${query.searchType}`}
-                defaultValue={query.searchType}
-                className="h-[44px] w-full md:w-[130px] rounded-[7px] border border-[#DCE8ED] bg-[#F5FAFC] px-3 text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8]"
+            {/* 검색 영역 */}
+            <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[12px] p-5 mb-6 shadow-xs">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  const keyword = (formData.get('keyword') as string).trim();
+                  if (!keyword) {
+                    alert('검색어를 입력해 주세요.');
+                    return;
+                  }
+                  setQuery({
+                    page: 1,
+                    searchType: formData.get('searchType') as BoardSearchType,
+                    keyword,
+                  });
+                }}
+                className="flex flex-col md:flex-row items-center gap-3"
               >
-                <option value="TITLE">제목</option>
-                <option value="WRITER">작성자</option>
-              </select>
-
-              <Input
-                name="keyword"
-                key={`input-${query.keyword}`}
-                type="text"
-                defaultValue={query.keyword}
-                placeholder="검색어를 입력하세요."
-                className="h-[44px] flex-1 bg-[#F5FAFC] border-[#DCE8ED] text-[14px] text-[#13202B] placeholder:text-[#9CA3AF] focus-visible:ring-[#0F8AA8]"
-              />
-
-              <div className="flex items-center gap-2 w-full md:w-auto">
-                <Button type="submit" className="h-[44px] px-6 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[7px]">
-                  검색
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    sessionStorage.removeItem(BOARD_LIST_SESSION_KEY);
-                    setQuery({ page: 1, searchType: 'TITLE', keyword: '' });
-                  }}
-                  className="h-[44px] px-5 bg-white border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA] text-[14px] font-bold rounded-[7px]"
+                <select
+                  name="searchType"
+                  key={`select-${query.searchType}`}
+                  defaultValue={query.searchType}
+                  className="h-[44px] w-full md:w-[130px] rounded-[7px] border border-[#DCE8ED] bg-[#F5FAFC] px-3 text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8]"
                 >
-                  초기화
-                </Button>
-              </div>
-            </form>
-          </div>
+                  <option value="TITLE">제목</option>
+                  <option value="WRITER">작성자</option>
+                </select>
 
-          {/* 건수 및 글쓰기 버튼 */}
-          <div className="flex items-center justify-between mb-3 min-h-[44px]">
-            <p className="text-[14px] text-[#6B7280]">
-              전체 <strong className="text-[#0F8AA8] font-extrabold">{data?.totalElements ?? 0}</strong>개의 게시글이 있습니다.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                if (!isLogin()) {
-                  alert('로그인이 필요한 서비스입니다.');
-                  return navigate('/login');
-                }
-                navigate('/board/write');
-              }}
-              className="inline-flex items-center justify-center min-w-[94px] h-[42px] px-5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[7px] border border-[#0F8AA8] cursor-pointer shadow-xs"
-            >
-              글쓰기
-            </button>
-          </div>
+                <Input
+                  name="keyword"
+                  key={`input-${query.keyword}`}
+                  type="text"
+                  defaultValue={query.keyword}
+                  placeholder="검색어를 입력하세요."
+                  className="h-[44px] flex-1 bg-[#F5FAFC] border-[#DCE8ED] text-[14px] text-[#13202B] placeholder:text-[#9CA3AF] focus-visible:ring-[#0F8AA8]"
+                />
 
-          {/* 테이블 */}
-          <div className="w-full bg-white border border-[#DCE8ED] rounded-[12px] shadow-xs overflow-hidden">
-            {isLoading ? (
-              <div className="p-16 text-center text-[#6B7280] text-[14px]">게시글 목록을 불러오는 중입니다...</div>
-            ) : isError ? (
-              <div className="p-16 text-center text-rose-500 text-[14px]">오류가 발생했습니다: {(error as Error).message}</div>
-            ) : !data?.items?.length && !data?.notices?.length ? (
-              <div className="p-16 text-center text-[#6B7280] text-[14px]">등록된 게시글이 없습니다.</div>
-            ) : (
-              <Table className="min-w-[820px] border-collapse">
-                <TableHeader>
-                  <TableRow className="bg-[#F0F7FA] border-b border-[#DCE8ED]">
-                    <TableHead className="w-[9%] text-center text-[#123047] font-bold">번호</TableHead>
-                    <TableHead className="w-[10%] text-center text-[#123047] font-bold">구분</TableHead>
-                    <TableHead className="w-[43%] text-center text-[#123047] font-bold">제목</TableHead>
-                    <TableHead className="w-[14%] text-center text-[#123047] font-bold">작성자</TableHead>
-                    <TableHead className="w-[15%] text-center text-[#123047] font-bold">작성일</TableHead>
-                    <TableHead className="w-[9%] text-center text-[#123047] font-bold">조회수</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-[#DCE8ED]">
-                  {/* 1페이지의 최신 공지 2개만 상단 고정, 이전 공지는 원래 순서로 노출 */}
-                  {[...(data?.notices || []), ...(data?.items || [])].map((item: BoardListItem, index: number) => {
-                    const displayNo = Math.max(
-                      1,
-                      (data?.totalElements ?? 0) - ((query.page - 1) * 10 + index),
-                    );
-                    const isNotice = item.postType === 'NOTICE' || data?.notices?.some((n) => n.boardId === item.boardId);
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                  <Button type="submit" className="h-[44px] px-6 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[7px]">
+                    검색
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      sessionStorage.removeItem(BOARD_LIST_SESSION_KEY);
+                      setQuery({ page: 1, searchType: 'TITLE', keyword: '' });
+                    }}
+                    className="h-[44px] px-5 bg-white border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA] text-[14px] font-bold rounded-[7px]"
+                  >
+                    초기화
+                  </Button>
+                </div>
+              </form>
+            </div>
 
-                    return (
-                      <TableRow
-                        key={`row-${item.boardId}`}
-                        className={isNotice ? 'bg-[#F0F7FA] hover:bg-[#E1EFF5] border-b border-[#DCE8ED]' : 'bg-white hover:bg-[#F5FAFC] border-b border-[#DCE8ED]'}
-                      >
-                        <TableCell className="w-[9%] text-center text-[#6B7280] font-medium">
-                          {displayNo}
-                        </TableCell>
-                        <TableCell className="w-[10%] text-center">
-                          <span
-                            className={
-                              isNotice
-                                ? 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]'
-                                : 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#E6F4F2] text-[#0F766E]'
-                            }
-                          >
-                            {isNotice ? '공지' : '일반'}
-                          </span>
-                        </TableCell>
-                        <TableCell className="w-[43%] text-left max-w-0">
-                          <Link
-                            to={`/board/${item.boardId}`}
-                            className={`block truncate w-full text-[14px] no-underline hover:text-[#0F8AA8] ${isNotice ? 'font-bold text-[#0B5E73]' : 'font-semibold text-[#13202B]'}`}
-                            title={item.title}
-                          >
-                            {item.title}
-                          </Link>
-                        </TableCell>
-                        <TableCell className="w-[14%] text-center text-[#6B7280]">{maskAuthorName(item.authorName)}</TableCell>
-                        <TableCell className="w-[15%] text-center text-[#6B7280]">{formatBoardDate(item.createdAt)}</TableCell>
-                        <TableCell className="w-[9%] text-center text-[#6B7280]">{item.viewCount?.toLocaleString() || 0}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+            {/* 건수 및 글쓰기 버튼 */}
+            <div className="flex items-center justify-between mb-3 min-h-[44px]">
+              <p className="text-[14px] text-[#6B7280]">
+                전체 <strong className="text-[#0F8AA8] font-extrabold">{data?.totalElements ?? 0}</strong>개의 게시글이 있습니다.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isLogin()) {
+                    alert('로그인이 필요한 서비스입니다.');
+                    return navigate('/login');
+                  }
+                  navigate('/board/write');
+                }}
+                className="inline-flex items-center justify-center min-w-[94px] h-[42px] px-5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[7px] border border-[#0F8AA8] cursor-pointer shadow-xs"
+              >
+                글쓰기
+              </button>
+            </div>
+
+            {/* 테이블 */}
+            <div className="w-full bg-white border border-[#DCE8ED] rounded-[12px] shadow-xs overflow-hidden">
+              {isLoading ? (
+                <div className="p-16 text-center text-[#6B7280] text-[14px]">게시글 목록을 불러오는 중입니다...</div>
+              ) : isError ? (
+                <div className="p-16 text-center text-rose-500 text-[14px]">오류가 발생했습니다: {(error as Error).message}</div>
+              ) : !data?.items?.length && !data?.notices?.length ? (
+                <div className="p-16 text-center text-[#6B7280] text-[14px]">등록된 게시글이 없습니다.</div>
+              ) : (
+                <Table className="min-w-[820px] border-collapse">
+                  <TableHeader>
+                    <TableRow className="bg-[#F0F7FA] border-b border-[#DCE8ED]">
+                      <TableHead className="w-[9%] text-center text-[#123047] font-bold">번호</TableHead>
+                      <TableHead className="w-[10%] text-center text-[#123047] font-bold">구분</TableHead>
+                      <TableHead className="w-[43%] text-center text-[#123047] font-bold">제목</TableHead>
+                      <TableHead className="w-[14%] text-center text-[#123047] font-bold">작성자</TableHead>
+                      <TableHead className="w-[15%] text-center text-[#123047] font-bold">작성일</TableHead>
+                      <TableHead className="w-[9%] text-center text-[#123047] font-bold">조회수</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-[#DCE8ED]">
+                    {/* 1페이지의 최신 공지 2개만 상단 고정, 이전 공지는 원래 순서로 노출  */}
+                    {[...(data?.notices || []), ...(data?.items || [])].map((item: BoardListItem, index: number) => {
+                      const displayNo = Math.max(
+                        1,
+                        (data?.totalElements ?? 0) - ((query.page - 1) * 10 + index),
+                      );
+                      const isNotice = item.postType === 'NOTICE' || data?.notices?.some((n) => n.boardId === item.boardId);
+
+                      return (
+                        <TableRow
+                          key={`row-${item.boardId}`}
+                          className={isNotice ? 'bg-[#F0F7FA] hover:bg-[#E1EFF5] border-b border-[#DCE8ED]' : 'bg-white hover:bg-[#F5FAFC] border-b border-[#DCE8ED]'}
+                        >
+                          <TableCell className="w-[9%] text-center text-[#6B7280] font-medium">
+                            {displayNo}
+                          </TableCell>
+                          <TableCell className="w-[10%] text-center">
+                            <span
+                              className={
+                                isNotice
+                                  ? 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]'
+                                  : 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#E6F4F2] text-[#0F766E]'
+                              }
+                            >
+                              {isNotice ? '공지' : '일반'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="w-[43%] text-left max-w-0">
+                            <Link
+                              to={`/board/${item.boardId}`}
+                              className={`block truncate w-full text-[14px] no-underline hover:text-[#0F8AA8] ${isNotice ? 'font-bold text-[#0B5E73]' : 'font-semibold text-[#13202B]'}`}
+                              title={item.title}
+                            >
+                              {item.title}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="w-[14%] text-center text-[#6B7280]">{maskAuthorName(item.authorName)}</TableCell>
+                          <TableCell className="w-[15%] text-center text-[#6B7280]">{formatBoardDate(item.createdAt)}</TableCell>
+                          <TableCell className="w-[9%] text-center text-[#6B7280]">{item.viewCount?.toLocaleString() || 0}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+
+            {/* 페이지네이션 */}
+            {data && data.totalPages > 1 && (
+              <Pagination className="pt-6">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious onClick={() => changePage(Math.max(1, query.page - 1))} disabled={query.page <= 1} />
+                  </PaginationItem>
+
+                  {pageNumbers.map((p: number) => (
+                    <PaginationItem key={p}>
+                      <PaginationLink isActive={p === query.page} onClick={() => changePage(p)}>
+                        {p}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+
+                  <PaginationItem>
+                    <PaginationNext onClick={() => changePage(Math.min(data.totalPages, query.page + 1))} disabled={query.page >= data.totalPages} />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             )}
           </div>
-
-          {/* 페이지네이션 */}
-          {data && data.totalPages > 1 && (
-            <Pagination className="pt-6">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious onClick={() => changePage(Math.max(1, query.page - 1))} disabled={query.page <= 1} />
-                </PaginationItem>
-
-                {pageNumbers.map((p: number) => (
-                  <PaginationItem key={p}>
-                    <PaginationLink isActive={p === query.page} onClick={() => changePage(p)}>
-                      {p}
-                    </PaginationLink>
-                  </PaginationItem>
-                ))}
-
-                <PaginationItem>
-                  <PaginationNext onClick={() => changePage(Math.min(data.totalPages, query.page + 1))} disabled={query.page >= data.totalPages} />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          )}
         </div>
       </div>
-    </div>
     </SectionSidebarLayout>
   );
 }
