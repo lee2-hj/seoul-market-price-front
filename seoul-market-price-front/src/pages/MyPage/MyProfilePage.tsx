@@ -289,7 +289,7 @@ export default function MyProfilePage() {
 
   const [preferredDistrict, setPreferredDistrict] = useState(() => {
     const saved = getStoredMyPageSettings(authUser?.userId);
-    return saved?.preferredDistrict ?? "";
+    return authUser?.preferredDistrict || authUser?.myGu || saved?.preferredDistrict || "";
   });
   // 원본 스냅샷 (변경 취소 시 복구할 기준 데이터)
   const [originalProfile, setOriginalProfile] = useState<Profile>(profile);
@@ -471,7 +471,11 @@ export default function MyProfilePage() {
         loginType: isSocial ? "SOCIAL" : "LOCAL",
       };
 
-      const nextDistrict = saved?.preferredDistrict ?? "";
+      const nextDistrict =
+        memberData?.preferredDistrict ||
+        memberData?.myGu ||
+        saved?.preferredDistrict ||
+        "";
 
       queueMicrotask(() => {
         if (!isActive) return;
@@ -519,15 +523,17 @@ export default function MyProfilePage() {
   ]);
 
   const updateMemberMutation = useMutation({
-    mutationFn: ({ formData }: MemberUpdateVariables) => {
+    mutationFn: ({ formData, preferredDistrict }: MemberUpdateVariables) => {
       const isPhoneChanged = formData.phone !== originalProfile.phone;
-      const request: MemberUpdateRequest = {
+      const request: MemberUpdateRequest & { preferredDistrict?: string; myGu?: string } = {
         ...(isPhoneChanged
           ? { phone: formData.phone, identityVerificationId }
           : {}),
         email: formData.email,
         address: formData.address,
         addressDetail: formData.detailAddress,
+        preferredDistrict: preferredDistrict || undefined,
+        myGu: preferredDistrict || undefined,
       };
       return updateMemberMeApi(request);
     },
