@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import {
-  getBoardCommentsApi,
   getBoardPostsApi,
+  getMyCommentsApi,
   type QnaPageResponse,
 } from "@/api/api";
 import apiMiddleware from "@/api/middleware";
@@ -90,149 +90,18 @@ export default function MyActivityPage() {
 
   const myQnas = myQnaData?.content ?? [];
 
-  // 내가 작성한 댓글 조회 & 필터링
-  const [myComments, setMyComments] = useState<
-    Array<{
-      commentId: number;
-      boardId: number;
-      boardTitle: string;
-      content: string;
-      createdAt: string;
-    }>
-  >([]);
-  const [isCommentsLoading, setIsCommentsLoading] = useState(false);
-  const [commentRequestFailureCount, setCommentRequestFailureCount] = useState(0);
-  const [commentsLoadedForUser, setCommentsLoadedForUser] = useState("");
-  const commentsRequestUserRef = useRef("");
-  const commentsStateUserRef = useRef(currentUserIdentity);
-  const isComponentMountedRef = useRef(true);
+  // 내가 작성한 댓글 조회 (GET /api/comments/me 연동)
+  const {
+    data: myCommentsData,
+    isLoading: isCommentsLoading,
+    isError: isCommentsError,
+  } = useQuery({
+    queryKey: ["myComments", currentUserIdentity],
+    queryFn: () => getMyCommentsApi({ page: 0, size: 100 }),
+    enabled: isLoggedIn && Boolean(currentUserIdentity),
+  });
 
-  useEffect(() => {
-    return () => {
-      isComponentMountedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (commentsStateUserRef.current === currentUserIdentity) return;
-
-    commentsStateUserRef.current = currentUserIdentity;
-    commentsRequestUserRef.current = "";
-    queueMicrotask(() => {
-      if (!isComponentMountedRef.current) return;
-      setMyComments([]);
-      setIsCommentsLoading(false);
-      setCommentRequestFailureCount(0);
-      setCommentsLoadedForUser("");
-    });
-  }, [currentUserIdentity]);
-
-  useEffect(() => {
-    if (
-      activityType !== "COMMENT" ||
-      !isLoggedIn ||
-      !authUser ||
-      !currentUserIdentity ||
-      commentsLoadedForUser === currentUserIdentity ||
-      commentsRequestUserRef.current === currentUserIdentity
-    ) {
-      return;
-    }
-
-    if (!boardData?.items) return;
-
-    if (boardData.items.length === 0) {
-      commentsRequestUserRef.current = currentUserIdentity;
-      queueMicrotask(() => {
-        if (!isComponentMountedRef.current) return;
-        setMyComments([]);
-        setIsCommentsLoading(false);
-        setCommentRequestFailureCount(0);
-        setCommentsLoadedForUser(currentUserIdentity);
-        commentsRequestUserRef.current = "";
-      });
-      return;
-    }
-
-    commentsRequestUserRef.current = currentUserIdentity;
-    queueMicrotask(() => {
-      if (isComponentMountedRef.current) setIsCommentsLoading(true);
-    });
-
-    const currentName = normalizeIdentity(authUser.name);
-    const currentId = normalizeIdentity(authUser.userId);
-
-    // 상위 최근 게시글들에 대해 댓글을 병렬 조회하여 내가 작성한 댓글 추출
-    Promise.all(
-      boardData.items.slice(0, 30).map(async (post) => {
-        try {
-          const comments = await getBoardCommentsApi(post.boardId);
-          if (!Array.isArray(comments)) return { comments: [], failed: false };
-
-          const matchedComments = comments
-            .filter((c) => {
-              const cAuthorName = normalizeIdentity(c.writerName || c.name);
-              const cAuthorId = normalizeIdentity(String(c.writerId || ""));
-
-              return (
-                (currentId && cAuthorId === currentId) ||
-                (currentName && cAuthorName === currentName) ||
-                (currentId && cAuthorName === currentId)
-              );
-            })
-            .map((c) => ({
-              commentId: c.id || 0,
-              boardId: post.boardId,
-              boardTitle: post.title,
-              content: c.content || "",
-              createdAt: c.createdAt || "",
-            }));
-          return { comments: matchedComments, failed: false };
-        } catch {
-          return { comments: [], failed: true };
-        }
-      })
-    )
-      .then((results) => {
-        if (
-          isComponentMountedRef.current &&
-          commentsStateUserRef.current === currentUserIdentity
-        ) {
-          const flat = results
-            .flatMap((result) => result.comments)
-            .sort((a, b) => (b.commentId || 0) - (a.commentId || 0));
-          setMyComments(flat);
-          setCommentRequestFailureCount(
-            results.filter((result) => result.failed).length,
-          );
-          setIsCommentsLoading(false);
-          setCommentsLoadedForUser(currentUserIdentity);
-        }
-        if (commentsRequestUserRef.current === currentUserIdentity) {
-          commentsRequestUserRef.current = "";
-        }
-      })
-      .catch(() => {
-        if (
-          isComponentMountedRef.current &&
-          commentsStateUserRef.current === currentUserIdentity
-        ) {
-          setCommentRequestFailureCount(boardData.items.slice(0, 30).length);
-          setIsCommentsLoading(false);
-          setCommentsLoadedForUser(currentUserIdentity);
-        }
-        if (commentsRequestUserRef.current === currentUserIdentity) {
-          commentsRequestUserRef.current = "";
-        }
-      });
-  }, [
-    activityType,
-    isLoggedIn,
-    authUser,
-    currentUserIdentity,
-    commentsLoadedForUser,
-    boardData,
-  ]);
+  const myComments = myCommentsData?.content ?? [];
 
   const activityTabs: Array<{
     type: ActivityType;
@@ -269,11 +138,7 @@ export default function MyActivityPage() {
               }`}
             >
               {tab.label}{" "}
-              {isLoggedIn &&
-                !tab.isLoading &&
-                (tab.type !== "COMMENT" ||
-                  commentsLoadedForUser === currentUserIdentity) &&
-                `(${tab.count})`}
+              {isLoggedIn && !tab.isLoading && `(${tab.count})`}
             </button>
           ))}
         </div>
@@ -354,18 +219,7 @@ export default function MyActivityPage() {
                 <div className="p-12 text-center text-[#6B7280] text-[14px]">
                   내가 작성한 댓글을 불러오는 중입니다...
                 </div>
-              ) : isBoardError ? (
-                <div className="p-12 text-center space-y-2">
-                  <p className="text-[15px] font-bold text-[#123047]">
-                    댓글 내역을 불러오지 못했습니다.
-                  </p>
-                  <p className="text-[13px] text-[#6B7280]">
-                    게시글 조회에 실패했습니다. 잠시 후 다시 시도해 주세요.
-                  </p>
-                </div>
-              ) : commentRequestFailureCount > 0 &&
-                commentRequestFailureCount ===
-                  Math.min(boardData?.items.length ?? 0, 30) ? (
+              ) : isCommentsError ? (
                 <div className="p-12 text-center space-y-2">
                   <p className="text-[15px] font-bold text-[#123047]">
                     댓글 내역을 불러오지 못했습니다.
@@ -375,44 +229,37 @@ export default function MyActivityPage() {
                   </p>
                 </div>
               ) : myComments.length > 0 ? (
-                <>
-                  {commentRequestFailureCount > 0 && (
-                    <div className="bg-[#FFF8E6] px-5 py-3 text-[13px] text-[#B47500]">
-                      일부 댓글을 불러오지 못했습니다. 표시된 내역은 정상적으로 조회된 결과입니다.
-                    </div>
-                  )}
-                  {myComments.map((comment) => {
-                    const formattedDate = comment.createdAt?.includes("T")
-                      ? `${comment.createdAt.split("T")[0].replace(/-/g, ".")} ${comment.createdAt.split("T")[1].slice(0, 5)}`
-                      : comment.createdAt || "-";
+                myComments.map((comment) => {
+                  const formattedDate = comment.createdAt?.includes("T")
+                    ? `${comment.createdAt.split("T")[0].replace(/-/g, ".")} ${comment.createdAt.split("T")[1].slice(0, 5)}`
+                    : comment.createdAt || "-";
 
-                    return (
-                      <Link
-                        key={`${comment.boardId}-${comment.commentId}`}
-                        to={`/board/${comment.boardId}`}
-                        className="flex items-center justify-between p-5 hover:bg-[#F0F7FA] transition-colors group no-underline text-inherit"
-                        style={{ textDecoration: "none", color: "inherit" }}
-                      >
-                        <div className="min-w-0 pr-4">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-extrabold px-2 py-0.5 bg-[#E6F4F2] text-[#0F766E] rounded-full shrink-0 no-underline">
-                              댓글
-                            </span>
-                            <strong className="text-[15px] font-bold text-[#123047] group-hover:text-[#0F8AA8] transition-colors block truncate no-underline">
-                              {comment.content}
-                            </strong>
-                          </div>
-                          <span className="text-[13px] text-[#6B7280] block mt-1.5 no-underline">
-                            원문 글: {comment.boardTitle} · 작성일 {formattedDate}
+                  return (
+                    <Link
+                      key={`${comment.postId}-${comment.id}`}
+                      to={`/board/${comment.postId}`}
+                      className="flex items-center justify-between p-5 hover:bg-[#F0F7FA] transition-colors group no-underline text-inherit"
+                      style={{ textDecoration: "none", color: "inherit" }}
+                    >
+                      <div className="min-w-0 pr-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-extrabold px-2 py-0.5 bg-[#E6F4F2] text-[#0F766E] rounded-full shrink-0 no-underline">
+                            댓글
                           </span>
+                          <strong className="text-[15px] font-bold text-[#123047] group-hover:text-[#0F8AA8] transition-colors block truncate no-underline">
+                            {comment.content}
+                          </strong>
                         </div>
-                        <b aria-hidden="true" className="text-[#0F8AA8] text-[24px] font-normal leading-none shrink-0 group-hover:translate-x-1 transition-transform no-underline">
-                          ›
-                        </b>
-                      </Link>
-                    );
-                  })}
-                </>
+                        <span className="text-[13px] text-[#6B7280] block mt-1.5 no-underline">
+                          원문 글: {comment.postTitle} · 작성일 {formattedDate}
+                        </span>
+                      </div>
+                      <b aria-hidden="true" className="text-[#0F8AA8] text-[24px] font-normal leading-none shrink-0 group-hover:translate-x-1 transition-transform no-underline">
+                        ›
+                      </b>
+                    </Link>
+                  );
+                })
               ) : (
                 <div className="p-12 text-center space-y-3">
                   <div className="text-[32px]">💬</div>
