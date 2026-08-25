@@ -37,20 +37,9 @@ interface CompareResponse {
   baseDate?: string;
 }
 
-interface FastApiRegionSummaryDto {
-  cgg_cd?: string;
-  stdg_cd?: string;
-  total_count?: number;
-  avg_thing_amt?: number;
-  avg_pyeong_amt?: number;
-}
 
-interface FastApiCompareResponse {
-  base_date?: string;
-  baseDate?: string;
-  region1?: FastApiRegionSummaryDto;
-  region2?: FastApiRegionSummaryDto;
-}
+
+
 
 interface FastApiListSummaryDto {
   code?: string;
@@ -204,66 +193,7 @@ async function fetchPriceCompareApi(payload: {
   const guCode2 = r2.sggCd || "";
   const dongCode2 = r2.dongCd || "";
 
-  // 1. Elasticsearch 기반 /fastApi/compare 호출 시도 (자치구만 있어도 호출 가능)
-  if (guCode1 && guCode2) {
-    try {
-      const response = await apiMiddleware.get<FastApiCompareResponse>(
-        "/fastApi/compare",
-        {
-          params: {
-            guCode1,
-            dongCode1: dongCode1 || undefined,
-            guCode2,
-            dongCode2: dongCode2 || undefined,
-            sggCd1: guCode1,
-            dongCd1: dongCode1 || undefined,
-            sggCd2: guCode2,
-            dongCd2: dongCode2 || undefined,
-            r1Gu: r1.district,
-            r1Dong: r1.dong || undefined,
-            r2Gu: r2.district,
-            r2Dong: r2.dong || undefined,
-          },
-        },
-      );
-
-      if (response.data && (response.data.region1 || response.data.region2)) {
-        const reg1 = response.data.region1;
-        const reg2 = response.data.region2;
-
-        const r1Avg = (reg1?.avg_thing_amt ?? 0) > 0
-          ? Number(((reg1?.avg_thing_amt ?? 0) / 10000).toFixed(2))
-          : 0;
-        const r2Avg = (reg2?.avg_thing_amt ?? 0) > 0
-          ? Number(((reg2?.avg_thing_amt ?? 0) / 10000).toFixed(2))
-          : 0;
-
-        return {
-          baseDate: response.data.baseDate || response.data.base_date,
-          r1: {
-            avgPrice: r1Avg,
-            recentPrice: r1Avg,
-            avgJeonsePrice: Number((r1Avg * 0.6).toFixed(2)),
-            recentJeonsePrice: Number((r1Avg * 0.6).toFixed(2)),
-            avgPyeongPrice: reg1?.avg_pyeong_amt,
-            totalCount: reg1?.total_count ? Number(reg1.total_count) : undefined,
-          },
-          r2: {
-            avgPrice: r2Avg,
-            recentPrice: r2Avg,
-            avgJeonsePrice: Number((r2Avg * 0.6).toFixed(2)),
-            recentJeonsePrice: Number((r2Avg * 0.6).toFixed(2)),
-            avgPyeongPrice: reg2?.avg_pyeong_amt,
-            totalCount: reg2?.total_count ? Number(reg2.total_count) : undefined,
-          },
-        };
-      }
-    } catch (fastApiErr) {
-      console.warn("/fastApi/compare Elasticsearch 호출 폴백 시도:", fastApiErr);
-    }
-  }
-
-  // 2. Elasticsearch 기반 /fastApi/list 그룹 집계 폴백 시도
+  // 1. Elasticsearch 기반 /fastApi/list 그룹 집계 조회
   try {
     const [list1, list2] = await Promise.allSettled([
       guCode1 ? fetchFastApiList(guCode1) : Promise.resolve(null),
@@ -1810,9 +1740,9 @@ export default function PriceCompareListPage() {
                   onDongChange={handleR1DongChange}
                 />
 
-                {/* 중앙 VS 배지 (금색) */}
+                {/* 중앙 VS 배지 (파란색) */}
                 <div className="flex items-center justify-center max-[1200px]:py-2">
-                  <div className="flex size-13 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] text-[14px] font-black tracking-widest text-white shadow-[0_8px_20px_rgba(234,179,8,0.4)] ring-2 ring-amber-300">
+                  <div className="flex size-13 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-[#60A5FA] via-[#3B82F6] to-[#1D4ED8] text-[14px] font-black tracking-widest text-white shadow-[0_8px_20px_rgba(59,130,246,0.4)] ring-2 ring-blue-300">
                     VS
                   </div>
                 </div>
