@@ -161,7 +161,10 @@ export default function MainPage() {
   const runNaturalSearch = async (question: string) => {
     const response = await searchNaturalWithAiApi(question);
     if (response.status === "SUCCESS" && response.result) {
-      setAiResult(toAiDisplayResult(response.result));
+      setAiResult({
+        ...toAiDisplayResult(response.result),
+        interpretation: response.interpretation,
+      });
       setAiError(null);
       setSearch("");
       return;
@@ -376,6 +379,22 @@ export default function MainPage() {
                 model · {AI_MODEL_LABEL}
               </span>
               <h2>{formatAiMoneyText(aiResult.summary)}</h2>
+              {aiResult.interpretation && (
+                <div className={styles.aiInterpretation} aria-label="AI 질문 해석 기준">
+                  <Lightbulb aria-hidden="true" />
+                  <div>
+                    <strong>
+                      ‘{aiResult.interpretation.originalConcept}’을(를){" "}
+                      {aiResult.interpretation.appliedMetric} 기준으로 해석했습니다.
+                    </strong>
+                    <p>{aiResult.interpretation.reason}</p>
+                    <span>
+                      해석 신뢰도 {Math.round(aiResult.interpretation.confidence * 100)}%
+                      {aiResult.interpretation.proxy ? " · 대체 지표" : ""}
+                    </span>
+                  </div>
+                </div>
+              )}
               {aiResult.criteria && (
                 <div className={styles.aiModalCriteria} aria-label="결과 기준">
                   <strong>결과 기준</strong>
