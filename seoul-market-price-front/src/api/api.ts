@@ -1,9 +1,10 @@
 import axios from "axios";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
 import apiMiddleware, {
   BACKEND_URL,
   type RetryableRequestConfig,
 } from "./middleware";
+
 import type {
   BoardListRequest,
   BoardPageResponse,
@@ -20,22 +21,45 @@ import type {
   AttachmentDownloadResponse,
 } from "@/features/board/types/board.types";
 
-/* ===============================
-   인증 / 회원 / 로그인 API
-================================== */
+// ===============================
+// 로그인 응답
+// ===============================
 
+// 백엔드 LoginResponse DTO(record)가 평평한 구조로 내려주므로 그대로 맞춘다.
+// refreshToken은 HttpOnly 쿠키로만 전달되어 응답 바디에 없다.
 export interface LoginResponse {
   accessToken: string;
+
   memberId: number;
+
   userId: string;
+
   name: string;
 }
 
-export async function loginApi(userId: string, password: string): Promise<LoginResponse> {
-  const res = await apiMiddleware.post<LoginResponse>("/api/auth/login", { userId, password });
-  return res.data;
+// ===============================
+// 로그인
+// ===============================
+
+export async function loginApi(
+  userId: string,
+  password: string,
+): Promise<LoginResponse> {
+  const response = await apiMiddleware.post<LoginResponse>("/api/auth/login", {
+    userId,
+    password,
+  });
+
+  return response.data;
 }
 
+// ===============================
+// 내 정보 조회
+// ===============================
+
+// accessToken이 HttpOnly 쿠키라 프론트에서 파싱할 수 없으므로,
+// 새로고침 등으로 zustand의 로그인 정보가 비어있을 때
+// 이 API로 로그인 여부와 유저 정보를 다시 확인한다.
 export interface MemberMeResponse {
   memberId: number;
   userId: string;
@@ -48,50 +72,106 @@ export interface MemberMeResponse {
 }
 
 export async function getMemberMeApi(): Promise<MemberMeResponse> {
-  const res = await apiMiddleware.get<MemberMeResponse>("/api/members/me", {
-    silentAuthCheck: true,
-    params: { _t: Date.now() },
-  } as RetryableRequestConfig);
-  return res.data;
+  // 비로그인 상태에서 401이 나는 것은 정상 상황이므로,
+  // 세션 만료 alert이 뜨지 않도록 silent 요청으로 표시한다.
+  //
+  // 매번 다른 쿼리스트링(_t)을 붙여 브라우저가 로그아웃 이전에
+  // 로그인 상태로 캐시해둔 응답을 재사용하지 않고, 새로고침 시에도
+  // 항상 서버에 다시 물어보도록 강제한다. 그렇지 않으면 로그아웃 후
+  // 새로고침해도 캐시된 "로그인됨" 응답이 그대로 재사용되어
+  // 헤더가 로그인 상태로 남는 문제가 생긴다..
+  const response = await apiMiddleware.get<MemberMeResponse>(
+    "/api/members/me",
+    {
+      silentAuthCheck: true,
+      params: { _t: Date.now() },
+    } as RetryableRequestConfig,
+  );
+
+  return response.data;
 }
 
+// ===============================
+// 로그아웃 API
+// ===============================
+
+// HttpOnly인 refreshToken 쿠키는 프론트에서 지울 수 없어
+// 서버가 로그아웃 시 Set-Cookie로 만료시켜줘야 한다.
+
 export async function logoutApi() {
-  const res = await apiMiddleware.post("/api/auth/logout");
-  return res.data;
+  const response = await apiMiddleware.post("/api/auth/logout");
+
+  return response.data;
 }
+
+// ===============================
+// 현재 위치의 서울 자치구 조회
+// ===============================
 
 export interface CurrentDistrictResponse {
   district: string;
 }
 
-export async function getCurrentDistrictApi(latitude: number, longitude: number): Promise<CurrentDistrictResponse> {
-  const res = await apiMiddleware.get<CurrentDistrictResponse>("/api/location/current-district", {
-    params: { latitude, longitude },
-  });
-  return res.data;
+export async function getCurrentDistrictApi(
+  latitude: number,
+  longitude: number,
+): Promise<CurrentDistrictResponse> {
+  const response = await apiMiddleware.get<CurrentDistrictResponse>(
+    "/api/location/current-district",
+    { params: { latitude, longitude } },
+  );
+
+  return response.data;
 }
 
+// ===============================
+// OAuth
+// ===============================
+
+// 백엔드가 로그인용(kakao, google)과 회원가입용(kakao-signup, google-signup)
+// client 등록을 분리했으므로 registrationId도 mode에 맞게 골라야 한다.
+
 export function getKakaoLoginUrl(mode: "login" | "signup" = "login") {
-  return `${BACKEND_URL}/oauth2/authorization/${mode === "signup" ? "kakao-signup" : "kakao"}`;
+  const registrationId = mode === "signup" ? "kakao-signup" : "kakao";
+
+  return `${BACKEND_URL}/oauth2/authorization/${registrationId}`;
 }
 
 export function getGoogleLoginUrl(mode: "login" | "signup" = "login") {
-  return `${BACKEND_URL}/oauth2/authorization/${mode === "signup" ? "google-signup" : "google"}`;
+  const registrationId = mode === "signup" ? "google-signup" : "google";
+
+  return `${BACKEND_URL}/oauth2/authorization/${registrationId}`;
 }
+
+// ===============================
+// 회원가입 요청
+// ===============================
 
 export interface SignupRequest {
   name: string;
+
   userId: string;
+
   identityVerificationId: string;
+
   password: string;
+
   phone: string;
+
   address?: string;
+
   addressDetail?: string;
+
   zipcode?: string;
+
   email?: string;
+
   is_terms_agreed: number;
+
   is_location_agreed: number;
+
   is_privacy_agreed: number;
+
   myLocation?: string;
 }
 
@@ -100,10 +180,17 @@ export interface SignupResponse {
 }
 
 export async function signupApi(signupData: SignupRequest) {
-  const res = await apiMiddleware.post<SignupResponse>("/api/members/signup", signupData);
-  return res.data;
+  const response = await apiMiddleware.post<SignupResponse>(
+    "/api/members/signup",
+    signupData,
+  );
+
+  return response.data;
 }
 
+// ===============================
+// 아이디 찾기
+// ===============================
 export interface FindIdResponse {
   found: boolean;
   maskedUserIds: string[];
@@ -114,13 +201,20 @@ export async function findIdApi(
   name?: string,
   phone?: string,
 ): Promise<FindIdResponse> {
-  const res = await apiMiddleware.post<FindIdResponse>("/api/members/find-id", {
-    identityVerificationId,
-    ...(name && { name }),
-    ...(phone && { phone, phoneNumber: phone }),
-  });
-  return res.data;
+  const response = await apiMiddleware.post<FindIdResponse>(
+    "/api/members/find-id",
+    {
+      identityVerificationId,
+      ...(name && { name }),
+      ...(phone && { phone, phoneNumber: phone }),
+    },
+  );
+  return response.data;
 }
+
+// ===============================
+// 비밀번호 재설정
+// ===============================
 
 export interface PasswordResetVerifyResponse {
   verified: boolean;
@@ -132,11 +226,12 @@ export async function verifyPasswordResetApi(
   identityVerificationId: string,
   userId: string,
 ): Promise<PasswordResetVerifyResponse> {
-  const res = await apiMiddleware.post<PasswordResetVerifyResponse>(
+  const response = await apiMiddleware.post<PasswordResetVerifyResponse>(
     "/api/members/password-reset/verify",
     { identityVerificationId, userId },
   );
-  return res.data;
+
+  return response.data;
 }
 
 export interface PasswordResetCompleteResponse {
@@ -148,36 +243,72 @@ export async function completePasswordResetApi(
   newPassword: string,
   newPasswordConfirm: string,
 ): Promise<PasswordResetCompleteResponse> {
-  const res = await apiMiddleware.post<PasswordResetCompleteResponse>(
+  const response = await apiMiddleware.post<PasswordResetCompleteResponse>(
     "/api/members/password-reset/complete",
     { resetToken, newPassword, newPasswordConfirm },
   );
-  return res.data;
+
+  return response.data;
 }
+
+// ===============================
+// PASS 인증 요청
+// ===============================
 
 export interface PassResponse {
   passUrl: string;
 }
 
 export async function requestPassApi(phone: string): Promise<PassResponse> {
-  const res = await apiMiddleware.post<PassResponse>("/api/pass/request", { phone });
-  return res.data;
+  const response = await apiMiddleware.post<PassResponse>("/api/pass/request", {
+    phone,
+  });
+
+  return response.data;
 }
+
+// ===============================
+// 휴대폰 SMS 인증 요청
+// ===============================
 
 export async function sendPhoneAuthApi(phone: string) {
-  const res = await apiMiddleware.post("/api/sms/send", { phone });
-  return res.data;
+  const response = await apiMiddleware.post("/api/sms/send", {
+    phone,
+  });
+
+  return response.data;
 }
+
+// ===============================
+// 휴대폰 SMS 인증 확인
+// ===============================
 
 export async function verifyPhoneAuthApi(phone: string, code: string) {
-  const res = await apiMiddleware.post("/api/sms/verify", { phone, code });
-  return res.data;
+  const response = await apiMiddleware.post("/api/sms/verify", {
+    phone,
+    code,
+  });
+
+  return response.data;
 }
 
+// ===============================
+// 아이디 중복 확인
+// ===============================
+
 export async function checkUserIdApi(userId: string) {
-  const res = await apiMiddleware.get("/api/members/check-id", { params: { userId } });
-  return res.data;
+  const response = await apiMiddleware.get("/api/members/check-id", {
+    params: {
+      userId,
+    },
+  });
+
+  return response.data;
 }
+
+// ===============================
+// 가입 여부 확인 (이름 + 휴대폰 번호)
+// ===============================
 
 export interface CheckMemberResponse {
   isduplicated?: boolean;
@@ -188,12 +319,26 @@ export interface CheckMemberResponse {
   signupAllowed?: boolean;
 }
 
-export async function checkMemberApi(name: string, phone: string): Promise<CheckMemberResponse> {
-  const res = await apiMiddleware.get<CheckMemberResponse>("/api/members/check-member", {
-    params: { name, phone },
-  });
-  return res.data;
+export async function checkMemberApi(
+  name: string,
+  phone: string,
+): Promise<CheckMemberResponse> {
+  const response = await apiMiddleware.get<CheckMemberResponse>(
+    "/api/members/check-member",
+    {
+      params: {
+        name,
+        phone,
+      },
+    },
+  );
+
+  return response.data;
 }
+
+// ===============================
+// 인증 에러 확인
+// ===============================
 
 export function isAuthError(error: unknown) {
   return axios.isAxiosError(error) && error.response?.status === 401;
@@ -332,17 +477,21 @@ export async function getBoardPostsApi(
  * 게시글 단건 상세 조회 API (GET /api/boards/:boardId)
  */
 export async function getBoardPostApi(boardId: number): Promise<BoardDetail> {
-  const res = await apiMiddleware.get<RawBoardDetail>(`/api/boards/${boardId}`);
-  const d = res.data || {};
+  const response = await apiMiddleware.get<RawBoardDetail>(
+    `/api/boards/${boardId}`,
+  );
+  const data = response.data || {};
+
   return {
-    boardId: d.boardId || d.id || boardId,
-    title: d.title || d.boardTitle || d.subject || "",
-    content: d.content || d.boardContent || d.body || "",
-    authorName: d.authorName || d.writerName || d.writer || d.userName || "",
-    authorId: d.authorId || d.writerId || d.userId || "user",
-    createdAt: d.createdAt || d.createDate || d.regDate || "",
-    viewCount: d.viewCount ?? d.hit ?? d.readCount ?? 0,
-    postType: d.postType || (d.type as PostType) || "GENERAL",
+    boardId: data.boardId || data.id || boardId,
+    title: data.title || data.boardTitle || data.subject || "",
+    content: data.content || data.boardContent || data.body || "",
+    authorName:
+      data.authorName || data.writerName || data.writer || data.userName || "",
+    authorId: data.authorId || data.writerId || data.userId || "user",
+    createdAt: data.createdAt || data.createDate || data.regDate || "",
+    viewCount: data.viewCount ?? data.hit ?? data.readCount ?? 0,
+    postType: data.postType || (data.type as PostType) || "GENERAL",
   };
 }
 
@@ -352,78 +501,216 @@ export interface BoardFullDetailResponse {
   attachments: AttachmentResponse[];
 }
 
-export async function getBoardFullDetailApi(boardId: number): Promise<BoardFullDetailResponse> {
-  const res = await apiMiddleware.get<{ detail: RawBoardDetail; comments: BoardComment[]; attachments: AttachmentResponse[] }>(`/api/boards/${boardId}/full`);
-  const d = res.data.detail || {};
+// 겟
+export async function getBoardFullDetailApi(
+  boardId: number,
+): Promise<BoardFullDetailResponse> {
+  const response = await apiMiddleware.get<{
+    detail: RawBoardDetail;
+    comments: BoardComment[];
+    attachments: AttachmentResponse[];
+  }>(`/api/boards/${boardId}/full`);
+  const data = response.data.detail || {};
+
   return {
     detail: {
-      boardId: d.boardId || d.id || boardId,
-      title: d.title || d.boardTitle || d.subject || "",
-      content: d.content || d.boardContent || d.body || "",
-      authorName: d.authorName || d.writerName || d.writer || d.userName || "",
-      authorId: d.authorId || d.writerId || d.userId || "user",
-      createdAt: d.createdAt || d.createDate || d.regDate || "",
-      viewCount: d.viewCount ?? d.hit ?? d.readCount ?? 0,
-      postType: d.postType || (d.type as PostType) || "GENERAL",
+      boardId: data.boardId || data.id || boardId,
+      title: data.title || data.boardTitle || data.subject || "",
+      content: data.content || data.boardContent || data.body || "",
+      authorName:
+        data.authorName ||
+        data.writerName ||
+        data.writer ||
+        data.userName ||
+        "",
+      authorId: data.authorId || data.writerId || data.userId || "user",
+      createdAt: data.createdAt || data.createDate || data.regDate || "",
+      viewCount: data.viewCount ?? data.hit ?? data.readCount ?? 0,
+      postType: data.postType || (data.type as PostType) || "GENERAL",
     },
-    comments: res.data.comments || [],
-    attachments: res.data.attachments || [],
+    comments: response.data.comments || [],
+    attachments: response.data.attachments || [],
   };
 }
 
-export async function createBoardPostApi(data: BoardCreateRequest): Promise<{ boardId: number }> {
-  const res = await apiMiddleware.post<{ boardId: number }>("/api/boards", data);
-  return res.data;
+/**
+ * 게시글 등록 API (POST /api/boards)
+ */
+export async function createBoardPostApi(
+  data: BoardCreateRequest,
+): Promise<{ boardId: number }> {
+  const response = await apiMiddleware.post<{ boardId: number }>(
+    "/api/boards",
+    data,
+  );
+  return response.data;
 }
 
-export async function updateBoardPostApi(boardId: number, data: BoardUpdateRequest): Promise<void> {
+/**
+ * 게시글 수정 API (PATCH /api/boards/:boardId)
+ */
+export async function updateBoardPostApi(
+  boardId: number,
+  data: BoardUpdateRequest,
+): Promise<void> {
   await apiMiddleware.patch(`/api/boards/${boardId}`, data);
 }
 
+/**
+ * 게시글 삭제 API (DELETE /api/boards/:boardId)
+ */
 export async function deleteBoardPostApi(boardId: number): Promise<void> {
   await apiMiddleware.delete(`/api/boards/${boardId}`);
 }
 
-export async function getBoardCommentsApi(boardId: number): Promise<BoardComment[]> {
-  const res = await apiMiddleware.get<BoardComment[]>(`/api/boards/${boardId}/comments`);
-  return res.data;
+/**
+ * 게시글 댓글 목록 조회 API (GET /api/boards/:boardId/comments)
+ */
+export async function getBoardCommentsApi(
+  boardId: number,
+): Promise<BoardComment[]> {
+  const response = await apiMiddleware.get<BoardComment[]>(
+    `/api/boards/${boardId}/comments`,
+  );
+  return response.data;
 }
 
-export async function createBoardCommentApi(boardId: number, data: CommentCreateRequest): Promise<BoardComment> {
-  const res = await apiMiddleware.post<BoardComment>(`/api/boards/${boardId}/comments`, data);
-  return res.data;
+/**
+ * 게시글 댓글 작성 API (POST /api/boards/:boardId/comments)
+ */
+export async function createBoardCommentApi(
+  boardId: number,
+  data: CommentCreateRequest,
+): Promise<BoardComment> {
+  const response = await apiMiddleware.post<BoardComment>(
+    `/api/boards/${boardId}/comments`,
+    data,
+  );
+  return response.data;
 }
 
-export async function updateBoardCommentApi(boardId: number, commentId: number, data: CommentUpdateRequest): Promise<void> {
-  await apiMiddleware.patch(`/api/boards/${boardId}/comments/${commentId}`, data);
+/**
+ * 게시글 댓글 수정 API (PATCH /api/boards/comments/:commentId)
+ */
+export async function updateBoardCommentApi(
+  boardId: number,
+  commentId: number,
+  data: CommentUpdateRequest,
+): Promise<void> {
+  await apiMiddleware.patch(
+    `/api/boards/${boardId}/comments/${commentId}`,
+    data,
+  );
 }
 
-export async function deleteBoardCommentApi(boardId: number, commentId: number): Promise<void> {
+/**
+ * 게시글 댓글 삭제 API (DELETE /api/boards/comments/:commentId)
+ */
+export async function deleteBoardCommentApi(
+  boardId: number,
+  commentId: number,
+): Promise<void> {
   await apiMiddleware.delete(`/api/boards/${boardId}/comments/${commentId}`);
 }
 
-export async function uploadBoardAttachmentsApi(boardId: number, files: File[]): Promise<AttachmentResponse[]> {
+/** 마이페이지 내 댓글 단건 응답 */
+export interface MyCommentResponse {
+  id: number;
+  parentId: number | null;
+  boardType: string;
+  postId: number;
+  postTitle: string;
+  name: string;
+  content: string;
+  visible: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+/** 마이페이지 내 댓글 페이징 응답 */
+export interface MyCommentPageResponse {
+  content: MyCommentResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+/** 내가 작성한 댓글 목록 조회 API (GET /api/comments/me) */
+export async function getMyCommentsApi(
+  params: { page?: number; size?: number } = { page: 0, size: 100 },
+): Promise<MyCommentPageResponse> {
+  const { data } = await apiMiddleware.get<MyCommentPageResponse>(
+    "/api/comments/me",
+    {
+      params,
+    },
+  );
+  return data;
+}
+
+/**
+ * 게시글 첨부파일 다중/단일 업로드 API (POST /api/boards/:boardId/attachments)
+ */
+export async function uploadBoardAttachmentsApi(
+  boardId: number,
+  files: File[],
+): Promise<AttachmentResponse[]> {
   const formData = new FormData();
-  files.forEach((file) => formData.append("files", file));
-  const res = await apiMiddleware.post<AttachmentResponse[]>(`/api/boards/${boardId}/attachments`, formData, {
-    headers: { "Content-Type": "multipart/form-data" },
+  files.forEach((file) => {
+    formData.append("files", file);
   });
-  return res.data;
+
+  const response = await apiMiddleware.post<AttachmentResponse[]>(
+    `/api/boards/${boardId}/attachments`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
+  return response.data;
 }
 
-export async function getBoardAttachmentsApi(boardId: number): Promise<AttachmentResponse[]> {
-  const res = await apiMiddleware.get<AttachmentResponse[]>(`/api/boards/${boardId}/attachments`);
-  return res.data || [];
+/**
+ * 게시글 첨부파일 목록 조회 API (GET /api/boards/:boardId/attachments)
+ */
+export async function getBoardAttachmentsApi(
+  boardId: number,
+): Promise<AttachmentResponse[]> {
+  const response = await apiMiddleware.get<AttachmentResponse[]>(
+    `/api/boards/${boardId}/attachments`,
+  );
+  return response.data || [];
 }
 
-export async function downloadBoardAttachmentApi(boardId: number, attachmentId: number): Promise<AttachmentDownloadResponse> {
-  const res = await apiMiddleware.get<AttachmentDownloadResponse>(`/api/boards/${boardId}/attachments/${attachmentId}/download`);
-  return res.data;
+/**
+ * 게시글 첨부파일 다운로드 URL 발급 API (GET /api/boards/:boardId/attachments/:attachmentId/download)
+ */
+export async function downloadBoardAttachmentApi(
+  boardId: number,
+  attachmentId: number,
+): Promise<AttachmentDownloadResponse> {
+  const response = await apiMiddleware.get<AttachmentDownloadResponse>(
+    `/api/boards/${boardId}/attachments/${attachmentId}/download`,
+  );
+  return response.data;
 }
 
-export async function deleteBoardAttachmentApi(boardId: number, attachmentId: number): Promise<void> {
-  await apiMiddleware.delete(`/api/boards/${boardId}/attachments/${attachmentId}`);
+/**
+ * 게시글 첨부파일 삭제 API (DELETE /api/boards/:boardId/attachments/:attachmentId)
+ */
+export async function deleteBoardAttachmentApi(
+  boardId: number,
+  attachmentId: number,
+): Promise<void> {
+  await apiMiddleware.delete(
+    `/api/boards/${boardId}/attachments/${attachmentId}`,
+  );
 }
+
+/* Q&A 목록 응답 */
 
 export interface QnaListResponse {
   id: number;
@@ -438,6 +725,8 @@ export interface QnaListResponse {
   answeredAt: string | null;
 }
 
+/* Q&A 페이지 응답 */
+
 export interface QnaPageResponse {
   content: QnaListResponse[];
   page: number;
@@ -448,11 +737,22 @@ export interface QnaPageResponse {
   last: boolean;
 }
 
-export async function getQnasApi(page: number = 0, size: number = 5, keyword?: string) {
-  const res = await apiMiddleware.get<QnaPageResponse>("/api/qnas", {
-    params: { page, size, keyword: keyword?.trim() || undefined },
+/*  Q&A 목록 조회 */
+
+export async function getQnasApi(
+  page: number = 0,
+  size: number = 5,
+  keyword?: string,
+) {
+  const response = await apiMiddleware.get<QnaPageResponse>("/api/qnas", {
+    params: {
+      page,
+      size,
+      keyword: keyword?.trim() || undefined,
+    },
   });
-  return res.data;
+
+  return response.data;
 }
 
 /* ==========================================
@@ -470,25 +770,40 @@ export interface FaqPublicResponse {
   createdAt?: string;
 }
 
-export async function getPublicFaqsApi(category?: string): Promise<FaqPublicResponse[]> {
+/**
+ * 공개 FAQ 목록 조회 API (GET /api/faqs)
+ */
+export async function getPublicFaqsApi(
+  category?: string,
+): Promise<FaqPublicResponse[]> {
   try {
-    const res = await apiMiddleware.get<FaqPublicResponse[]>("/api/faqs", {
-      params: { category: category && category !== "전체" ? category : undefined },
+    const response = await apiMiddleware.get<FaqPublicResponse[]>("/api/faqs", {
+      params: {
+        category: category && category !== "전체" ? category : undefined,
+      },
       silentAuthCheck: true,
     } as RetryableRequestConfig);
-    return res.data || [];
-  } catch {
+
+    return response.data || [];
+  } catch (error) {
+    console.warn("Failed to fetch public FAQs:", error);
     return [];
   }
 }
 
+/**
+ * 공개 FAQ 상세 조회 API (GET /api/faqs/:id)
+ */
 export async function getPublicFaqApi(id: number): Promise<FaqPublicResponse> {
-  const res = await apiMiddleware.get<FaqPublicResponse>(`/api/faqs/${id}`, { silentAuthCheck: true } as RetryableRequestConfig);
-  return res.data;
+  const response = await apiMiddleware.get<FaqPublicResponse>(
+    `/api/faqs/${id}`,
+    { silentAuthCheck: true } as RetryableRequestConfig,
+  );
+  return response.data;
 }
 
 /* ==========================================
-   위치 / 자치구 / 자치동 & 단지 목록 API
+   위치 / 자치구 / 자치동 API
 ========================================== */
 
 export interface SggItem {
@@ -502,110 +817,307 @@ export interface DongItem {
   sggCd?: string;
 }
 
+/**
+ * 서울 자치구 목록 조회 API (GET /api/location/sggs)
+ */
+export async function getSggsApi(): Promise<SggItem[]> {
+  try {
+    const response = await apiMiddleware.get<any>("/api/location/sggs", {
+      silentAuthCheck: true,
+    } as RetryableRequestConfig);
+    const data = response.data;
+    if (Array.isArray(data)) {
+      return data.map((item: any) => {
+        if (typeof item === "string") {
+          return { sggCd: item, sggNm: item };
+        }
+        return {
+          sggCd: String(
+            item.sggCd || item.code || item.sggNm || item.name || "",
+          ),
+          sggNm: String(item.sggNm || item.name || item.sggCd || ""),
+        };
+      });
+    }
+    if (data && Array.isArray(data.items)) {
+      return data.items.map((item: any) => ({
+        sggCd: String(item.sggCd || item.code || item.sggNm || item.name || ""),
+        sggNm: String(item.sggNm || item.name || item.sggCd || ""),
+      }));
+    }
+    return [];
+  } catch (error) {
+    console.warn("Failed to fetch SGGs from DB API:", error);
+    return [];
+  }
+}
+
+/**
+ * 서울 자치동 목록 조회 API (GET /api/location/dongs?sggCd=11680)
+ */
+export async function getDongsApi(sggCd: string): Promise<DongItem[]> {
+  if (!sggCd) return [];
+  try {
+    const response = await apiMiddleware.get<any>("/api/location/dongs", {
+      params: { sggCd },
+      silentAuthCheck: true,
+    } as RetryableRequestConfig);
+    const data = response.data;
+    if (Array.isArray(data)) {
+      return data.map((item: any) => {
+        if (typeof item === "string") {
+          return { dongCd: item, dongNm: item, sggCd };
+        }
+        return {
+          dongCd: String(
+            item.dongCd || item.code || item.dongNm || item.name || "",
+          ),
+          dongNm: String(item.dongNm || item.name || item.dongCd || ""),
+          sggCd: String(item.sggCd || sggCd),
+        };
+      });
+    }
+    if (data && Array.isArray(data.items)) {
+      return data.items.map((item: any) => ({
+        dongCd: String(
+          item.dongCd || item.code || item.dongNm || item.name || "",
+        ),
+        dongNm: String(item.dongNm || item.name || item.dongCd || ""),
+        sggCd: String(item.sggCd || sggCd),
+      }));
+    }
+    return [];
+  } catch (error) {
+    console.warn("Failed to fetch Dongs from DB API:", error);
+    return [];
+  }
+}
+
+/* ==========================================
+   아파트 단지 시세 및 실거래가 API
+========================================== */
+
+export interface PyungDetail {
+  name: string;
+  area: number;
+  salePrice: number;
+  rentPrice: number;
+  recentTradeDate: string;
+  recentFloor: number;
+  pricePerPyung: number;
+}
+
+export interface TradeHistoryItem {
+  date: string;
+  floor: string;
+  type: string;
+  price: number;
+  change: string;
+  isUp: boolean | null;
+}
+
+export interface PriceTrendPoint {
+  month: string;
+  sale: number;
+  rent: number;
+}
+
 export interface ComplexDetailItem {
   id: string;
   name: string;
   sggNm: string;
   dongNm: string;
-  sggCd?: string;
-  dongCd?: string;
-  mno?: string;
-  sno?: string;
   buildYear: number;
   totalHouseholds: number;
   totalBuildings: number;
   address: string;
-  baseSalePrice?: number;
-  baseRentPrice?: number;
-  pyungs: Array<{
-    name: string;
-    area?: number;
-    salePrice?: number;
-    rentPrice?: number;
-    recentTradeDate?: string;
-    recentFloor?: number;
-    pricePerPyung?: number;
-  }>;
+  baseSalePrice: number;
+  baseRentPrice: number;
+  pyungs: PyungDetail[];
+  recentTrades?: TradeHistoryItem[];
+  chartPoints?: PriceTrendPoint[];
 }
 
-export async function getSggsApi(): Promise<SggItem[]> {
-  try {
-    const res = await apiMiddleware.get<any>("/api/location/sggs", { silentAuthCheck: true } as RetryableRequestConfig);
-    const list = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
-    return list
-      .map((i: any) => ({ sggCd: String(i.sggCd ?? i.sgg_cd ?? i.code ?? "").trim(), sggNm: String(i.sggNm ?? i.sgg_nm ?? i.name ?? "").trim() }))
-      .filter((i: SggItem) => Boolean(i.sggCd && i.sggNm));
-  } catch {
-    return [];
-  }
-}
-
-export async function getDongsApi(sggCd: string): Promise<DongItem[]> {
-  if (!sggCd) return [];
-  try {
-    const res = await apiMiddleware.get<any>("/api/location/dongs", { params: { sggCd }, silentAuthCheck: true } as RetryableRequestConfig);
-    const list = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
-    return list
-      .map((i: any) => ({
-        dongCd: String(i.dongCd ?? i.dong_cd ?? i.code ?? "").trim(),
-        dongNm: String(i.dongNm ?? i.dong_nm ?? i.name ?? "").trim(),
-        sggCd: String(i.sggCd ?? i.sgg_cd ?? sggCd).trim(),
-      }))
-      .filter((i: DongItem) => Boolean(i.dongNm));
-  } catch {
-    return [];
-  }
-}
-
+/**
+ * 동별 아파트 단지 목록 조회 API (GET /api/location/complexes)
+ */
 export async function getComplexesApi(
-  sggCd: string,
-  dongCd: string,
-  sggNm: string = "",
-  dongNm: string = "",
-  aptName: string = "",
+  sggNm: string,
+  dongNm: string,
 ): Promise<ComplexDetailItem[]> {
-  if (!sggCd || !dongCd) return [];
+  if (!sggNm || !dongNm) return [];
   try {
-    const res = await apiMiddleware.get<any>("/elasticSearch/aptname", {
-      params: { apt_name: aptName, sgg_cd: sggCd, dong_cd: dongCd },
+    const response = await apiMiddleware.get<any>("/api/location/complexes", {
+      params: { sggNm, dongNm },
       silentAuthCheck: true,
     } as RetryableRequestConfig);
-
-    const rawList = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
-    const uniqueMap = new Map<string, ComplexDetailItem>();
-
-    rawList.forEach((item: any) => {
-      const name = String(item.apt_name || item.aptName || "").trim();
-      if (!name || uniqueMap.has(name)) return;
-      const mno = String(item.mno || "");
-      const sno = String(item.sno || "");
-      const itemSggCd = String(item.sgg_cd || sggCd);
-      const itemDongCd = String(item.dong_cd || dongCd);
-
-      uniqueMap.set(name, {
-        id: `${itemSggCd}-${itemDongCd}-${name}-${mno}-${sno}`,
-        name,
-        sggCd: itemSggCd,
-        sggNm: String(item.sgg_nm || sggNm),
-        dongCd: itemDongCd,
-        dongNm: String(item.dong_nm || dongNm),
-        mno,
-        sno,
-        buildYear: Number(item.buildYear || item.build_year || (item.useAprvYmd ? String(item.useAprvYmd).slice(0, 4) : 0)),
-        totalHouseholds: Number(item.totalHouseholds || item.total_households || item.totHsehldCnt || 0),
-        totalBuildings: Number(item.totalBuildings || item.total_buildings || item.totDongCnt || 0),
-        address: String(item.address || item.roadNmAddr || item.jibunAddr || `${sggNm} ${dongNm}`),
-        pyungs: Array.isArray(item.pyungs) ? item.pyungs : [],
-      });
-    });
-
-    return Array.from(uniqueMap.values()).sort((a, b) => a.name.localeCompare(b.name, "ko"));
-  } catch {
+    const data = response.data;
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.items)) return data.items;
+    return [];
+  } catch (error) {
+    console.warn("Failed to fetch complexes from DB:", error);
     return [];
   }
 }
 
-/* AI 자연어 검색 API */
+/* ===============================
+   가격정보 및 아파트별 비교 API
+================================== */
+
+/* 서울 자치구 항목 */
+export interface SggLocationItem {
+  sggCd: string;
+  sggNm: string;
+}
+
+/* 서울 자치동 항목 */
+export interface DongLocationItem {
+  dongCd?: string;
+  dongNm: string;
+  sggCd?: string;
+}
+
+/* 아파트 단지 기본 정보 */
+export interface ApartmentComplexItem {
+  complexNo: string | number;
+  complexName: string;
+  sggNm: string;
+  dongNm: string;
+  address?: string;
+  totalHouseholds?: number;
+  buildYear?: number;
+  imageUrl?: string;
+}
+
+/* 단지 핵심 시세 및 스펙 지표 */
+export interface ApartmentCompareMetrics {
+  avgPrice: number;
+  recentPrice: number;
+  recent3MonthVolume: number;
+  totalHouseholds: number;
+  buildYear: number;
+  pricePerPyeong: number;
+}
+
+/* 아파트 단지 상세 정보 */
+export interface ApartmentDetailData {
+  name: string;
+  district: string;
+  dong: string;
+  address: string;
+  totalHouseholds: number;
+  buildYear: number;
+  floorInfo: string;
+  parkingPerHousehold: number;
+  imageUrl: string;
+  metrics: ApartmentCompareMetrics;
+}
+
+/* 최근 3년 매매가 추이 포인트 */
+export interface ApartmentCompareTrendPoint {
+  date: string;
+  apt1Price: number;
+  apt2Price: number;
+}
+
+/* 면적별 평균 매매가 항목 */
+export interface ApartmentCompareAreaPrice {
+  areaName: string;
+  apt1Price: number;
+  apt2Price: number;
+}
+
+/* 비교 대상 단지 파라미터 */
+export interface ApartmentTargetParam {
+  district: string;
+  dong: string;
+  complexName: string;
+}
+
+/* 아파트별 시세 비교 요청 DTO */
+export interface ApartmentCompareRequest {
+  apt1: ApartmentTargetParam;
+  apt2: ApartmentTargetParam;
+}
+
+/* 아파트별 시세 비교 응답 DTO */
+export interface ApartmentCompareApiResponse {
+  apt1: ApartmentDetailData;
+  apt2: ApartmentDetailData;
+  yearlyTrends: ApartmentCompareTrendPoint[];
+  areaPrices: ApartmentCompareAreaPrice[];
+  baseDate: string;
+}
+
+/* 1. 서울 자치구 목록 조회 API (GET /api/location/sggs) */
+export async function getLocationSggsApi(): Promise<SggLocationItem[]> {
+  const response = await apiMiddleware.get<any>("/api/location/sggs");
+  const raw = response.data;
+  const list = Array.isArray(raw) ? raw : (raw?.data ?? []);
+
+  return list.map((item: any) => ({
+    sggCd: String(item.sggCd ?? item.code ?? item.sggNm ?? ""),
+    sggNm: String(item.sggNm ?? item.name ?? item.sgg ?? ""),
+  }));
+}
+
+/* 2. 서울 자치동 목록 조회 API (GET /api/location/dongs) */
+export async function getLocationDongsApi(
+  sggCd: string,
+): Promise<DongLocationItem[]> {
+  if (!sggCd) return [];
+  const response = await apiMiddleware.get<any>("/api/location/dongs", {
+    params: { sggCd },
+  });
+  const raw = response.data;
+  const list = Array.isArray(raw) ? raw : (raw?.data ?? []);
+
+  return list.map((item: any) => ({
+    dongCd: item.dongCd ? String(item.dongCd) : undefined,
+    dongNm: String(item.dongNm ?? item.name ?? item.dong ?? ""),
+    sggCd: item.sggCd ? String(item.sggCd) : undefined,
+  }));
+}
+
+/* 3. 아파트 단지 목록 조회 API (GET /api/location/apartments) */
+export async function getApartmentComplexesApi(
+  district: string,
+  dong: string,
+): Promise<ApartmentComplexItem[]> {
+  if (!district) return [];
+  const response = await apiMiddleware.get<ApartmentComplexItem[]>(
+    "/api/location/apartments",
+    {
+      params: { district, dong },
+    },
+  );
+  return response.data;
+}
+
+/* 4. 아파트별 시세 비교 조회 API (GET /api/v1/price/compare-apartment) */
+export async function getApartmentCompareApi(
+  payload: ApartmentCompareRequest,
+): Promise<ApartmentCompareApiResponse> {
+  const response = await apiMiddleware.get<ApartmentCompareApiResponse>(
+    "/api/v1/price/compare-apartment",
+    {
+      params: {
+        apt1District: payload.apt1.district,
+        apt1Dong: payload.apt1.dong,
+        apt1Name: payload.apt1.complexName,
+        apt2District: payload.apt2.district,
+        apt2Dong: payload.apt2.dong,
+        apt2Name: payload.apt2.complexName,
+      },
+    },
+  );
+  return response.data;
+}
+
+/* Q&A 첨부파일 API  */
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export type AiSearchResponse = {
   summary: string;
@@ -716,9 +1228,17 @@ export interface MemberUpdateRequest {
   addressDetail?: string;
 }
 
-export async function updateMemberMeApi(request: MemberUpdateRequest): Promise<MemberMeResponse> {
-  const res = await apiMiddleware.patch<MemberMeResponse>("/api/members/me", request);
-  return res.data;
+// 현재 로그인한 회원의 비밀번호, 연락처 및 주소 정보를 수정한다.
+// 인증 대상 회원은 요청 데이터가 아닌 Access Token을 기준으로 식별한다.
+export async function updateMemberMeApi(
+  request: MemberUpdateRequest,
+): Promise<MemberMeResponse> {
+  const response = await apiMiddleware.patch<MemberMeResponse>(
+    "/api/members/me",
+    request,
+  );
+
+  return response.data;
 }
 
 export type DongRegionResponse = {
@@ -728,41 +1248,76 @@ export type DongRegionResponse = {
   sggName: string;
   sggCode: string;
 };
-
-export async function resolveDongsApi(dong1: string, dong2: string): Promise<DongRegionResponse[]> {
-  const res = await apiMiddleware.get<DongRegionResponse[]>("/api/location/resolve-dongs", { params: { dong1, dong2 } });
-  return res.data;
+export async function resolveDongsApi(
+  dong1: string,
+  dong2: string,
+): Promise<DongRegionResponse[]> {
+  const response = await apiMiddleware.get<DongRegionResponse[]>(
+    "/api/location/resolve-dongs",
+    { params: { dong1, dong2 } },
+  );
+  return response.data;
 }
 
-export async function resolveDongApi(dong: string): Promise<DongRegionResponse[]> {
-  const res = await apiMiddleware.get<DongRegionResponse[]>("/api/location/resolve-dong", { params: { dong } });
-  return res.data;
+export async function resolveDongApi(
+  dong: string,
+): Promise<DongRegionResponse[]> {
+  const response = await apiMiddleware.get<DongRegionResponse[]>(
+    "/api/location/resolve-dong",
+    { params: { dong } },
+  );
+  return response.data;
 }
 
-export async function uploadQnaAttachmentsApi(qnaId: number, files: File[]): Promise<AttachmentResponse[]> {
+export async function uploadQnaAttachmentsApi(
+  qnaId: number,
+  files: File[],
+): Promise<AttachmentResponse[]> {
   const formData = new FormData();
-  files.forEach((file) => formData.append("files", file));
-  const res = await apiMiddleware.post<AttachmentResponse[]>(`/api/qnas/${qnaId}/attachments`, formData, {
-    headers: { "Content-Type": "multipart/form-data" },
+  files.forEach((file) => {
+    formData.append("files", file);
   });
-  return res.data;
+
+  const response = await apiMiddleware.post<AttachmentResponse[]>(
+    `/api/qnas/${qnaId}/attachments`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
+  return response.data;
 }
 
-export async function getQnaAttachmentsApi(qnaId: number): Promise<AttachmentResponse[]> {
-  const res = await apiMiddleware.get<AttachmentResponse[]>(`/api/qnas/${qnaId}/attachments`);
-  return res.data || [];
+export async function getQnaAttachmentsApi(
+  qnaId: number,
+): Promise<AttachmentResponse[]> {
+  const response = await apiMiddleware.get<AttachmentResponse[]>(
+    `/api/qnas/${qnaId}/attachments`,
+  );
+  return response.data || [];
 }
 
-export async function downloadQnaAttachmentApi(qnaId: number, attachmentId: number): Promise<AttachmentDownloadResponse> {
-  const res = await apiMiddleware.get<AttachmentDownloadResponse>(`/api/qnas/${qnaId}/attachments/${attachmentId}/download`);
-  return res.data;
+export async function downloadQnaAttachmentApi(
+  qnaId: number,
+  attachmentId: number,
+): Promise<AttachmentDownloadResponse> {
+  const response = await apiMiddleware.get<AttachmentDownloadResponse>(
+    `/api/qnas/${qnaId}/attachments/${attachmentId}/download`,
+  );
+  return response.data;
 }
 
-export async function deleteQnaAttachmentApi(qnaId: number, attachmentId: number): Promise<void> {
+export async function deleteQnaAttachmentApi(
+  qnaId: number,
+  attachmentId: number,
+): Promise<void> {
   await apiMiddleware.delete(`/api/qnas/${qnaId}/attachments/${attachmentId}`);
 }
 
 /* Q&A 첨부파일 커스텀 훅 */
+
 export function useQnaAttachments(qnaId: number) {
   return useQuery<AttachmentResponse[]>({
     queryKey: ["qnaAttachments", qnaId],
@@ -775,18 +1330,32 @@ export function useUploadQnaAttachments(qnaId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (files: File[]) => uploadQnaAttachmentsApi(qnaId, files),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["qnaAttachments", qnaId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["qnaAttachments", qnaId] });
+    },
   });
 }
 
 export function useDeleteQnaAttachment(qnaId: number) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (attachmentId: number) => deleteQnaAttachmentApi(qnaId, attachmentId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["qnaAttachments", qnaId] }),
+    mutationFn: (attachmentId: number) =>
+      deleteQnaAttachmentApi(qnaId, attachmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["qnaAttachments", qnaId] });
+    },
   });
 }
 
+export interface BoardFullDetailResponse {
+  detail: BoardDetail;
+  comments: BoardComment[];
+  attachments: AttachmentResponse[];
+}
+
+/**
+ * 쿼리 파라미터 방어 로직: null, undefined, 빈 문자열("") 항목을 제거하여 백엔드의 400 Bad Request / 500 오류 방지
+ */
 export interface ApartmentAutocompleteRequest {
   aptName?: string;
   sggCd?: string;
@@ -803,18 +1372,31 @@ export interface ApartmentAutocompleteItem {
   sggNm: string;
 }
 
+interface ApartmentAutocompleteApiItem {
+  apt_name: string;
+  mno: string;
+  sno: string;
+  dong_cd: string;
+  dong_nm: string;
+  sgg_cd: string;
+  sgg_nm: string;
+}
+
 export async function searchApartmentAutocompleteApi(
   request: ApartmentAutocompleteRequest,
 ): Promise<ApartmentAutocompleteItem[]> {
-  const res = await apiMiddleware.get<any[]>("/elasticSearch/aptname", {
-    params: {
-      apt_name: request.aptName ?? "",
-      sgg_cd: request.sggCd ?? "",
-      dong_cd: request.dongCd ?? "",
+  const response = await apiMiddleware.get<ApartmentAutocompleteApiItem[]>(
+    "/elasticSearch/aptname",
+    {
+      params: {
+        apt_name: request.aptName ?? "",
+        sgg_cd: request.sggCd ?? "",
+        dong_cd: request.dongCd ?? "",
+      },
     },
-  });
+  );
 
-  return (res.data || []).map((item) => ({
+  return response.data.map((item) => ({
     aptName: item.apt_name,
     mno: item.mno,
     sno: item.sno,
@@ -825,10 +1407,6 @@ export async function searchApartmentAutocompleteApi(
   }));
 }
 
-/* ==========================================
-   아파트 실거래 시장 트렌드 및 비교 분석 API (FastAPI)
-========================================== */
-
 export interface ApartmentMarketTrendRequest {
   guCode: string;
   dongCode: string;
@@ -837,57 +1415,78 @@ export interface ApartmentMarketTrendRequest {
   sno: string;
 }
 
+export interface ApartmentMarketTrendItem {
+  apt_name: string;
+  cgg_cd: string;
+  cgg_nm: string;
+  stdg_cd: string;
+  stdg_nm: string;
+  total_deal_count: number;
+  total_deal_amount: number;
+  average_deal_price: number;
+  max_deal_price: number;
+  count_change_rate: number | null;
+  biweekly_trend: Array<{
+    biweekly_period: string;
+    deal_count: number;
+    avg_price: number;
+  }>;
+  area_ratio: Array<{
+    exclusive_area: string;
+    pyeong: number | null;
+    share_percentage: number;
+  }>;
+  recent_deals: Array<{
+    deal_date: string;
+    exclusive_area: string;
+    pyeong: number;
+    floor: number;
+    deal_amount: number;
+  }>;
+  area_deals: Array<{
+    exclusive_area: string;
+    pyeong: number;
+    deal_count: number;
+    avg_deal_price: number;
+  }>;
+}
+
 export interface ApartmentMarketTrendResponse {
   status: string;
-  search_period: { start_date: string; end_date: string };
+  search_period: {
+    start_date: string;
+    end_date: string;
+  };
   count: number;
-  data: Array<{
-    apt_name: string;
-    cgg_cd: string;
-    cgg_nm: string;
-    stdg_cd: string;
-    stdg_nm: string;
-    total_deal_count: number;
-    total_deal_amount: number;
-    average_deal_price: number;
-    max_deal_price: number;
-    count_change_rate: number | null;
-    biweekly_trend: Array<{ biweekly_period: string; deal_count: number; avg_price: number }>;
-    area_ratio: Array<{ exclusive_area: string; pyeong: number | null; share_percentage: number }>;
-    recent_deals: Array<{ deal_date: string; exclusive_area: string; pyeong: number; floor: number; deal_amount: number }>;
-    area_deals: Array<{ exclusive_area: string; pyeong: number; deal_count: number; avg_deal_price: number }>;
-  }>;
+  data: ApartmentMarketTrendItem[];
 }
 
 export async function getApartmentMarketTrendApi(
   request: ApartmentMarketTrendRequest,
 ): Promise<ApartmentMarketTrendResponse> {
-  const res = await apiMiddleware.get<ApartmentMarketTrendResponse>("/fastApi/aptmkt", { params: request });
-  return res.data;
+  const response = await apiMiddleware.get<ApartmentMarketTrendResponse>(
+    "/fastApi/aptmkt",
+    { params: request },
+  );
+
+  return response.data;
 }
 
-export interface AptCompareRequest {
-  query_type: string;
-  pyeong?: string | number;
-  floor?: string;
-  query_value?: string;
-  guCode?: string;
-  dongCode?: string;
-  aptName?: string;
-  mno?: string;
-  sno?: string;
-}
+export function cleanParams<T extends Record<string, any>>(
+  params: T,
+): Record<string, any> {
+  const cleaned: Record<string, any> = {};
+  if (!params || typeof params !== "object") return cleaned;
 
-export interface AptCompareResponse {
-  status?: string;
-  count?: number;
-  data?: any;
-  [key: string]: any;
-}
+  Object.keys(params).forEach((key) => {
+    const val = params[key];
+    if (val !== undefined && val !== null) {
+      const strVal = String(val).trim();
+      if (strVal !== "") {
+        cleaned[key] = typeof val === "string" ? strVal : val;
+      }
+    }
+  });
 
-export async function getAptCompareApi(
-  request: AptCompareRequest,
-): Promise<AptCompareResponse> {
-  const res = await apiMiddleware.get<AptCompareResponse>("/fastApi/aptcompare", { params: request });
-  return res.data;
+  return cleaned;
 }
