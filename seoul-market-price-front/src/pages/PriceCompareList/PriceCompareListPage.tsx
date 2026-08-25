@@ -28,10 +28,7 @@ import { PRICE_NAVIGATION } from "@/config/sectionNavigation";
 /* 1. 타입 정의 */
 interface MetricResult {
   avgPrice: number;
-  recentPrice: number;
-  avgJeonsePrice: number;
-  recentJeonsePrice: number;
-  avgPyeongPrice?: number;
+  avgPyeongPrice: number | null;
   totalCount?: number;
 }
 
@@ -184,10 +181,7 @@ async function fetchPriceCompareApi(payload: {
 
   const toMetric = (region: RegionCompareResponse['region1']): MetricResult => ({
     avgPrice: region.avg_thing_amt / 10000,
-    recentPrice: region.avg_thing_amt / 10000,
-    avgJeonsePrice: 0,
-    recentJeonsePrice: 0,
-    avgPyeongPrice: region.avg_pyeong_amt,
+    avgPyeongPrice: region.avg_pyeong_amt ?? null,
     totalCount: region.total_count,
   });
 
@@ -299,9 +293,7 @@ function usePriceCompareMutation() {
   const compareData = compareMutation.data;
   const r1Metrics = compareData?.r1;
   const r2Metrics = compareData?.r2;
-  const baseDate =
-    compareData?.baseDate ||
-    new Date().toISOString().slice(0, 10).replace(/-/g, ".");
+  const baseDate = compareData?.baseDate || "기준일 정보 없음";
 
   /* 지역 라벨 계산 (useMemo) */
   const r1Label = useMemo(() => {
@@ -315,25 +307,8 @@ function usePriceCompareMutation() {
   }, [appliedRegions]);
 
   /* 평당가 계산 (useMemo) */
-  const r1PyeongPrice = useMemo(() => {
-    if (!r1Metrics) return 0;
-    if (r1Metrics.avgPyeongPrice && r1Metrics.avgPyeongPrice > 0) {
-      return Math.round(r1Metrics.avgPyeongPrice);
-    }
-    return r1Metrics.avgPrice > 0
-      ? Math.round((r1Metrics.avgPrice * 10000) / 33)
-      : 0;
-  }, [r1Metrics]);
-
-  const r2PyeongPrice = useMemo(() => {
-    if (!r2Metrics) return 0;
-    if (r2Metrics.avgPyeongPrice && r2Metrics.avgPyeongPrice > 0) {
-      return Math.round(r2Metrics.avgPyeongPrice);
-    }
-    return r2Metrics.avgPrice > 0
-      ? Math.round((r2Metrics.avgPrice * 10000) / 33)
-      : 0;
-  }, [r2Metrics]);
+  const r1PyeongPrice = r1Metrics?.avgPyeongPrice ?? null;
+  const r2PyeongPrice = r2Metrics?.avgPyeongPrice ?? null;
 
   /* 가격 차이 텍스트 계산 (자치구+자치동 전체 이름 및 삼각형 화살표 ▲ 표기) */
   const formatDiffText = useCallback(
@@ -377,6 +352,9 @@ function usePriceCompareMutation() {
 
   const pyeongDiffText = useMemo(() => {
     if (!r1Metrics || !r2Metrics || !appliedRegions) return "";
+    if (r1PyeongPrice === null || r2PyeongPrice === null) {
+      return "평당가 데이터 없음";
+    }
     const name1 = appliedRegions.r1.dong
       ? `${appliedRegions.r1.district} ${appliedRegions.r1.dong}`
       : appliedRegions.r1.district || "지역 1";
@@ -392,45 +370,6 @@ function usePriceCompareMutation() {
     );
   }, [r1Metrics, r2Metrics, r1PyeongPrice, r2PyeongPrice, appliedRegions, formatDiffText]);
 
-  const avgJeonseDiffText = useMemo(() => {
-    return r1Metrics && r2Metrics && appliedRegions
-      ? formatDiffText(
-          r1Metrics.avgJeonsePrice,
-          r2Metrics.avgJeonsePrice,
-          appliedRegions.r1.dong,
-          appliedRegions.r2.dong,
-          "억",
-        )
-      : "";
-  }, [r1Metrics, r2Metrics, appliedRegions, formatDiffText]);
-
-  /* 차트 막대그래프 너비 비율 계산 (useMemo) */
-  const { r1AvgWidth, r2AvgWidth, r1PyeongWidth, r2PyeongWidth } =
-    useMemo(() => {
-      const maxAvgPrice = Math.max(
-        r1Metrics?.avgPrice || 10,
-        r2Metrics?.avgPrice || 10,
-      );
-      const maxPyeongPrice = Math.max(
-        r1PyeongPrice || 1000,
-        r2PyeongPrice || 1000,
-      );
-
-      return {
-        r1AvgWidth: r1Metrics
-          ? `${Math.min(100, Math.max(15, (r1Metrics.avgPrice / maxAvgPrice) * 100))}%`
-          : "50%",
-        r2AvgWidth: r2Metrics
-          ? `${Math.min(100, Math.max(15, (r2Metrics.avgPrice / maxAvgPrice) * 100))}%`
-          : "50%",
-        r1PyeongWidth: r1PyeongPrice > 0
-          ? `${Math.min(100, Math.max(15, (r1PyeongPrice / maxPyeongPrice) * 100))}%`
-          : "50%",
-        r2PyeongWidth: r2PyeongPrice > 0
-          ? `${Math.min(100, Math.max(15, (r2PyeongPrice / maxPyeongPrice) * 100))}%`
-          : "50%",
-      };
-    }, [r1Metrics, r2Metrics, r1PyeongPrice, r2PyeongPrice]);
 
   /* 초기화 핸들러 */
   const resetCompare = useCallback(() => {
@@ -451,11 +390,6 @@ function usePriceCompareMutation() {
     r2Label,
     avgDiffText,
     pyeongDiffText,
-    avgJeonseDiffText,
-    r1AvgWidth,
-    r2AvgWidth,
-    r1PyeongWidth,
-    r2PyeongWidth,
     resetCompare,
   };
 }
@@ -771,13 +705,13 @@ function RegionCard({
             />
           </div>
 
-          {/* 자치동 입력 (선택) */}
+          {/* 자치동 입력 */}
           <div className="flex flex-col gap-1.5">
             <label className="flex items-center justify-between text-[13px] font-bold text-slate-700">
               <span className="flex items-center gap-1.5">
                 <span>자치동 선택</span>
-                <span className="rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-400 bg-slate-100">
-                  선택
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-700">
+                  필수
                 </span>
               </span>
             </label>
@@ -790,7 +724,7 @@ function RegionCard({
                   ? "자치구를 먼저 선택하세요"
                   : isDongLoading
                     ? "자치동 목록 로딩 중..."
-                    : "자치동 선택 (전체)"
+                    : "자치동을 선택하세요"
               }
               disabled={!district || isDongLoading}
               accentColor={accentColor}
@@ -808,8 +742,8 @@ function PriceDiffBadge({
   targetValue,
   unit = "억",
 }: {
-  myValue: number;
-  targetValue: number;
+  myValue: number | null;
+  targetValue: number | null;
   unit?: "억" | "만원";
 }) {
   if (!myValue || !targetValue || myValue === targetValue) {
@@ -848,8 +782,8 @@ interface CompareTableProps {
   r2Dong: string;
   r1Metrics: MetricResult;
   r2Metrics: MetricResult;
-  r1PyeongPrice: number;
-  r2PyeongPrice: number;
+  r1PyeongPrice: number | null;
+  r2PyeongPrice: number | null;
 }
 
 function CompareTable({
@@ -963,7 +897,7 @@ function CompareTable({
             </div>
             <div className="flex items-center justify-center gap-2 border border-[#CBD5E1] bg-white p-3 shadow-xs">
               <span className="text-[17px] font-black tracking-tight text-slate-900">
-                {(r1PyeongPrice || 0).toLocaleString()}
+                {r1PyeongPrice?.toLocaleString() ?? "데이터 없음"}
               </span>
               <PriceDiffBadge
                 myValue={r1PyeongPrice}
@@ -973,7 +907,7 @@ function CompareTable({
             </div>
             <div className="flex items-center justify-center gap-2 border border-[#CBD5E1] bg-white p-3 shadow-xs">
               <span className="text-[17px] font-black tracking-tight text-slate-900">
-                {(r2PyeongPrice || 0).toLocaleString()}
+                {r2PyeongPrice?.toLocaleString() ?? "데이터 없음"}
               </span>
               <PriceDiffBadge
                 myValue={r2PyeongPrice}
@@ -1149,13 +1083,9 @@ function SummaryCard({
 interface CompareBarChartsProps {
   r1Metrics: MetricResult;
   r2Metrics: MetricResult;
-  r1PyeongPrice: number;
-  r2PyeongPrice: number;
+  r1PyeongPrice: number | null;
+  r2PyeongPrice: number | null;
   appliedRegions: { r1: SelectedRegion; r2: SelectedRegion };
-  r1AvgWidth?: string;
-  r2AvgWidth?: string;
-  r1PyeongWidth?: string;
-  r2PyeongWidth?: string;
 }
 
 function CompareBarCharts({
@@ -1203,8 +1133,8 @@ function CompareBarCharts({
   const pyeongChartData = useMemo(() => {
     return [
       ["지역", "평단가", { role: "style" }],
-      [r1Text, Number(r1PyeongPrice || 0), "#2563EB"],
-      [r2Text, Number(r2PyeongPrice || 0), "#10B981"],
+      [r1Text, r1PyeongPrice, "#2563EB"],
+      [r2Text, r2PyeongPrice, "#10B981"],
     ];
   }, [r1Text, r2Text, r1PyeongPrice, r2PyeongPrice]);
 
@@ -1319,14 +1249,14 @@ function CompareBarCharts({
               <span className="size-2.5 rounded-full bg-blue-600" />
               <span className="font-extrabold text-blue-700">{r1Text}</span>
               <span className="text-[16px] font-black text-slate-900">
-                {(r1PyeongPrice || 0).toLocaleString()}
+                {r1PyeongPrice?.toLocaleString() ?? "데이터 없음"}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="size-2.5 rounded-full bg-emerald-500" />
               <span className="font-extrabold text-emerald-700">{r2Text}</span>
               <span className="text-[16px] font-black text-slate-900">
-                {(r2PyeongPrice || 0).toLocaleString()}
+                {r2PyeongPrice?.toLocaleString() ?? "데이터 없음"}
               </span>
             </div>
           </div>
@@ -1403,17 +1333,15 @@ export default function PriceCompareListPage() {
     r2Label,
     avgDiffText,
     pyeongDiffText,
-    r1AvgWidth,
-    r2AvgWidth,
-    r1PyeongWidth,
-    r2PyeongWidth,
     resetCompare,
   } = usePriceCompareMutation();
 
   /* F5 새로고침 또는 URL 파라미터가 있을 때 자동 시세 비교 실행 */
   useEffect(() => {
     if (hasAutoComparedRef.current) return;
-    if (!urlR1Gu || !urlR2Gu) return;
+    if (!urlR1Gu || !urlR1Dong || !urlR1DongCd || !urlR2Gu || !urlR2Dong || !urlR2DongCd) {
+      return;
+    }
 
     hasAutoComparedRef.current = true;
     compareMutation.mutate({
@@ -1490,10 +1418,14 @@ export default function PriceCompareListPage() {
     [r2DongOptions],
   );
 
-  /* 시세 비교 실행 (URL searchParams 동기화 - 자치구만 필수) */
+  /* 시세 비교 실행 (URL searchParams 동기화) */
   const handleCompare = useCallback(() => {
     if (!r1District || !r2District) {
       alert("비교할 두 지역의 자치구를 모두 선택해 주세요.");
+      return;
+    }
+    if (!r1Dong || !r2Dong) {
+      alert("비교할 두 지역의 자치동을 모두 선택해 주세요.");
       return;
     }
     const resolvedR1SggCd =
@@ -1504,6 +1436,11 @@ export default function PriceCompareListPage() {
       r1DongCd || r1DongOptions.find((d) => d.label === r1Dong)?.code || "";
     const resolvedR2DongCd =
       r2DongCd || r2DongOptions.find((d) => d.label === r2Dong)?.code || "";
+
+    if (!resolvedR1DongCd || !resolvedR2DongCd) {
+      alert("선택한 자치동의 코드를 확인할 수 없습니다. 자치동을 다시 선택해 주세요.");
+      return;
+    }
 
     setSearchParams({
       r1Gu: r1District,
@@ -1656,9 +1593,9 @@ export default function PriceCompareListPage() {
                     </span>
                   </button>
                   <p className="mt-3 text-[11px] font-medium leading-tight text-slate-400">
-                    자치구 필수 선택
+                    자치구·자치동 필수 선택
                     <br />
-                    (자치동은 선택 사항)
+                    (두 지역 모두 선택)
                   </p>
                 </div>
               </div>
@@ -1737,10 +1674,6 @@ export default function PriceCompareListPage() {
                       r2Metrics={r2Metrics}
                       r1PyeongPrice={r1PyeongPrice}
                       r2PyeongPrice={r2PyeongPrice}
-                      r1AvgWidth={r1AvgWidth}
-                      r2AvgWidth={r2AvgWidth}
-                      r1PyeongWidth={r1PyeongWidth}
-                      r2PyeongWidth={r2PyeongWidth}
                     />
                   </div>
 
