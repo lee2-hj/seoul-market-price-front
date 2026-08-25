@@ -18,18 +18,94 @@ import {
 import { cn } from "@/lib/utils";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { PRICE_NAVIGATION } from "@/config/sectionNavigation";
+import apiMiddleware from "@/api/middleware";
+import type { RetryableRequestConfig } from "@/api/middleware";
 import {
   getSggsApi,
   getDongsApi,
-  getComplexesApi,
   getApartmentMarketTrendApi,
-  getAptCompareApi,
   type SggItem,
   type DongItem,
-  type ComplexDetailItem,
   type ApartmentMarketTrendResponse,
-  type AptCompareResponse,
 } from "@/api/api";
+
+/* 단지 상세 정보 인터페이스 (PriceDetailPage 전용) */
+export interface PriceDetailComplexItem {
+  id: string;
+  name: string;
+  sggNm: string;
+  dongNm: string;
+  sggCd?: string;
+  dongCd?: string;
+  mno?: string;
+  sno?: string;
+  buildYear: number;
+  totalHouseholds: number;
+  totalBuildings: number;
+  address: string;
+  baseSalePrice?: number;
+  baseRentPrice?: number;
+  pyungs: Array<{
+    name: string;
+    area?: number;
+    salePrice?: number;
+    rentPrice?: number;
+    recentTradeDate?: string;
+    recentFloor?: number;
+    pricePerPyung?: number;
+  }>;
+}
+
+/** 아파트 단지 목록 조회 (Elasticsearch 연동) */
+async function fetchPriceDetailComplexes(
+  sggCd: string,
+  dongCd: string,
+  sggNm: string = "",
+  dongNm: string = "",
+  aptName: string = "",
+): Promise<PriceDetailComplexItem[]> {
+  if (!sggCd || !dongCd) return [];
+  try {
+    const response = await apiMiddleware.get<any>("/elasticSearch/aptname", {
+      params: { apt_name: aptName, sgg_cd: sggCd, dong_cd: dongCd },
+      silentAuthCheck: true,
+    } as RetryableRequestConfig);
+    const rawList = Array.isArray(response.data) ? response.data : (response.data?.data ?? []);
+    const uniqueMap = new Map<string, PriceDetailComplexItem>();
+    rawList.forEach((item: any) => {
+      const name = String(item.apt_name || item.aptName || "").trim();
+      if (!name || uniqueMap.has(name)) return;
+      const itemSggCd = String(item.sgg_cd || sggCd);
+      const itemDongCd = String(item.dong_cd || dongCd);
+      const mno = String(item.mno || "");
+      const sno = String(item.sno || "");
+      uniqueMap.set(name, {
+        id: `${itemSggCd}-${itemDongCd}-${name}-${mno}-${sno}`,
+        name,
+        sggCd: itemSggCd,
+        sggNm: String(item.sgg_nm || sggNm),
+        dongCd: itemDongCd,
+        dongNm: String(item.dong_nm || dongNm),
+        mno,
+        sno,
+        buildYear: Number(item.buildYear || item.build_year || (item.useAprvYmd ? String(item.useAprvYmd).slice(0, 4) : 0)),
+        totalHouseholds: Number(item.totalHouseholds || item.total_households || item.totHsehldCnt || 0),
+        totalBuildings: Number(item.totalBuildings || item.total_buildings || item.totDongCnt || 0),
+        address: String(item.address || item.roadNmAddr || item.jibunAddr || `${sggNm} ${dongNm}`),
+        pyungs: Array.isArray(item.pyungs) ? item.pyungs : [],
+      });
+    });
+    return Array.from(uniqueMap.values()).sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  } catch {
+    return [];
+  }
+}
+
+/** 아파트 1:1 비교 분석 조회 (FastAPI 연동) */
+async function fetchPriceDetailAptCompare(params: Record<string, any>): Promise<any> {
+  const response = await apiMiddleware.get<any>("/fastApi/aptcompare", { params });
+  return response.data;
+}
 
 /* =========================================================
    1. Types & Interfaces
@@ -353,10 +429,10 @@ export default function PriceDetailPage() {
   );
 
   /* 3. 아파트 단지 목록 조회 */
-  const { data: complexList = [], isLoading: isComplexesLoading } = useQuery<ComplexDetailItem[]>({
+  const { data: complexList = [], isLoading: isComplexesLoading } = useQuery<PriceDetailComplexItem[]>({
     queryKey: ["locationComplexes", query.sggCd, query.dongCd],
     queryFn: () =>
-      getComplexesApi(
+      fetchPriceDetailComplexes(
         query.sggCd,
         query.dongCd,
         selectedSgg?.sggNm || "",
@@ -396,7 +472,7 @@ export default function PriceDetailPage() {
   const trendItem = trendData?.data?.[0];
 
   /* 5-1. 아파트 타입별 비교 API 조회 (선택 1) */
-  const { data: compareData1 } = useQuery<AptCompareResponse>({
+  const { data: compareData1 } = useQuery<any>({
     queryKey: [
       "aptCompare1",
       currentComplex?.sggCd,
@@ -408,7 +484,7 @@ export default function PriceDetailPage() {
       query.val1,
     ],
     queryFn: () =>
-      getAptCompareApi({
+      fetchPriceDetailAptCompare({
         query_type: query.compareType,
         query_value: query.val1,
         pyeong: query.compareType === "pyeong" ? query.val1 : undefined,
@@ -424,7 +500,7 @@ export default function PriceDetailPage() {
   });
 
   /* 5-2. 아파트 타입별 비교 API 조회 (선택 2) */
-  const { data: compareData2 } = useQuery<AptCompareResponse>({
+  const { data: compareData2 } = useQuery<any>({
     queryKey: [
       "aptCompare2",
       currentComplex?.sggCd,
@@ -436,7 +512,7 @@ export default function PriceDetailPage() {
       query.val2,
     ],
     queryFn: () =>
-      getAptCompareApi({
+      fetchPriceDetailAptCompare({
         query_type: query.compareType,
         query_value: query.val2,
         pyeong: query.compareType === "pyeong" ? query.val2 : undefined,
