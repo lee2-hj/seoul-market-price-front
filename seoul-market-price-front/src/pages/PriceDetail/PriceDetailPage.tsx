@@ -29,7 +29,7 @@ import {
   type ApartmentMarketTrendResponse,
 } from "@/api/api";
 
-/* 단지 상세 정보 인터페이스 (PriceDetailPage 전용) */
+/* 단지 정보 인터페이스 */
 export interface PriceDetailComplexItem {
   id: string;
   name: string;
@@ -39,19 +39,13 @@ export interface PriceDetailComplexItem {
   dongCd?: string;
   mno?: string;
   sno?: string;
-  buildYear: number;
-  totalHouseholds: number;
-  totalBuildings: number;
   address: string;
   baseSalePrice?: number;
-  baseRentPrice?: number;
   pyungs: Array<{
     name: string;
     area?: number;
     salePrice?: number;
     rentPrice?: number;
-    recentTradeDate?: string;
-    recentFloor?: number;
     pricePerPyung?: number;
   }>;
 }
@@ -88,9 +82,6 @@ async function fetchPriceDetailComplexes(
         dongNm: String(item.dong_nm || dongNm),
         mno,
         sno,
-        buildYear: Number(item.buildYear || item.build_year || (item.useAprvYmd ? String(item.useAprvYmd).slice(0, 4) : 0)),
-        totalHouseholds: Number(item.totalHouseholds || item.total_households || item.totHsehldCnt || 0),
-        totalBuildings: Number(item.totalBuildings || item.total_buildings || item.totDongCnt || 0),
         address: String(item.address || item.roadNmAddr || item.jibunAddr || `${sggNm} ${dongNm}`),
         pyungs: Array.isArray(item.pyungs) ? item.pyungs : [],
       });
@@ -101,9 +92,79 @@ async function fetchPriceDetailComplexes(
   }
 }
 
-/** 아파트 1:1 비교 분석 조회 (FastAPI 연동) */
-async function fetchPriceDetailAptCompare(params: Record<string, any>): Promise<any> {
-  const response = await apiMiddleware.get<any>("/fastApi/aptcompare", { params });
+export interface AptCompareParams {
+  guCode1: string;
+  dongCode1: string;
+  aptName1: string;
+  mno1: string;
+  sno1: string;
+  guCode2: string;
+  dongCode2: string;
+  aptName2: string;
+  mno2: string;
+  sno2: string;
+  queryType?: string;
+  selectGroup1?: string;
+  selectGroup2?: string;
+  cgg_cd_1?: string;
+  bjd_cd_1?: string;
+  apt_nm_1?: string;
+  mno_1?: string;
+  sno_1?: string;
+  cgg_cd_2?: string;
+  bjd_cd_2?: string;
+  apt_nm_2?: string;
+  mno_2?: string;
+  sno_2?: string;
+  query_type?: string;
+  grp?: string;
+  grp2?: string;
+  [key: string]: any;
+}
+
+export interface AptGroupItem {
+  avg_deal_price?: number;
+  average_deal_price?: number;
+  avg_pyeong_price?: number;
+  price_per_pyung?: number;
+  deal_count?: number;
+  total_deal_count?: number;
+  total_households?: number;
+  build_year?: number;
+  use_aprv_ymd?: string;
+  max_deal_price?: number;
+  min_deal_price?: number;
+  recent_deals?: Array<{
+    deal_date: string;
+    floor: number;
+    deal_amount: number;
+    exclusive_area?: string;
+    pyeong?: number;
+  }>;
+  biweekly_trend?: Array<{
+    biweekly_period: string;
+    avg_price: number;
+  }>;
+}
+
+export interface AptCompareResponse {
+  status?: string;
+  count?: number;
+  aptGroup1?: AptGroupItem;
+  aptGroup2?: AptGroupItem;
+  data?: {
+    aptGroup1?: AptGroupItem;
+    aptGroup2?: AptGroupItem;
+    group1?: AptGroupItem;
+    group2?: AptGroupItem;
+    [key: string]: any;
+  } | AptGroupItem[];
+  [key: string]: any;
+}
+
+/** 아파트 1:1 비교 분석 조회 (FastAPI /fastApi/aptcompare 연동) */
+async function fetchPriceDetailAptCompare(params: AptCompareParams): Promise<AptCompareResponse> {
+  const response = await apiMiddleware.get<AptCompareResponse>("/fastApi/aptcompare", { params });
   return response.data;
 }
 
@@ -146,15 +207,16 @@ function formatPriceKRW(priceInMan?: number | null): string {
 
 /** 비교 조건 라벨 포맷터 */
 function getCompareOptionLabel(type: CompareCategoryType, value: string): string {
+  const v = (value || "").toLowerCase();
   if (type === "floor") {
-    if (value === "LOW") return "저층 (1~5층)";
-    if (value === "MID") return "중층 (6~15층)";
-    if (value === "HIGH") return "고층 (16층 이상)";
+    if (v === "low") return "저층 (1~5층)";
+    if (v === "mid") return "중층 (6~15층)";
+    if (v === "high") return "고층 (16층 이상)";
   } else if (type === "pyeong") {
-    if (value === "10") return "10평형대 (~59㎡)";
-    if (value === "20") return "20평형대 (59~84㎡)";
-    if (value === "30") return "30평형대 (84~114㎡)";
-    if (value === "40") return "40평형 이상 (114㎡~)";
+    if (v === "10") return "10평형대 (~59㎡)";
+    if (v === "20") return "20평형대 (59~84㎡)";
+    if (v === "30") return "30평형대 (84~114㎡)";
+    if (v === "40") return "40평형 이상 (114㎡~)";
   }
   return value || "-";
 }
@@ -381,9 +443,9 @@ export default function PriceDetailPage() {
     sggCd: searchParams.get("sgg") || "",
     dongCd: searchParams.get("dong") || "",
     complexId: searchParams.get("complex") || null,
-    compareType: (searchParams.get("type") as CompareCategoryType) || "",
-    val1: searchParams.get("val1") || "",
-    val2: searchParams.get("val2") || "",
+    compareType: (searchParams.get("type") as CompareCategoryType) || "floor",
+    val1: searchParams.get("val1") || (searchParams.get("type") === "pyeong" ? "20" : "low"),
+    val2: searchParams.get("val2") || (searchParams.get("type") === "pyeong" ? "30" : "high"),
     isActive: searchParams.get("active") === "1",
   }), [searchParams]);
 
@@ -447,7 +509,7 @@ export default function PriceDetailPage() {
     [query.complexId, complexList],
   );
 
-  /* 4. 아파트 실거래 시장 트렌드 조회 (FastAPI) */
+  /* 4. 아파트 실거래 시장 트렌드 조회 (FastAPI) - 비교하기 클릭 시에만 호출 */
   const { data: trendData } = useQuery<ApartmentMarketTrendResponse>({
     queryKey: [
       "apartmentMarketTrend",
@@ -465,65 +527,97 @@ export default function PriceDetailPage() {
         mno: currentComplex?.mno || "",
         sno: currentComplex?.sno || "",
       }),
-    enabled: Boolean(currentComplex?.name),
+    enabled: Boolean(query.isActive && currentComplex?.name),
     staleTime: 1000 * 60 * 5,
   });
 
   const trendItem = trendData?.data?.[0];
 
-  /* 5-1. 아파트 타입별 비교 API 조회 (선택 1) */
-  const { data: compareData1 } = useQuery<any>({
+  /* 실시간 FastAPI 기반 단지 요약 지표 (최고 층수, 거래 건수, 평형대 종류) */
+  const maxFloor = useMemo(() => {
+    if (!trendItem?.recent_deals || trendItem.recent_deals.length === 0) return 0;
+    const floors = trendItem.recent_deals.map((d: any) => Number(d.floor) || 0);
+    return Math.max(...floors, 0);
+  }, [trendItem]);
+
+  const dealCount = trendItem?.total_deal_count ?? 0;
+  const pyeongTypeCount = trendItem?.area_ratio?.length || trendItem?.area_deals?.length || 0;
+
+  /* 5. 아파트 타입별 1:1 비교 API 조회 (단일 /fastApi/aptcompare 호출 - BoardPage 스타일) */
+  const {
+    data: compareData,
+    isLoading: isCompareLoading,
+    isError: isCompareError,
+    error: compareError,
+  } = useQuery<AptCompareResponse>({
     queryKey: [
-      "aptCompare1",
-      currentComplex?.sggCd,
-      currentComplex?.dongCd,
+      "aptCompare",
+      currentComplex?.sggCd || query.sggCd,
+      currentComplex?.dongCd || query.dongCd,
       currentComplex?.name,
       currentComplex?.mno,
       currentComplex?.sno,
       query.compareType,
       query.val1,
-    ],
-    queryFn: () =>
-      fetchPriceDetailAptCompare({
-        query_type: query.compareType,
-        query_value: query.val1,
-        pyeong: query.compareType === "pyeong" ? query.val1 : undefined,
-        floor: query.compareType === "floor" ? query.val1 : undefined,
-        guCode: currentComplex?.sggCd || query.sggCd,
-        dongCode: currentComplex?.dongCd || (query.dongCd.length === 10 ? query.dongCd.slice(-5) : query.dongCd),
-        aptName: currentComplex?.name || "",
-        mno: currentComplex?.mno || "",
-        sno: currentComplex?.sno || "",
-      }),
-    enabled: Boolean(query.isActive && currentComplex?.name && query.compareType && query.val1),
-    staleTime: 1000 * 60 * 5,
-  });
-
-  /* 5-2. 아파트 타입별 비교 API 조회 (선택 2) */
-  const { data: compareData2 } = useQuery<any>({
-    queryKey: [
-      "aptCompare2",
-      currentComplex?.sggCd,
-      currentComplex?.dongCd,
-      currentComplex?.name,
-      currentComplex?.mno,
-      currentComplex?.sno,
-      query.compareType,
       query.val2,
     ],
-    queryFn: () =>
-      fetchPriceDetailAptCompare({
-        query_type: query.compareType,
-        query_value: query.val2,
-        pyeong: query.compareType === "pyeong" ? query.val2 : undefined,
-        floor: query.compareType === "floor" ? query.val2 : undefined,
-        guCode: currentComplex?.sggCd || query.sggCd,
-        dongCode: currentComplex?.dongCd || (query.dongCd.length === 10 ? query.dongCd.slice(-5) : query.dongCd),
-        aptName: currentComplex?.name || "",
-        mno: currentComplex?.mno || "",
-        sno: currentComplex?.sno || "",
-      }),
-    enabled: Boolean(query.isActive && currentComplex?.name && query.compareType && query.val2),
+    queryFn: () => {
+      const cggCd = currentComplex?.sggCd || query.sggCd;
+      const dongCd = currentComplex?.dongCd || (query.dongCd.length === 10 ? query.dongCd.slice(-5) : query.dongCd);
+      const name = currentComplex?.name || "";
+      const mno = currentComplex?.mno || "";
+      const sno = currentComplex?.sno || "";
+      const queryType = query.compareType === "pyeong" ? "평" : "층수";
+      const grp1 = query.compareType === "pyeong" ? query.val1 : (query.val1 || "low").toLowerCase();
+      const grp2 = query.compareType === "pyeong" ? query.val2 : (query.val2 || "high").toLowerCase();
+
+      return fetchPriceDetailAptCompare({
+        // 1. Spring Boot 백엔드 DTO 규격 (guCode1 / guCode2 카멜케이스)
+        guCode1: cggCd,
+        dongCode1: dongCd,
+        aptName1: name,
+        mno1: mno,
+        sno1: sno,
+        guCode2: cggCd,
+        dongCode2: dongCd,
+        aptName2: name,
+        mno2: mno,
+        sno2: sno,
+        queryType,
+        selectGroup1: grp1,
+        selectGroup2: grp2,
+
+        // 2. 게이트웨이 및 FastAPI 직접 호환 파라미터 (안전 병합)
+        guCode: cggCd,
+        dongCode: dongCd,
+        aptName: name,
+        mno,
+        sno,
+        cgg_cd: cggCd,
+        stdg_cd: dongCd,
+        bldg_nm: name,
+        cgg_cd_1: cggCd,
+        bjd_cd_1: dongCd,
+        apt_nm_1: name,
+        mno_1: mno,
+        sno_1: sno,
+        cgg_cd_2: cggCd,
+        bjd_cd_2: dongCd,
+        apt_nm_2: name,
+        mno_2: mno,
+        sno_2: sno,
+        query_type: queryType,
+        grp: grp1,
+        grp2: grp2,
+      });
+    },
+    enabled: Boolean(
+      query.isActive &&
+      currentComplex?.name &&
+      query.compareType &&
+      query.val1 &&
+      query.val2,
+    ),
     staleTime: 1000 * 60 * 5,
   });
 
@@ -544,15 +638,14 @@ export default function PriceDetailPage() {
   );
 
   const compareTypeOptions = useMemo<AutocompleteOption[]>(() => [
-    { label: "단지 전체 (기본)", value: "" },
     { label: "층수별 비교", value: "floor" },
     { label: "평형별 비교", value: "pyeong" },
   ], []);
 
   const floorCompareOptions = useMemo<AutocompleteOption[]>(() => [
-    { label: "저층 (1~5층)", value: "LOW" },
-    { label: "중층 (6~15층)", value: "MID" },
-    { label: "고층 (16층 이상)", value: "HIGH" },
+    { label: "저층 (1~5층)", value: "low" },
+    { label: "중층 (6~15층)", value: "mid" },
+    { label: "고층 (16층 이상)", value: "high" },
   ], []);
 
   const pyeongCompareOptions = useMemo<AutocompleteOption[]>(() => [
@@ -577,59 +670,51 @@ export default function PriceDetailPage() {
     return currentComplex?.pyungs || [];
   }, [trendItem, currentComplex]);
 
-  /* 1:1 비교 분석 데이터 계산 */
+  /* 1:1 비교 분석 데이터 계산 (aptGroup1 / aptGroup2 응답 매핑, 목/더미 폴백 없음) */
   const compareAnalysis = useMemo(() => {
-    if (!query.isActive || !query.compareType) return null;
+    if (!query.isActive || !query.compareType || !compareData) return null;
 
-    const allDeals = trendItem?.recent_deals || [];
-    const filterDeals = (val: string) => {
-      if (query.compareType === "floor") {
-        if (val === "LOW") return allDeals.filter((d) => d.floor <= 5);
-        if (val === "MID") return allDeals.filter((d) => d.floor >= 6 && d.floor <= 15);
-        if (val === "HIGH") return allDeals.filter((d) => d.floor >= 16);
-      } else if (query.compareType === "pyeong") {
-        if (val === "10") return allDeals.filter((d) => (d.pyeong && d.pyeong < 20) || parseFloat(d.exclusive_area) < 59);
-        if (val === "20") return allDeals.filter((d) => (d.pyeong && d.pyeong >= 20 && d.pyeong < 30) || (parseFloat(d.exclusive_area) >= 59 && parseFloat(d.exclusive_area) < 84));
-        if (val === "30") return allDeals.filter((d) => (d.pyeong && d.pyeong >= 30 && d.pyeong < 40) || (parseFloat(d.exclusive_area) >= 84 && parseFloat(d.exclusive_area) < 114));
-        if (val === "40") return allDeals.filter((d) => (d.pyeong && d.pyeong >= 40) || parseFloat(d.exclusive_area) >= 114);
-      }
-      return allDeals;
-    };
+    const dataObj = (compareData as any).data;
+    const g1: any =
+      compareData.aptGroup1 ||
+      dataObj?.aptGroup1 ||
+      dataObj?.group1 ||
+      (Array.isArray(dataObj) ? dataObj[0] : null) ||
+      (compareData as any).group1;
 
-    const deals1 = compareData1?.data?.[0]?.recent_deals?.length ? compareData1.data[0].recent_deals : filterDeals(query.val1);
-    const deals2 = compareData2?.data?.[0]?.recent_deals?.length ? compareData2.data[0].recent_deals : filterDeals(query.val2);
+    const g2: any =
+      compareData.aptGroup2 ||
+      dataObj?.aptGroup2 ||
+      dataObj?.group2 ||
+      (Array.isArray(dataObj) ? dataObj[1] : null) ||
+      (compareData as any).group2;
 
-    const avg1 = compareData1?.data?.[0]?.average_deal_price || (deals1.length ? Math.round(deals1.reduce((acc: number, d: any) => acc + (d.deal_amount || 0), 0) / deals1.length) : 0);
-    const avg2 = compareData2?.data?.[0]?.average_deal_price || (deals2.length ? Math.round(deals2.reduce((acc: number, d: any) => acc + (d.deal_amount || 0), 0) / deals2.length) : 0);
+    const deals1: any[] = g1?.recent_deals || g1?.deals || [];
+    const deals2: any[] = g2?.recent_deals || g2?.deals || [];
 
-    const max1 = compareData1?.data?.[0]?.max_deal_price || (deals1.length ? Math.max(...deals1.map((d: any) => d.deal_amount || 0)) : 0);
-    const max2 = compareData2?.data?.[0]?.max_deal_price || (deals2.length ? Math.max(...deals2.map((d: any) => d.deal_amount || 0)) : 0);
+    const avg1 = Number(g1?.avg_deal_price || g1?.average_deal_price || g1?.avgPrice || 0);
+    const avg2 = Number(g2?.avg_deal_price || g2?.average_deal_price || g2?.avgPrice || 0);
 
-    const min1 = compareData1?.data?.[0]?.min_deal_price || (deals1.length ? Math.min(...deals1.map((d: any) => d.deal_amount || 0)) : 0);
-    const min2 = compareData2?.data?.[0]?.min_deal_price || (deals2.length ? Math.min(...deals2.map((d: any) => d.deal_amount || 0)) : 0);
+    const max1 = Number(g1?.max_deal_price || g1?.maxPrice || (deals1.length ? Math.max(...deals1.map((d: any) => d.deal_amount || 0)) : 0));
+    const max2 = Number(g2?.max_deal_price || g2?.maxPrice || (deals2.length ? Math.max(...deals2.map((d: any) => d.deal_amount || 0)) : 0));
 
-    const count1 = compareData1?.data?.[0]?.deal_count || deals1.length;
-    const count2 = compareData2?.data?.[0]?.deal_count || deals2.length;
+    const min1 = Number(g1?.min_deal_price || g1?.minPrice || (deals1.length ? Math.min(...deals1.map((d: any) => d.deal_amount || 0)) : 0));
+    const min2 = Number(g2?.min_deal_price || g2?.minPrice || (deals2.length ? Math.min(...deals2.map((d: any) => d.deal_amount || 0)) : 0));
+
+    const count1 = Number(g1?.deal_count || g1?.total_deal_count || deals1.length || 0);
+    const count2 = Number(g2?.deal_count || g2?.total_deal_count || deals2.length || 0);
 
     const trendMap1 = new Map<string, number>();
     const trendMap2 = new Map<string, number>();
-    compareData1?.data?.[0]?.biweekly_trend?.forEach((t: any) => trendMap1.set(t.biweekly_period, t.avg_price));
-    compareData2?.data?.[0]?.biweekly_trend?.forEach((t: any) => trendMap2.set(t.biweekly_period, t.avg_price));
+    (g1?.biweekly_trend || g1?.monthly_trend || [])?.forEach((t: any) => trendMap1.set(t.biweekly_period || t.period, t.avg_price || t.price));
+    (g2?.biweekly_trend || g2?.monthly_trend || [])?.forEach((t: any) => trendMap2.set(t.biweekly_period || t.period, t.avg_price || t.price));
 
     const basePeriods = (trendItem?.biweekly_trend || []).map((b) => b.biweekly_period);
     const allPeriods = Array.from(new Set([...basePeriods, ...trendMap1.keys(), ...trendMap2.keys()]));
 
     const compareChartPoints = allPeriods.map((period) => {
-      let sale1 = trendMap1.get(period) || 0;
-      let sale2 = trendMap2.get(period) || 0;
-      if (!sale1 && avg1 > 0) {
-        const base = trendItem?.biweekly_trend?.find((b) => b.biweekly_period === period)?.avg_price || avg1;
-        sale1 = Math.round((base * avg1) / (trendItem?.average_deal_price || avg1));
-      }
-      if (!sale2 && avg2 > 0) {
-        const base = trendItem?.biweekly_trend?.find((b) => b.biweekly_period === period)?.avg_price || avg2;
-        sale2 = Math.round((base * avg2) / (trendItem?.average_deal_price || avg2));
-      }
+      const sale1 = trendMap1.get(period) || 0;
+      const sale2 = trendMap2.get(period) || 0;
       return { month: period, sale1, sale2 };
     });
 
@@ -654,8 +739,10 @@ export default function PriceDetailPage() {
       diffAvg,
       diffAvgPct,
       compareChartPoints,
+      hasData1: Boolean(avg1 > 0 || count1 > 0 || deals1.length > 0),
+      hasData2: Boolean(avg2 > 0 || count2 > 0 || deals2.length > 0),
     };
-  }, [query.isActive, query.compareType, query.val1, query.val2, trendItem, compareData1, compareData2]);
+  }, [query.isActive, query.compareType, query.val1, query.val2, compareData, trendItem]);
 
   /* 차트 데이터 */
   const combinedChartData = useMemo(() => {
@@ -716,7 +803,7 @@ export default function PriceDetailPage() {
             </div>
             <button
               type="button"
-              onClick={() => setQuery({ sggCd: "", dongCd: "", complexId: null, compareType: "", val1: "", val2: "", isActive: false })}
+              onClick={() => setQuery({ sggCd: "", dongCd: "", complexId: null, compareType: "floor", val1: "LOW", val2: "HIGH", isActive: false })}
               className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 cursor-pointer"
             >
               <RotateCcw className="size-3.5" />
@@ -735,7 +822,7 @@ export default function PriceDetailPage() {
                 </label>
                 <AutocompleteSelect
                   value={selectedSgg?.sggNm || ""}
-                  onChange={(_, opt) => setQuery({ sggCd: opt?.code || "", dongCd: "", complexId: null, compareType: "", val1: "", val2: "", isActive: false })}
+                  onChange={(_, opt) => setQuery({ sggCd: opt?.code || "", dongCd: "", complexId: null, isActive: false })}
                   options={sggOptions}
                   placeholder={isSggLoading ? "로딩 중..." : "자치구 입력 (예: 강남구)"}
                   disabled={isSggLoading}
@@ -751,7 +838,7 @@ export default function PriceDetailPage() {
                 </label>
                 <AutocompleteSelect
                   value={selectedDong?.dongNm || ""}
-                  onChange={(_, opt) => setQuery({ dongCd: opt?.code || "", complexId: null, compareType: "", val1: "", val2: "", isActive: false })}
+                  onChange={(_, opt) => setQuery({ dongCd: opt?.code || "", complexId: null, isActive: false })}
                   options={dongOptions}
                   placeholder={!query.sggCd ? "자치구 먼저 선택" : isDongLoading ? "로딩 중..." : "자치동 선택"}
                   disabled={!query.sggCd || isDongLoading}
@@ -782,11 +869,11 @@ export default function PriceDetailPage() {
                   <span className="rounded bg-[#EEF2FF] px-1.5 py-0.5 text-[10px] font-black text-[#4F46E5]">타입</span>
                 </label>
                 <AutocompleteSelect
-                  value={query.compareType === "floor" ? "층수별 비교" : query.compareType === "pyeong" ? "평형별 비교" : "단지 전체 (기본)"}
+                  value={query.compareType === "pyeong" ? "평형별 비교" : "층수별 비교"}
                   onChange={(_, opt) => {
-                    const nextType = (opt?.value ?? "") as CompareCategoryType;
-                    const v1 = nextType === "floor" ? "LOW" : nextType === "pyeong" ? "20" : "";
-                    const v2 = nextType === "floor" ? "HIGH" : nextType === "pyeong" ? "30" : "";
+                    const nextType = ((opt?.value ?? "") as CompareCategoryType) || "floor";
+                    const v1 = nextType === "pyeong" ? "20" : "low";
+                    const v2 = nextType === "pyeong" ? "30" : "high";
                     setQuery({ compareType: nextType, val1: v1, val2: v2, isActive: false });
                   }}
                   options={compareTypeOptions}
@@ -797,73 +884,71 @@ export default function PriceDetailPage() {
               </div>
             </div>
 
-            {/* 1:1 비교 조건 지정 섹션 (비교 타입 선택 시 활성화) */}
-            {Boolean(query.compareType) && (
-              <div className="mt-6 border-t border-slate-100 pt-6 grid grid-cols-[1fr_auto_1fr_auto] items-stretch gap-6 max-[1200px]:grid-cols-1">
-                {/* 선택 1 카드 */}
-                <div className="rounded-[20px] border border-slate-200/80 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-center gap-2">
-                    <MapPin className="size-4 text-[#0F8AA8]" />
-                    <h3 className="text-[15px] font-black text-[#0F172A]">선택 1 (기준)</h3>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[13px] font-bold text-slate-700">
-                      {query.compareType === "floor" ? "층수 구간 선택" : "평형대 구간 선택"}
-                    </label>
-                    <AutocompleteSelect
-                      value={getCompareOptionLabel(query.compareType, query.val1)}
-                      onChange={(_, opt) => setQuery({ val1: opt?.value || "", isActive: false })}
-                      options={query.compareType === "floor" ? floorCompareOptions : pyeongCompareOptions}
-                      placeholder="조건 선택"
-                      disabled={!currentComplex}
-                      accentColor="teal"
-                    />
-                  </div>
+            {/* 1:1 비교 조건 지정 섹션 (첫 화면 로딩 시 상시 노출) */}
+            <div className="mt-6 border-t border-slate-100 pt-6 grid grid-cols-[1fr_auto_1fr_auto] items-stretch gap-6 max-[1200px]:grid-cols-1">
+              {/* 선택 1 카드 */}
+              <div className="rounded-[20px] border border-slate-200/80 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-center gap-2">
+                  <MapPin className="size-4 text-[#0F8AA8]" />
+                  <h3 className="text-[15px] font-black text-[#0F172A]">선택 1 (기준)</h3>
                 </div>
-
-                {/* 중앙 VS */}
-                <div className="flex items-center justify-center max-[1200px]:py-2">
-                  <div className="flex size-12 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] text-[13px] font-black text-white shadow-md">
-                    VS
-                  </div>
-                </div>
-
-                {/* 선택 2 카드 */}
-                <div className="rounded-[20px] border border-slate-200/80 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-center gap-2">
-                    <MapPin className="size-4 text-[#6366F1]" />
-                    <h3 className="text-[15px] font-black text-[#0F172A]">선택 2 (비교)</h3>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[13px] font-bold text-slate-700">
-                      {query.compareType === "floor" ? "층수 구간 선택" : "평형대 구간 선택"}
-                    </label>
-                    <AutocompleteSelect
-                      value={getCompareOptionLabel(query.compareType, query.val2)}
-                      onChange={(_, opt) => setQuery({ val2: opt?.value || "", isActive: false })}
-                      options={query.compareType === "floor" ? floorCompareOptions : pyeongCompareOptions}
-                      placeholder="조건 선택"
-                      disabled={!currentComplex}
-                      accentColor="purple"
-                    />
-                  </div>
-                </div>
-
-                {/* 조회하기 버튼 */}
-                <div className="flex flex-col items-center justify-center rounded-[20px] border border-slate-200/80 bg-slate-50 p-4 text-center">
-                  <button
-                    type="button"
-                    onClick={() => query.compareType && query.val1 && query.val2 && setQuery({ isActive: true })}
-                    disabled={!currentComplex || !query.compareType || !query.val1 || !query.val2}
-                    className="flex h-[100px] w-full min-w-[130px] flex-col items-center justify-center gap-2 rounded-[12px] bg-[#2563EB] p-4 text-white shadow-md transition-all hover:bg-[#1D4ED8] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
-                  >
-                    <Search className="size-5 stroke-[2.5]" />
-                    <span className="text-[14px] font-bold">조회하기</span>
-                  </button>
-                  <p className="mt-2 text-[11px] font-medium text-slate-400">조건 지정 후 클릭</p>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[13px] font-bold text-slate-700">
+                    {query.compareType === "pyeong" ? "평형대 구간 선택" : "층수 구간 선택"}
+                  </label>
+                  <AutocompleteSelect
+                    value={getCompareOptionLabel(query.compareType, query.val1)}
+                    onChange={(_, opt) => setQuery({ val1: opt?.value || "", isActive: false })}
+                    options={query.compareType === "pyeong" ? pyeongCompareOptions : floorCompareOptions}
+                    placeholder="조건 선택"
+                    disabled={!currentComplex}
+                    accentColor="teal"
+                  />
                 </div>
               </div>
-            )}
+
+              {/* 중앙 VS */}
+              <div className="flex items-center justify-center max-[1200px]:py-2">
+                <div className="flex size-12 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] text-[13px] font-black text-white shadow-md">
+                  VS
+                </div>
+              </div>
+
+              {/* 선택 2 카드 */}
+              <div className="rounded-[20px] border border-slate-200/80 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-center gap-2">
+                  <MapPin className="size-4 text-[#6366F1]" />
+                  <h3 className="text-[15px] font-black text-[#0F172A]">선택 2 (비교)</h3>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[13px] font-bold text-slate-700">
+                    {query.compareType === "pyeong" ? "평형대 구간 선택" : "층수 구간 선택"}
+                  </label>
+                  <AutocompleteSelect
+                    value={getCompareOptionLabel(query.compareType, query.val2)}
+                    onChange={(_, opt) => setQuery({ val2: opt?.value || "", isActive: false })}
+                    options={query.compareType === "pyeong" ? pyeongCompareOptions : floorCompareOptions}
+                    placeholder="조건 선택"
+                    disabled={!currentComplex}
+                    accentColor="purple"
+                  />
+                </div>
+              </div>
+
+              {/* 비교하기 버튼 */}
+              <div className="flex flex-col items-center justify-center rounded-[20px] border border-slate-200/80 bg-slate-50 p-4 text-center">
+                <button
+                  type="button"
+                  onClick={() => query.compareType && query.val1 && query.val2 && setQuery({ isActive: true })}
+                  disabled={!currentComplex || !query.compareType || !query.val1 || !query.val2}
+                  className="flex h-[100px] w-full min-w-[130px] flex-col items-center justify-center gap-2 rounded-[12px] bg-[#2563EB] p-4 text-white shadow-md transition-all hover:bg-[#1D4ED8] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                >
+                  <Search className="size-5 stroke-[2.5]" />
+                  <span className="text-[14px] font-bold">비교하기</span>
+                </button>
+                <p className="mt-2 text-[11px] font-medium text-slate-400">조건 지정 후 클릭</p>
+              </div>
+            </div>
           </div>
 
           {/* 안내 및 데이터 영역 */}
@@ -899,39 +984,64 @@ export default function PriceDetailPage() {
                 </div>
                 <p className="mt-1 flex items-center gap-1.5 text-[13px] text-slate-500">
                   <MapPin className="size-3.5" />
-                  <span>{currentComplex.address}</span>
+                  <span>{currentComplex.address || `${selectedSgg?.sggNm || ""} ${selectedDong?.dongNm || ""}`.trim()}</span>
                 </p>
 
                 <div className="mt-5 grid grid-cols-4 gap-4 max-[900px]:grid-cols-2">
                   <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
-                    <span className="block text-[11px] font-bold text-slate-400">준공년도</span>
+                    <span className="block text-[11px] font-bold text-slate-400">최고 층수</span>
                     <span className="text-[16px] font-black text-[#0F172A]">
-                      {currentComplex.buildYear > 0 ? `${currentComplex.buildYear}년` : "-"}
+                      {maxFloor > 0 ? `${maxFloor}층` : "-"}
                     </span>
                   </div>
                   <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
-                    <span className="block text-[11px] font-bold text-slate-400">세대수</span>
+                    <span className="block text-[11px] font-bold text-slate-400">거래 건수</span>
                     <span className="text-[16px] font-black text-[#0F172A]">
-                      {currentComplex.totalHouseholds > 0 ? `${currentComplex.totalHouseholds.toLocaleString()}세대` : "-"}
+                      {dealCount > 0 ? `${dealCount.toLocaleString()}건` : "-"}
                     </span>
                   </div>
                   <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
-                    <span className="block text-[11px] font-bold text-slate-400">동수</span>
+                    <span className="block text-[11px] font-bold text-slate-400">평형대 종류</span>
                     <span className="text-[16px] font-black text-[#0F172A]">
-                      {currentComplex.totalBuildings > 0 ? `${currentComplex.totalBuildings}개 동` : "-"}
+                      {pyeongTypeCount > 0 ? `${pyeongTypeCount}개 타입` : "-"}
                     </span>
                   </div>
                   <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
                     <span className="block text-[11px] font-bold text-slate-400">평균 거래가 (최근)</span>
-                    <span className="text-[16px] font-black text-[#0F8AA8]">
+                    <span className="text-[16px] font-black text-[#0F172A]">
                       {trendItem?.average_deal_price ? formatPriceKRW(trendItem.average_deal_price) : formatPriceKRW(currentComplex.baseSalePrice)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* 비교 모드 결과 영역 */}
-              {query.isActive && compareAnalysis ? (
+              {/* 비교 모드 결과 영역 (로딩 / 에러 / 성공 상태) */}
+              {query.isActive && isCompareLoading ? (
+                <div className="rounded-[24px] border border-blue-100 bg-white p-12 text-center shadow-sm">
+                  <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 animate-spin">
+                    <Search className="size-6" />
+                  </div>
+                  <h4 className="text-[16px] font-black text-[#0F172A]">1:1 비교 데이터를 분석 중입니다...</h4>
+                  <p className="mt-1 text-[13px] text-slate-500">선택하신 조건에 맞춰 실거래 시세를 비교하고 있습니다.</p>
+                </div>
+              ) : query.isActive && isCompareError ? (
+                <div className="rounded-[24px] border border-rose-200 bg-rose-50/70 p-8 text-center shadow-sm">
+                  <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
+                    <X className="size-6 stroke-[2.5]" />
+                  </div>
+                  <h4 className="text-[17px] font-black text-rose-900">검색에 실패했습니다</h4>
+                  <p className="mt-1.5 text-[13px] font-semibold text-rose-700">
+                    {(compareError as any)?.response?.data?.message || (compareError as Error)?.message || "1:1 비교 API 호출 중 오류가 발생했습니다."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setQuery({ isActive: false })}
+                    className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-rose-300 bg-white px-4 py-2 text-[12px] font-bold text-rose-700 shadow-sm transition-all hover:bg-rose-50 cursor-pointer"
+                  >
+                    비교 닫기
+                  </button>
+                </div>
+              ) : query.isActive && compareAnalysis ? (
                 <div className="space-y-6 animate-in fade-in-0 duration-300">
                   {/* 비교 요약 카드 */}
                   <div className="rounded-[24px] border border-blue-100 bg-gradient-to-r from-blue-50/80 via-indigo-50/60 to-white p-6 shadow-sm">
