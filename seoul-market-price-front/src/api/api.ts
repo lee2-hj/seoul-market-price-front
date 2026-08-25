@@ -817,28 +817,44 @@ export interface DongItem {
   sggCd?: string;
 }
 
-/** 서울 자치구 목록 조회 API (GET /api/location/sggs) */
+/**
+ * 서울 자치구 목록 조회 API (GET /api/location/sggs)
+ */
 export async function getSggsApi(): Promise<SggItem[]> {
   try {
     const response = await apiMiddleware.get<any>("/api/location/sggs", {
       silentAuthCheck: true,
     } as RetryableRequestConfig);
-    const list = Array.isArray(response.data)
-      ? response.data
-      : (response.data?.data ?? []);
-    return list
-      .map((item: any) => ({
-        sggCd: String(item.sggCd ?? item.sgg_cd ?? item.code ?? "").trim(),
-        sggNm: String(item.sggNm ?? item.sgg_nm ?? item.name ?? "").trim(),
-      }))
-      .filter((item: SggItem) => Boolean(item.sggCd && item.sggNm));
+    const data = response.data;
+    if (Array.isArray(data)) {
+      return data.map((item: any) => {
+        if (typeof item === "string") {
+          return { sggCd: item, sggNm: item };
+        }
+        return {
+          sggCd: String(
+            item.sggCd || item.code || item.sggNm || item.name || "",
+          ),
+          sggNm: String(item.sggNm || item.name || item.sggCd || ""),
+        };
+      });
+    }
+    if (data && Array.isArray(data.items)) {
+      return data.items.map((item: any) => ({
+        sggCd: String(item.sggCd || item.code || item.sggNm || item.name || ""),
+        sggNm: String(item.sggNm || item.name || item.sggCd || ""),
+      }));
+    }
+    return [];
   } catch (error) {
     console.warn("Failed to fetch SGGs from DB API:", error);
     return [];
   }
 }
 
-/** 서울 자치동 목록 조회 API (GET /api/location/dongs) */
+/**
+ * 서울 자치동 목록 조회 API (GET /api/location/dongs?sggCd=11680)
+ */
 export async function getDongsApi(sggCd: string): Promise<DongItem[]> {
   if (!sggCd) return [];
   try {
@@ -846,20 +862,64 @@ export async function getDongsApi(sggCd: string): Promise<DongItem[]> {
       params: { sggCd },
       silentAuthCheck: true,
     } as RetryableRequestConfig);
-    const list = Array.isArray(response.data)
-      ? response.data
-      : (response.data?.data ?? []);
-    return list
-      .map((item: any) => ({
-        dongCd: String(item.dongCd ?? item.dong_cd ?? item.code ?? "").trim(),
-        dongNm: String(item.dongNm ?? item.dong_nm ?? item.name ?? "").trim(),
-        sggCd: String(item.sggCd ?? item.sgg_cd ?? sggCd).trim(),
-      }))
-      .filter((item: DongItem) => Boolean(item.dongNm));
+    const data = response.data;
+    if (Array.isArray(data)) {
+      return data.map((item: any) => {
+        if (typeof item === "string") {
+          return { dongCd: item, dongNm: item, sggCd };
+        }
+        return {
+          dongCd: String(
+            item.dongCd || item.code || item.dongNm || item.name || "",
+          ),
+          dongNm: String(item.dongNm || item.name || item.dongCd || ""),
+          sggCd: String(item.sggCd || sggCd),
+        };
+      });
+    }
+    if (data && Array.isArray(data.items)) {
+      return data.items.map((item: any) => ({
+        dongCd: String(
+          item.dongCd || item.code || item.dongNm || item.name || "",
+        ),
+        dongNm: String(item.dongNm || item.name || item.dongCd || ""),
+        sggCd: String(item.sggCd || sggCd),
+      }));
+    }
+    return [];
   } catch (error) {
     console.warn("Failed to fetch Dongs from DB API:", error);
     return [];
   }
+}
+
+/* ==========================================
+   아파트 단지 시세 및 실거래가 API
+========================================== */
+
+export interface PyungDetail {
+  name: string;
+  area: number;
+  salePrice: number;
+  rentPrice: number;
+  recentTradeDate: string;
+  recentFloor: number;
+  pricePerPyung: number;
+}
+
+export interface TradeHistoryItem {
+  date: string;
+  floor: string;
+  type: string;
+  price: number;
+  change: string;
+  isUp: boolean | null;
+}
+
+export interface PriceTrendPoint {
+  month: string;
+  sale: number;
+  rent: number;
 }
 
 export interface ComplexDetailItem {
@@ -867,101 +927,36 @@ export interface ComplexDetailItem {
   name: string;
   sggNm: string;
   dongNm: string;
-  sggCd?: string;
-  dongCd?: string;
-  mno?: string;
-  sno?: string;
   buildYear: number;
   totalHouseholds: number;
   totalBuildings: number;
   address: string;
   baseSalePrice: number;
   baseRentPrice: number;
-  pyungs: Array<{
-    name: string;
-    area: number;
-    salePrice: number;
-    rentPrice: number;
-    recentTradeDate: string;
-    recentFloor: number;
-    pricePerPyung: number;
-  }>;
-  recentTrades?: Array<{
-    date: string;
-    floor: string;
-    type: string;
-    price: number;
-    change: string;
-    isUp: boolean | null;
-  }>;
-  chartPoints?: Array<{ month: string; sale: number; rent: number }>;
+  pyungs: PyungDetail[];
+  recentTrades?: TradeHistoryItem[];
+  chartPoints?: PriceTrendPoint[];
 }
 
 /**
  * 동별 아파트 단지 목록 조회 API (GET /api/location/complexes)
  */
 export async function getComplexesApi(
-  sggCd: string,
-  dongCd: string,
-  sggNm: string = "",
-  dongNm: string = "",
-  aptName: string = "",
+  sggNm: string,
+  dongNm: string,
 ): Promise<ComplexDetailItem[]> {
-  if (!sggCd || !dongCd) return [];
+  if (!sggNm || !dongNm) return [];
   try {
-    const response = await apiMiddleware.get<any>("/elasticSearch/aptname", {
-      params: { apt_name: aptName, sgg_cd: sggCd, dong_cd: dongCd },
+    const response = await apiMiddleware.get<any>("/api/location/complexes", {
+      params: { sggNm, dongNm },
       silentAuthCheck: true,
     } as RetryableRequestConfig);
-    const rawList = Array.isArray(response.data)
-      ? response.data
-      : (response.data?.data ?? []);
-    const uniqueMap = new Map<string, ComplexDetailItem>();
-    rawList.forEach((item: any) => {
-      const name = String(item.apt_name || item.aptName || "").trim();
-      if (!name || uniqueMap.has(name)) return;
-      const itemSggCd = String(item.sgg_cd || sggCd);
-      const itemDongCd = String(item.dong_cd || dongCd);
-      const mno = String(item.mno || "");
-      const sno = String(item.sno || "");
-      uniqueMap.set(name, {
-        id: `${itemSggCd}-${itemDongCd}-${name}-${mno}-${sno}`,
-        name,
-        sggCd: itemSggCd,
-        sggNm: String(item.sgg_nm || sggNm),
-        dongCd: itemDongCd,
-        dongNm: String(item.dong_nm || dongNm),
-        mno,
-        sno,
-        buildYear: Number(item.buildYear || item.build_year || 0),
-        totalHouseholds: Number(
-          item.totalHouseholds ||
-            item.total_households ||
-            item.totHsehldCnt ||
-            0,
-        ),
-        totalBuildings: Number(
-          item.totalBuildings || item.total_buildings || item.totDongCnt || 0,
-        ),
-        address: String(
-          item.address ||
-            item.roadNmAddr ||
-            item.jibunAddr ||
-            `${sggNm} ${dongNm}`,
-        ),
-        baseSalePrice: Number(item.baseSalePrice || 0),
-        baseRentPrice: Number(item.baseRentPrice || 0),
-        pyungs: Array.isArray(item.pyungs) ? item.pyungs : [],
-      });
-    });
-    return Array.from(uniqueMap.values()).sort((a, b) =>
-      a.name.localeCompare(b.name, "ko"),
-    );
+    const data = response.data;
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.items)) return data.items;
+    return [];
   } catch (error) {
-    console.warn(
-      "Failed to fetch complexes from ElasticSearch (/elasticSearch/aptname):",
-      error,
-    );
+    console.warn("Failed to fetch complexes from DB:", error);
     return [];
   }
 }
@@ -1196,19 +1191,19 @@ export type NaturalRegionCandidate = DongRegionResponse & { slot: number };
 export type NaturalSearchResponse = {
   status: "SUCCESS" | "NEED_CLARIFICATION" | "ERROR";
   intent?:
-    | "PRICE_COMPARISON"
-    | "SINGLE_REGION"
-    | "DISTRICT_SUMMARY"
-    | "DISTRICT_RANKING"
-    | "TOP_BOTTOM"
-    | "RANKING_SEARCH"
-    | "TRADE_TREND";
+  | "PRICE_COMPARISON"
+  | "SINGLE_REGION"
+  | "DISTRICT_SUMMARY"
+  | "DISTRICT_RANKING"
+  | "TOP_BOTTOM"
+  | "RANKING_SEARCH"
+  | "TRADE_TREND";
   message?: string;
   result?:
-    | AiSearchResponse
-    | TradeVolumeRankingResponse
-    | PriceRankingResponse
-    | DistrictRankingResponse;
+  | AiSearchResponse
+  | TradeVolumeRankingResponse
+  | PriceRankingResponse
+  | DistrictRankingResponse;
   missingFields: string[];
   candidates: NaturalRegionCandidate[];
   errorCode?: string;
@@ -1422,7 +1417,6 @@ export async function searchApartmentAutocompleteApi(
   }));
 }
 
-/** 아파트 실거래 시장 트렌드 요청 DTO */
 export interface ApartmentMarketTrendRequest {
   guCode: string;
   dongCode: string;
@@ -1431,46 +1425,50 @@ export interface ApartmentMarketTrendRequest {
   sno: string;
 }
 
-/** 아파트 실거래 시장 트렌드 응답 DTO */
+export interface ApartmentMarketTrendItem {
+  apt_name: string;
+  cgg_cd: string;
+  cgg_nm: string;
+  stdg_cd: string;
+  stdg_nm: string;
+  total_deal_count: number;
+  total_deal_amount: number;
+  average_deal_price: number;
+  max_deal_price: number;
+  count_change_rate: number | null;
+  biweekly_trend: Array<{
+    biweekly_period: string;
+    deal_count: number;
+    avg_price: number;
+  }>;
+  area_ratio: Array<{
+    exclusive_area: string;
+    pyeong: number | null;
+    share_percentage: number;
+  }>;
+  recent_deals: Array<{
+    deal_date: string;
+    exclusive_area: string;
+    pyeong: number;
+    floor: number;
+    deal_amount: number;
+  }>;
+  area_deals: Array<{
+    exclusive_area: string;
+    pyeong: number;
+    deal_count: number;
+    avg_deal_price: number;
+  }>;
+}
+
 export interface ApartmentMarketTrendResponse {
   status: string;
-  search_period: { start_date: string; end_date: string };
+  search_period: {
+    start_date: string;
+    end_date: string;
+  };
   count: number;
-  data: Array<{
-    apt_name: string;
-    cgg_cd: string;
-    cgg_nm: string;
-    stdg_cd: string;
-    stdg_nm: string;
-    total_deal_count: number;
-    total_deal_amount: number;
-    average_deal_price: number;
-    max_deal_price: number;
-    count_change_rate: number | null;
-    biweekly_trend: Array<{
-      biweekly_period: string;
-      deal_count: number;
-      avg_price: number;
-    }>;
-    area_ratio: Array<{
-      exclusive_area: string;
-      pyeong: number | null;
-      share_percentage: number;
-    }>;
-    recent_deals: Array<{
-      deal_date: string;
-      exclusive_area: string;
-      pyeong: number;
-      floor: number;
-      deal_amount: number;
-    }>;
-    area_deals: Array<{
-      exclusive_area: string;
-      pyeong: number;
-      deal_count: number;
-      avg_deal_price: number;
-    }>;
-  }>;
+  data: ApartmentMarketTrendItem[];
 }
 
 export async function getApartmentMarketTrendApi(
@@ -1478,37 +1476,6 @@ export async function getApartmentMarketTrendApi(
 ): Promise<ApartmentMarketTrendResponse> {
   const response = await apiMiddleware.get<ApartmentMarketTrendResponse>(
     "/fastApi/aptmkt",
-    { params: request },
-  );
-  return response.data;
-}
-
-/** 아파트 1:1 비교 분석 요청 DTO */
-export interface AptCompareRequest {
-  query_type: string;
-  pyeong?: string | number;
-  floor?: string;
-  query_value?: string;
-  guCode?: string;
-  dongCode?: string;
-  aptName?: string;
-  mno?: string;
-  sno?: string;
-}
-
-/** 아파트 1:1 비교 분석 응답 DTO */
-export interface AptCompareResponse {
-  status?: string;
-  count?: number;
-  data?: any;
-  [key: string]: any;
-}
-
-export async function getAptCompareApi(
-  request: AptCompareRequest,
-): Promise<AptCompareResponse> {
-  const response = await apiMiddleware.get<AptCompareResponse>(
-    "/fastApi/aptcompare",
     { params: request },
   );
   return response.data;
