@@ -47,16 +47,16 @@ export default function MainPage() {
     <div className="min-w-0 w-full max-w-full bg-[#F5FAFC] text-[#13202B]">
       <MainHeroSearch />
 
-      <section aria-labelledby="market-overview-title" className="mx-auto min-w-0 w-full max-w-[1360px] px-5 py-7 md:px-8 md:py-8">
-        <div className="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+      <section aria-labelledby="market-overview-title" className="mx-auto min-w-0 w-full max-w-[1360px] px-4 py-6 sm:px-6 sm:py-8 md:px-8 md:py-10">
+        <div className="mb-5 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
           <div>
-            <p className="mb-2 text-sm font-black tracking-[0.12em] text-[#0F8AA8]">SEOUL MARKET OVERVIEW</p>
-            <h2 id="market-overview-title" className="m-0 text-2xl font-black tracking-[-0.03em] text-[#123047] md:text-3xl">한눈에 보는 서울 아파트 시장</h2>
+            <p className="mb-1 text-xs font-black tracking-[0.12em] text-[#0F8AA8] sm:text-sm">SEOUL MARKET OVERVIEW</p>
+            <h2 id="market-overview-title" className="m-0 text-2xl font-black tracking-[-0.03em] text-[#123047] sm:text-3xl">한눈에 보는 서울 아파트 시장</h2>
           </div>
-          {period && <p className="m-0 flex items-center gap-2 text-sm font-bold text-[#526573]"><CalendarDays className="size-4 text-[#0F8AA8]" aria-hidden="true" />{period}</p>}
+          {period && <p className="m-0 flex items-center gap-2 text-xs font-bold text-[#526573] sm:text-sm"><CalendarDays className="size-4 shrink-0 text-[#0F8AA8]" aria-hidden="true" />{period}</p>}
         </div>
 
-        <div className="grid min-w-0 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
+        <div className="grid min-w-0 grid-cols-1 items-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
           {mainPageQuery.isPending ? <><LoadingCard /><LoadingCard /></> : mainPageQuery.isError ? <Card className="rounded-2xl border-[#DCE8ED] bg-white md:col-span-2"><CardContent className="p-5"><CardError onRetry={() => void mainPageQuery.refetch()} /></CardContent></Card> : data ? <>
             <DistrictTop5Card items={data.districts} />
             {hasPreferenceData && preferenceData ? <PreferenceDashboard districtName={user?.myGu} data={preferenceData} middleCard={<PriceChangeTop5Card rising={data.rising} falling={data.falling} />} /> : <><PriceChangeTop5Card rising={data.rising} falling={data.falling} />{!isAuthInitialized ? <PreferenceDashboardLoading /> : !user ? <PreferenceLoginNotice /> : !hasPreferredDistrict ? <PreferenceSetupNotice /> : preferenceQuery.isPending ? <PreferenceDashboardLoading /> : preferenceQuery.isError ? <PreferenceDashboardError onRetry={() => void preferenceQuery.refetch()} /> : null}</>}

@@ -15,16 +15,28 @@ export function MainHeroSearch() {
 
   return (
     <section className="bg-[linear-gradient(135deg,#E8F6F9_0%,#F5FAFC_58%,#FFFFFF_100%)]">
-      <div className="mx-auto grid w-full max-w-[1360px] grid-cols-1 gap-6 px-5 py-8 md:grid-cols-[minmax(0,13fr)_minmax(0,7fr)] md:items-center md:px-8 md:py-10 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-8 lg:py-11">
+      <div className="mx-auto grid w-full max-w-[1360px] grid-cols-1 items-center gap-6 px-4 py-8 sm:px-6 sm:py-10 md:px-8 md:py-12 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] lg:gap-8 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)] xl:gap-10">
         <div className="min-w-0">
           <p className="mb-2 text-xs font-black tracking-[0.16em] text-[#0F8AA8]">SEOUL APARTMENT MARKET</p>
-          <h1 className="m-0 text-4xl font-black leading-[1.18] tracking-[-0.04em] text-[#123047] md:text-5xl">서울 아파트 시세,<br />가장 선명하고 빠르게</h1>
-          <p className="mb-0 mt-5 max-w-xl text-base leading-7 text-[#526573] md:text-lg">AI가 질문을 판단하여 서울 아파트의 시세와 가격 정보를 이해하기 쉽게 답변해 드립니다.</p>
+          <h1 className="m-0 text-3xl font-black leading-[1.2] tracking-[-0.04em] text-[#123047] sm:text-4xl lg:text-5xl">서울 아파트 시세,<br />가장 선명하고 빠르게</h1>
+          <p className="mb-0 mt-3 max-w-xl text-sm leading-6 text-[#526573] sm:text-base sm:leading-7 lg:text-lg">AI가 질문을 판단하여 서울 아파트의 시세와 가격 정보를 이해하기 쉽게 답변해 드립니다.</p>
 
           <form className="mt-5 w-full max-w-2xl" onSubmit={(event) => { event.preventDefault(); ai.submit(); }}>
-            <div className="flex w-full min-w-0 flex-col gap-2 rounded-xl border border-[#C9DEE6] bg-white p-2 shadow-[0_8px_24px_rgba(18,48,71,0.08)] focus-within:border-[#0F8AA8] focus-within:ring-4 focus-within:ring-[#0F8AA8]/10 sm:flex-row">
-              <div className="flex min-w-0 flex-1 items-center"><Search className="ml-3 size-5 shrink-0 text-[#0F8AA8]" aria-hidden="true" /><Input value={ai.question} onChange={(event) => { ai.setQuestion(event.target.value); ai.clearMessage(); }} aria-label="AI 아파트 시세 질문" autoComplete="off" placeholder="아파트 단지명, 지역(구/동), 금액대 등 서울 아파트 시세에 대해 물어보세요" className="h-12 min-w-0 w-full border-0 bg-transparent px-3 shadow-none focus-visible:ring-0" /></div>
-              <Button type="submit" disabled={ai.isLoading} className="h-12 shrink-0 rounded-lg bg-[#0F8AA8] px-5 text-white hover:bg-[#0B5E73] sm:min-w-32">{ai.isLoading ? <><LoaderCircle className="size-4 animate-spin" aria-hidden="true" />답변 생성 중</> : <><Bot className="size-4" aria-hidden="true" />AI 시세 질문</>}</Button>
+            <div className="flex w-full min-w-0 flex-col gap-2 rounded-xl border border-[#C9DEE6] bg-white p-2 shadow-[0_8px_24px_rgba(18,48,71,0.08)] focus-within:border-[#0F8AA8] focus-within:ring-4 focus-within:ring-[#0F8AA8]/10 sm:flex-row sm:items-center sm:gap-0 sm:p-1.5">
+              <div className="flex min-w-0 flex-1 items-center">
+                <Search className="ml-2.5 size-5 shrink-0 text-[#0F8AA8] sm:ml-3" aria-hidden="true" />
+                <Input
+                  value={ai.question}
+                  onChange={(event) => { ai.setQuestion(event.target.value); ai.clearMessage(); }}
+                  aria-label="AI 아파트 시세 질문"
+                  autoComplete="off"
+                  placeholder="아파트 단지명, 지역(구/동), 금액대 등 서울 아파트 시세 질문"
+                  className="h-11 sm:h-12 min-w-0 w-full border-0 bg-transparent px-2.5 sm:px-3 text-sm sm:text-base shadow-none focus-visible:ring-0 placeholder:text-[#94A3B8]"
+                />
+              </div>
+              <Button type="submit" disabled={ai.isLoading} className="h-11 sm:h-12 shrink-0 rounded-lg bg-[#0F8AA8] px-4 sm:px-5 text-sm sm:text-base font-bold text-white hover:bg-[#0B5E73] sm:min-w-32">
+                {ai.isLoading ? <><LoaderCircle className="size-4 animate-spin" aria-hidden="true" />답변 생성 중</> : <><Bot className="size-4" aria-hidden="true" />AI 시세 질문</>}
+              </Button>
             </div>
 
             <div aria-live="polite" className="mt-2 min-h-8">
@@ -34,8 +46,8 @@ export function MainHeroSearch() {
           </form>
         </div>
 
-        <div className="hidden min-w-0 w-full md:block" aria-hidden="true">
-          <div className="relative ml-auto aspect-[16/9] w-full max-w-[520px] overflow-hidden rounded-2xl border border-[#DCE8ED] bg-white shadow-[0_8px_24px_rgba(18,48,71,0.08)]">
+        <div className="hidden min-w-0 w-full lg:block" aria-hidden="true">
+          <div className="relative ml-auto aspect-[16/9] w-full max-w-[500px] overflow-hidden rounded-2xl border border-[#DCE8ED] bg-white shadow-[0_8px_24px_rgba(18,48,71,0.08)]">
             <img src="/apartment-hero.png" alt="" className="absolute inset-0 size-full object-cover object-[72%_center]" />
             <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.5),transparent_62%)]" />
             <div className="absolute left-4 top-4 flex h-12 items-end gap-1.5" aria-hidden="true"><i className="h-5 w-2 rounded-sm bg-[#0F8AA8]" /><i className="h-8 w-2 rounded-sm bg-[#2563EB]" /><i className="h-12 w-2 rounded-sm bg-[#0F8AA8]" /></div>

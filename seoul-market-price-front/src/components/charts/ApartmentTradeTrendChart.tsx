@@ -23,26 +23,45 @@ export function ApartmentTradeTrendChart({
   height = "240px",
 }: ApartmentTradeTrendChartProps) {
   return (
-    <div className="min-w-0 w-full max-w-full [&>div]:!min-w-0 [&>div]:!max-w-full [&_svg]:!max-w-full">
+    <div className="min-w-0 w-full max-w-full overflow-hidden [&>div]:!min-w-0 [&>div]:!max-w-full [&_svg]:!max-w-full">
       <Chart
         chartType="ComboChart"
         width="100%"
         height={height}
         data={data}
         options={{
-        backgroundColor: "transparent",
-        chartArea: { left: 60, top: 15, width: "80%", height: "76%" },
-        seriesType: "bars",
-        series: {
-          0: { type: "bars", targetAxisIndex: 0, color: "#2563eb" },
-          1: { type: "line", targetAxisIndex: 1, color: "#16a34a", lineWidth: 3, pointSize: 6 },
-        },
-        vAxes: {
-          0: { title: "거래량(건)", minValue: 0, format: "0", gridlines: { color: "#E2E8F0", count: 4 }, minorGridlines: { count: 0 } },
-          1: { title: "평균 거래가(만원)", minValue: 0, ticks: averagePriceAxisTicks, gridlines: { color: "transparent" }, minorGridlines: { count: 0 } },
-        },
-        hAxis: { slantedText: false },
-        legend: { position: "none" },
+          backgroundColor: "transparent",
+          chartArea: { left: 52, top: 12, width: "84%", height: "76%" },
+          seriesType: "bars",
+          series: {
+            0: { type: "bars", targetAxisIndex: 0, color: "#2563eb" },
+            1: { type: "line", targetAxisIndex: 1, color: "#16a34a", lineWidth: 3, pointSize: 6 },
+          },
+          vAxes: {
+            0: {
+              title: "거래량(건)",
+              minValue: 0,
+              format: "0",
+              gridlines: { color: "#E2E8F0", count: 4 },
+              minorGridlines: { count: 0 },
+              titleTextStyle: { fontSize: 11, color: "#64748B" },
+              textStyle: { fontSize: 10, color: "#64748B" },
+            },
+            1: {
+              title: "평균 거래가(만원)",
+              minValue: 0,
+              ticks: averagePriceAxisTicks,
+              gridlines: { color: "transparent" },
+              minorGridlines: { count: 0 },
+              titleTextStyle: { fontSize: 11, color: "#64748B" },
+              textStyle: { fontSize: 10, color: "#64748B" },
+            },
+          },
+          hAxis: {
+            slantedText: false,
+            textStyle: { fontSize: 10, color: "#64748B" },
+          },
+          legend: { position: "none" },
         }}
       />
     </div>
