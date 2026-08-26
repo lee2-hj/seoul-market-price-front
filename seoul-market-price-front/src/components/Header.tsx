@@ -89,7 +89,8 @@ export default function Header() {
   const isAuthenticated = user !== null;
 
   // 헤더 지역 표시는 오직 확인된 '현재 위치'만 표시 (선호지역/중구 fallback 금지)
-  const region = detectedDistrict;
+  const preferredDistrict = user?.myGu?.trim() || user?.preferredDistrict?.trim() || "";
+  const region = detectedDistrict || preferredDistrict;
 
   useEffect(() => {
     const handleDetectedDistrictChange = (event: Event) => {
