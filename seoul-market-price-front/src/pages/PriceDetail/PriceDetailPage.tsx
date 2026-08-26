@@ -67,6 +67,29 @@ function formatPriceKRW(priceInMan?: number | null): string {
   return `${eok}억 ${remainderMan.toLocaleString()}만 원`;
 }
 
+function isNoComparisonDataError(error: unknown): boolean {
+  const errorMessages: string[] = [];
+
+  if (error instanceof Error) {
+    errorMessages.push(error.message);
+  }
+
+  if (axios.isAxiosError(error)) {
+    const responseData = error.response?.data;
+    if (typeof responseData === "string") {
+      errorMessages.push(responseData);
+    } else if (responseData && typeof responseData === "object") {
+      const detail = (responseData as { detail?: unknown }).detail;
+      const message = (responseData as { message?: unknown }).message;
+
+      if (typeof detail === "string") errorMessages.push(detail);
+      if (typeof message === "string") errorMessages.push(message);
+    }
+  }
+
+  return errorMessages.some((message) => message.includes("데이터가 없습니다"));
+}
+
 function formatPyeongPrice(price?: number | null): string {
   if (!price || price <= 0) return "-";
   return `${Math.round(price).toLocaleString()}만 원/평`;
@@ -461,10 +484,13 @@ export default function PriceDetailPage() {
       query.val1 &&
       query.val2,
     ),
+    retry: false,
     staleTime: 1000 * 60 * 5,
   });
 
   /* 드롭다운 옵션 메모이제이션 */
+  const isCompareNoDataError = isNoComparisonDataError(compareError);
+
   const sggOptions = useMemo<AutocompleteOption[]>(
     () => sggList.map((s) => ({ label: s.sggNm, value: s.sggCd, code: s.sggCd })),
     [sggList],
@@ -835,7 +861,7 @@ export default function PriceDetailPage() {
                   <h4 className="text-[16px] font-black text-[#0F172A]">1:1 비교 데이터를 분석 중입니다...</h4>
                   <p className="mt-1 text-[13px] text-slate-500">선택하신 조건에 맞춰 실거래 시세를 비교하고 있습니다.</p>
                 </div>
-              ) : query.isActive && isCompareError ? (
+              ) : query.isActive && isCompareError && !isCompareNoDataError ? (
                 <div className="rounded-[24px] border border-rose-200 bg-rose-50/70 p-8 text-center shadow-sm">
                   <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
                     <X className="size-6 stroke-[2.5]" />
@@ -856,15 +882,12 @@ export default function PriceDetailPage() {
                     비교 닫기
                   </button>
                 </div>
-              ) : query.isActive && compareData && !compareAnalysis ? (
+              ) : query.isActive && (isCompareNoDataError || (compareData && !compareAnalysis)) ? (
                 <div className="rounded-[24px] border border-amber-200 bg-amber-50/70 p-8 text-center shadow-sm">
                   <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
                     <Search className="size-6" />
                   </div>
-                  <h4 className="text-[17px] font-black text-amber-900">비교 데이터가 없습니다</h4>
-                  <p className="mt-1.5 text-[13px] font-semibold text-amber-700">
-                    선택한 두 조건 중 하나 이상에 해당하는 실거래 데이터가 없습니다.
-                  </p>
+                  <h4 className="text-[17px] font-black text-amber-900">최근 90일 내에 해당하는 데이터가 없습니다</h4>
                   <button
                     type="button"
                     onClick={() => setQuery({ isActive: false })}
