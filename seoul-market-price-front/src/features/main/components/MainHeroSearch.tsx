@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { Bot, LoaderCircle, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -30,7 +29,8 @@ export function MainHeroSearch() {
                   onChange={(event) => { ai.setQuestion(event.target.value); ai.clearMessage(); }}
                   aria-label="AI 아파트 시세 질문"
                   autoComplete="off"
-                  placeholder="아파트 단지명, 지역(구/동), 금액대 등 서울 아파트 시세 질문"
+                  maxLength={500}
+                  placeholder="아파트 단지명, 지역(구/동), 금액대 등 서울 아파트 시세 질문 (최대 500자)"
                   className="h-11 sm:h-12 min-w-0 w-full border-0 bg-transparent px-2.5 sm:px-3 text-sm sm:text-base shadow-none focus-visible:ring-0 placeholder:text-[#94A3B8]"
                 />
               </div>
@@ -40,8 +40,20 @@ export function MainHeroSearch() {
             </div>
 
             <div aria-live="polite" className="mt-2 min-h-8">
-              {ai.error && <div role="alert" className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg px-3 py-2 text-sm ${ai.loginRequired ? "bg-[#FFF8E8] text-[#78540A]" : "bg-[#FFF1F2] text-[#B42318]"}`}><span className="min-w-0 flex-1">{ai.error}</span>{ai.loginRequired ? <Button asChild size="sm" variant="outline" className="bg-white"><Link to="/login">로그인</Link></Button> : <Button type="button" size="sm" variant="outline" onClick={ai.retry} disabled={ai.isLoading} className="bg-white">다시 시도</Button>}</div>}
-              {ai.isLoading && !ai.error && <p className="m-0 flex items-center gap-2 px-1 text-sm font-bold text-[#0B5E73]"><LoaderCircle className="size-4 animate-spin" aria-hidden="true" />AI가 시세 질문을 분석하고 있습니다.</p>}
+              {ai.error && (
+                <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-[#FFF1F2] px-3 py-2 text-sm text-[#B42318]">
+                  <span className="min-w-0 flex-1">{ai.error}</span>
+                  <Button type="button" size="sm" variant="outline" onClick={ai.retry} disabled={ai.isLoading} className="bg-white">
+                    다시 시도
+                  </Button>
+                </div>
+              )}
+              {ai.isLoading && !ai.error && (
+                <p className="m-0 flex items-center gap-2 px-1 text-sm font-bold text-[#0B5E73]">
+                  <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                  AI가 시세 질문을 분석하고 있습니다.
+                </p>
+              )}
             </div>
           </form>
         </div>

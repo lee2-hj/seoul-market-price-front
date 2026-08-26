@@ -9,7 +9,13 @@ function Rank({ value }: { value: number }) {
   return <span className="text-center text-xs font-black text-[#526573]">{value}</span>;
 }
 
-export function PreferenceTradingDongsCard({ items }: { items: PreferenceTradingDongItem[] }) {
+export function PreferenceTradingDongsCard({
+  titlePrefix = "내 선호지역",
+  items,
+}: {
+  titlePrefix?: string;
+  items: PreferenceTradingDongItem[];
+}) {
   return (
     <Card className="h-full rounded-2xl border-[#DCE8ED] bg-white shadow-[0_3px_12px_rgba(18,48,71,0.05)]">
       <CardHeader className="border-b border-[#E8EFF2] p-4">
@@ -18,7 +24,9 @@ export function PreferenceTradingDongsCard({ items }: { items: PreferenceTrading
             <MapPinned className="size-4" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <CardTitle className="text-base font-black text-[#123047]">내 선호지역 거래량 TOP 5</CardTitle>
+            <CardTitle className="text-base font-black text-[#123047]">
+              {titlePrefix ? `${titlePrefix} 거래량 TOP 5` : "거래량 TOP 5"}
+            </CardTitle>
             <p className="mb-0 mt-0.5 text-xs text-[#6B7280]">법정동별 거래 건수 순위</p>
           </div>
         </div>
@@ -52,7 +60,13 @@ export function PreferenceTradingDongsCard({ items }: { items: PreferenceTrading
   );
 }
 
-export function PreferenceTradingApartmentsCard({ items }: { items: PreferenceTradingApartmentItem[] }) {
+export function PreferenceTradingApartmentsCard({
+  titlePrefix = "내 선호지역",
+  items,
+}: {
+  titlePrefix?: string;
+  items: PreferenceTradingApartmentItem[];
+}) {
   return (
     <Card className="h-full rounded-2xl border-[#DCE8ED] bg-white shadow-[0_3px_12px_rgba(18,48,71,0.05)]">
       <CardHeader className="border-b border-[#E8EFF2] p-4">
@@ -61,7 +75,9 @@ export function PreferenceTradingApartmentsCard({ items }: { items: PreferenceTr
             <Building2 className="size-4" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <CardTitle className="text-base font-black text-[#123047]">내 선호지역 아파트 거래량 TOP 5</CardTitle>
+            <CardTitle className="text-base font-black text-[#123047]">
+              {titlePrefix ? `${titlePrefix} 아파트 거래량 TOP 5` : "아파트 거래량 TOP 5"}
+            </CardTitle>
             <p className="mb-0 mt-0.5 text-xs text-[#6B7280]">아파트별 최근 거래가와 거래 건수</p>
           </div>
         </div>
