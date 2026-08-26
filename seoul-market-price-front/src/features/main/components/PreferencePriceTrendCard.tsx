@@ -62,7 +62,7 @@ export function PreferencePriceTrendCard({
               <span className="flex items-center gap-1"><i className="size-2 rounded-sm bg-[#2563EB]" />거래량</span>
               <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-[#16A34A]" />평균 거래가</span>
             </div>
-            <div className="h-[190px] min-w-0 w-full max-w-full overflow-hidden">
+            <div className="h-[190px] min-w-0 w-full max-w-full">
               <ApartmentTradeTrendChart data={chartData} averagePriceAxisTicks={averagePriceAxisTicks} height="190px" />
             </div>
             <p className="mb-2 text-[11px] text-[#6B7280]">

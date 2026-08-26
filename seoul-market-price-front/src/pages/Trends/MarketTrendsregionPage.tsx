@@ -1220,12 +1220,39 @@ export default function MarketTrendsregionPage() {
 
   /* Google Charts용 데이터 */
   const comboChartData = useMemo(() => {
-    const rows = (currentData.monthlyTrends || []).map((pt) => [
-      pt.period,
-      pt.volume,
-      { v: pt.avgPrice, f: pt.avgPrice > 0 ? `${(pt.avgPrice / 10000).toFixed(1)}억` : "-" },
-    ]);
-    return [["기간", "거래량", "평균 거래가"], ...rows];
+    const header = [
+      "기간",
+      "거래량",
+      { role: "tooltip", type: "string", p: { html: true } },
+      "평균 거래가",
+      { role: "tooltip", type: "string", p: { html: true } },
+    ];
+    const rows = (currentData.monthlyTrends || []).map((pt) => {
+      const priceText = pt.avgPrice > 0 ? `${(pt.avgPrice / 10000).toFixed(1)}억` : "-";
+      const tooltipHtml = `
+        <div style="padding:10px 12px;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif;font-size:12px;line-height:1.5;color:#123047;background:#FFFFFF;border-radius:10px;box-shadow:0 6px 18px rgba(18,48,71,0.12);border:1px solid #DCE8ED;min-width:150px;pointer-events:none;">
+          <div style="font-weight:800;color:#0F8AA8;font-size:13px;">${pt.period}</div>
+          <div style="margin-top:6px;padding-top:6px;border-top:1px solid #F1F5F9;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+              <span style="color:#64748B;font-size:11px;">거래량</span>
+              <strong style="color:#2563EB;font-weight:700;">${pt.volume.toLocaleString()}건</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="color:#64748B;font-size:11px;">평균 거래가</span>
+              <strong style="color:#16A34A;font-weight:700;">${priceText}</strong>
+            </div>
+          </div>
+        </div>
+      `.trim();
+      return [
+        pt.period,
+        pt.volume,
+        tooltipHtml,
+        { v: pt.avgPrice, f: priceText },
+        tooltipHtml,
+      ];
+    });
+    return [header, ...rows];
   }, [currentData.monthlyTrends]);
 
   const averagePriceAxisTicks = useMemo(() => {
@@ -1630,7 +1657,7 @@ export default function MarketTrendsregionPage() {
                         .trends-chart-reveal, .trends-chart-reveal.is-ready { clip-path: none; opacity: 1; animation: none; }
                       }
                     `}</style>
-                    <div className={`trends-chart-reveal ${isTrendChartReady ? "is-ready" : ""}`}>
+                    <div className={`relative min-w-0 w-full max-w-full [&>div]:!min-w-0 [&>div]:!max-w-full [&_svg]:!max-w-full [&_.google-visualization-tooltip]:!pointer-events-none [&_.google-visualization-tooltip]:!select-none [&_.google-visualization-tooltip]:!z-50 [&_.google-visualization-tooltip]:!border-0 [&_.google-visualization-tooltip]:!bg-transparent [&_.google-visualization-tooltip]:!shadow-none [&_.google-visualization-tooltip]:!p-0 trends-chart-reveal ${isTrendChartReady ? "is-ready" : ""}`}>
                       <Chart
                         chartType="ComboChart"
                         width="100%"
@@ -1650,6 +1677,7 @@ export default function MarketTrendsregionPage() {
                           },
                           hAxis: { slantedText: false },
                           legend: { position: "none" },
+                          tooltip: { isHtml: true, trigger: "focus" },
                         }}
                       />
                     </div>
@@ -1692,7 +1720,7 @@ export default function MarketTrendsregionPage() {
                       }
                     `}</style>
                     <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-stretch">
-                      <div className={`h-[240px] w-full sm:w-[58%] pie-chart-reveal ${isPieChartReady ? "is-ready" : ""}`}>
+                      <div className={`h-[240px] w-full sm:w-[58%] relative min-w-0 [&>div]:!min-w-0 [&>div]:!max-w-full [&_svg]:!max-w-full [&_.google-visualization-tooltip]:!pointer-events-none [&_.google-visualization-tooltip]:!select-none [&_.google-visualization-tooltip]:!z-50 [&_.google-visualization-tooltip]:!border-0 [&_.google-visualization-tooltip]:!bg-transparent [&_.google-visualization-tooltip]:!shadow-none [&_.google-visualization-tooltip]:!p-0 pie-chart-reveal ${isPieChartReady ? "is-ready" : ""}`}>
                         <Chart
                           chartType="PieChart"
                           width="100%"
@@ -1710,6 +1738,7 @@ export default function MarketTrendsregionPage() {
                             legend: "none",
                             chartArea: { left: 10, top: 20, width: "82%", height: "82%" },
                             colors: PIE_COLORS,
+                            tooltip: { isHtml: true, trigger: "focus" },
                           }}
                         />
                       </div>

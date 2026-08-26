@@ -80,9 +80,42 @@ export function formatTrendPeriodRange(items: PreferencePriceTrendItem[]): strin
 }
 
 /**
+ * HTML Tooltip 요소를 안전하게 생성합니다.
+ */
+function createTrendTooltipHtml(
+  sectionName: string,
+  dateRange: string,
+  tradeCount: number,
+  averagePrice: number,
+): string {
+  const dateLine = dateRange
+    ? `<div style="font-size:11px;color:#64748B;margin-top:2px;">기간: ${dateRange}</div>`
+    : "";
+  const countFormatted = formatTradeCount(tradeCount);
+  const priceFormatted = formatPriceInManwon(averagePrice);
+
+  return `
+    <div style="padding:10px 12px;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif;font-size:12px;line-height:1.5;color:#123047;background:#FFFFFF;border-radius:10px;box-shadow:0 6px 18px rgba(18,48,71,0.12);border:1px solid #DCE8ED;min-width:160px;pointer-events:none;">
+      <div style="font-weight:800;color:#0F8AA8;font-size:13px;">${sectionName}</div>
+      ${dateLine}
+      <div style="margin-top:6px;padding-top:6px;border-top:1px solid #F1F5F9;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+          <span style="color:#64748B;font-size:11px;">거래량</span>
+          <strong style="color:#2563EB;font-weight:700;">${countFormatted}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="color:#64748B;font-size:11px;">평균 거래가</span>
+          <strong style="color:#16A34A;font-weight:700;">${priceFormatted}</strong>
+        </div>
+      </div>
+    </div>
+  `.trim();
+}
+
+/**
  * Google Charts ComboChart에서 사용할 DataTable 행 데이터를 생성합니다.
  * X축에는 D-90~D-68 대신 순서대로 '1구간', '2구간' 등을 표시하고,
- * 마우스 오버 툴팁에는 실제 날짜 범위(YYYY.MM.DD ~ YYYY.MM.DD)와 상세 수치를 제공합니다.
+ * 마우스 오버 HTML 툴팁에는 실제 날짜 범위(YYYY.MM.DD ~ YYYY.MM.DD)와 상세 수치를 제공합니다.
  */
 export function createTrendChartRows(
   items: PreferencePriceTrendItem[],
@@ -90,9 +123,9 @@ export function createTrendChartRows(
   const header: TrendChartHeaderColumn[] = [
     "구간",
     "거래량",
-    { role: "tooltip", type: "string" },
+    { role: "tooltip", type: "string", p: { html: true } },
     "평균 거래가",
-    { role: "tooltip", type: "string" },
+    { role: "tooltip", type: "string", p: { html: true } },
   ];
 
   if (!items || items.length === 0) {
@@ -102,27 +135,22 @@ export function createTrendChartRows(
   const rows = items.map((item, index) => {
     const sectionName = `${index + 1}구간`;
     const dateRange = formatDateRange(item.startDate, item.endDate);
-    const dateLine = dateRange ? `기간: ${dateRange}` : "";
-    const tradeCountLine = `거래량: ${formatTradeCount(item.dealCount)}`;
-    const priceLine = `평균 거래가: ${formatPriceInManwon(item.averageDealPrice)}`;
-
-    const barTooltip = [sectionName, dateLine, tradeCountLine, priceLine]
-      .filter(Boolean)
-      .join("\n");
-
-    const lineTooltip = [sectionName, dateLine, priceLine, tradeCountLine]
-      .filter(Boolean)
-      .join("\n");
+    const tooltipHtml = createTrendTooltipHtml(
+      sectionName,
+      dateRange,
+      item.dealCount,
+      item.averageDealPrice,
+    );
 
     return [
       sectionName,
       Number.isFinite(item.dealCount) && item.dealCount >= 0 ? item.dealCount : 0,
-      barTooltip,
+      tooltipHtml,
       {
         v: Number.isFinite(item.averageDealPrice) && item.averageDealPrice >= 0 ? item.averageDealPrice : 0,
         f: formatPriceInManwon(item.averageDealPrice),
       },
-      lineTooltip,
+      tooltipHtml,
     ];
   });
 
