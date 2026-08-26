@@ -12,6 +12,7 @@ import {
   ChevronRight,
   X,
   Sparkles,
+  AlertCircle,
 } from "lucide-react";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { TRENDS_NAVIGATION } from "@/config/sectionNavigation";
@@ -558,11 +559,12 @@ function useDongPriceAnalysis(
         };
       } catch (err) {
         console.warn("지역 데이터 조회 오류:", err);
-        return null;
+        throw err;
       }
     },
     enabled: Boolean(guCode),
     staleTime: 1000 * 60 * 5,
+    retry: false,
   });
 }
 
@@ -572,6 +574,7 @@ function useRegionPriceListQuery(guCode: string) {
     queryFn: () => getRegionPriceList(guCode),
     enabled: Boolean(guCode),
     staleTime: 1000 * 60 * 5,
+    retry: false,
   });
 }
 
@@ -727,13 +730,38 @@ export default function MarketTrendsregionPage() {
   };
 
   /* 백엔드 API 연동 쿼리 */
-  const { data: dongAnalysis, isLoading: isAllTradesLoading } =
-    useDongPriceAnalysis(
-      searchedGuCode,
-      searchedDongCode || undefined,
-      searchedDongName || undefined,
-    );
-  const { data: regionPriceData } = useRegionPriceListQuery(searchedGuCode);
+  const {
+    data: dongAnalysis,
+    isLoading: isAllTradesLoading,
+    isError: isDongAnalysisError,
+  } = useDongPriceAnalysis(
+    searchedGuCode,
+    searchedDongCode || undefined,
+    searchedDongName || undefined,
+  );
+  const {
+    data: regionPriceData,
+    isError: isRegionPriceError,
+  } = useRegionPriceListQuery(searchedGuCode);
+
+  /* API 연동 실패 판별: 검색 실행 후 쿼리 에러 또는 데이터가 null인 경우 */
+  const isApiError = Boolean(
+    searchedGuCode &&
+      (isDongAnalysisError ||
+        isRegionPriceError ||
+        (dongAnalysis === null && !isAllTradesLoading)),
+  );
+
+  /* API 연동 실패 시 문구 알림 팝업 창 관리 */
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+  const prevApiErrorRef = useRef(false);
+
+  useEffect(() => {
+    if (isApiError && !prevApiErrorRef.current) {
+      setIsErrorModalOpen(true);
+    }
+    prevApiErrorRef.current = isApiError;
+  }, [isApiError]);
 
   const ninetyDaysRangeText = useMemo(() => {
     const now = new Date();
@@ -1523,8 +1551,31 @@ export default function MarketTrendsregionPage() {
             </CardContent>
           </Card>
 
-          {/* 상단 핵심 지표 - 하나의 카드로 통합 */}
-          <Card className="rounded-xl border-[#E2E8F0] bg-white shadow-xs">
+          {/* API 연동 실패 시 안내 화면 / 정상 조회 시 데이터 화면 */}
+          {isApiError ? (
+            <Card className="rounded-xl border border-rose-200 bg-rose-50/60 p-12 text-center shadow-xs">
+              <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 mb-3">
+                <AlertCircle className="size-6" />
+              </div>
+              <h3 className="text-[17px] font-bold text-rose-900 mb-1">
+                데이터 조회에 실패했습니다.
+              </h3>
+              <p className="text-[13px] text-rose-600 max-w-md mx-auto mb-4 leading-relaxed">
+                네트워크 통신 중 오류가 발생하여 실거래 데이터를 불러오지 못했습니다.<br />
+                선택하신 자치구 및 동을 다시 확인하신 후 조회해주시기 바랍니다.
+              </p>
+              <Button
+                type="button"
+                onClick={handleSearch}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-5 py-2 rounded-lg shadow-xs cursor-pointer"
+              >
+                다시 시도하기
+              </Button>
+            </Card>
+          ) : (
+            <>
+              {/* 상단 핵심 지표 - 하나의 카드로 통합 */}
+              <Card className="rounded-xl border-[#E2E8F0] bg-white shadow-xs">
             <CardContent className="p-0">
               <div className="grid grid-cols-2 divide-x divide-y divide-[#F1F5F9] sm:grid-cols-5 sm:divide-y-0">
 
@@ -1743,49 +1794,56 @@ export default function MarketTrendsregionPage() {
           </div>
 
 
-          {/* 하단 3개 카드 영역 */}
-          <div className={cn("grid", "grid-cols-1", "lg:grid-cols-3", "gap-6")}>
-            {/* 카드 1: 최근 실거래 내역 */}
+          {/* 하단 3개 카드 영역 (items-start 적용으로 카드 하단 여백 차단) */}
+          <div className={cn("grid", "grid-cols-1", "lg:grid-cols-3", "gap-5", "items-start")}>
+            {/* 카드 1: 최근 실거래 내역 TOP 5 */}
             <Card
               className={cn(
                 "border-[#E2E8F0]",
                 "bg-white",
                 "rounded-xl",
-                "p-4.5",
+                "p-3.5",
+                "sm:p-4",
                 "shadow-xs",
                 "flex",
                 "flex-col",
                 "justify-between",
+                "min-h-[235px]",
               )}
             >
               <div>
-                <h3
-                  className={cn(
-                    "text-[14px]",
-                    "font-bold",
-                    "text-[#0F172A]",
-                    "mb-1.5",
-                  )}
-                >
-                  최근 실거래 내역 TOP 5
-                </h3>
+                {/* 카드 헤더: 타이틀 및 우측 전체 실거래 내역 보기 버튼 */}
+                <div className="flex items-center justify-between mb-2 h-[26px]">
+                  <h3 className="text-[14px] font-bold text-[#0F172A]">
+                    최근 실거래 내역 TOP 5
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setIsAllTradesModalOpen(true)}
+                    className="flex items-center gap-0.5 rounded border border-blue-200/60 bg-blue-50/70 px-1 py-0 text-[7.5px] font-semibold text-blue-600 hover:bg-blue-100 transition-all cursor-pointer shrink-0 whitespace-nowrap"
+                  >
+                    <span>전체 실거래 내역 보기</span>
+                    <ChevronRight className="size-2 text-blue-600" />
+                  </button>
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full border-separate border-spacing-[3px] text-[11.5px] whitespace-nowrap">
                     <thead>
                       <tr className="text-[#64748B] font-medium">
-                        <th className="py-2 px-1.5 text-center border border-[#CBD5E1] bg-white w-[18%]">
+                        <th className="py-1.5 px-1.5 text-center border border-[#CBD5E1] bg-white w-[18%]">
                           계약일
                         </th>
-                        <th className="py-2 px-1.5 text-center border border-[#CBD5E1] bg-white w-[27%]">
+                        <th className="py-1.5 px-1.5 text-center border border-[#CBD5E1] bg-white w-[27%]">
                           단지명
                         </th>
-                        <th className="py-2 px-1.5 text-center border border-[#CBD5E1] bg-white w-[16%]">
+                        <th className="py-1.5 px-1.5 text-center border border-[#CBD5E1] bg-white w-[16%]">
                           평형
                         </th>
-                        <th className="py-2 px-1.5 text-center border border-[#CBD5E1] bg-white w-[12%]">
+                        <th className="py-1.5 px-1.5 text-center border border-[#CBD5E1] bg-white w-[12%]">
                           층
                         </th>
-                        <th className="py-2 px-1.5 text-center border border-[#CBD5E1] bg-white w-[27%]">
+                        <th className="py-1.5 px-1.5 text-center border border-[#CBD5E1] bg-white w-[27%]">
                           거래가(만원)
                         </th>
                       </tr>
@@ -1819,19 +1877,19 @@ export default function MarketTrendsregionPage() {
                               key={`rt-${i}`}
                               className="transition-colors"
                             >
-                              <td className="py-2.5 px-1.5 text-center border border-[#CBD5E1] bg-white text-[#475569]">
+                              <td className="py-2 px-1.5 text-center border border-[#CBD5E1] bg-white text-[#475569]">
                                 {trade.contractDate}
                               </td>
-                              <td className="py-2.5 px-1.5 text-center border border-[#CBD5E1] bg-white font-medium text-[#0F172A] truncate max-w-[80px]">
+                              <td className="py-2 px-1.5 text-center border border-[#CBD5E1] bg-white font-medium text-[#0F172A] truncate max-w-[80px]">
                                 {trade.complexName}
                               </td>
-                              <td className="py-2.5 px-1.5 text-center border border-[#CBD5E1] bg-white text-[#475569]">
+                              <td className="py-2 px-1.5 text-center border border-[#CBD5E1] bg-white text-[#475569]">
                                 {pyeongText}
                               </td>
-                              <td className="py-2.5 px-1.5 text-center border border-[#CBD5E1] bg-white text-[#475569]">
+                              <td className="py-2 px-1.5 text-center border border-[#CBD5E1] bg-white text-[#475569]">
                                 {trade.floor}
                               </td>
-                              <td className="py-2.5 px-1.5 text-center border border-[#CBD5E1] bg-white font-black text-[#0B2545] text-[12.5px]">
+                              <td className="py-2 px-1.5 text-center border border-[#CBD5E1] bg-white font-black text-[#0B2545] text-[12px]">
                                 {formattedPrice || "-"}
                               </td>
                             </tr>
@@ -1841,7 +1899,7 @@ export default function MarketTrendsregionPage() {
                         <tr>
                           <td
                             colSpan={5}
-                            className="py-6 text-center text-xs text-[#94A3B8] border border-[#CBD5E1] bg-white"
+                            className="py-4 text-center text-xs text-[#94A3B8] border border-[#CBD5E1] bg-white"
                           >
                             조회된 최근 실거래 내역이 없습니다.
                           </td>
@@ -1851,34 +1909,6 @@ export default function MarketTrendsregionPage() {
                   </table>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsAllTradesModalOpen(true)}
-                className={cn(
-                  "mt-3",
-                  "w-full",
-                  "py-2",
-                  "px-3",
-                  "flex",
-                  "items-center",
-                  "justify-center",
-                  "gap-1.5",
-                  "text-[12.5px]",
-                  "font-medium",
-                  "text-[#0284C7]",
-                  "bg-white",
-                  "border",
-                  "border-[#CBD5E1]",
-                  "rounded-[6px]",
-                  "hover:bg-[#F8FAFC]",
-                  "hover:border-[#94A3B8]",
-                  "transition-all",
-                  "cursor-pointer",
-                )}
-              >
-                <span>전체 실거래 내역 보기</span>
-                <ChevronRight className="size-3.5 text-[#0284C7]" />
-              </button>
             </Card>
 
             {/* 카드 2: 거래량 상위 단지 TOP 5 */}
@@ -1887,98 +1917,119 @@ export default function MarketTrendsregionPage() {
                 "border-[#E2E8F0]",
                 "bg-white",
                 "rounded-xl",
-                "p-4.5",
+                "p-3.5",
+                "sm:p-4",
                 "shadow-xs",
+                "flex",
+                "flex-col",
+                "justify-between",
+                "min-h-[235px]",
               )}
             >
-              <h3
-                className={cn(
-                  "text-[14px]",
-                  "font-bold",
-                  "text-[#0F172A]",
-                  "mb-1.5",
-                )}
-              >
-                거래량 상위 단지 TOP 5
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full border-separate border-spacing-[3px] text-[11.5px] whitespace-nowrap">
-                  <thead>
-                    <tr className="text-[#64748B] font-medium">
-                      <th className="py-2 px-2 text-center border border-[#CBD5E1] bg-white w-[18%]">
-                        순위
-                      </th>
-                      <th className="py-2 px-2 text-center border border-[#CBD5E1] bg-white w-[52%]">
-                        단지명
-                      </th>
-                      <th className="py-2 px-2 text-center border border-[#CBD5E1] bg-white w-[30%]">
-                        거래건수
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-[#334155]">
-                    {currentData.topComplexes.length > 0 ? (
-                      currentData.topComplexes.map((item) => (
-                        <tr
-                          key={`tc-${item.rank}`}
-                          className="transition-colors"
-                        >
-                          <td className="py-2.5 px-2 text-center border border-[#CBD5E1] bg-white text-[#475569]">
-                            {item.rank}
-                          </td>
-                          <td className="py-2.5 px-2 text-center border border-[#CBD5E1] bg-white font-medium text-[#0F172A] truncate max-w-[130px]">
-                            {item.complexName}
-                          </td>
-                          <td className="py-2.5 px-2 text-center border border-[#CBD5E1] bg-white font-black text-[#0B2545] text-[12.5px]">
-                            {item.count}건
+              <div>
+                <div className="flex items-center justify-between mb-2 h-[26px]">
+                  <h3
+                    className={cn(
+                      "text-[14px]",
+                      "font-bold",
+                      "text-[#0F172A]",
+                    )}
+                  >
+                    거래량 상위 단지 TOP 5
+                  </h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-separate border-spacing-[3px] text-[11.5px] whitespace-nowrap">
+                    <thead>
+                      <tr className="text-[#64748B] font-medium">
+                        <th className="py-1.5 px-2 text-center border border-[#CBD5E1] bg-white w-[18%]">
+                          순위
+                        </th>
+                        <th className="py-1.5 px-2 text-center border border-[#CBD5E1] bg-white w-[52%]">
+                          단지명
+                        </th>
+                        <th className="py-1.5 px-2 text-center border border-[#CBD5E1] bg-white w-[30%]">
+                          거래건수
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-[#334155]">
+                      {currentData.topComplexes.length > 0 ? (
+                        currentData.topComplexes.map((item) => (
+                          <tr
+                            key={`tc-${item.rank}`}
+                            className="transition-colors"
+                          >
+                            <td className="py-2 px-2 text-center border border-[#CBD5E1] bg-white text-[#475569]">
+                              {item.rank}
+                            </td>
+                            <td className="py-2 px-2 text-center border border-[#CBD5E1] bg-white font-medium text-[#0F172A] truncate max-w-[130px]">
+                              {item.complexName}
+                            </td>
+                            <td className="py-2 px-2 text-center border border-[#CBD5E1] bg-white font-black text-[#0B2545] text-[12px]">
+                              {item.count}건
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan={3}
+                            className="py-4 text-center text-xs text-[#94A3B8] border border-[#CBD5E1] bg-white"
+                          >
+                            조회된 상위 단지가 없습니다.
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td
-                          colSpan={3}
-                          className="py-6 text-center text-xs text-[#94A3B8] border border-[#CBD5E1] bg-white"
-                        >
-                          조회된 상위 단지가 없습니다.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </Card>
 
-            {/* 카드 3: 한눈에 보는 AI 거래 동향 */}
-            <Card className="flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-4.5 shadow-xs">
+            {/* 카드 3: 한눈에 보는 AI 거래 동향 (카드 1, 2와 100% 동일한 컨테이너 크기) */}
+            <Card
+              className={cn(
+                "border-[#E2E8F0]",
+                "bg-white",
+                "rounded-xl",
+                "p-3.5",
+                "sm:p-4",
+                "shadow-xs",
+                "flex",
+                "flex-col",
+                "justify-between",
+                "min-h-[235px]",
+              )}
+            >
               <div>
-                {/* 헤더: AI 요약 타이틀 및 AI 상태 배지 */}
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-xs">
-                      <Sparkles className="size-4" />
+                {/* 헤더: AI 요약 타이틀 및 AI 상태 배지 (카드 1, 2와 헤더 높이 동일) */}
+                <div className="flex items-center justify-between mb-2 h-[26px] pb-1 border-b border-slate-100">
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex size-5.5 items-center justify-center rounded-md bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-2xs">
+                      <Sparkles className="size-3" />
                     </div>
-                    <h3 className="text-[14.5px] font-black text-[#0F172A]">
+                    <h3 className="text-[13.5px] font-black text-[#0F172A]">
                       한눈에 보는 AI 거래 동향
                     </h3>
                   </div>
-                  <span className="flex items-center gap-1.5 rounded-full border border-blue-200/80 bg-blue-50/90 px-2.5 py-0.5 text-[10.5px] font-black text-blue-600 shadow-xs">
-                    <Sparkles className="size-3 text-blue-600 animate-pulse" />
-                    AI 스마트 분석
+                  <span className="flex items-center gap-1 rounded-full border border-blue-200/80 bg-blue-50/90 px-1.5 py-0.2 text-[9px] font-black text-blue-600 shadow-2xs">
+                    <Sparkles className="size-2 text-blue-600 animate-pulse" />
+                    AI 분석
                   </span>
                 </div>
 
-                {/* 항목별 상세 브리핑 리스트 (컨테이너 맞춤 가독성 UI) */}
-                <div className="flex flex-col gap-2 pt-3">
+                {/* 항목별 상세 브리핑 리스트 */}
+                <div className="flex flex-col gap-1 pt-1">
                   {currentData.insights.length > 0 ? (
                     currentData.insights.map((insight) => (
                       <div
                         key={insight.id}
-                        className="group flex items-start gap-2.5 rounded-[12px] border border-slate-200/80 bg-white p-2.5 shadow-2xs transition-all hover:border-slate-300"
+                        className="group flex items-start gap-1.5 rounded-md border border-slate-200/70 bg-white p-1.5 shadow-2xs transition-all hover:border-slate-300"
                       >
                         <span
                           className={cn(
-                            "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-lg shadow-2xs transition-colors",
+                            "mt-0.5 flex size-4.5 shrink-0 items-center justify-center rounded transition-colors",
                             insight.type === "up"
                               ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
                               : insight.type === "chart"
@@ -1986,50 +2037,50 @@ export default function MarketTrendsregionPage() {
                                 : "bg-indigo-50 text-indigo-600 border border-indigo-100",
                           )}
                         >
-                          {insight.type === "up" && <TrendingUp className="size-3.5" />}
-                          {insight.type === "chart" && <BarChart2 className="size-3.5" />}
-                          {insight.type === "swap" && <ArrowUpDown className="size-3.5" />}
+                          {insight.type === "up" && <TrendingUp className="size-2.5" />}
+                          {insight.type === "chart" && <BarChart2 className="size-2.5" />}
+                          {insight.type === "swap" && <ArrowUpDown className="size-2.5" />}
                         </span>
 
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-1.5 mb-0.5">
-                            <h4 className="text-[12px] font-black tracking-tight text-slate-900 truncate">
+                          <div className="flex items-center justify-between gap-1 mb-0.2">
+                            <h4 className="text-[11px] font-black tracking-tight text-slate-900 truncate">
                               {insight.title}
                             </h4>
                             {insight.badge && (
-                              <span className="shrink-0 rounded bg-blue-50 px-1.5 py-0.5 text-[9.5px] font-black text-blue-600 border border-blue-100/80">
+                              <span className="shrink-0 rounded bg-blue-50 px-1 py-0.1 text-[8.5px] font-black text-blue-600 border border-blue-100/80">
                                 {insight.badge}
                               </span>
                             )}
                           </div>
-                          <p className="text-[11.5px] font-medium text-slate-600 leading-snug break-keep">
+                          <p className="text-[10px] font-medium text-slate-600 leading-tight break-keep">
                             {insight.subtitle}
                           </p>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div className="py-6 text-center text-xs text-slate-400">
+                    <div className="py-3 text-center text-[10.5px] text-slate-400">
                       조회된 동향 요약 정보가 없습니다.
                     </div>
                   )}
                 </div>
 
-                {/* AI 스마트 리포트 종합 박스 (Dark Card) - 컨테이너 맞춤 */}
-                <div className="mt-3 rounded-[12px] border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-3.5 text-white shadow-md">
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-[12px] font-black text-amber-400">
-                      <Sparkles className="size-3.5 text-amber-400" />
+                {/* AI 스마트 리포트 종합 박스 (Dark Card) */}
+                <div className="mt-1.5 rounded-md border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-2 text-white shadow-xs">
+                  <div className="mb-0.5 flex items-center justify-between">
+                    <div className="flex items-center gap-1 text-[10.5px] font-black text-amber-400">
+                      <Sparkles className="size-2.5 text-amber-400" />
                       <span>AI 스마트 리포트 종합</span>
                     </div>
-                    <span className="text-[9.5px] font-extrabold text-slate-400">
-                      실시간 데이터 분석
+                    <span className="text-[8.5px] font-extrabold text-slate-400">
+                      실시간 분석
                     </span>
                   </div>
-                  <div className="text-[12.5px] font-black text-white leading-snug mb-1 truncate">
+                  <div className="text-[11px] font-black text-white leading-snug mb-0.5 truncate">
                     {aiTrendReport.title}
                   </div>
-                  <div className="flex flex-col gap-1 text-[11.5px] font-medium leading-relaxed text-slate-200 break-keep">
+                  <div className="flex flex-col gap-0.5 text-[10px] font-medium leading-tight text-slate-200 break-keep">
                     {aiTrendReport.bullets.map((bullet, idx) => (
                       <p key={`b-${idx}`} className="flex items-start gap-1">
                         <span className="text-amber-400 font-bold shrink-0">•</span>
@@ -2040,7 +2091,7 @@ export default function MarketTrendsregionPage() {
                 </div>
               </div>
 
-              <div className="mt-3 flex items-center justify-between border-t border-[#F1F5F9] pt-2.5 text-[11px] text-[#64748B]">
+              <div className="mt-1.5 flex items-center justify-between border-t border-[#F1F5F9] pt-1.5 text-[10px] text-[#64748B]">
                 <span>실시간 데이터 집계</span>
                 <span className="font-semibold text-[#2563EB]">
                   {formatYearMonthDay(new Date())} 기준
@@ -2048,6 +2099,8 @@ export default function MarketTrendsregionPage() {
               </div>
             </Card>
           </div>
+          </>
+          )}
 
           {/* 하단 푸터 메타정보 */}
           <div
@@ -2350,6 +2403,30 @@ export default function MarketTrendsregionPage() {
                 </Table>
               )}
             </div>
+          </div>
+        </div>
+      )}
+      {/* API 연동 실패 알림 팝업 모달 */}
+      {isErrorModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-xl border border-rose-200 bg-white p-6 shadow-2xl text-center">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 mb-3">
+              <AlertCircle className="size-6" />
+            </div>
+            <h3 className="text-[17px] font-bold text-[#0F172A] mb-1.5">
+              데이터 조회에 실패했습니다.
+            </h3>
+            <p className="text-[13px] text-[#64748B] mb-5 leading-relaxed">
+              네트워크 통신 중 오류가 발생했거나 데이터를 불러올 수 없습니다.<br />
+              잠시 후 다시 시도해 주세요.
+            </p>
+            <Button
+              type="button"
+              onClick={() => setIsErrorModalOpen(false)}
+              className="w-full h-10 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg shadow-sm cursor-pointer"
+            >
+              확인
+            </Button>
           </div>
         </div>
       )}
