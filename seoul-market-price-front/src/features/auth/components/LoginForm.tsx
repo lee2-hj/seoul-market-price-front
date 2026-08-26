@@ -109,6 +109,7 @@ function LoginForm() {
         myGuCode: me.myGuCode,
         preferredDistrict: me.preferredDistrict,
         myDong: me.myDong,
+        isLocationAgreed: me.isLocationAgreed,
       });
 
       /*

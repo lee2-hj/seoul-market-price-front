@@ -33,3 +33,11 @@ export function storeDetectedDistrict(district: string, sggCd?: string): void {
     new CustomEvent<string>(REGION_CHANGED_EVENT, { detail: normalizedDistrict }),
   );
 }
+
+export function clearDetectedDistrict(): void {
+  sessionStorage.removeItem(REGION_STORAGE_KEY);
+  sessionStorage.removeItem(REGION_CODE_STORAGE_KEY);
+  window.dispatchEvent(
+    new CustomEvent<string>(REGION_CHANGED_EVENT, { detail: "" }),
+  );
+}
