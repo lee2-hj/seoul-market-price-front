@@ -57,16 +57,25 @@ export function PreferencePriceTrendCard({
               <span className="flex items-center gap-1"><i className="size-2 rounded-sm bg-[#2563EB]" />거래량</span>
               <span className="flex items-center gap-1"><i className="size-2 rounded-full bg-[#16A34A]" />평균 거래가</span>
             </div>
-            <div className="h-[190px] min-w-0 w-full max-w-full">
+            <div className="h-[190px] min-w-0 w-full max-w-full overflow-hidden">
               <ApartmentTradeTrendChart data={chartData} averagePriceAxisTicks={averagePriceAxisTicks} height="190px" />
             </div>
             <p className="mb-2 text-[11px] text-[#6B7280]">
               최근 기간: {formatDateRange(latestItem?.startDate ?? "", latestItem?.endDate ?? "") || "-"}
             </p>
-            <dl className="grid grid-cols-3 divide-x divide-[#E8EFF2] border-t border-[#E8EFF2] pt-2 text-[11px]">
-              <div className="min-w-0 px-2 first:pl-0"><dt className="text-[#6B7280]">평균 거래가</dt><dd className="m-0 truncate font-black text-[#123047]">{formatPriceInManwon(latestItem?.averageDealPrice ?? Number.NaN)}</dd></div>
-              <div className="min-w-0 px-2"><dt className="text-[#6B7280]">평당 가격</dt><dd className="m-0 truncate font-black text-[#123047]">{formatPyeongPrice(latestItem?.averagePyeongPrice ?? Number.NaN)}</dd></div>
-              <div className="min-w-0 px-2 pr-0"><dt className="text-[#6B7280]">거래량</dt><dd className="m-0 truncate font-black text-[#123047]">{formatTradeCount(latestItem?.dealCount ?? Number.NaN)}</dd></div>
+            <dl className="grid grid-cols-3 divide-x divide-[#E8EFF2] border-t border-[#E8EFF2] pt-2 text-[10px] sm:text-[11px]">
+              <div className="min-w-0 px-1 sm:px-2 first:pl-0" title={`평균 거래가: ${formatPriceInManwon(latestItem?.averageDealPrice ?? Number.NaN)}`}>
+                <dt className="truncate text-[#6B7280]">평균 거래가</dt>
+                <dd className="m-0 truncate font-black text-[#123047]">{formatPriceInManwon(latestItem?.averageDealPrice ?? Number.NaN)}</dd>
+              </div>
+              <div className="min-w-0 px-1 sm:px-2" title={`평당 가격: ${formatPyeongPrice(latestItem?.averagePyeongPrice ?? Number.NaN)}`}>
+                <dt className="truncate text-[#6B7280]">평당 가격</dt>
+                <dd className="m-0 truncate font-black text-[#123047]">{formatPyeongPrice(latestItem?.averagePyeongPrice ?? Number.NaN)}</dd>
+              </div>
+              <div className="min-w-0 px-1 sm:px-2 pr-0" title={`거래량: ${formatTradeCount(latestItem?.dealCount ?? Number.NaN)}`}>
+                <dt className="truncate text-[#6B7280]">거래량</dt>
+                <dd className="m-0 truncate font-black text-[#123047]">{formatTradeCount(latestItem?.dealCount ?? Number.NaN)}</dd>
+              </div>
             </dl>
           </>
         )}
