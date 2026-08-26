@@ -8,6 +8,7 @@ import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { CheckCircle2 } from "lucide-react";
 import PassAuth from "@/features/auth/components/PassAuth";
 import {
+  deleteMyPreferredRegionApi,
   updateMemberMeApi,
   type MemberUpdateRequest,
 } from "@/api/api";
@@ -99,6 +100,7 @@ type Profile = {
 type MyPageSettings = {
   profile: Partial<Profile>;
   preferredDistrict: string;
+  selectedSggCd?: string | null;
   favoriteItems?: string[];
   notificationSettings?: Record<string, boolean>;
   priceAlerts?: unknown[];
@@ -115,8 +117,10 @@ interface MyMemberResponse {
   email: string | null;
   socialId: string | null;
   userType: string;
-  preferredDistrict?: string | null;
-  myGu?: string | null;
+  preferredDistrict: string;
+  myGu: string | null;
+  myGuCode: string | null;
+  myDong: string | null;
 }
 
 type ProfileDraft = {
@@ -124,12 +128,23 @@ type ProfileDraft = {
   address: string;
   detailAddress: string;
   preferredDistrict: string;
+  selectedSggCd?: string | null;
+  selectedSggName?: string;
 };
 
 type MemberUpdateVariables = {
   formData: Profile;
-  preferredDistrict: string;
+  selectedSggCd: string | null;
+  shouldPatchMember: boolean;
+  shouldClearPreferredRegion: boolean;
 };
+
+class PreferredRegionDeleteError extends Error {
+  constructor() {
+    super("선호지역 삭제에 실패했습니다.");
+    this.name = "PreferredRegionDeleteError";
+  }
+}
 
 const normalizeIdentity = (value?: string | null): string =>
   (value || "").trim().toLowerCase();
@@ -291,11 +306,18 @@ export default function MyProfilePage() {
 
   const [preferredDistrict, setPreferredDistrict] = useState(() => {
     const saved = getStoredMyPageSettings(authUser?.userId);
-    return authUser?.preferredDistrict || authUser?.myGu || saved?.preferredDistrict || "";
+    return authUser?.myGu || saved?.preferredDistrict || "";
   });
+  const [selectedSggCd, setSelectedSggCd] = useState<string | null>(
+    authUser?.myGuCode ?? null,
+  );
+  const [preferredDistrictError, setPreferredDistrictError] = useState("");
   // 원본 스냅샷 (변경 취소 시 복구할 기준 데이터)
   const [originalProfile, setOriginalProfile] = useState<Profile>(profile);
   const [originalDistrict, setOriginalDistrict] = useState<string>(preferredDistrict);
+  const [originalSggCd, setOriginalSggCd] = useState<string | null>(
+    selectedSggCd,
+  );
   const initializedDraftUserRef = useRef<string | null>(null);
 
   // 인증 관련 State
@@ -473,11 +495,12 @@ export default function MyProfilePage() {
         loginType: isSocial ? "SOCIAL" : "LOCAL",
       };
 
-      const nextDistrict =
-        memberData?.preferredDistrict ||
-        memberData?.myGu ||
-        saved?.preferredDistrict ||
-        "";
+      const nextDistrict = memberData
+        ? memberData.myGu ?? ""
+        : authUser?.myGu || saved?.preferredDistrict || "";
+      const nextSggCd = memberData
+        ? memberData.myGuCode
+        : authUser?.myGuCode ?? saved?.selectedSggCd ?? null;
 
       queueMicrotask(() => {
         if (!isActive) return;
@@ -494,8 +517,22 @@ export default function MyProfilePage() {
         setProfile(nextProfile);
         setOriginalProfile(nextProfile);
         reset(displayedProfile);
-        setPreferredDistrict(latestDraft?.preferredDistrict ?? nextDistrict);
+        const draftDistrict =
+          latestDraft?.selectedSggName ?? latestDraft?.preferredDistrict;
+        const hasDraftSggCd = Boolean(
+          latestDraft && Object.prototype.hasOwnProperty.call(latestDraft, "selectedSggCd"),
+        );
+        const draftSggCd = hasDraftSggCd
+          ? latestDraft?.selectedSggCd ?? null
+          : draftDistrict && draftDistrict !== nextDistrict
+            ? null
+            : nextSggCd;
+
+        setPreferredDistrict(draftDistrict ?? nextDistrict);
+        setSelectedSggCd(draftSggCd);
         setOriginalDistrict(nextDistrict);
+        setOriginalSggCd(nextSggCd);
+        setPreferredDistrictError("");
         initializedDraftUserRef.current = normalizeIdentity(authUserId);
       });
 
@@ -503,7 +540,14 @@ export default function MyProfilePage() {
         isActive = false;
       };
     }
-  }, [authUserId, authUserName, memberData, reset]);
+  }, [
+    authUser?.myGu,
+    authUser?.myGuCode,
+    authUserId,
+    authUserName,
+    memberData,
+    reset,
+  ]);
 
   useEffect(() => {
     const userId = normalizeIdentity(authUser?.userId);
@@ -514,6 +558,8 @@ export default function MyProfilePage() {
       address: formValues.address ?? "",
       detailAddress: formValues.detailAddress ?? "",
       preferredDistrict,
+      selectedSggCd,
+      selectedSggName: preferredDistrict,
     };
     sessionStorage.setItem(getProfileDraftKey(userId), JSON.stringify(draft));
   }, [
@@ -522,22 +568,39 @@ export default function MyProfilePage() {
     formValues.address,
     formValues.detailAddress,
     preferredDistrict,
+    selectedSggCd,
   ]);
 
   const updateMemberMutation = useMutation({
-    mutationFn: ({ formData, preferredDistrict }: MemberUpdateVariables) => {
+    mutationFn: async ({
+      formData,
+      selectedSggCd,
+      shouldPatchMember,
+      shouldClearPreferredRegion,
+    }: MemberUpdateVariables) => {
       const isPhoneChanged = formData.phone !== originalProfile.phone;
-      const request: MemberUpdateRequest & { preferredDistrict?: string; myGu?: string } = {
-        ...(isPhoneChanged
-          ? { phone: formData.phone, identityVerificationId }
-          : {}),
-        email: formData.email,
-        address: formData.address,
-        addressDetail: formData.detailAddress,
-        preferredDistrict: preferredDistrict || undefined,
-        myGu: preferredDistrict || undefined,
-      };
-      return updateMemberMeApi(request);
+      if (shouldPatchMember) {
+        const request: MemberUpdateRequest = {
+          ...(isPhoneChanged
+            ? { phone: formData.phone, identityVerificationId }
+            : {}),
+          email: formData.email,
+          address: formData.address,
+          addressDetail: formData.detailAddress,
+          ...(selectedSggCd ? { sgg_cd: selectedSggCd } : {}),
+        };
+        await updateMemberMeApi(request);
+      }
+
+      if (shouldClearPreferredRegion) {
+        try {
+          await deleteMyPreferredRegionApi();
+        } catch {
+          throw new PreferredRegionDeleteError();
+        }
+      }
+
+      return getMyMember();
     },
     onSuccess: (response, variables) => {
       const updatedProfile: Profile = {
@@ -556,11 +619,12 @@ export default function MyProfilePage() {
       const settingsToSave: MyPageSettings & { preferredDong?: unknown } = {
         ...previousSettings,
         profile: getLocalProfileSettings(updatedProfile),
-        preferredDistrict: variables.preferredDistrict,
+        preferredDistrict: response.myGu ?? "",
+        selectedSggCd: response.myGuCode ?? null,
       };
       delete settingsToSave.preferredDong;
 
-      queryClient.invalidateQueries({ queryKey: ["member", "me"] });
+      queryClient.setQueryData(["member", "me"], response);
       localStorage.setItem(
         getStorageKey(response.userId),
         JSON.stringify(settingsToSave),
@@ -568,24 +632,25 @@ export default function MyProfilePage() {
       reset(updatedProfile);
       setProfile(updatedProfile);
       setOriginalProfile(updatedProfile);
-      setPreferredDistrict(variables.preferredDistrict);
-      setOriginalDistrict(variables.preferredDistrict);
+      setPreferredDistrict(response.myGu ?? "");
+      setSelectedSggCd(response.myGuCode ?? null);
+      setOriginalDistrict(response.myGu ?? "");
+      setOriginalSggCd(response.myGuCode ?? null);
+      setPreferredDistrictError("");
 
       if (authUser) {
         useAuthStore.getState().setUser({
           ...authUser,
           userId: response.userId,
           name: response.name,
-          myGu: variables.preferredDistrict || null,
-          preferredDistrict: variables.preferredDistrict || undefined,
-          myDong: null,
+          myGu: response.myGu ?? null,
+          myGuCode: response.myGuCode ?? null,
+          preferredDistrict: response.preferredDistrict || undefined,
+          myDong: response.myDong ?? null,
         });
       }
 
-      if (
-        !variables.preferredDistrict ||
-        variables.preferredDistrict === "선호지역 없음"
-      ) {
+      if (!response.myGu) {
         sessionStorage.removeItem(REGION_STORAGE_KEY);
       }
 
@@ -595,6 +660,12 @@ export default function MyProfilePage() {
       alert("회원 정보 및 설정이 성공적으로 저장되었습니다!");
     },
     onError: (error: unknown) => {
+      if (error instanceof PreferredRegionDeleteError) {
+        alert(
+          "회원정보는 저장되었을 수 있지만 선호지역 삭제에 실패했습니다. 입력값은 유지되므로 다시 저장해 주세요.",
+        );
+        return;
+      }
       const serverMessage =
         axios.isAxiosError(error) &&
         (error.response?.data?.message || error.response?.data?.error);
@@ -611,7 +682,8 @@ export default function MyProfilePage() {
       (formValues.address ?? "") !== (originalProfile.address ?? "") ||
       (formValues.detailAddress ?? "") !== (originalProfile.detailAddress ?? "");
 
-    const isDistrictChanged = preferredDistrict !== originalDistrict;
+    const isDistrictChanged =
+      preferredDistrict !== originalDistrict || selectedSggCd !== originalSggCd;
     return isProfileChanged || isDistrictChanged;
   }, [
     formValues.name,
@@ -622,6 +694,8 @@ export default function MyProfilePage() {
     originalProfile,
     preferredDistrict,
     originalDistrict,
+    selectedSggCd,
+    originalSggCd,
   ]);
 
   // [변경 취소] 버튼 클릭 핸들러
@@ -630,6 +704,8 @@ export default function MyProfilePage() {
     reset(originalProfile);
     setProfile(originalProfile);
     setPreferredDistrict(originalDistrict);
+    setSelectedSggCd(originalSggCd);
+    setPreferredDistrictError("");
     setPhoneVerified(false);
     setIdentityVerificationId("");
   };
@@ -647,10 +723,54 @@ export default function MyProfilePage() {
     }
     if (updateMemberMutation.isPending) return;
 
+    const isProfileChanged =
+      (formData.name ?? "") !== (originalProfile.name ?? "") ||
+      (formData.phone ?? "") !== (originalProfile.phone ?? "") ||
+      (formData.email ?? "") !== (originalProfile.email ?? "") ||
+      (formData.address ?? "") !== (originalProfile.address ?? "") ||
+      (formData.detailAddress ?? "") !== (originalProfile.detailAddress ?? "");
+    const isDistrictChanged =
+      preferredDistrict !== originalDistrict || selectedSggCd !== originalSggCd;
+
+    if (preferredDistrict && !selectedSggCd) {
+      setPreferredDistrictError("목록에서 자치구를 다시 선택해 주세요.");
+      return;
+    }
+
+    const shouldClearPreferredRegion =
+      isDistrictChanged && !preferredDistrict && selectedSggCd === null;
+    const shouldPatchMember =
+      isProfileChanged || (isDistrictChanged && selectedSggCd !== null);
+
+    if (!shouldPatchMember && !shouldClearPreferredRegion) return;
+
     updateMemberMutation.mutate({
       formData: { ...profile, ...formData },
-      preferredDistrict,
+      selectedSggCd,
+      shouldPatchMember,
+      shouldClearPreferredRegion,
     });
+  };
+
+  const handlePreferredDistrictChange = (value: string) => {
+    if (!value || value === "선택 안 함") {
+      setPreferredDistrict("");
+      setSelectedSggCd(null);
+      setPreferredDistrictError("");
+      return;
+    }
+
+    const selectedSgg = sggs.find((sgg) => sgg.sggNm === value);
+    setPreferredDistrict(value);
+
+    if (!selectedSgg) {
+      setSelectedSggCd(null);
+      setPreferredDistrictError("목록에 있는 자치구를 선택해 주세요.");
+      return;
+    }
+
+    setSelectedSggCd(selectedSgg.sggCd);
+    setPreferredDistrictError("");
   };
 
   // 본인인증 성공 핸들러
@@ -889,14 +1009,21 @@ export default function MyProfilePage() {
                           value={preferredDistrict}
                           options={districtOptions}
                           disabled={!isLoggedIn || isSggsLoading}
-                          onChange={(value) =>
-                            setPreferredDistrict(value === "선택 안 함" ? "" : value)
-                          }
-                          onInvalidBlur={() => setPreferredDistrict(originalDistrict)}
+                          onChange={handlePreferredDistrictChange}
+                          onInvalidBlur={() => {
+                            setPreferredDistrict(originalDistrict);
+                            setSelectedSggCd(originalSggCd);
+                            setPreferredDistrictError("");
+                          }}
                           placeholder="자치구를 선택하거나 입력해 주세요"
                           className={!preferredDistrict ? "text-[#64748B]" : "text-[#13202B]"}
                         />
                       </div>
+                      {preferredDistrictError && (
+                        <p className="text-[12px] text-[#C2410C]" role="alert">
+                          {preferredDistrictError}
+                        </p>
+                      )}
                       <p className="text-[12px] text-[#6B7280]">
                         선호 자치구는 선택하지 않아도 되며, 선택한 자치구를 기준으로 관심 지역을 표시합니다.
                       </p>

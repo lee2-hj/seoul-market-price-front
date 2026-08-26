@@ -108,6 +108,7 @@ export async function ensureAuthLoaded(): Promise<void> {
       name: me.name,
       role: "",
       myGu: me.myGu,
+      myGuCode: me.myGuCode,
       preferredDistrict: me.preferredDistrict,
       myDong: me.myDong,
     });

@@ -66,6 +66,7 @@ export interface MemberMeResponse {
   name: string;
   preferredDistrict: string;
   myGu: string | null;
+  myGuCode: string | null;
   myDong: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -1221,6 +1222,78 @@ export async function searchNaturalWithAiApi(
   return response.data;
 }
 
+/* ==========================================
+   메인페이지 API
+========================================== */
+
+export type MainPageRequest = {
+  guCode?: string;
+};
+
+export type MainPageDistrict = {
+  cgg_nm: string;
+  avg_deal_price: number;
+  avg_pyeong_price: number;
+};
+
+export type MainPageChangeRate = {
+  bldg_nm: string;
+  change_rate: number;
+};
+
+export type MainPagePriceChangeTop5 = {
+  rising_top5: MainPageChangeRate[];
+  falling_top5: MainPageChangeRate[];
+};
+
+export type MainPagePriceTrend = {
+  period_label: string;
+  start_date: string;
+  end_date: string;
+  avg_deal_price: number;
+  avg_pyeong_price: number;
+  deal_cnt: number;
+};
+
+export type MainPageTradingDong = {
+  cgg_nm: string;
+  stdg_nm: string;
+  deal_cnt: number;
+};
+
+export type MainPagePopularDong = {
+  cgg_nm: string;
+  stdg_nm: string;
+};
+
+export type MainPageTradingApartment = {
+  bldg_nm: string;
+  recent_thing_amt: number;
+  deal_cnt: number;
+};
+
+export type MainPageResponse = {
+  cgg_cd: string;
+  period_start: string;
+  period_end: string;
+  seoul_top5_districts: MainPageDistrict[];
+  price_change_top5: MainPagePriceChangeTop5;
+  preference_price_trend: MainPagePriceTrend[];
+  preference_top_trading_dongs: MainPageTradingDong[];
+  preference_popular_dong: MainPagePopularDong | null;
+  preference_top_trading_apts: MainPageTradingApartment[];
+};
+
+export async function getMainPageApi(
+  request: MainPageRequest = {},
+): Promise<MainPageResponse> {
+  const guCode = request.guCode?.trim();
+  const response = await apiMiddleware.get<MainPageResponse>(
+    "/fastApi/mainpage",
+    guCode ? { params: { guCode } } : undefined,
+  );
+  return response.data;
+}
 // ===============================
 // 내 정보 수정
 // ===============================
@@ -1236,6 +1309,7 @@ export interface MemberUpdateRequest {
   zipcode?: string;
   address?: string;
   addressDetail?: string;
+  sgg_cd?: string;
 }
 
 // 현재 로그인한 회원의 비밀번호, 연락처 및 주소 정보를 수정한다.
@@ -1249,6 +1323,10 @@ export async function updateMemberMeApi(
   );
 
   return response.data;
+}
+
+export async function deleteMyPreferredRegionApi(): Promise<void> {
+  await apiMiddleware.delete("/api/members/me/preferred-region");
 }
 
 export type DongRegionResponse = {
