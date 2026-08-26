@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 /* 공통 레이아웃 및 공개·인증 전용 라우트 접근 제어 */
@@ -8,7 +8,6 @@ import PublicRoute from "@/routes/PublicRoute";
 import SignupFlowLayout from "@/routes/SignupFlowLayout";
 
 /* 인증 상태 복원과 단계형 회원가입 임시 데이터 관리 */
-import FindPasswordForm from "@/features/auth/components/FindPasswordForm";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { ensureAuthLoaded } from "@/features/auth/utils/auth";
 import {
@@ -17,43 +16,70 @@ import {
   isPageReload,
 } from "@/lib/signupFlow";
 
+/* ==========================================================================
+   지연 로딩(React.lazy) 페이지 컴포넌트
+   초기 진입 시 불필요한 번들 다운로드를 방지하고 해당 라우트 접근 시점에 청크를 로드한다.
+========================================================================== */
+
 /* 메인·인증·회원가입·마이페이지 화면 */
-import AboutPage from "@/pages/About/AboutPage";
-import FindIdPage from "@/pages/FindId/FindIdPage";
-import LoginPage from "@/pages/Login/LoginPage";
-import MainPage from "@/pages/Main/MainPage";
-import MyPage from "@/pages/MyPage/MyPage";
-import PassCallbackPage from "@/pages/PassCallback/PassCallbackPage";
-import SignupPage from "@/pages/Signup/SignupPage";
-import SignupSelectPage from "@/pages/SignupSelect/SignupSelectPage";
-import SignupTermsPage from "@/pages/SignupTerms/SignupTermsPage";
-import SignupVerifyPage from "@/pages/SignupVerify/SignupVerifyPage";
+const AboutPage = lazy(() => import("@/pages/About/AboutPage"));
+const FindIdPage = lazy(() => import("@/pages/FindId/FindIdPage"));
+const LoginPage = lazy(() => import("@/pages/Login/LoginPage"));
+const MainPage = lazy(() => import("@/pages/Main/MainPage"));
+const MyPage = lazy(() => import("@/pages/MyPage/MyPage"));
+const PassCallbackPage = lazy(() => import("@/pages/PassCallback/PassCallbackPage"));
+const SignupPage = lazy(() => import("@/pages/Signup/SignupPage"));
+const SignupSelectPage = lazy(() => import("@/pages/SignupSelect/SignupSelectPage"));
+const SignupTermsPage = lazy(() => import("@/pages/SignupTerms/SignupTermsPage"));
+const SignupVerifyPage = lazy(() => import("@/pages/SignupVerify/SignupVerifyPage"));
+const FindPasswordForm = lazy(() => import("@/features/auth/components/FindPasswordForm"));
 
 /* 가격정보 메인·지역 비교·지도·거래 동향 화면 */
-import PricePage from "@/pages/Price/PricePage";
-import PriceCompareListPage from "@/pages/PriceCompareList/PriceCompareListPage";
-import PriceDetailPage from "@/pages/PriceDetail/PriceDetailPage";
-import RegionMapPage from "@/pages/RegionMap/RegionMapPage";
-
-/* 가격정보 아파트별 정보*/
-import PriceCompareAptPage from "../pages/PriceCompareApt/PriceCompareAptPage";
-
-/*아파트별 거래동향 임포트*/
-import MarketTrendsregionPage from "@/pages/Trends/MarketTrendsregionPage";
-import MarketTrendsPage from "@/pages/Trends/MarketTrendsPage";
+const PricePage = lazy(() => import("@/pages/Price/PricePage"));
+const PriceCompareListPage = lazy(() => import("@/pages/PriceCompareList/PriceCompareListPage"));
+const PriceDetailPage = lazy(() => import("@/pages/PriceDetail/PriceDetailPage"));
+const RegionMapPage = lazy(() => import("@/pages/RegionMap/RegionMapPage"));
+const PriceCompareAptPage = lazy(() => import("@/pages/PriceCompareApt/PriceCompareAptPage"));
+const MarketTrendsPage = lazy(() => import("@/pages/Trends/MarketTrendsPage"));
+const MarketTrendsregionPage = lazy(() => import("@/pages/Trends/MarketTrendsregionPage"));
 
 /* 일반 게시판 목록·작성·수정·상세 화면 */
-import BoardPage from "@/pages/Board/BoardPage";
-import BoardDetailPage from "@/pages/BoardDetail/BoardDetailPage";
-import BoardEditPage from "@/pages/BoardEdit/BoardEditPage";
-import BoardWritePage from "@/pages/BoardWrite/BoardWritePage";
+const BoardPage = lazy(() => import("@/pages/Board/BoardPage"));
+const BoardDetailPage = lazy(() => import("@/pages/BoardDetail/BoardDetailPage"));
+const BoardEditPage = lazy(() => import("@/pages/BoardEdit/BoardEditPage"));
+const BoardWritePage = lazy(() => import("@/pages/BoardWrite/BoardWritePage"));
 
 /* Q&A 목록·작성·수정·상세 및 FAQ 화면 */
-import FaqPage from "@/pages/Faq/FaqPage";
-import QnaPage from "@/pages/Qna/QnaPage";
-import QnaDetailPage from "@/pages/Qna/QnaDetailPage";
-import QnaEditPage from "@/pages/Qna/QnaEditPage";
-import QnaWritePage from "@/pages/Qna/QnaWritePage";
+const FaqPage = lazy(() => import("@/pages/Faq/FaqPage"));
+const QnaPage = lazy(() => import("@/pages/Qna/QnaPage"));
+const QnaDetailPage = lazy(() => import("@/pages/Qna/QnaDetailPage"));
+const QnaEditPage = lazy(() => import("@/pages/Qna/QnaEditPage"));
+const QnaWritePage = lazy(() => import("@/pages/Qna/QnaWritePage"));
+
+/**
+ * 페이지 지연 로딩 시 노출되는 가볍고 접근성 있는 로딩 Fallback UI
+ * Header와 Footer는 유지한 채 본문 영역에만 간결한 스피너를 표시한다.
+ */
+function PageLoadingFallback() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label="화면 로딩 중"
+      className="flex min-h-[50vh] w-full flex-col items-center justify-center gap-3 px-4 py-16 text-center"
+    >
+      <div
+        className="size-8 animate-spin rounded-full border-[3px] border-[#DCE8ED] border-t-[#0F8AA8]"
+        aria-hidden="true"
+      />
+      <p className="m-0 text-sm font-semibold text-[#526573]">화면을 불러오는 중입니다...</p>
+    </div>
+  );
+}
+
+function withSuspense(element: React.ReactNode) {
+  return <Suspense fallback={<PageLoadingFallback />}>{element}</Suspense>;
+}
 
 function Router() {
   const isAuthInitialized = useAuthStore((state) => state.isInitialized);
@@ -92,64 +118,87 @@ function Router() {
         ================================================================== */}
         <Route element={<Layout />}>
           {/* 메인: 서비스 홈과 프로젝트 소개 */}
-          <Route path="/" element={<MainPage />} />
-          <Route path="/about" element={<AboutPage />} />
+          <Route path="/" element={withSuspense(<MainPage />)} />
+          <Route path="/about" element={withSuspense(<AboutPage />)} />
+
           {/* --------------------------------------------------------------
               가격정보
               시세 메인, 지역별 목록 비교, 지도 비교, 거래 동향을 제공한다.
           -------------------------------------------------------------- */}
           {/* 가격정보 기본 화면 */}
-          <Route path="/price" element={<PricePage />} />
+          <Route path="/price" element={withSuspense(<PricePage />)} />
           {/* 두 지역의 가격정보를 목록으로 비교하는 화면 */}
           <Route
             path="/price/compare-list"
-            element={<PriceCompareListPage />}
+            element={withSuspense(<PriceCompareListPage />)}
           />
           {/* 지역 가격정보를 지도에서 조회하는 화면 */}
-          <Route path="/region-map" element={<RegionMapPage />} />
+          <Route path="/region-map" element={withSuspense(<RegionMapPage />)} />
           {/* 부동산 거래 동향을 조회하는 화면 */}
-          <Route path="/trends" element={<MarketTrendsPage />} />
+          <Route path="/trends" element={withSuspense(<MarketTrendsPage />)} />
           {/* 지역별 거래동향 */}
-          <Route path="/trends/region" element={<MarketTrendsregionPage />} />
+          <Route
+            path="/trends/region"
+            element={withSuspense(<MarketTrendsregionPage />)}
+          />
           {/* 단지별 시세 상세 */}
-          <Route path="/price/detail" element={<PriceDetailPage />} />
+          <Route
+            path="/price/detail"
+            element={withSuspense(<PriceDetailPage />)}
+          />
+
           {/* --------------------------------------------------------------
               가격정보 아파트별 정보
           -------------------------------------------------------------- */}
           <Route
             path="/price/compare-apartment"
-            element={<PriceCompareAptPage />}
+            element={withSuspense(<PriceCompareAptPage />)}
           />
           <Route
             path="/price/compare-apt"
             element={<Navigate to="/price/compare-apartment" replace />}
           />
+
           {/* --------------------------------------------------------------
               일반 게시판
               목록·작성·상세·수정 화면이며 현재 별도 라우트 권한 제한은 없다.
           -------------------------------------------------------------- */}
           {/* 게시글 목록 */}
-          <Route path="/board" element={<BoardPage />} />
+          <Route path="/board" element={withSuspense(<BoardPage />)} />
           {/* 새 게시글 작성 */}
-          <Route path="/board/write" element={<BoardWritePage />} />
+          <Route path="/board/write" element={withSuspense(<BoardWritePage />)} />
           {/* 게시글 수정: 상세 동적 경로보다 먼저 선언해 구조를 명확히 한다. */}
-          <Route path="/board/:postId/edit" element={<BoardEditPage />} />
+          <Route
+            path="/board/:postId/edit"
+            element={withSuspense(<BoardEditPage />)}
+          />
           {/* 게시글 상세 조회 */}
-          <Route path="/board/:postId" element={<BoardDetailPage />} />
+          <Route
+            path="/board/:postId"
+            element={withSuspense(<BoardDetailPage />)}
+          />
+
           {/* --------------------------------------------------------------
               Q&A 및 FAQ
               Q&A의 목록·작성·상세·수정 화면과 FAQ 목록을 제공한다.
           -------------------------------------------------------------- */}
           {/* Q&A 목록 */}
-          <Route path="/qna" element={<QnaPage />} />
+          <Route path="/qna" element={withSuspense(<QnaPage />)} />
           {/* Q&A 작성 */}
-          <Route path="/qna/write" element={<QnaWritePage />} />
+          <Route path="/qna/write" element={withSuspense(<QnaWritePage />)} />
           {/* Q&A 수정 */}
-          <Route path="/qna/:id/edit" element={<QnaEditPage />} />
+          <Route
+            path="/qna/:id/edit"
+            element={withSuspense(<QnaEditPage />)}
+          />
           {/* Q&A 상세 조회 */}
-          <Route path="/qna/:id" element={<QnaDetailPage />} />
+          <Route
+            path="/qna/:id"
+            element={withSuspense(<QnaDetailPage />)}
+          />
           {/* 자주 묻는 질문 목록 */}
-          <Route path="/faq" element={<FaqPage />} />
+          <Route path="/faq" element={withSuspense(<FaqPage />)} />
+
           {/* --------------------------------------------------------------
               마이페이지
               회원 개인정보를 포함하므로 로그인 사용자만 접근할 수 있다.
@@ -158,7 +207,7 @@ function Router() {
             path="/mypage"
             element={
               <PrivateRoute>
-                <MyPage />
+                {withSuspense(<MyPage />)}
               </PrivateRoute>
             }
           />
@@ -173,7 +222,7 @@ function Router() {
           path="/login"
           element={
             <PublicRoute>
-              <LoginPage />
+              {withSuspense(<LoginPage />)}
             </PublicRoute>
           }
         />
@@ -182,7 +231,7 @@ function Router() {
           path="/signup/select"
           element={
             <PublicRoute>
-              <SignupSelectPage />
+              {withSuspense(<SignupSelectPage />)}
             </PublicRoute>
           }
         />
@@ -191,7 +240,7 @@ function Router() {
           path="/find-id"
           element={
             <PublicRoute>
-              <FindIdPage />
+              {withSuspense(<FindIdPage />)}
             </PublicRoute>
           }
         />
@@ -200,7 +249,7 @@ function Router() {
           path="/find-password"
           element={
             <PublicRoute>
-              <FindPasswordForm />
+              {withSuspense(<FindPasswordForm />)}
             </PublicRoute>
           }
         />
@@ -216,7 +265,7 @@ function Router() {
             path="/signup/terms"
             element={
               <PublicRoute>
-                <SignupTermsPage />
+                {withSuspense(<SignupTermsPage />)}
               </PublicRoute>
             }
           />
@@ -225,7 +274,7 @@ function Router() {
             path="/signup/verify"
             element={
               <PublicRoute>
-                <SignupVerifyPage />
+                {withSuspense(<SignupVerifyPage />)}
               </PublicRoute>
             }
           />
@@ -234,14 +283,17 @@ function Router() {
             path="/signup"
             element={
               <PublicRoute>
-                <SignupPage />
+                {withSuspense(<SignupPage />)}
               </PublicRoute>
             }
           />
         </Route>
 
         {/* PASS 인증 팝업 콜백: 결과를 부모 창으로 전달하므로 PublicRoute를 적용하지 않는다. */}
-        <Route path="/pass/callback" element={<PassCallbackPage />} />
+        <Route
+          path="/pass/callback"
+          element={withSuspense(<PassCallbackPage />)}
+        />
 
         {/* 정의되지 않은 모든 경로는 서비스 홈으로 이동한다. */}
         <Route path="*" element={<Navigate to="/" replace />} />
