@@ -112,9 +112,9 @@ export default function Header() {
     };
   }, []);
 
-  const handleRegionChange = (nextRegion: string) => {
+  const handleRegionChange = (nextRegion: string, sggCd?: string) => {
     const normalizedRegion = nextRegion.trim();
-    storeDetectedDistrict(normalizedRegion);
+    storeDetectedDistrict(normalizedRegion, sggCd);
     setDetectedDistrict(normalizedRegion);
   };
 
@@ -133,12 +133,12 @@ export default function Header() {
         ...(accuracyMeters === undefined ? {} : { accuracyMeters }),
       });
 
-      const { district } = await getCurrentDistrictApi(latitude, longitude);
-      console.info("[현재 위치 조회] 변환된 자치구", district);
+      const { district, sggCd } = await getCurrentDistrictApi(latitude, longitude);
+      console.info("[현재 위치 조회] 변환된 자치구", { district, sggCd });
       if (!isSeoulDistrict(district)) {
         throw new Error("현재 위치가 서울 지역이 아닙니다.");
       }
-      handleRegionChange(district);
+      handleRegionChange(district, sggCd);
     };
 
     if (import.meta.env.DEV) {

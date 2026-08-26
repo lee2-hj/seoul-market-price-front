@@ -14,7 +14,7 @@ export interface AuthUser {
   accessToken?: string;
   myGu?: string | null;
   myGuCode?: string | null;
-  preferredDistrict?: string;
+  preferredDistrict?: string | null;
   myDong?: string | null;
 }
 
