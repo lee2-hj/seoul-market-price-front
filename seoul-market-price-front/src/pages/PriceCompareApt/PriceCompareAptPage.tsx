@@ -1540,7 +1540,7 @@ function AutocompleteSelect({
 
 interface ApartmentSelectCardProps {
   aptNum: 1 | 2;
-  title: string;
+  title?: string;
   district: string;
   dong: string;
   complexName: string;
@@ -1557,7 +1557,7 @@ interface ApartmentSelectCardProps {
 
 function ApartmentSelectCard({
   aptNum,
-  title,
+  title: _title,
   district,
   dong,
   complexName,
@@ -1574,59 +1574,44 @@ function ApartmentSelectCard({
   const isApt1 = aptNum === 1;
   const accentColor = isApt1 ? "blue" : "green";
 
-  // 선택/조회된 자치구, 자치동, 아파트 단지명 조합
-  const fullSelectedName = [
-    district,
-    dong,
-    complexName && complexName !== "대표단지" && complexName !== district
-      ? complexName
-      : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  // 선택/조회된 자치구, 자치동, 아파트 단지명 및 (기준)/(비교) 동적 타이틀 생성
+  const dynamicTitle = useMemo(() => {
+    const parts = [
+      district,
+      dong,
+      complexName && complexName !== "대표단지" && complexName !== district
+        ? complexName
+        : "",
+    ].filter(Boolean);
 
-  const displayTitle = fullSelectedName || title;
+    if (parts.length > 0) {
+      return `${parts.join(" ")} (${isApt1 ? "기준" : "비교"})`;
+    }
+    return isApt1 ? "아파트 1 (기준)" : "아파트 2 (비교)";
+  }, [district, dong, complexName, isApt1]);
 
   return (
-    <div className="rounded-[18px] border border-slate-200/80 bg-white p-4 shadow-[0_4px_20px_rgba(15,23,42,0.03)] transition-all duration-300 hover:border-slate-300 hover:shadow-[0_6px_24px_rgba(15,23,42,0.06)]">
-      <div className="flex flex-col gap-3.5 lg:flex-row lg:items-center">
-        {/* 선택/조회된 자치구 자치동 아파트 단지 타이틀 뱃지 */}
+    <div className="rounded-[16px] border border-slate-200/80 bg-white p-3 sm:py-3 sm:px-4 shadow-[0_3px_16px_rgba(15,23,42,0.03)] transition-all duration-300 hover:border-slate-300 hover:shadow-[0_6px_22px_rgba(15,23,42,0.05)]">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        {/* 선택/조회된 자치구 자치동 아파트 단지 타이틀 (컨테이너 박스 제거) */}
         <div
-          className={cn(
-            "flex shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2.5 max-w-[260px] shadow-2xs transition-all",
-            fullSelectedName
-              ? isApt1
-                ? "border-blue-200 bg-blue-50/70"
-                : "border-emerald-200 bg-emerald-50/70"
-              : "border-slate-200/90 bg-slate-50/80",
-          )}
-          title={displayTitle}
+          className="flex shrink-0 items-center gap-2 sm:min-w-[170px]"
+          title={dynamicTitle}
         >
-          <span
+          <Building
             className={cn(
-              "flex size-6 shrink-0 items-center justify-center rounded-lg text-[12px] font-black text-white",
-              isApt1
-                ? "bg-[#2563EB] shadow-[0_2px_8px_rgba(37,99,235,0.3)]"
-                : "bg-[#16A34A] shadow-[0_2px_8px_rgba(22,163,74,0.3)]",
+              "size-4 shrink-0",
+              isApt1 ? "text-blue-600" : "text-emerald-600",
+            )}
+          />
+          <h3
+            className={cn(
+              "text-[15px] font-black tracking-tight whitespace-nowrap",
+              isApt1 ? "text-blue-700" : "text-emerald-700",
             )}
           >
-            {aptNum}
-          </span>
-          <div className="flex items-center gap-1.5 overflow-hidden">
-            <Building className="size-3.5 shrink-0 text-slate-500" />
-            <h3
-              className={cn(
-                "truncate text-[13.5px] font-black tracking-tight",
-                fullSelectedName
-                  ? isApt1
-                    ? "text-blue-900"
-                    : "text-emerald-900"
-                  : "text-slate-900",
-              )}
-            >
-              {displayTitle}
-            </h3>
-          </div>
+            {dynamicTitle}
+          </h3>
         </div>
 
         {/* 아파트 타이틀 글자 옆으로 나란히 배치되는 자치구, 자치동, 아파트 단지 검색창 */}
@@ -2522,11 +2507,16 @@ function AreaPriceComparison({
         .chart-area-bar svg rect[fill="#2563EB"],
         .chart-area-bar svg rect[fill="#16A34A"],
         .chart-area-bar svg rect[fill="#2563eb"],
-        .chart-area-bar svg rect[fill="#16a34a"],
-        .chart-area-bar svg rect[stroke="none"]:not([width="100%"]) {
+        .chart-area-bar svg rect[fill="#16a34a"] {
           transform-box: fill-box;
           transform-origin: bottom;
-          animation: areaChartBarGrow 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: areaChartBarGrow 1.2s cubic-bezier(0.16, 1, 0.3, 1) 1 forwards;
+        }
+        /* 마우스 올려놨을 때 깜빡임 동작 방지 (애니메이션 재실행 차단) */
+        .chart-area-bar:hover svg rect,
+        .chart-area-bar svg rect:hover,
+        .chart-area-bar svg rect[stroke="none"] {
+          animation: none !important;
         }
       `}</style>
       <div className="mb-4 flex flex-col gap-2.5 border-b border-[#F1F5F9] pb-3">
@@ -2630,7 +2620,6 @@ function QuickVerdict({ apt1, apt2 }: QuickVerdictProps) {
     volDiff,
     householdDiff,
     summaryTitle,
-    summaryDesc,
   } = useMemo(() => {
     const p1Avg = Number(apt1.metrics?.avgPrice || 0);
     const p2Avg = Number(apt2.metrics?.avgPrice || 0);
@@ -2677,6 +2666,38 @@ function QuickVerdict({ apt1, apt2 }: QuickVerdictProps) {
     };
   }, [apt1.metrics, apt2.metrics, apt1.name, apt2.name]);
 
+  /* AI 스마트 요약 리포트 문장 동적 생성 */
+  const aiReportText = useMemo(() => {
+    const p1Avg = Number(apt1.metrics?.avgPrice || 0);
+    const p2Avg = Number(apt2.metrics?.avgPrice || 0);
+    const diffP = Math.abs(p1Avg - p2Avg).toFixed(1);
+
+    const p1Py = Number(apt1.metrics?.pricePerPyeong || 0);
+    const p2Py = Number(apt2.metrics?.pricePerPyeong || 0);
+    const diffPy = Math.round(Math.abs(p1Py - p2Py)).toLocaleString();
+
+    const y1 = Number(apt1.metrics?.buildYear || 0);
+    const y2 = Number(apt2.metrics?.buildYear || 0);
+    const yDiff = y1 > 0 && y2 > 0 ? Math.abs(y1 - y2) : 0;
+
+    const percentDiff = p2Avg > 0 ? ((Math.abs(p1Avg - p2Avg) / p2Avg) * 100).toFixed(1) : "0";
+
+    if (p1Avg === p2Avg) {
+      return `${apt1.name}과(와) ${apt2.name}은(는) 평균 매매가 시세 수준이 유사하게 형성되어 있습니다. 단지 세대수 및 대중교통 접근성을 중심으로 선택하시는 것을 추천합니다.`;
+    }
+
+    const higherApt = p1Avg > p2Avg ? apt1.name : apt2.name;
+    const lowerApt = p1Avg > p2Avg ? apt2.name : apt1.name;
+
+    let ageComment = "";
+    if (yDiff > 0) {
+      const newerApt = y1 > y2 ? apt1.name : apt2.name;
+      ageComment = ` 특히 ${newerApt}이(가) 상대 단지보다 ${yDiff}년 더 신축 단지로서 주거 편의성 프리미엄이 반영되어 있습니다.`;
+    }
+
+    return `${higherApt}의 평균 매매가는 ${p1Avg > p2Avg ? p1Avg.toFixed(1) : p2Avg.toFixed(1)}억 원으로, ${lowerApt} 대비 약 ${diffP}억 원(${percentDiff}%) 높은 시세를 기록 중입니다. 평당가 차이는 약 ${diffPy}만 원 수준입니다.${ageComment}`;
+  }, [apt1, apt2]);
+
   const h1 = Number(apt1.metrics?.totalHouseholds || 0);
   const h2 = Number(apt2.metrics?.totalHouseholds || 0);
   const y1 = Number(apt1.metrics?.buildYear || 0);
@@ -2687,70 +2708,58 @@ function QuickVerdict({ apt1, apt2 }: QuickVerdictProps) {
   return (
     <div className="flex flex-col justify-between rounded-[24px] border border-[#CBD5E1] bg-white p-6 sm:p-7 shadow-[0_8px_30px_rgba(15,23,42,0.06)] transition-all hover:shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
       <div>
-        {/* 헤더 */}
+        {/* 헤더: AI 요약 타이틀 및 AI 상태 배지 */}
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-sm">
+            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20">
               <Sparkles className="size-5" />
             </div>
             <div>
               <h3 className="text-[18px] font-black tracking-tight text-slate-900">
-                한눈에 보는 비교 총평
+                한눈에 보는 AI 요약
               </h3>
-              <p className="text-[12px] font-bold text-slate-500">
-                실거래가 빅데이터 종합 분석 리포트
-              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[12px] font-bold shadow-2xs">
-            <span className="font-black text-blue-700 truncate max-w-[120px]">
-              {apt1.name}
-            </span>
-            <span className="text-slate-400 font-extrabold px-0.5">vs</span>
-            <span className="font-black text-emerald-700 truncate max-w-[120px]">
-              {apt2.name}
-            </span>
-          </div>
+          <span className="flex items-center gap-1.5 rounded-full border border-blue-200/80 bg-blue-50/90 px-3 py-1 text-[11px] font-black text-blue-600 shadow-xs">
+            <Sparkles className="size-3 text-blue-600 animate-pulse" />
+            AI 스마트 분석
+          </span>
         </div>
 
-        {/* 종합 핵심 결론 배너 */}
-        <div className="mb-5 rounded-[18px] bg-gradient-to-r from-blue-50/90 via-indigo-50/70 to-emerald-50/90 p-4.5 border border-blue-100 shadow-2xs">
-          <div className="flex items-center gap-2 text-[12.5px] font-black text-blue-800">
-            <span className="flex size-2 rounded-full bg-blue-600 animate-pulse" />
-            <span>종합 분석 핵심 요약</span>
+        {/* 비교 대상 배지 */}
+        <div className="mb-4 flex items-center justify-between rounded-xl bg-slate-50 px-3.5 py-2 text-[12px] font-bold border border-slate-100">
+          <span className="text-slate-500 font-medium">비교 아파트</span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-black text-blue-700 truncate max-w-[120px]">{apt1.name}</span>
+            <span className="text-slate-400 font-black">vs</span>
+            <span className="font-black text-emerald-700 truncate max-w-[120px]">{apt2.name}</span>
           </div>
-          <div className="mt-1.5 text-[15px] sm:text-[16px] font-black text-slate-900 leading-snug">
-            {summaryTitle}
-          </div>
-          <p className="mt-1.5 text-[13px] sm:text-[13.5px] leading-relaxed font-semibold text-slate-600">
-            {summaryDesc}
-          </p>
         </div>
 
         {/* 항목별 상세 총정리 리스트 */}
-        <div className="flex flex-col gap-3.5">
+        <div className="flex flex-col gap-3">
           {/* 1. 평균 매매가 & 평당가 */}
-          <div className="rounded-[16px] border border-slate-200 bg-slate-50/60 p-4 transition-all hover:bg-white hover:border-blue-300 hover:shadow-sm">
-            <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[13px] font-extrabold text-slate-700">
-                <div className="flex size-6 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
+          <div className="rounded-[14px] border border-slate-200 bg-slate-50/60 p-3.5 transition-all hover:bg-white hover:border-blue-300 hover:shadow-xs">
+            <div className="mb-1.5 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[12px] font-black text-slate-800">
+                <div className="flex size-5.5 items-center justify-center rounded-md bg-blue-100 text-blue-700">
                   <Coins className="size-3.5" />
                 </div>
                 <span>시세 및 평당가 비교</span>
               </div>
-              <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11.5px] font-black text-blue-700 border border-blue-200">
+              <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-700 border border-blue-200">
                 격차 {Math.abs(avgDiff).toFixed(1)}억 원
               </span>
             </div>
-            <div className="text-[14px] sm:text-[15px] font-bold leading-relaxed text-slate-900">
+            <div className="text-[12.5px] sm:text-[13px] font-bold leading-snug text-slate-900 break-keep">
               {avgDiff > 0 ? (
                 <>
                   <span className="inline-block rounded bg-blue-100/80 px-1.5 py-0.5 font-black text-blue-800">{apt1.name}</span>
                   <span className="text-slate-600 font-semibold">({apt1.metrics?.avgPrice || 0}억)</span>이{" "}
                   <span className="inline-block rounded bg-emerald-100/80 px-1.5 py-0.5 font-black text-emerald-800">{apt2.name}</span>
                   <span className="text-slate-600 font-semibold">({apt2.metrics?.avgPrice || 0}억)</span>보다{" "}
-                  <span className="text-rose-600 font-black text-[15px]">평균 {Math.abs(avgDiff).toFixed(1)}억 원</span>
+                  <span className="text-rose-600 font-black">평균 {Math.abs(avgDiff).toFixed(1)}억 원</span>
                   <span className="text-slate-700"> (평당 {Math.abs(pyeongDiff).toLocaleString()}만 원) 더 높게 형성</span>
                 </>
               ) : avgDiff < 0 ? (
@@ -2759,7 +2768,7 @@ function QuickVerdict({ apt1, apt2 }: QuickVerdictProps) {
                   <span className="text-slate-600 font-semibold">({apt2.metrics?.avgPrice || 0}억)</span>이{" "}
                   <span className="inline-block rounded bg-blue-100/80 px-1.5 py-0.5 font-black text-blue-800">{apt1.name}</span>
                   <span className="text-slate-600 font-semibold">({apt1.metrics?.avgPrice || 0}억)</span>보다{" "}
-                  <span className="text-rose-600 font-black text-[15px]">평균 {Math.abs(avgDiff).toFixed(1)}억 원</span>
+                  <span className="text-rose-600 font-black">평균 {Math.abs(avgDiff).toFixed(1)}억 원</span>
                   <span className="text-slate-700"> (평당 {Math.abs(pyeongDiff).toLocaleString()}만 원) 더 높게 형성</span>
                 </>
               ) : (
@@ -2769,21 +2778,21 @@ function QuickVerdict({ apt1, apt2 }: QuickVerdictProps) {
           </div>
 
           {/* 2. 단지 규모 및 세대수 */}
-          <div className="rounded-[16px] border border-slate-200 bg-slate-50/60 p-4 transition-all hover:bg-white hover:border-emerald-300 hover:shadow-sm">
-            <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[13px] font-extrabold text-slate-700">
-                <div className="flex size-6 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+          <div className="rounded-[14px] border border-slate-200 bg-slate-50/60 p-3.5 transition-all hover:bg-white hover:border-emerald-300 hover:shadow-xs">
+            <div className="mb-1.5 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[12px] font-black text-slate-800">
+                <div className="flex size-5.5 items-center justify-center rounded-md bg-emerald-100 text-emerald-700">
                   <Users className="size-3.5" />
                 </div>
                 <span>단지 규모 (총 세대수)</span>
               </div>
               {householdDiff !== 0 && (
-                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11.5px] font-black text-emerald-700 border border-emerald-200">
+                <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700 border border-emerald-200">
                   {Math.abs(householdDiff).toLocaleString()}세대 차이
                 </span>
               )}
             </div>
-            <div className="text-[14px] sm:text-[15px] font-bold leading-relaxed text-slate-900">
+            <div className="text-[12.5px] sm:text-[13px] font-bold leading-snug text-slate-900 break-keep">
               {householdDiff > 0 ? (
                 <>
                   <span className="inline-block rounded bg-blue-100/80 px-1.5 py-0.5 font-black text-blue-800">{apt1.name}</span>
@@ -2803,19 +2812,19 @@ function QuickVerdict({ apt1, apt2 }: QuickVerdictProps) {
           </div>
 
           {/* 3. 최근 3개월 실거래 유동성 */}
-          <div className="rounded-[16px] border border-slate-200 bg-slate-50/60 p-4 transition-all hover:bg-white hover:border-indigo-300 hover:shadow-sm">
-            <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[13px] font-extrabold text-slate-700">
-                <div className="flex size-6 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
+          <div className="rounded-[14px] border border-slate-200 bg-slate-50/60 p-3.5 transition-all hover:bg-white hover:border-indigo-300 hover:shadow-xs">
+            <div className="mb-1.5 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[12px] font-black text-slate-800">
+                <div className="flex size-5.5 items-center justify-center rounded-md bg-indigo-100 text-indigo-700">
                   <BarChart3 className="size-3.5" />
                 </div>
                 <span>실거래 거래량 (유동성·환금성)</span>
               </div>
-              <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11.5px] font-black text-indigo-700 border border-indigo-200">
+              <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-black text-indigo-700 border border-indigo-200">
                 최근 3개월 기준
               </span>
             </div>
-            <div className="text-[14px] sm:text-[15px] font-bold leading-relaxed text-slate-900">
+            <div className="text-[12.5px] sm:text-[13px] font-bold leading-snug text-slate-900 break-keep">
               {volDiff > 0 ? (
                 <>
                   <span className="inline-block rounded bg-blue-100/80 px-1.5 py-0.5 font-black text-blue-800">{apt1.name}</span>
@@ -2839,21 +2848,21 @@ function QuickVerdict({ apt1, apt2 }: QuickVerdictProps) {
           </div>
 
           {/* 4. 준공 연도 (연식 & 신축성) */}
-          <div className="rounded-[16px] border border-slate-200 bg-slate-50/60 p-4 transition-all hover:bg-white hover:border-purple-300 hover:shadow-sm">
-            <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[13px] font-extrabold text-slate-700">
-                <div className="flex size-6 items-center justify-center rounded-lg bg-purple-100 text-purple-700">
+          <div className="rounded-[14px] border border-slate-200 bg-slate-50/60 p-3.5 transition-all hover:bg-white hover:border-purple-300 hover:shadow-xs">
+            <div className="mb-1.5 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[12px] font-black text-slate-800">
+                <div className="flex size-5.5 items-center justify-center rounded-md bg-purple-100 text-purple-700">
                   <Building2 className="size-3.5" />
                 </div>
                 <span>준공 연식 & 신축 프리미엄</span>
               </div>
               {ageDiff !== 0 && (
-                <span className="rounded-full bg-purple-50 px-2.5 py-0.5 text-[11.5px] font-black text-purple-700 border border-purple-200">
+                <span className="rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-black text-purple-700 border border-purple-200">
                   {Math.abs(ageDiff)}년 차이
                 </span>
               )}
             </div>
-            <div className="text-[14px] sm:text-[15px] font-bold leading-relaxed text-slate-900">
+            <div className="text-[12.5px] sm:text-[13px] font-bold leading-snug text-slate-900 break-keep">
               {ageDiff > 0 ? (
                 <>
                   <span className="inline-block rounded bg-blue-100/80 px-1.5 py-0.5 font-black text-blue-800">{apt1.name}</span>
@@ -2871,6 +2880,25 @@ function QuickVerdict({ apt1, apt2 }: QuickVerdictProps) {
               )}
             </div>
           </div>
+        </div>
+
+        {/* AI 스마트 리포트 종합 박스 (Dark Card) - 제일 마지막으로 위치 변경 */}
+        <div className="mt-3.5 rounded-[14px] border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-4 text-white shadow-md">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[12px] font-black text-amber-400">
+              <Sparkles className="size-3.5 text-amber-400" />
+              <span>AI 스마트 리포트 종합</span>
+            </div>
+            <span className="text-[9.5px] font-extrabold text-slate-400">
+              실시간 데이터 분석
+            </span>
+          </div>
+          <div className="text-[13.5px] font-black text-white leading-snug mb-1 truncate">
+            {summaryTitle}
+          </div>
+          <p className="text-[12.5px] leading-relaxed font-medium text-slate-200 break-keep">
+            {aiReportText}
+          </p>
         </div>
       </div>
     </div>
@@ -3168,10 +3196,10 @@ export default function PriceCompareAptPage() {
               </button>
             </div>
 
-            <div className="mb-8 rounded-[24px] border border-[#E2E8F0] bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
-              <div className="grid grid-cols-[1fr_170px] items-stretch gap-5 max-[1024px]:grid-cols-1">
+            <div className="mb-8 rounded-[20px] border border-[#E2E8F0] bg-white p-4 sm:p-4.5 shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
+              <div className="grid grid-cols-[1fr_170px] items-stretch gap-4 max-[1024px]:grid-cols-1">
                 {/* 좌측: 아파트 1 (상단) + 중간 VS 인디케이터 + 아파트 2 (하단) */}
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5">
                   {/* 아파트 1 컨테이너 */}
                   <ApartmentSelectCard
                     aptNum={1}
@@ -3195,9 +3223,14 @@ export default function PriceCompareAptPage() {
                   />
 
                   {/* 중간 VS 뱃지 */}
-                  <div className="flex items-center justify-center my-1">
-                    <div className="flex items-center justify-center rounded-full border border-blue-200 bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-0.5 text-[11px] font-black text-white shadow-sm">
-                      <span>VS</span>
+                  <div className="flex items-center justify-center py-0">
+                    <div className="group relative flex items-center justify-center">
+                      {/* 소프트 앰비언트 글로우 */}
+                      <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-blue-500/25 via-indigo-500/20 to-sky-500/25 blur-sm transition-all duration-300 group-hover:scale-110 opacity-80" />
+                      {/* 메인 VS 배지 (이탈릭 볼드 폰트 + 입체 그라데이션) */}
+                      <div className="relative flex size-9 items-center justify-center rounded-full border border-white/60 bg-gradient-to-br from-[#3B82F6] via-[#2563EB] to-[#1D4ED8] text-[11px] font-black italic tracking-widest text-white shadow-[0_4px_14px_rgba(37,99,235,0.3)] ring-2 ring-blue-100/90">
+                        VS
+                      </div>
                     </div>
                   </div>
 
