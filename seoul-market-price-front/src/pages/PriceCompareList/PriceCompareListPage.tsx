@@ -666,70 +666,90 @@ function RegionCard({
 }: RegionCardProps) {
   const isRegion1 = regionNum === 1;
   const accentColor = isRegion1 ? "blue" : "green";
+
+  /* 자치구, 자치동 선택에 따라 동적으로 변경되는 타이틀 */
+  const dynamicTitle = useMemo(() => {
+    if (district && dong) {
+      return `${district} ${dong} (${isRegion1 ? "기준" : "비교"})`;
+    }
+    if (district) {
+      return `${district} (${isRegion1 ? "기준" : "비교"})`;
+    }
+    return title;
+  }, [district, dong, isRegion1, title]);
+
   return (
-    <div className="flex flex-col justify-between rounded-[22px] border border-slate-200/80 bg-white p-6 shadow-[0_4px_20px_rgba(15,23,42,0.04)] transition-all duration-300 hover:shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
-      <div>
-        <div className="mb-5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <MapPin className="size-4 shrink-0 text-slate-600" />
-            <h3 className="text-[15px] font-black tracking-tight text-slate-900">
-              {title}
-            </h3>
-          </div>
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-4 rounded-[16px] border border-slate-200/80 bg-white p-3 sm:py-3 sm:px-4 shadow-[0_3px_16px_rgba(15,23,42,0.03)] transition-all duration-300 hover:shadow-[0_6px_22px_rgba(15,23,42,0.05)]">
+      {/* 타이틀 영역 (지역 1: 파란색, 지역 2: 그린색 / 선택 시 자치구·자치동 이름으로 동적 변경) */}
+      <div className="flex items-center gap-2 shrink-0 sm:min-w-[160px]">
+        <MapPin
+          className={cn(
+            "size-4 shrink-0",
+            isRegion1 ? "text-blue-600" : "text-emerald-600",
+          )}
+        />
+        <h3
+          className={cn(
+            "text-[15px] font-black tracking-tight whitespace-nowrap",
+            isRegion1 ? "text-blue-700" : "text-emerald-700",
+          )}
+        >
+          {dynamicTitle}
+        </h3>
+      </div>
+
+      {/* 자치구 및 자치동 선택창 영역 (타이틀 옆 가로 배치) */}
+      <div className="grid flex-1 grid-cols-2 gap-4 w-full max-[640px]:grid-cols-1">
+        {/* 자치구 입력 */}
+        <div className="flex flex-col gap-1.5">
+          <label className="flex items-center justify-between text-[12.5px] font-bold text-slate-700">
+            <span className="flex items-center gap-1.5">
+              <span>자치구 선택</span>
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-700">
+                필수
+              </span>
+            </span>
+          </label>
+          <AutocompleteSelect
+            value={district}
+            onChange={onDistrictChange}
+            options={sggOptions}
+            placeholder={
+              isSggLoading
+                ? "목록 로딩 중..."
+                : isRegion1
+                  ? "자치구 입력 (예: 강남구)"
+                  : "자치구 입력 (예: 서초구)"
+            }
+            disabled={isSggLoading}
+            accentColor={accentColor}
+          />
         </div>
 
-        <div className="flex flex-col gap-4">
-          {/* 자치구 입력 */}
-          <div className="flex flex-col gap-1.5">
-            <label className="flex items-center justify-between text-[13px] font-bold text-slate-700">
-              <span className="flex items-center gap-1.5">
-                <span>자치구 선택</span>
-                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-700">
-                  필수
-                </span>
+        {/* 자치동 입력 */}
+        <div className="flex flex-col gap-1.5">
+          <label className="flex items-center justify-between text-[12.5px] font-bold text-slate-700">
+            <span className="flex items-center gap-1.5">
+              <span>자치동 선택</span>
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-700">
+                필수
               </span>
-            </label>
-            <AutocompleteSelect
-              value={district}
-              onChange={onDistrictChange}
-              options={sggOptions}
-              placeholder={
-                isSggLoading
-                  ? "목록 로딩 중..."
-                  : isRegion1
-                    ? "자치구 입력 (예: 강남구)"
-                    : "자치구 입력 (예: 서초구)"
-              }
-              disabled={isSggLoading}
-              accentColor={accentColor}
-            />
-          </div>
-
-          {/* 자치동 입력 */}
-          <div className="flex flex-col gap-1.5">
-            <label className="flex items-center justify-between text-[13px] font-bold text-slate-700">
-              <span className="flex items-center gap-1.5">
-                <span>자치동 선택</span>
-                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-700">
-                  필수
-                </span>
-              </span>
-            </label>
-            <AutocompleteSelect
-              value={dong}
-              onChange={onDongChange}
-              options={dongOptions}
-              placeholder={
-                !district
-                  ? "자치구를 먼저 선택하세요"
-                  : isDongLoading
-                    ? "자치동 목록 로딩 중..."
-                    : "자치동을 선택하세요"
-              }
-              disabled={!district || isDongLoading}
-              accentColor={accentColor}
-            />
-          </div>
+            </span>
+          </label>
+          <AutocompleteSelect
+            value={dong}
+            onChange={onDongChange}
+            options={dongOptions}
+            placeholder={
+              !district
+                ? "자치구를 먼저 선택하세요"
+                : isDongLoading
+                  ? "자치동 목록 로딩 중..."
+                  : "자치동을 선택하세요"
+            }
+            disabled={!district || isDongLoading}
+            accentColor={accentColor}
+          />
         </div>
       </div>
     </div>
@@ -933,38 +953,42 @@ interface SummaryCardProps {
 
 function renderDiffTextFormatted(
   text: string,
+  r1Text?: string,
+  _r2Text?: string,
 ) {
   if (!text) return null;
-  if (text === "두 지역의 시세가 동일함") {
-    return <span className="text-[14.5px] font-semibold text-slate-700">두 지역의 시세가 동일함</span>;
+  if (text === "두 지역의 시세가 동일함" || text === "평당가 데이터 없음") {
+    return (
+      <div className="flex items-center justify-between pt-0.5">
+        <span className="text-[12.5px] font-bold text-slate-600 break-keep">{text}</span>
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10.5px] font-bold text-slate-500">동일/없음</span>
+      </div>
+    );
   }
 
-  const hasUp = text.includes("▲");
-  const hasDown = text.includes("▼");
   const baseText = text.replace(/[▲▼]/g, "").trim();
 
-  // '이(가)' 와 '보다' 를 기준으로 분리하여 지역명과 숫자만 강조
+  // '이(가)' 와 '보다' 를 기준으로 분리하여 깔끔하고 가독성 높은 텍스트 표현
   const match = baseText.match(/^(.*?)이\(가\)\s+(.*?)보다\s+(.*)$/);
   if (match) {
     const [, higherName, lowerName, diffStr] = match;
+    const isHigherR1 = r1Text ? higherName.includes(r1Text) : true;
+
+    const higherColorClass = isHigherR1 ? "text-blue-700 font-black" : "text-emerald-700 font-black";
+    const lowerColorClass = isHigherR1 ? "text-emerald-700 font-black" : "text-blue-700 font-black";
+
     return (
-      <span className="text-[14.5px] font-medium text-slate-500 leading-normal">
-        <span className="font-black text-slate-950">{higherName}</span>
-        <span>이(가) </span>
-        <span className="font-black text-slate-950">{lowerName}</span>
-        <span>보다 </span>
-        <span className="font-black text-slate-950">{diffStr}</span>
-        {hasUp && <span className="ml-1 text-[13px] font-black text-rose-600">▲</span>}
-        {hasDown && <span className="ml-1 text-[13px] font-black text-blue-600">▼</span>}
-      </span>
+      <p className="text-[12.5px] font-semibold text-slate-700 leading-snug break-keep pt-0.5">
+        <span className={higherColorClass}>{higherName}</span>이(가){" "}
+        <span className={lowerColorClass}>{lowerName}</span>보다{" "}
+        <span className="font-black text-rose-600">{diffStr}</span> 더 높게 형성되어 있습니다.
+      </p>
     );
   }
 
   return (
-    <span className="text-[14.5px] font-black leading-normal text-slate-950">
+    <span className="text-[13px] font-black leading-snug text-slate-900 break-keep">
       {baseText}
-      {hasUp && <span className="ml-1 text-[13px] font-black text-rose-600">▲</span>}
-      {hasDown && <span className="ml-1 text-[13px] font-black text-blue-600">▼</span>}
     </span>
   );
 }
@@ -983,94 +1007,107 @@ function SummaryCard({
     ? `${appliedRegions.r2.district} ${appliedRegions.r2.dong}`
     : appliedRegions.r2.district || "지역 2";
 
+  /* 실시간 조회 데이터 기반 AI 요약 브리핑 생성 */
+  const aiReportText = useMemo(() => {
+    const p1 = Number(r1Metrics.avgPrice || 0);
+    const p2 = Number(r2Metrics.avgPrice || 0);
+    const py1 = r1Metrics.avgPyeongPrice ?? 0;
+    const py2 = r2Metrics.avgPyeongPrice ?? 0;
+    const diffP = Math.abs(p1 - p2).toFixed(1);
+    const diffPy = Math.abs(py1 - py2).toLocaleString();
+
+    if (p1 === p2) {
+      return `${r1Text}과(와) ${r2Text}은(는) 평균 매매가가 동일한 시세 수준을 유지하고 있습니다. 입지 선호도 및 단지별 조건에 맞춰 탐색해보시는 것을 권장합니다.`;
+    }
+    const higherText = p1 > p2 ? r1Text : r2Text;
+    const lowerText = p1 > p2 ? r2Text : r1Text;
+    const percentDiff = p2 > 0 ? ((Math.abs(p1 - p2) / p2) * 100).toFixed(1) : "0";
+
+    let pyComment = "";
+    if (py1 > 0 && py2 > 0) {
+      const pyHigher = py1 > py2 ? r1Text : r2Text;
+      pyComment = ` 평당가 또한 ${pyHigher}이(가) 평당 ${diffPy}만 원 높게 형성되어 전반적인 주거 가치가 더 높게 평가받고 있습니다.`;
+    }
+
+    return `${higherText}의 평균 매매가는 약 ${p1 > p2 ? p1.toFixed(1) : p2.toFixed(1)}억 원으로, ${lowerText} 대비 약 ${diffP}억 원(${percentDiff}%) 상회하고 있습니다.${pyComment}`;
+  }, [r1Text, r2Text, r1Metrics, r2Metrics]);
+
   return (
-    <div className="flex flex-col justify-between rounded-[24px] border border-slate-200/80 bg-white p-7 shadow-[0_8px_30px_rgba(15,23,42,0.04)] transition-all hover:shadow-[0_12px_36px_rgba(15,23,42,0.06)]">
+    <div className="flex flex-col justify-between rounded-[20px] border border-slate-200/80 bg-white p-6 shadow-xs transition-all hover:shadow-md">
       <div>
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+        {/* 헤더: AI 요약 타이틀 및 AI 라벨 */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-amber-50 text-amber-500">
+            <div className="flex size-7.5 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-xs">
               <Sparkles className="size-4" />
             </div>
-            <h3 className="text-[17px] font-black tracking-tight text-slate-900">
-              한눈에 보는 요약
+            <h3 className="text-[16px] font-black tracking-tight text-slate-900">
+              한눈에 보는 AI 요약
             </h3>
           </div>
 
-          <div className="flex items-center gap-1.5 text-[12px] font-bold">
-            <span className="font-black text-blue-700">
-              {r1Text}
-            </span>
+          <span className="flex items-center gap-1.5 rounded-full border border-blue-200/80 bg-blue-50/90 px-2.5 py-0.5 text-[10.5px] font-black text-blue-600 shadow-xs">
+            <Sparkles className="size-3 text-blue-600 animate-pulse" />
+            AI 스마트 분석
+          </span>
+        </div>
+
+        {/* 비교 대상 명시 */}
+        <div className="mb-3.5 flex items-center justify-between rounded-xl bg-slate-50 px-3 py-1.5 text-[11.5px] font-bold border border-slate-100">
+          <span className="text-slate-500 font-medium">비교 대상</span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-black text-blue-700">{r1Text}</span>
             <span className="text-slate-400 font-black">vs</span>
-            <span className="font-black text-emerald-700">
-              {r2Text}
-            </span>
+            <span className="font-black text-emerald-700">{r2Text}</span>
           </div>
         </div>
 
-        <div className="flex flex-col gap-3.5">
-          {/* 평균 매매가 요약 */}
-          <div className="group rounded-[16px] border border-slate-200/80 bg-white p-4 shadow-xs transition-all hover:border-slate-300">
-            <div className="mb-1.5 flex items-center">
-              <span className="flex items-center gap-1.5 text-[13px] font-bold text-slate-700">
-                <Building2 className="size-4 text-sky-600" />
-                평균 매매가 차이
+        <div className="flex flex-col gap-3">
+          {/* 평균 매매가 차이 AI 브리핑 */}
+          <div className="group rounded-[14px] border border-slate-200/80 bg-white p-3.5 shadow-2xs transition-all hover:border-slate-300">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-[12px] font-black text-slate-800">
+                <Building2 className="size-3.5 text-sky-600" />
+                평균 매매가 AI 분석
+              </span>
+              <span className="rounded bg-sky-50 px-1.5 py-0.5 text-[9.5px] font-black text-sky-600 border border-sky-100">
+                매매 시세
               </span>
             </div>
-            <p className="mt-0.5">
-              {renderDiffTextFormatted(avgDiffText)}
-            </p>
+            <div className="mt-0.5">
+              {renderDiffTextFormatted(avgDiffText, r1Text, r2Text)}
+            </div>
           </div>
 
-          {/* 평균 평당가 요약 */}
-          <div className="group rounded-[16px] border border-slate-200/80 bg-white p-4 shadow-xs transition-all hover:border-slate-300">
-            <div className="mb-1.5 flex items-center">
-              <span className="flex items-center gap-1.5 text-[13px] font-bold text-slate-700">
-                <TrendingUp className="size-4 text-indigo-600" />
-                평균 평당가 차이
+          {/* 평균 평당가 차이 AI 브리핑 */}
+          <div className="group rounded-[14px] border border-slate-200/80 bg-white p-3.5 shadow-2xs transition-all hover:border-slate-300">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-[12px] font-black text-slate-800">
+                <TrendingUp className="size-3.5 text-indigo-600" />
+                평균 평당가 AI 분석
+              </span>
+              <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[9.5px] font-black text-indigo-600 border border-indigo-100">
+                단위 가치
               </span>
             </div>
-            <p className="mt-0.5">
-              {renderDiffTextFormatted(pyeongDiffText)}
-            </p>
+            <div className="mt-0.5">
+              {renderDiffTextFormatted(pyeongDiffText, r1Text, r2Text)}
+            </div>
           </div>
 
-          {/* 종합 의견 박스 */}
-          <div className="rounded-[16px] border border-slate-200/80 bg-slate-50/70 p-5 shadow-xs">
-            <div className="mb-2.5 flex items-center gap-1.5 text-[14px] font-black text-slate-800">
-              <Sparkles className="size-4 text-amber-500" />
-              <span>종합 의견</span>
+          {/* AI 종합 인사이트 카드 */}
+          <div className="rounded-[14px] border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-4 text-white shadow-md">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[12px] font-black text-amber-400">
+                <Sparkles className="size-3.5 text-amber-400" />
+                <span>AI 스마트 리포트 종합</span>
+              </div>
+              <span className="text-[9.5px] font-extrabold text-slate-400">
+                실시간 데이터 분석
+              </span>
             </div>
-            <p className="text-[15px] leading-[1.65] text-slate-600">
-              <span className="font-black text-slate-950">{r1Text}</span>과(와){" "}
-              <span className="font-black text-slate-950">{r2Text}</span>의
-              시세를 비교한 결과,{" "}
-              {Number(r1Metrics.avgPrice) > Number(r2Metrics.avgPrice) ? (
-                <>
-                  <span className="font-black text-slate-950">{r1Text}</span>의
-                  매매 시세가{" "}
-                  <span className="font-black text-blue-700">
-                    더 높게 형성
-                  </span>
-                  되어 있습니다.
-                </>
-              ) : Number(r1Metrics.avgPrice) < Number(r2Metrics.avgPrice) ? (
-                <>
-                  <span className="font-black text-slate-950">{r2Text}</span>의
-                  매매 시세가{" "}
-                  <span className="font-black text-emerald-700">
-                    더 높게 형성
-                  </span>
-                  되어 있습니다.
-                </>
-              ) : (
-                <>
-                  두 지역의 평균 매매 시세가{" "}
-                  <span className="font-black text-slate-950">
-                    유사한 수준
-                  </span>
-                  입니다.
-                </>
-              )}
+            <p className="text-[12.5px] leading-relaxed font-medium text-slate-200 break-keep">
+              {aiReportText}
             </p>
           </div>
         </div>
@@ -1101,6 +1138,48 @@ function CompareBarCharts({
   const r2Text = appliedRegions.r2.dong
     ? `${appliedRegions.r2.district} ${appliedRegions.r2.dong}`
     : appliedRegions.r2.district || "지역 2";
+
+  // 1. 평균 매매가 비교 차이 뱃지 데이터 (v1 vs v2)
+  const avgV1 = Number(r1Metrics.avgPrice || 0);
+  const avgV2 = Number(r2Metrics.avgPrice || 0);
+  const avgDiffVal = Math.abs(avgV1 - avgV2).toFixed(1);
+
+  const r1AvgBadge =
+    avgV1 > avgV2
+      ? { text: `▲ ${avgDiffVal}억`, colorClass: "bg-rose-50 text-rose-700 border-rose-200" }
+      : avgV1 < avgV2
+        ? { text: `▼ ${avgDiffVal}억`, colorClass: "bg-blue-50 text-blue-700 border-blue-200" }
+        : { text: "동일", colorClass: "bg-slate-100 text-slate-600 border-slate-200" };
+
+  const r2AvgBadge =
+    avgV2 > avgV1
+      ? { text: `▲ ${avgDiffVal}억`, colorClass: "bg-rose-50 text-rose-700 border-rose-200" }
+      : avgV2 < avgV1
+        ? { text: `▼ ${avgDiffVal}억`, colorClass: "bg-blue-50 text-blue-700 border-blue-200" }
+        : { text: "동일", colorClass: "bg-slate-100 text-slate-600 border-slate-200" };
+
+  // 2. 평단가 비교 차이 뱃지 데이터 (py1 vs py2)
+  const pyV1 = Number(r1PyeongPrice || 0);
+  const pyV2 = Number(r2PyeongPrice || 0);
+  const pyDiffVal = Math.abs(pyV1 - pyV2).toLocaleString();
+
+  const r1PyBadge =
+    pyV1 > 0 && pyV2 > 0
+      ? pyV1 > pyV2
+        ? { text: `▲ ${pyDiffVal}만`, colorClass: "bg-rose-50 text-rose-700 border-rose-200" }
+        : pyV1 < pyV2
+          ? { text: `▼ ${pyDiffVal}만`, colorClass: "bg-blue-50 text-blue-700 border-blue-200" }
+          : { text: "동일", colorClass: "bg-slate-100 text-slate-600 border-slate-200" }
+      : { text: "-", colorClass: "bg-slate-100 text-slate-500 border-slate-200" };
+
+  const r2PyBadge =
+    pyV1 > 0 && pyV2 > 0
+      ? pyV2 > pyV1
+        ? { text: `▲ ${pyDiffVal}만`, colorClass: "bg-rose-50 text-rose-700 border-rose-200" }
+        : pyV2 < pyV1
+          ? { text: `▼ ${pyDiffVal}만`, colorClass: "bg-blue-50 text-blue-700 border-blue-200" }
+          : { text: "동일", colorClass: "bg-slate-100 text-slate-600 border-slate-200" }
+      : { text: "-", colorClass: "bg-slate-100 text-slate-500 border-slate-200" };
 
   // 1. 평균 매매가 비교 구글 차트 데이터 (단위: 억, 지역 1: 블루, 지역 2: 그린)
   const avgChartData = useMemo(() => {
@@ -1173,42 +1252,52 @@ function CompareBarCharts({
         .compare-bar-chart svg rect[fill="#10B981"],
         .compare-bar-chart svg rect[fill="#16A34A"],
         .compare-bar-chart svg rect[fill="#2563eb"],
-        .compare-bar-chart svg rect[fill="#10b981"],
-        .compare-bar-chart svg rect[stroke="none"]:not([width="100%"]) {
+        .compare-bar-chart svg rect[fill="#10b981"] {
           transform-box: fill-box;
           transform-origin: bottom;
-          animation: compareBarGrow 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: compareBarGrow 1.2s cubic-bezier(0.16, 1, 0.3, 1) 1 forwards;
+        }
+        /* 마우스 올려놨을 때 깜빡임 동작 방지 (애니메이션 재실행 차단) */
+        .compare-bar-chart:hover svg rect,
+        .compare-bar-chart svg rect:hover,
+        .compare-bar-chart svg rect[stroke="none"] {
+          animation: none !important;
         }
       `}</style>
       {/* 평균 매매가 비교 차트 */}
-      <div className="flex flex-col justify-between rounded-[24px] border border-slate-200/80 bg-white p-7 shadow-[0_8px_30px_rgba(15,23,42,0.04)] transition-all hover:shadow-[0_12px_36px_rgba(15,23,42,0.06)]">
+      <div className="flex flex-col justify-between rounded-[24px] border border-slate-200/80 bg-white p-6 sm:p-7 shadow-xs transition-all hover:shadow-md">
         <div>
-          <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3.5">
-            <h3 className="flex items-center gap-2 text-[16px] font-black text-slate-900">
-              <div className="flex size-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                <Building2 className="size-4" />
-              </div>
-              평균 매매가 비교
-            </h3>
-            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">
-              단위: 억 원
-            </span>
-          </div>
-
-          <div className="mb-3 flex items-center justify-between px-2 text-[13px]">
-            <div className="flex items-center gap-2">
-              <span className="size-2.5 rounded-full bg-blue-600" />
-              <span className="font-extrabold text-blue-700">{r1Text}</span>
-              <span className="text-[16px] font-black text-slate-900">
-                {r1Metrics.avgPrice}
+          {/* 차트 헤더 */}
+          <div className="mb-3 border-b border-slate-100 pb-3">
+            <div className="flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-[16px] font-black text-slate-900">
+                <div className="flex size-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                  <Building2 className="size-4" />
+                </div>
+                평균 매매가 비교
+              </h3>
+              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">
+                단위: 억 원
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="size-2.5 rounded-full bg-emerald-500" />
-              <span className="font-extrabold text-emerald-700">{r2Text}</span>
-              <span className="text-[16px] font-black text-slate-900">
-                {r2Metrics.avgPrice}
-              </span>
+
+            {/* 타이틀 바로 하단: 조회된 지역 1, 지역 2 비교 (상하 삼각형 및 차이 뱃지 표기) */}
+            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-[12.5px]">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="size-2 shrink-0 rounded-full bg-blue-600" />
+                <span className="font-bold text-blue-700 truncate max-w-[110px] sm:max-w-[140px]">{r1Text}</span>
+                <span className={cn("rounded-md border px-2 py-0.5 text-[11px] font-black shrink-0", r1AvgBadge.colorClass)}>
+                  {r1AvgBadge.text}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="size-2 shrink-0 rounded-full bg-emerald-500" />
+                <span className="font-bold text-emerald-700 truncate max-w-[110px] sm:max-w-[140px]">{r2Text}</span>
+                <span className={cn("rounded-md border px-2 py-0.5 text-[11px] font-black shrink-0", r2AvgBadge.colorClass)}>
+                  {r2AvgBadge.text}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1230,34 +1319,39 @@ function CompareBarCharts({
       </div>
 
       {/* 평단가 비교 차트 */}
-      <div className="flex flex-col justify-between rounded-[24px] border border-slate-200/80 bg-white p-7 shadow-[0_8px_30px_rgba(15,23,42,0.04)] transition-all hover:shadow-[0_12px_36px_rgba(15,23,42,0.06)]">
+      <div className="flex flex-col justify-between rounded-[24px] border border-slate-200/80 bg-white p-6 sm:p-7 shadow-xs transition-all hover:shadow-md">
         <div>
-          <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3.5">
-            <h3 className="flex items-center gap-2 text-[16px] font-black text-slate-900">
-              <div className="flex size-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                <TrendingUp className="size-4" />
-              </div>
-              평단가 비교
-            </h3>
-            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">
-              단위: 만 원/평
-            </span>
-          </div>
-
-          <div className="mb-3 flex items-center justify-between px-2 text-[13px]">
-            <div className="flex items-center gap-2">
-              <span className="size-2.5 rounded-full bg-blue-600" />
-              <span className="font-extrabold text-blue-700">{r1Text}</span>
-              <span className="text-[16px] font-black text-slate-900">
-                {r1PyeongPrice?.toLocaleString() ?? "데이터 없음"}
+          {/* 차트 헤더 */}
+          <div className="mb-3 border-b border-slate-100 pb-3">
+            <div className="flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-[16px] font-black text-slate-900">
+                <div className="flex size-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                  <TrendingUp className="size-4" />
+                </div>
+                평단가 비교
+              </h3>
+              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">
+                단위: 만 원/평
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="size-2.5 rounded-full bg-emerald-500" />
-              <span className="font-extrabold text-emerald-700">{r2Text}</span>
-              <span className="text-[16px] font-black text-slate-900">
-                {r2PyeongPrice?.toLocaleString() ?? "데이터 없음"}
-              </span>
+
+            {/* 타이틀 바로 하단: 조회된 지역 1, 지역 2 비교 (상하 삼각형 및 차이 뱃지 표기) */}
+            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-[12.5px]">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="size-2 shrink-0 rounded-full bg-blue-600" />
+                <span className="font-bold text-blue-700 truncate max-w-[110px] sm:max-w-[140px]">{r1Text}</span>
+                <span className={cn("rounded-md border px-2 py-0.5 text-[11px] font-black shrink-0", r1PyBadge.colorClass)}>
+                  {r1PyBadge.text}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="size-2 shrink-0 rounded-full bg-emerald-500" />
+                <span className="font-bold text-emerald-700 truncate max-w-[110px] sm:max-w-[140px]">{r2Text}</span>
+                <span className={cn("rounded-md border px-2 py-0.5 text-[11px] font-black shrink-0", r2PyBadge.colorClass)}>
+                  {r2PyBadge.text}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1511,14 +1605,6 @@ export default function PriceCompareListPage() {
             {/* 타이틀 및 초기화 버튼 */}
             <div className="mb-7 flex items-end justify-between">
               <div>
-                <div className="mb-1.5 flex items-center gap-2">
-                  <span className="rounded-md bg-[#0F8AA8]/10 px-2.5 py-0.5 text-[11px] font-black text-[#0F8AA8]">
-                    시세 분석 리포트
-                  </span>
-                  <span className="text-[12px] font-bold text-slate-400">
-                    실거래가 기반
-                  </span>
-                </div>
                 <h1 className="text-[26px] font-black tracking-tight text-slate-900">
                   지역별 비교 (리스트)
                 </h1>
@@ -1538,64 +1624,70 @@ export default function PriceCompareListPage() {
             </div>
 
             {/* 지역 선택 카드 섹션 */}
-            <div className="mb-8 rounded-[28px] border border-slate-200/90 bg-white p-7 shadow-[0_10px_35px_rgba(15,23,42,0.05)]">
-              <div className="grid grid-cols-[1fr_auto_1fr_auto] items-stretch gap-6 max-[1200px]:grid-cols-1">
-                {/* 지역 1 선택 카드 */}
-                <RegionCard
-                  regionNum={1}
-                  title="지역 1 (기준)"
-                  district={r1District}
-                  dong={r1Dong}
-                  sggOptions={sggOptions}
-                  dongOptions={r1DongOptions}
-                  isSggLoading={isSggLoading}
-                  isDongLoading={isR1DongLoading}
-                  onDistrictChange={handleR1DistrictChange}
-                  onDongChange={handleR1DongChange}
-                />
+            <div className="mb-8 rounded-[20px] border border-slate-200/90 bg-white p-4 sm:p-4.5 shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
+              <div className="grid grid-cols-[1fr_auto] items-stretch gap-4 max-[1100px]:grid-cols-1">
+                {/* 좌측 영역: 지역 1 (기준) + VS + 지역 2 (비교) 상하 스택 */}
+                <div className="flex flex-col gap-1.5">
+                  {/* 지역 1 선택 카드 (기준) */}
+                  <RegionCard
+                    regionNum={1}
+                    title="지역 1 (기준)"
+                    district={r1District}
+                    dong={r1Dong}
+                    sggOptions={sggOptions}
+                    dongOptions={r1DongOptions}
+                    isSggLoading={isSggLoading}
+                    isDongLoading={isR1DongLoading}
+                    onDistrictChange={handleR1DistrictChange}
+                    onDongChange={handleR1DongChange}
+                  />
 
-                {/* 중앙 VS 배지 (파란색) */}
-                <div className="flex items-center justify-center max-[1200px]:py-2">
-                  <div className="flex size-13 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-[#60A5FA] via-[#3B82F6] to-[#1D4ED8] text-[14px] font-black tracking-widest text-white shadow-[0_8px_20px_rgba(59,130,246,0.4)] ring-2 ring-blue-300">
-                    VS
+                  {/* 세련된 세미 글로우 VS 배지 */}
+                  <div className="flex items-center justify-center py-0">
+                    <div className="group relative flex items-center justify-center">
+                      {/* 소프트 앰비언트 글로우 */}
+                      <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-blue-500/25 via-indigo-500/20 to-sky-500/25 blur-sm transition-all duration-300 group-hover:scale-110 opacity-80" />
+                      {/* 메인 VS 배지 (이탈릭 볼드 폰트 + 입체 그라데이션) */}
+                      <div className="relative flex size-9 items-center justify-center rounded-full border border-white/60 bg-gradient-to-br from-[#3B82F6] via-[#2563EB] to-[#1D4ED8] text-[11px] font-black italic tracking-widest text-white shadow-[0_4px_14px_rgba(37,99,235,0.3)] ring-2 ring-blue-100/90">
+                        VS
+                      </div>
+                    </div>
                   </div>
+
+                  {/* 지역 2 선택 카드 (비교) */}
+                  <RegionCard
+                    regionNum={2}
+                    title="지역 2 (비교)"
+                    district={r2District}
+                    dong={r2Dong}
+                    sggOptions={sggOptions}
+                    dongOptions={r2DongOptions}
+                    isSggLoading={isSggLoading}
+                    isDongLoading={isR2DongLoading}
+                    onDistrictChange={handleR2DistrictChange}
+                    onDongChange={handleR2DongChange}
+                  />
                 </div>
 
-                {/* 지역 2 선택 카드 */}
-                <RegionCard
-                  regionNum={2}
-                  title="지역 2 (비교)"
-                  district={r2District}
-                  dong={r2Dong}
-                  sggOptions={sggOptions}
-                  dongOptions={r2DongOptions}
-                  isSggLoading={isSggLoading}
-                  isDongLoading={isR2DongLoading}
-                  onDistrictChange={handleR2DistrictChange}
-                  onDongChange={handleR2DongChange}
-                />
-
-                {/* 비교하기 액션 영역 */}
-                <div className="flex flex-col items-center justify-center rounded-[22px] border border-slate-200/80 bg-gradient-to-b from-slate-50 to-slate-50/40 p-5 text-center max-[1200px]:py-6">
+                {/* 우측 영역: 시세 비교 조회하기 버튼 (크기 확대) */}
+                <div className="flex flex-col items-center justify-center shrink-0 w-[140px] sm:w-[155px]">
                   <button
                     type="button"
                     onClick={handleCompare}
-                    disabled={compareMutation.isPending || isSggLoading || !r1District || !r2District}
-                    className="flex h-[110px] w-full min-w-[135px] flex-col items-center justify-center gap-2 rounded-[12px] bg-[#2563EB] p-4 text-white shadow-[0_6px_20px_rgba(37,99,235,0.3)] transition-all duration-200 hover:bg-[#1D4ED8] hover:shadow-[0_8px_24px_rgba(37,99,235,0.4)] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                    disabled={compareMutation.isPending || isSggLoading || !r1District || !r2District || !r1Dong || !r2Dong}
+                    className="flex h-full min-h-[125px] w-full flex-col items-center justify-center gap-3 rounded-[22px] bg-[#2563EB] p-5 text-white shadow-[0_6px_20px_rgba(37,99,235,0.3)] transition-all duration-200 hover:bg-[#1D4ED8] hover:shadow-[0_8px_24px_rgba(37,99,235,0.4)] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
                   >
                     {compareMutation.isPending ? (
-                      <Loader2 className="size-5 animate-spin text-white" />
+                      <Loader2 className="size-6 animate-spin text-white" />
                     ) : (
-                      <Search className="size-5 stroke-[2.5] text-white" />
+                      <Search className="size-6 stroke-[2.5] text-white" />
                     )}
-                    <span className="text-[15px] font-bold tracking-tight text-white">
+                    <span className="text-[16px] font-black tracking-tight text-white">
                       {compareMutation.isPending ? "조회 중..." : "조회하기"}
                     </span>
                   </button>
-                  <p className="mt-3 text-[11px] font-medium leading-tight text-slate-400">
-                    자치구·자치동 필수 선택
-                    <br />
-                    (두 지역 모두 선택)
+                  <p className="mt-2.5 text-[11.5px] font-bold text-slate-400 text-center leading-tight whitespace-nowrap">
+                    자치구·자치동 <span className="text-blue-500 font-bold">필수 선택</span>
                   </p>
                 </div>
               </div>

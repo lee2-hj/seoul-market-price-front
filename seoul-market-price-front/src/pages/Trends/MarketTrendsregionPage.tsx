@@ -11,6 +11,7 @@ import {
   Info,
   ChevronRight,
   X,
+  Sparkles,
 } from "lucide-react";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { TRENDS_NAVIGATION } from "@/config/sectionNavigation";
@@ -1185,6 +1186,36 @@ export default function MarketTrendsregionPage() {
     dongAnalysis,
   ]);
 
+  /* 실시간 조회 데이터 기반 AI 거래 동향 요약 브리핑 생성 */
+  const aiTrendReport = useMemo(() => {
+    const regionName = [searchedGuName, searchedDongName].filter(Boolean).join(" ") || searchedGuName || "선택 지역";
+    const totalCount = currentData.summary.totalCount;
+    const avgPrice = currentData.summary.avgPriceText;
+    const maxPrice = currentData.summary.maxPriceText;
+    const growth = currentData.summary.volumeGrowthRate;
+    const top1Complex = currentData.topComplexes[0]?.complexName || "";
+    const top1Count = currentData.topComplexes[0]?.count || 0;
+
+    let marketStatus = "대등한 시세 흐름과 안정적인 실거래 유동성을 기록 중입니다.";
+    if (growth > 5) {
+      marketStatus = "매수 심리가 상승하며 실거래 회전율이 지속적으로 활발해지는 추세입니다.";
+    } else if (growth < -5) {
+      marketStatus = "매수 관망세 영향으로 시세 대비 거래 유동성이 다소 안정된 양상입니다.";
+    }
+
+    const item1 = `${regionName}의 최근 총 실거래량은 ${totalCount}건으로, ${marketStatus}`;
+    const item2 = `평균 매매가는 ${avgPrice} 수준을 형성하고 있으며, 최고 매매가는 ${maxPrice}를 기록했습니다.`;
+    let item3 = "";
+    if (top1Complex) {
+      item3 = `주요 단지 중에서는 ${top1Complex}(${top1Count}건)이(가) 이 지역 거래 유동성 1위를 차지하고 있습니다.`;
+    }
+
+    return {
+      title: `${regionName} AI 시장 분석 리포트`,
+      bullets: [item1, item2, item3].filter(Boolean),
+    };
+  }, [searchedGuName, searchedDongName, currentData]);
+
   const animatedTotalCount = useCountUp(currentData.summary.totalCount, 800);
 
   /* Google Charts용 데이터 */
@@ -1918,164 +1949,98 @@ export default function MarketTrendsregionPage() {
               </div>
             </Card>
 
-            {/* 카드 3: 거래 동향 요약 */}
-            <Card
-              className={cn(
-                "border-[#E2E8F0]",
-                "bg-white",
-                "rounded-xl",
-                "p-4",
-                "shadow-xs",
-                "flex",
-                "flex-col",
-                "justify-between",
-              )}
-            >
+            {/* 카드 3: 한눈에 보는 AI 거래 동향 */}
+            <Card className="flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-4.5 shadow-xs">
               <div>
-                <div
-                  className={cn(
-                    "flex",
-                    "items-center",
-                    "justify-between",
-                    "pb-2.5",
-                  )}
-                >
-                  <h3
-                    className={cn("text-[14px]", "font-bold", "text-[#0F172A]")}
-                  >
-                    거래 동향 요약
-                  </h3>
-                  <span
-                    className={cn(
-                      "text-[10px]",
-                      "font-bold",
-                      "text-[#2563EB]",
-                      "bg-[#EFF6FF]",
-                      "px-2",
-                      "py-0.5",
-                      "rounded-full",
-                      "border",
-                      "border-[#DBEAFE]",
-                    )}
-                  >
-                    핵심 브리핑
+                {/* 헤더: AI 요약 타이틀 및 AI 상태 배지 */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-xs">
+                      <Sparkles className="size-4" />
+                    </div>
+                    <h3 className="text-[14.5px] font-black text-[#0F172A]">
+                      한눈에 보는 AI 거래 동향
+                    </h3>
+                  </div>
+                  <span className="flex items-center gap-1.5 rounded-full border border-blue-200/80 bg-blue-50/90 px-2.5 py-0.5 text-[10.5px] font-black text-blue-600 shadow-xs">
+                    <Sparkles className="size-3 text-blue-600 animate-pulse" />
+                    AI 스마트 분석
                   </span>
                 </div>
 
-                <div className={cn("space-y-2.5", "pt-2.5")}>
+                {/* 항목별 상세 브리핑 리스트 (컨테이너 맞춤 가독성 UI) */}
+                <div className="flex flex-col gap-2 pt-3">
                   {currentData.insights.length > 0 ? (
                     currentData.insights.map((insight) => (
                       <div
                         key={insight.id}
-                        className={cn(
-                          "p-2.5",
-                          "rounded-lg",
-                          "bg-[#F8FAFC]",
-                          "border",
-                          "border-[#F1F5F9]",
-                          "flex",
-                          "items-start",
-                          "gap-2.5",
-                          "hover:bg-[#F1F5F9]/60",
-                          "transition-colors",
-                        )}
+                        className="group flex items-start gap-2.5 rounded-[12px] border border-slate-200/80 bg-white p-2.5 shadow-2xs transition-all hover:border-slate-300"
                       >
                         <span
                           className={cn(
-                            "size-6 rounded-full flex items-center justify-center shrink-0 mt-0.5",
+                            "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-lg shadow-2xs transition-colors",
                             insight.type === "up"
-                              ? "bg-emerald-50 text-emerald-600"
+                              ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
                               : insight.type === "chart"
-                                ? "bg-blue-50 text-blue-600"
-                                : "bg-indigo-50 text-indigo-600",
+                                ? "bg-blue-50 text-blue-600 border border-blue-100"
+                                : "bg-indigo-50 text-indigo-600 border border-indigo-100",
                           )}
                         >
-                          {insight.type === "up" && (
-                            <TrendingUp className="size-3.5" />
-                          )}
-                          {insight.type === "chart" && (
-                            <BarChart2 className="size-3.5" />
-                          )}
-                          {insight.type === "swap" && (
-                            <ArrowUpDown className="size-3.5" />
-                          )}
+                          {insight.type === "up" && <TrendingUp className="size-3.5" />}
+                          {insight.type === "chart" && <BarChart2 className="size-3.5" />}
+                          {insight.type === "swap" && <ArrowUpDown className="size-3.5" />}
                         </span>
-                        <div
-                          className={cn(
-                            "text-[11px]",
-                            "leading-snug",
-                            "flex-1",
-                          )}
-                        >
-                          <div
-                            className={cn(
-                              "font-bold",
-                              "text-[#0F172A]",
-                              "flex",
-                              "items-center",
-                              "gap-1.5",
-                              "flex-wrap",
-                            )}
-                          >
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1.5 mb-0.5">
+                            <h4 className="text-[12px] font-black tracking-tight text-slate-900 truncate">
+                              {insight.title}
+                            </h4>
                             {insight.badge && (
-                              <span
-                                className={cn(
-                                  "text-[9px]",
-                                  "font-extrabold",
-                                  "text-[#2563EB]",
-                                  "bg-white",
-                                  "px-1.5",
-                                  "py-0.5",
-                                  "rounded",
-                                  "border",
-                                  "border-[#BFDBFE]",
-                                )}
-                              >
+                              <span className="shrink-0 rounded bg-blue-50 px-1.5 py-0.5 text-[9.5px] font-black text-blue-600 border border-blue-100/80">
                                 {insight.badge}
                               </span>
                             )}
-                            <span>{insight.title}</span>
                           </div>
-                          <div
-                            className={cn(
-                              "text-[#64748B]",
-                              "mt-1",
-                              "leading-relaxed",
-                            )}
-                          >
+                          <p className="text-[11.5px] font-medium text-slate-600 leading-snug break-keep">
                             {insight.subtitle}
-                          </div>
+                          </p>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div
-                      className={cn(
-                        "py-6",
-                        "text-center",
-                        "text-xs",
-                        "text-[#94A3B8]",
-                      )}
-                    >
+                    <div className="py-6 text-center text-xs text-slate-400">
                       조회된 동향 요약 정보가 없습니다.
                     </div>
                   )}
                 </div>
+
+                {/* AI 스마트 리포트 종합 박스 (Dark Card) - 컨테이너 맞춤 */}
+                <div className="mt-3 rounded-[12px] border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-3.5 text-white shadow-md">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-[12px] font-black text-amber-400">
+                      <Sparkles className="size-3.5 text-amber-400" />
+                      <span>AI 스마트 리포트 종합</span>
+                    </div>
+                    <span className="text-[9.5px] font-extrabold text-slate-400">
+                      실시간 데이터 분석
+                    </span>
+                  </div>
+                  <div className="text-[12.5px] font-black text-white leading-snug mb-1 truncate">
+                    {aiTrendReport.title}
+                  </div>
+                  <div className="flex flex-col gap-1 text-[11.5px] font-medium leading-relaxed text-slate-200 break-keep">
+                    {aiTrendReport.bullets.map((bullet, idx) => (
+                      <p key={`b-${idx}`} className="flex items-start gap-1">
+                        <span className="text-amber-400 font-bold shrink-0">•</span>
+                        <span>{bullet}</span>
+                      </p>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              <div
-                className={cn(
-                  "mt-3",
-                  "pt-2.5",
-                  "border-t",
-                  "border-[#F1F5F9]",
-                  "flex",
-                  "items-center",
-                  "justify-between",
-                  "text-[11px]",
-                  "text-[#64748B]",
-                )}
-              >
+              <div className="mt-3 flex items-center justify-between border-t border-[#F1F5F9] pt-2.5 text-[11px] text-[#64748B]">
                 <span>실시간 데이터 집계</span>
                 <span className="font-semibold text-[#2563EB]">
                   {formatYearMonthDay(new Date())} 기준
