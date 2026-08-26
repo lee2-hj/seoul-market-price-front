@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { CalendarDays } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -15,7 +14,6 @@ import { MainHeroSearch } from "@/features/main/components/MainHeroSearch";
 import { PriceChangeTop5Card } from "@/features/main/components/PriceChangeTop5Card";
 import { useMainPageData } from "@/features/main/hooks/useMainPageData";
 import { usePreferenceDashboardData } from "@/features/main/hooks/usePreferenceDashboardData";
-import { formatPeriod } from "@/features/main/utils/mainPageFormat";
 import { resolveMainRegion } from "@/features/main/utils/mainRegionResolver";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import {
@@ -61,7 +59,6 @@ export default function MainPage() {
 
   const data = mainPageQuery.data;
   const regionData = regionDashboardQuery.data;
-  const period = data ? formatPeriod(data.periodStart, data.periodEnd) : "";
 
   return (
     <div className="min-w-0 w-full max-w-full bg-[#F5FAFC] text-[#13202B]">
@@ -78,7 +75,6 @@ export default function MainPage() {
             </div>
             <h2 id="market-overview-title" className="m-0 text-2xl font-black tracking-[-0.03em] text-[#123047] sm:text-3xl">한눈에 보는 서울 아파트 시장</h2>
           </div>
-          {period && <p className="m-0 flex items-center gap-2 text-xs font-bold text-[#526573] sm:text-sm"><CalendarDays className="size-4 shrink-0 text-[#0F8AA8]" aria-hidden="true" />{period}</p>}
         </div>
 
         <div className="grid min-w-0 grid-cols-1 items-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
