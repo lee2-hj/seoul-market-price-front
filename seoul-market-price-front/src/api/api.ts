@@ -68,6 +68,7 @@ export interface MemberMeResponse {
   myGu: string | null;
   myGuCode: string | null;
   myDong: string | null;
+  isLocationAgreed: boolean;
   latitude: number | null;
   longitude: number | null;
 }
@@ -112,6 +113,15 @@ export async function logoutApi() {
 export interface CurrentDistrictResponse {
   district: string;
   sggCd: string;
+}
+
+export async function agreeToLocationServiceApi(): Promise<MemberMeResponse> {
+  const response = await apiMiddleware.patch<MemberMeResponse>(
+    "/api/members/me/location-consent",
+    { agreed: true },
+  );
+
+  return response.data;
 }
 
 export async function getCurrentDistrictApi(

@@ -111,6 +111,7 @@ export async function ensureAuthLoaded(): Promise<void> {
       myGuCode: me.myGuCode,
       preferredDistrict: me.preferredDistrict,
       myDong: me.myDong,
+      isLocationAgreed: me.isLocationAgreed,
     });
   } catch {
     if (!useAuthStore.getState().user) {

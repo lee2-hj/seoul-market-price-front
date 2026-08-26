@@ -3,7 +3,7 @@ import { Link, NavLink } from "react-router-dom";
 import { BarChart3, ChevronDown, Headphones, LoaderCircle, LocateFixed, LogIn, Map, Menu, Search, UserRound, X } from "lucide-react";
 
 import axios from "axios";
-import { getCurrentDistrictApi } from "@/api/api";
+import { agreeToLocationServiceApi, getCurrentDistrictApi } from "@/api/api";
 import { logout } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
   getDetectedDistrict,
   isSeoulDistrict,
   REGION_CHANGED_EVENT,
+  clearDetectedDistrict,
   storeDetectedDistrict,
 } from "@/features/region-map/utils/regionSelection";
 
@@ -118,8 +119,36 @@ export default function Header() {
     setDetectedDistrict(normalizedRegion);
   };
 
-  const handleLocate = () => {
+  const handleLocate = async () => {
     if (locating) return;
+
+    if (!user?.isLocationAgreed) {
+      const agreed = window.confirm(
+        "위치 서비스 동의가 필요합니다. 동의하시겠습니까?",
+      );
+
+      if (!agreed) {
+        clearDetectedDistrict();
+        return;
+      }
+
+      try {
+        const updatedMember = await agreeToLocationServiceApi();
+        useAuthStore.getState().setUser({
+          userId: updatedMember.userId,
+          name: updatedMember.name,
+          role: user?.role ?? "",
+          myGu: updatedMember.myGu,
+          myGuCode: updatedMember.myGuCode,
+          preferredDistrict: updatedMember.preferredDistrict,
+          myDong: updatedMember.myDong,
+          isLocationAgreed: updatedMember.isLocationAgreed,
+        });
+      } catch {
+        window.alert("위치 서비스 동의 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+    }
 
     const updateDistrictFromCoordinates = async (
       latitude: number,
@@ -136,6 +165,7 @@ export default function Header() {
       const { district, sggCd } = await getCurrentDistrictApi(latitude, longitude);
       console.info("[현재 위치 조회] 변환된 자치구", { district, sggCd });
       if (!isSeoulDistrict(district)) {
+        clearDetectedDistrict();
         throw new Error("현재 위치가 서울 지역이 아닙니다.");
       }
       handleRegionChange(district, sggCd);
