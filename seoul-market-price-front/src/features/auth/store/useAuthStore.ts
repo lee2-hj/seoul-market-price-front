@@ -16,6 +16,7 @@ export interface AuthUser {
   myGuCode?: string | null;
   preferredDistrict?: string | null;
   myDong?: string | null;
+  isLocationAgreed?: boolean;
 }
 
 interface AuthState {
