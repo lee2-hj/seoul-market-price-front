@@ -13,6 +13,7 @@ export interface AuthUser {
   role: string;
   accessToken?: string;
   myGu?: string | null;
+  myGuCode?: string | null;
   preferredDistrict?: string;
   myDong?: string | null;
 }

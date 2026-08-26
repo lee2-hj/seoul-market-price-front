@@ -1,0 +1,16 @@
+import { Building2, MapPinned } from "lucide-react";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardEmpty } from "@/features/main/components/DataCardState";
+import type { PreferenceTradingApartmentItem, PreferenceTradingDongItem } from "@/features/main/types/mainPage.types";
+import { formatPriceInManwon, formatTradeCount } from "@/features/main/utils/mainPageFormat";
+
+function Rank({ value }: { value: number }) { return <span className="text-center text-xs font-black text-[#526573]">{value}</span>; }
+
+export function PreferenceTradingDongsCard({ items }: { items: PreferenceTradingDongItem[] }) {
+  return <Card className="h-full rounded-2xl border-[#DCE8ED] bg-white shadow-[0_3px_12px_rgba(18,48,71,0.05)]"><CardHeader className="border-b border-[#E8EFF2] p-4"><div className="flex items-center gap-3"><span className="flex size-9 items-center justify-center rounded-xl bg-[#E8F6F9] text-[#0F8AA8]"><MapPinned className="size-4" aria-hidden="true" /></span><div><CardTitle className="text-base font-black text-[#123047]">내 선호지역 거래량 TOP 5</CardTitle><p className="mb-0 mt-0.5 text-xs text-[#6B7280]">법정동별 거래 건수 순위</p></div></div></CardHeader><CardContent className="p-4">{items.length === 0 ? <CardEmpty /> : <ol className="m-0 divide-y divide-[#EDF2F4] p-0">{items.map((item) => <li key={`${item.rank}-${item.districtName}-${item.dongName}`} className="grid grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-2 py-2.5 first:pt-0 last:pb-0 hover:bg-[#F8FBFC]"><Rank value={item.rank} /><span className="min-w-0"><strong className="block truncate text-sm text-[#13202B]" title={`${item.districtName} ${item.dongName}`}>{item.dongName}</strong><span className="block truncate text-[11px] text-[#6B7280]">{item.districtName}</span></span><strong className="text-right text-sm tabular-nums text-[#123047]">{formatTradeCount(item.dealCount)}</strong></li>)}</ol>}</CardContent></Card>;
+}
+
+export function PreferenceTradingApartmentsCard({ items }: { items: PreferenceTradingApartmentItem[] }) {
+  return <Card className="h-full rounded-2xl border-[#DCE8ED] bg-white shadow-[0_3px_12px_rgba(18,48,71,0.05)]"><CardHeader className="border-b border-[#E8EFF2] p-4"><div className="flex items-center gap-3"><span className="flex size-9 items-center justify-center rounded-xl bg-[#E8F6F9] text-[#0F8AA8]"><Building2 className="size-4" aria-hidden="true" /></span><div><CardTitle className="text-base font-black text-[#123047]">내 선호지역 아파트 거래량 TOP 5</CardTitle><p className="mb-0 mt-0.5 text-xs text-[#6B7280]">아파트별 최근 거래가와 거래 건수</p></div></div></CardHeader><CardContent className="p-4">{items.length === 0 ? <CardEmpty /> : <ol className="m-0 divide-y divide-[#EDF2F4] p-0">{items.map((item) => <li key={`${item.rank}-${item.apartmentName}`} className="grid grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-2 py-2.5 first:pt-0 last:pb-0 hover:bg-[#F8FBFC]"><Rank value={item.rank} /><span className="min-w-0"><strong className="block truncate text-sm text-[#13202B]" title={item.apartmentName}>{item.apartmentName}</strong><span className="block truncate text-[11px] text-[#6B7280]">최근 {formatPriceInManwon(item.recentDealPrice)}</span></span><strong className="text-right text-sm tabular-nums text-[#123047]">{formatTradeCount(item.dealCount)}</strong></li>)}</ol>}</CardContent></Card>;
+}
