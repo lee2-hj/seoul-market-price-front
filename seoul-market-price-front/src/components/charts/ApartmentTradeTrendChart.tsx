@@ -5,7 +5,11 @@ type PriceAxisTick = {
   f: string;
 };
 
-type TradeTrendChartValue = string | number | { v: number; f: string };
+type TradeTrendChartValue =
+  | string
+  | number
+  | { v: number; f: string }
+  | { role: string; type?: string; p?: Record<string, unknown> };
 
 export type ApartmentTradeTrendChartProps = {
   data: TradeTrendChartValue[][];
@@ -62,6 +66,9 @@ export function ApartmentTradeTrendChart({
             textStyle: { fontSize: 10, color: "#64748B" },
           },
           legend: { position: "none" },
+          tooltip: {
+            textStyle: { fontSize: 11 },
+          },
         }}
       />
     </div>
