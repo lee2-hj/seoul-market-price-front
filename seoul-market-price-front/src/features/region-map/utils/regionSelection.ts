@@ -8,25 +8,44 @@ export const SEOUL_DISTRICTS = [
   "성북구", "송파구", "양천구", "영등포구", "용산구", "은평구", "종로구", "중구", "중랑구",
 ] as const;
 
-export function isSeoulDistrict(value: string): boolean {
+export function isSeoulDistrict(value?: string | null): boolean {
+  if (!value) return false;
   return (SEOUL_DISTRICTS as readonly string[]).includes(value.trim());
 }
 
-export function getDetectedDistrict(): string {
+export function isSeoulDistrictCode(code?: string | null): boolean {
+  if (!code) return false;
+  const trimmed = code.trim();
+  return /^\d{5}$/.test(trimmed) && trimmed.startsWith("11");
+}
+
+export function getValidDetectedDistrict(): { district: string; sggCd: string } | null {
   const district = sessionStorage.getItem(REGION_STORAGE_KEY)?.trim() ?? "";
-  return isSeoulDistrict(district) ? district : "";
+  const sggCd = sessionStorage.getItem(REGION_CODE_STORAGE_KEY)?.trim() ?? "";
+  if (isSeoulDistrict(district) && isSeoulDistrictCode(sggCd)) {
+    return { district, sggCd };
+  }
+  return null;
+}
+
+export function getDetectedDistrict(): string {
+  const valid = getValidDetectedDistrict();
+  return valid ? valid.district : "";
 }
 
 export function getDetectedDistrictCode(): string {
-  return sessionStorage.getItem(REGION_CODE_STORAGE_KEY)?.trim() ?? "";
+  const valid = getValidDetectedDistrict();
+  return valid ? valid.sggCd : "";
 }
 
 export function storeDetectedDistrict(district: string, sggCd?: string): void {
   const normalizedDistrict = district.trim();
-  sessionStorage.setItem(REGION_STORAGE_KEY, normalizedDistrict);
-  if (sggCd?.trim()) {
-    sessionStorage.setItem(REGION_CODE_STORAGE_KEY, sggCd.trim());
+  const normalizedCode = sggCd?.trim() ?? "";
+  if (isSeoulDistrict(normalizedDistrict) && isSeoulDistrictCode(normalizedCode)) {
+    sessionStorage.setItem(REGION_STORAGE_KEY, normalizedDistrict);
+    sessionStorage.setItem(REGION_CODE_STORAGE_KEY, normalizedCode);
   } else {
+    sessionStorage.removeItem(REGION_STORAGE_KEY);
     sessionStorage.removeItem(REGION_CODE_STORAGE_KEY);
   }
   window.dispatchEvent(

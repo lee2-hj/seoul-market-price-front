@@ -12,9 +12,11 @@ import {
 } from "@/features/main/utils/mainPageFormat";
 
 export function PreferencePriceTrendCard({
+  titlePrefix = "내 선호지역",
   districtName,
   items,
 }: {
+  titlePrefix?: string;
   districtName?: string | null;
   items: PreferencePriceTrendItem[];
 }) {
@@ -43,7 +45,9 @@ export function PreferencePriceTrendCard({
             <TrendingUp className="size-4" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <CardTitle className="text-base font-black text-[#123047]">내 선호지역 실거래 추이</CardTitle>
+            <CardTitle className="text-base font-black text-[#123047]">
+              {titlePrefix ? `${titlePrefix} 실거래 추이` : "실거래 추이"}
+            </CardTitle>
             <p className="mb-0 mt-0.5 truncate text-xs text-[#6B7280]">
               {districtName ? `${districtName} 평균 거래가와 거래량` : "평균 거래가와 거래량"}
             </p>

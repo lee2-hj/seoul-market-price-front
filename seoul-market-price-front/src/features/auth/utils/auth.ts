@@ -1,5 +1,6 @@
 import { getMemberMeApi, logoutApi } from "@/api/api";
 import { useAuthStore, type AuthUser } from "../store/useAuthStore";
+import { clearDetectedDistrict } from "@/features/region-map/utils/regionSelection";
 
 export type { AuthUser as LoginUser };
 
@@ -133,11 +134,15 @@ export async function logout() {
 
   useAuthStore.getState().clearSession();
 
+  // 현재 위치 세션 데이터(이름, 코드) 명시적 삭제 및 이벤트 발생
+  clearDetectedDistrict();
+
   // 로그아웃 직후 페이지가 새로고침되더라도 ensureAuthLoaded()가
   // 서버에 로그인 여부를 다시 묻지 않고 곧바로 비로그인으로
   // 확정하도록 표시를 남긴다.
   try {
-    sessionStorage.clear();
+    sessionStorage.removeItem("ssabu_selected_region");
+    sessionStorage.removeItem("ssabu_selected_region_code");
     sessionStorage.setItem(JUST_LOGGED_OUT_KEY, "1");
   } catch {
     // sessionStorage에 접근할 수 없는 환경은 무시한다.

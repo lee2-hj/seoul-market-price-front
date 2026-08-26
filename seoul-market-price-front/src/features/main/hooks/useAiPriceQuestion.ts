@@ -6,18 +6,17 @@ import {
   type AiSearchResponse,
   type DongRegionResponse,
 } from "@/api/api";
-import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { toAiDisplayResult } from "@/features/main/utils/aiSearchMappers";
 
-const LOGIN_REQUIRED_MESSAGE = "AI 시세 질문은 로그인 후 이용할 수 있습니다.";
-const DEFAULT_ERROR_MESSAGE = "AI 시세 답변을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
+export const MAX_QUESTION_LENGTH = 500;
+const DEFAULT_ERROR_MESSAGE = "AI 답변을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
+const TOO_MANY_REQUESTS_MESSAGE = "질문 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.";
+const INVALID_LENGTH_MESSAGE = "질문은 500자 이내로 입력해 주세요.";
 
 export function useAiPriceQuestion() {
-  const user = useAuthStore((state) => state.user);
   const [question, setQuestion] = useState("");
   const [result, setResult] = useState<AiSearchResponse | null>(null);
   const [error, setError] = useState("");
-  const [loginRequired, setLoginRequired] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [candidateGroups, setCandidateGroups] = useState<DongRegionResponse[][]>([]);
   const [candidateStep, setCandidateStep] = useState(0);
@@ -31,7 +30,6 @@ export function useAiPriceQuestion() {
     requestInFlightRef.current = true;
     setIsLoading(true);
     setError("");
-    setLoginRequired(false);
     lastQuestionRef.current = nextQuestion;
 
     try {
@@ -64,9 +62,15 @@ export function useAiPriceQuestion() {
       setError(response.message || "검색 결과를 찾을 수 없습니다.");
     } catch (caughtError: unknown) {
       setResult(null);
-      if (axios.isAxiosError(caughtError) && caughtError.response?.status === 401) {
-        setLoginRequired(true);
-        setError(LOGIN_REQUIRED_MESSAGE);
+      if (axios.isAxiosError(caughtError)) {
+        const status = caughtError.response?.status;
+        if (status === 400) {
+          setError(INVALID_LENGTH_MESSAGE);
+        } else if (status === 429) {
+          setError(TOO_MANY_REQUESTS_MESSAGE);
+        } else {
+          setError(DEFAULT_ERROR_MESSAGE);
+        }
       } else {
         setError(DEFAULT_ERROR_MESSAGE);
       }
@@ -77,18 +81,17 @@ export function useAiPriceQuestion() {
   }, []);
 
   const submit = useCallback(() => {
-    if (!user) {
-      setLoginRequired(true);
-      setError(LOGIN_REQUIRED_MESSAGE);
-      return;
-    }
     const trimmed = question.trim();
     if (!trimmed) {
       setError("질문을 입력해 주세요.");
       return;
     }
+    if (trimmed.length > MAX_QUESTION_LENGTH) {
+      setError(INVALID_LENGTH_MESSAGE);
+      return;
+    }
     void runQuestion(trimmed);
-  }, [question, runQuestion, user]);
+  }, [question, runQuestion]);
 
   const chooseSingleCandidate = useCallback((candidate: DongRegionResponse) => {
     setSingleCandidates([]);
@@ -120,7 +123,6 @@ export function useAiPriceQuestion() {
     setQuestion,
     result,
     error,
-    loginRequired,
     isLoading,
     singleCandidates,
     candidateGroups,
@@ -131,6 +133,6 @@ export function useAiPriceQuestion() {
     chooseCandidate,
     closeResult: () => setResult(null),
     closeCandidates: () => { setSingleCandidates([]); setCandidateGroups([]); },
-    clearMessage: () => { setError(""); setLoginRequired(false); },
+    clearMessage: () => { setError(""); },
   };
 }
