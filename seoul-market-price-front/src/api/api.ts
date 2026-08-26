@@ -64,7 +64,7 @@ export interface MemberMeResponse {
   memberId: number;
   userId: string;
   name: string;
-  preferredDistrict: string;
+  preferredDistrict: string | null;
   myGu: string | null;
   myGuCode: string | null;
   myDong: string | null;
@@ -111,6 +111,7 @@ export async function logoutApi() {
 
 export interface CurrentDistrictResponse {
   district: string;
+  sggCd: string;
 }
 
 export async function getCurrentDistrictApi(

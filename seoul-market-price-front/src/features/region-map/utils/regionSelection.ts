@@ -1,4 +1,5 @@
 export const REGION_STORAGE_KEY = "ssabu_selected_region";
+export const REGION_CODE_STORAGE_KEY = "ssabu_selected_region_code";
 export const REGION_CHANGED_EVENT = "ssabu_region_changed";
 
 export const SEOUL_DISTRICTS = [
@@ -16,9 +17,18 @@ export function getDetectedDistrict(): string {
   return isSeoulDistrict(district) ? district : "";
 }
 
-export function storeDetectedDistrict(district: string): void {
+export function getDetectedDistrictCode(): string {
+  return sessionStorage.getItem(REGION_CODE_STORAGE_KEY)?.trim() ?? "";
+}
+
+export function storeDetectedDistrict(district: string, sggCd?: string): void {
   const normalizedDistrict = district.trim();
   sessionStorage.setItem(REGION_STORAGE_KEY, normalizedDistrict);
+  if (sggCd?.trim()) {
+    sessionStorage.setItem(REGION_CODE_STORAGE_KEY, sggCd.trim());
+  } else {
+    sessionStorage.removeItem(REGION_CODE_STORAGE_KEY);
+  }
   window.dispatchEvent(
     new CustomEvent<string>(REGION_CHANGED_EVENT, { detail: normalizedDistrict }),
   );
