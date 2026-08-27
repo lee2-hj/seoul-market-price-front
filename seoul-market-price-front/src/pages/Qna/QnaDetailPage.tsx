@@ -497,8 +497,8 @@ export default function QnaDetailPage() {
         </div>
 
         {/* 게시글 본문 카드 */}
-        <div className="bg-white border border-[#DCE8ED] rounded-[12px] p-6 md:p-8 space-y-6 shadow-sm">
-          <h2 className="text-[22px] font-bold text-[#13202B] border-b border-[#DCE8ED] pb-4">
+        <div className="bg-white border border-[#DCE8ED] rounded-[12px] p-4 sm:p-8 space-y-6 shadow-sm">
+          <h2 className="text-[18px] sm:text-[22px] font-bold text-[#13202B] border-b border-[#DCE8ED] pb-4">
             {post.title}
           </h2>
 

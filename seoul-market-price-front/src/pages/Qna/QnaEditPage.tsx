@@ -431,7 +431,7 @@ function QnaEditForm({ post }: QnaEditFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-6 bg-white border border-[#DCE8ED] rounded-[16px] p-6 md:p-8 shadow-sm"
+      className="space-y-6 bg-white border border-[#DCE8ED] rounded-[16px] p-4 sm:p-8 shadow-sm"
     >
       {/* 제목 입력 */}
       <div>

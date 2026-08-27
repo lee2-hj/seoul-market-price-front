@@ -818,70 +818,70 @@ function CompareTable({
   r2PyeongPrice,
 }: CompareTableProps) {
   return (
-    <div className="flex flex-col justify-between rounded-[24px] border border-slate-200/80 bg-white p-7 shadow-[0_8px_30px_rgba(15,23,42,0.04)] transition-all hover:shadow-[0_12px_36px_rgba(15,23,42,0.06)]">
+    <div className="flex flex-col justify-between rounded-[24px] border border-slate-200/80 bg-white p-4 sm:p-7 shadow-[0_8px_30px_rgba(15,23,42,0.04)] transition-all hover:shadow-[0_12px_36px_rgba(15,23,42,0.06)]">
       <div>
-        <div className="mb-5 flex items-center justify-between">
+        <div className="mb-4 sm:mb-5 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#0F8AA8]/15 to-[#0F8AA8]/5 text-[#0F8AA8]">
-              <BarChart3 className="size-5" />
+            <div className="flex size-8 sm:size-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#0F8AA8]/15 to-[#0F8AA8]/5 text-[#0F8AA8]">
+              <BarChart3 className="size-4.5 sm:size-5" />
             </div>
             <div>
-              <h2 className="text-[19px] font-black tracking-tight text-slate-900">
+              <h2 className="text-[17px] sm:text-[19px] font-black tracking-tight text-slate-900">
                 비교 리포트
               </h2>
             </div>
           </div>
-          <span className="flex items-center gap-1.5 rounded-full border border-slate-200/60 bg-slate-50 px-3.5 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm">
-            <Info className="size-3.5 text-[#0F8AA8]" />
+          <span className="flex items-center gap-1.5 rounded-full border border-slate-200/60 bg-slate-50 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[10px] sm:text-[11px] font-bold text-slate-600 shadow-xs">
+            <Info className="size-3 sm:size-3.5 text-[#0F8AA8]" />
             {baseDate} 기준 <span className="text-[#0F8AA8]">(최근 3개월)</span>
           </span>
         </div>
 
         <div className="flex flex-col gap-1">
-          {/* 헤더 행 (비교 항목과 동일한 bg-[#F1F5F9] 배경색 + 지역1 블루, 지역2 그린 글씨) */}
-          <div className="grid grid-cols-[180px_1fr_1fr] gap-1 text-[13px] font-black text-slate-800">
-            <div className="flex items-center justify-center border border-[#CBD5E1] bg-[#F1F5F9] p-3 shadow-xs">
+          {/* 헤더 행 */}
+          <div className="grid grid-cols-[95px_1fr_1fr] sm:grid-cols-[180px_1fr_1fr] gap-1 text-[11px] sm:text-[13px] font-black text-slate-800">
+            <div className="flex items-center justify-center border border-[#CBD5E1] bg-[#F1F5F9] p-2 sm:p-3 shadow-xs">
               비교 항목
             </div>
-            <div className="flex items-center justify-center gap-1.5 border border-[#CBD5E1] bg-[#F1F5F9] p-3 shadow-xs">
-              <span className="inline-block rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-black text-white shrink-0">
+            <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 border border-[#CBD5E1] bg-[#F1F5F9] p-2 sm:p-3 shadow-xs text-center">
+              <span className="inline-block rounded-full bg-blue-600 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black text-white shrink-0">
                 지역 1
               </span>
-              <span className="text-[14px] font-black text-blue-700 truncate">
+              <span className="text-[12px] sm:text-[14px] font-black text-blue-700 truncate max-w-[70px] sm:max-w-none">
                 {r1Dong || "지역 1"}
               </span>
-              <span className="text-[11px] font-semibold text-slate-500 shrink-0">
+              <span className="text-[9.5px] sm:text-[11px] font-semibold text-slate-500 shrink-0">
                 ({r1Label})
               </span>
             </div>
-            <div className="flex items-center justify-center gap-1.5 border border-[#CBD5E1] bg-[#F1F5F9] p-3 shadow-xs">
-              <span className="inline-block rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-black text-white shrink-0">
+            <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 border border-[#CBD5E1] bg-[#F1F5F9] p-2 sm:p-3 shadow-xs text-center">
+              <span className="inline-block rounded-full bg-emerald-600 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black text-white shrink-0">
                 지역 2
               </span>
-              <span className="text-[14px] font-black text-emerald-700 truncate">
+              <span className="text-[12px] sm:text-[14px] font-black text-emerald-700 truncate max-w-[70px] sm:max-w-none">
                 {r2Dong || "지역 2"}
               </span>
-              <span className="text-[11px] font-semibold text-slate-500 shrink-0">
+              <span className="text-[9.5px] sm:text-[11px] font-semibold text-slate-500 shrink-0">
                 ({r2Label})
               </span>
             </div>
           </div>
 
-          {/* 1행: 평균 매매가 (각 개별 칸 분리 - 좁은 간격) */}
-          <div className="grid grid-cols-[180px_1fr_1fr] gap-1">
-            <div className="flex items-center justify-center gap-2 border border-[#CBD5E1] bg-[#F8FAFC] p-3 shadow-xs">
-              <Building2 className="size-4 text-sky-600 shrink-0" />
-              <div className="flex flex-col text-left">
-                <span className="text-[13px] font-extrabold text-slate-800 leading-tight">
+          {/* 1행: 평균 매매가 */}
+          <div className="grid grid-cols-[95px_1fr_1fr] sm:grid-cols-[180px_1fr_1fr] gap-1">
+            <div className="flex items-center justify-center gap-1.5 sm:gap-2 border border-[#CBD5E1] bg-[#F8FAFC] p-2 sm:p-3 shadow-xs">
+              <Building2 className="size-3.5 sm:size-4 text-sky-600 shrink-0 hidden xs:block sm:block" />
+              <div className="flex flex-col text-center sm:text-left">
+                <span className="text-[11.5px] sm:text-[13px] font-extrabold text-slate-800 leading-tight">
                   평균 매매가
                 </span>
-                <span className="text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
+                <span className="text-[9.5px] sm:text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
                   (단위: 억 원)
                 </span>
               </div>
             </div>
-            <div className="flex items-center justify-center gap-2 border border-[#CBD5E1] bg-white p-3 shadow-xs">
-              <span className="text-[17px] font-black tracking-tight text-slate-900">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 border border-[#CBD5E1] bg-white p-2 sm:p-3 shadow-xs">
+              <span className="text-[14px] sm:text-[17px] font-black tracking-tight text-slate-900">
                 {r1Metrics.avgPrice}
               </span>
               <PriceDiffBadge
@@ -890,8 +890,8 @@ function CompareTable({
                 unit="억"
               />
             </div>
-            <div className="flex items-center justify-center gap-2 border border-[#CBD5E1] bg-white p-3 shadow-xs">
-              <span className="text-[17px] font-black tracking-tight text-slate-900">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 border border-[#CBD5E1] bg-white p-2 sm:p-3 shadow-xs">
+              <span className="text-[14px] sm:text-[17px] font-black tracking-tight text-slate-900">
                 {r2Metrics.avgPrice}
               </span>
               <PriceDiffBadge
@@ -902,22 +902,22 @@ function CompareTable({
             </div>
           </div>
 
-          {/* 2행: 평당가 (각 개별 칸 분리 - 좁은 간격) */}
-          <div className="grid grid-cols-[180px_1fr_1fr] gap-1">
-            <div className="flex items-center justify-center gap-2 border border-[#CBD5E1] bg-[#F8FAFC] p-3 shadow-xs">
-              <TrendingUp className="size-4 text-indigo-600 shrink-0" />
-              <div className="flex flex-col text-left">
-                <span className="text-[13px] font-extrabold text-slate-800 leading-tight">
+          {/* 2행: 평당가 */}
+          <div className="grid grid-cols-[95px_1fr_1fr] sm:grid-cols-[180px_1fr_1fr] gap-1">
+            <div className="flex items-center justify-center gap-1.5 sm:gap-2 border border-[#CBD5E1] bg-[#F8FAFC] p-2 sm:p-3 shadow-xs">
+              <TrendingUp className="size-3.5 sm:size-4 text-indigo-600 shrink-0 hidden xs:block sm:block" />
+              <div className="flex flex-col text-center sm:text-left">
+                <span className="text-[11.5px] sm:text-[13px] font-extrabold text-slate-800 leading-tight">
                   평당가
                 </span>
-                <span className="text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
+                <span className="text-[9.5px] sm:text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
                   (단위: 만 원)
                 </span>
               </div>
             </div>
-            <div className="flex items-center justify-center gap-2 border border-[#CBD5E1] bg-white p-3 shadow-xs">
-              <span className="text-[17px] font-black tracking-tight text-slate-900">
-                {r1PyeongPrice?.toLocaleString() ?? "데이터 없음"}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 border border-[#CBD5E1] bg-white p-2 sm:p-3 shadow-xs text-center">
+              <span className="text-[13px] sm:text-[17px] font-black tracking-tight text-slate-900">
+                {r1PyeongPrice?.toLocaleString() ?? "없음"}
               </span>
               <PriceDiffBadge
                 myValue={r1PyeongPrice}
@@ -925,9 +925,9 @@ function CompareTable({
                 unit="만원"
               />
             </div>
-            <div className="flex items-center justify-center gap-2 border border-[#CBD5E1] bg-white p-3 shadow-xs">
-              <span className="text-[17px] font-black tracking-tight text-slate-900">
-                {r2PyeongPrice?.toLocaleString() ?? "데이터 없음"}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 border border-[#CBD5E1] bg-white p-2 sm:p-3 shadow-xs text-center">
+              <span className="text-[13px] sm:text-[17px] font-black tracking-tight text-slate-900">
+                {r2PyeongPrice?.toLocaleString() ?? "없음"}
               </span>
               <PriceDiffBadge
                 myValue={r2PyeongPrice}
@@ -954,7 +954,6 @@ interface SummaryCardProps {
 function renderDiffTextFormatted(
   text: string,
   r1Text?: string,
-  _r2Text?: string,
 ) {
   if (!text) return null;
   if (text === "두 지역의 시세가 동일함" || text === "평당가 데이터 없음") {
@@ -1033,7 +1032,7 @@ function SummaryCard({
   }, [r1Text, r2Text, r1Metrics, r2Metrics]);
 
   return (
-    <div className="flex flex-col justify-between rounded-[20px] border border-slate-200/80 bg-white p-6 shadow-xs transition-all hover:shadow-md">
+    <div className="flex flex-col justify-between rounded-[20px] border border-slate-200/80 bg-white p-4 sm:p-6 shadow-xs transition-all hover:shadow-md">
       <div>
         {/* 헤더: AI 요약 타이틀 및 AI 라벨 */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -1075,7 +1074,7 @@ function SummaryCard({
               </span>
             </div>
             <div className="mt-0.5">
-              {renderDiffTextFormatted(avgDiffText, r1Text, r2Text)}
+              {renderDiffTextFormatted(avgDiffText, r1Text)}
             </div>
           </div>
 
@@ -1091,7 +1090,7 @@ function SummaryCard({
               </span>
             </div>
             <div className="mt-0.5">
-              {renderDiffTextFormatted(pyeongDiffText, r1Text, r2Text)}
+              {renderDiffTextFormatted(pyeongDiffText, r1Text)}
             </div>
           </div>
 

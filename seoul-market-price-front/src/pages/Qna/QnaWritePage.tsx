@@ -207,7 +207,7 @@ export default function QnaWritePage() {
         </div>
 
         {/* 작성 폼 */}
-        <form onSubmit={handleSubmit} className="space-y-6 bg-white border border-[#DCE8ED] rounded-[16px] p-6 md:p-8 shadow-sm">
+        <form onSubmit={handleSubmit} className="space-y-6 bg-white border border-[#DCE8ED] rounded-[16px] p-4 sm:p-8 shadow-sm">
           {/* 작성자 */}
           <div>
             <label className="block text-[13px] font-bold text-[#13202B] mb-2">작성자</label>
