@@ -1540,7 +1540,6 @@ function AutocompleteSelect({
 
 interface ApartmentSelectCardProps {
   aptNum: 1 | 2;
-  title?: string;
   district: string;
   dong: string;
   complexName: string;
@@ -1557,7 +1556,6 @@ interface ApartmentSelectCardProps {
 
 function ApartmentSelectCard({
   aptNum,
-  title: _title,
   district,
   dong,
   complexName,
@@ -3203,7 +3201,6 @@ export default function PriceCompareAptPage() {
                   {/* 아파트 1 컨테이너 */}
                   <ApartmentSelectCard
                     aptNum={1}
-                    title="아파트 1 (기준)"
                     district={r1District}
                     dong={r1Dong}
                     complexName={r1Complex}
@@ -3237,7 +3234,6 @@ export default function PriceCompareAptPage() {
                   {/* 아파트 2 컨테이너 */}
                   <ApartmentSelectCard
                     aptNum={2}
-                    title="아파트 2 (비교)"
                     district={r2District}
                     dong={r2Dong}
                     complexName={r2Complex}
