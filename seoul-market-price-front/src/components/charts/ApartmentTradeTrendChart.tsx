@@ -27,7 +27,7 @@ export function ApartmentTradeTrendChart({
   height = "240px",
 }: ApartmentTradeTrendChartProps) {
   return (
-    <div className="min-w-0 w-full max-w-full overflow-hidden [&>div]:!min-w-0 [&>div]:!max-w-full [&_svg]:!max-w-full">
+    <div className="relative min-w-0 w-full max-w-full [&>div]:!min-w-0 [&>div]:!max-w-full [&_svg]:!max-w-full [&_.google-visualization-tooltip]:!pointer-events-none [&_.google-visualization-tooltip]:!select-none [&_.google-visualization-tooltip]:!z-50 [&_.google-visualization-tooltip]:!border-0 [&_.google-visualization-tooltip]:!bg-transparent [&_.google-visualization-tooltip]:!shadow-none [&_.google-visualization-tooltip]:!p-0">
       <Chart
         chartType="ComboChart"
         width="100%"
@@ -67,7 +67,8 @@ export function ApartmentTradeTrendChart({
           },
           legend: { position: "none" },
           tooltip: {
-            textStyle: { fontSize: 11 },
+            isHtml: true,
+            trigger: "focus",
           },
         }}
       />
