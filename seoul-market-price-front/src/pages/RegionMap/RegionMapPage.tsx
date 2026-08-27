@@ -224,9 +224,21 @@ export default function RegionMapPage() {
             </div>
           </header>
 
-          <div className="relative overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white p-3 shadow-[0_4px_24px_rgba(15,23,42,0.04)] sm:p-7">
-            <div className="relative mx-auto max-w-[1120px] overflow-hidden rounded-[14px] border border-[#E2E8F0] bg-[#F8FAFC]">
-              <div className="absolute right-3 top-3 z-10 w-[196px] rounded-[14px] border border-[#D7E1EE] bg-white/95 p-4 shadow-[0_8px_24px_rgba(18,48,71,0.10)] backdrop-blur sm:right-5 sm:top-5">
+          <div className="relative overflow-hidden rounded-[16px] sm:rounded-[20px] border border-[#E2E8F0] bg-white p-0 sm:p-7 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
+            {/* 모바일 전용 컴팩트 가로형 범례 바 (지도를 가리지 않음) */}
+            <div className="flex sm:hidden flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-[#F8FAFC] px-3 py-2 border-b border-[#E2E8F0] text-[10.5px] font-semibold text-[#64748B]">
+              <span className="font-bold text-[#123047]">평균 매매가(억):</span>
+              {PRICE_LEGEND.map((item) => (
+                <div key={item.label} className="flex items-center gap-1">
+                  <span className="size-2.5 rounded-[2px]" style={{ backgroundColor: item.color }} />
+                  <span>{item.label}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="relative mx-auto max-w-[1120px] overflow-hidden rounded-none sm:rounded-[14px] border-0 sm:border border-[#E2E8F0] bg-[#F8FAFC]">
+              {/* PC 전용 우측 상단 플로팅 범례 */}
+              <div className="hidden sm:block absolute right-3 top-3 z-10 w-[196px] rounded-[14px] border border-[#D7E1EE] bg-white/95 p-4 shadow-[0_8px_24px_rgba(18,48,71,0.10)] backdrop-blur sm:right-5 sm:top-5">
                 <strong className="mb-3 block text-[13px] font-black text-[#123047]">
                   {hasSelectedDistrict ? "동별" : "구별"} 평균 매매가
                   <small className="ml-1 text-[10px] font-semibold text-[#94A3B8]">(단위: 억 원)</small>
@@ -298,15 +310,74 @@ export default function RegionMapPage() {
               </p>
             ) : (
             <div className="mt-5 grid gap-4 xl:grid-cols-2">
-              {[{ title: "상위 5개 아파트 단지", items: apartmentRankingQuery.data?.top ?? [], color: "text-rose-500" }, { title: "하위 5개 아파트 단지", items: apartmentRankingQuery.data?.bottom ?? [], color: "text-[#1677D2]" }]
+              {[
+                {
+                  title: "상위 5개 아파트 단지",
+                  items: apartmentRankingQuery.data?.top ?? [],
+                  color: "text-rose-500",
+                  badgeBg: "bg-rose-50 text-rose-600 border-rose-200",
+                },
+                {
+                  title: "하위 5개 아파트 단지",
+                  items: apartmentRankingQuery.data?.bottom ?? [],
+                  color: "text-[#1677D2]",
+                  badgeBg: "bg-blue-50 text-blue-600 border-blue-200",
+                },
+              ]
                 .filter((group) => group.items.length > 0)
                 .map((group) => (
-                <div key={group.title} className="overflow-hidden rounded-[10px] border border-[#E2E8F0]">
-                  <h3 className={`px-4 py-3 text-[14px] font-black ${group.color}`}>{group.title}</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[430px] text-left text-[12px]">
-                      <thead className="bg-[#F8FAFC] text-[#64748B]"><tr><th className="px-3 py-2">순위</th><th className="px-3 py-2">아파트 단지</th><th className="px-3 py-2">평균 {priceMetric === "pyeong" ? "평당가" : "매매가"}</th><th className="px-3 py-2">거래 건수</th></tr></thead>
-                      <tbody>{group.items.map((item, index) => <tr key={item.code} className="border-t border-[#EDF2F4]"><td className="px-3 py-2 font-bold">{index + 1}</td><td className="px-3 py-2 font-semibold">{item.name}</td><td className="px-3 py-2">{priceMetric === "pyeong" ? `${item.averagePrice.toLocaleString("ko-KR")}만원/평` : formatPrice(item.averagePrice)}</td><td className="px-3 py-2">{item.dealCount.toLocaleString("ko-KR")}건</td></tr>)}</tbody>
+                <div key={group.title} className="overflow-hidden rounded-[12px] border border-[#E2E8F0] bg-white">
+                  <div className="border-b border-[#EDF2F4] bg-[#F8FAFC] px-4 py-3">
+                    <h3 className={`text-[14.5px] font-black ${group.color}`}>{group.title}</h3>
+                  </div>
+
+                  {/* 모바일 뷰: 가로 스크롤 없는 컴팩트 리스트 */}
+                  <div className="block sm:hidden divide-y divide-[#EDF2F4]">
+                    {group.items.map((item, index) => (
+                      <div key={item.code} className="flex items-center justify-between p-3.5 gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className={`flex size-6 shrink-0 items-center justify-center rounded-[6px] border text-[11.5px] font-black ${index === 0 ? group.badgeBg : "bg-[#F1F5F9] text-[#64748B] border-[#E2E8F0]"}`}>
+                            {index + 1}
+                          </span>
+                          <span className="font-bold text-[13.5px] text-[#1E293B] truncate">
+                            {item.name}
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="font-black text-[13.5px] text-[#0F172A]">
+                            {priceMetric === "pyeong" ? `${item.averagePrice.toLocaleString("ko-KR")}만/평` : formatPrice(item.averagePrice)}
+                          </div>
+                          <div className="text-[11px] font-medium text-[#94A3B8]">
+                            거래 {item.dealCount.toLocaleString("ko-KR")}건
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* PC / 태블릿 뷰: 테이블 */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full text-left text-[12.5px]">
+                      <thead className="bg-[#F8FAFC] text-[#64748B]">
+                        <tr>
+                          <th className="px-4 py-2.5 w-16 text-center">순위</th>
+                          <th className="px-4 py-2.5">아파트 단지</th>
+                          <th className="px-4 py-2.5 text-right">평균 {priceMetric === "pyeong" ? "평당가" : "매매가"}</th>
+                          <th className="px-4 py-2.5 w-24 text-right">거래 건수</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#EDF2F4]">
+                        {group.items.map((item, index) => (
+                          <tr key={item.code} className="hover:bg-[#F8FAFC] transition-colors">
+                            <td className="px-4 py-3 text-center font-bold text-[#64748B]">{index + 1}</td>
+                            <td className="px-4 py-3 font-semibold text-[#1E293B]">{item.name}</td>
+                            <td className="px-4 py-3 text-right font-bold text-[#0F172A]">
+                              {priceMetric === "pyeong" ? `${item.averagePrice.toLocaleString("ko-KR")}만원/평` : formatPrice(item.averagePrice)}
+                            </td>
+                            <td className="px-4 py-3 text-right font-medium text-[#64748B]">{item.dealCount.toLocaleString("ko-KR")}건</td>
+                          </tr>
+                        ))}
+                      </tbody>
                     </table>
                   </div>
                 </div>
