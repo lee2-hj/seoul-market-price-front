@@ -38,7 +38,12 @@ export default function SectionSidebarLayout({
                         to={to}
                         end={end}
                         onClick={(e) => {
-                          if (location.pathname === to) {
+                          const isAlreadyActive =
+                            customIsActive ??
+                            (location.pathname + location.search === to ||
+                              (location.pathname === to && !location.search));
+
+                          if (isAlreadyActive) {
                             e.preventDefault();
                           }
                         }}
