@@ -17,17 +17,15 @@ import { CUSTOMER_CENTER_NAVIGATION } from '@/config/sectionNavigation';
 
 interface FaqItem {
   id: number;
-  category: string;
   question: string;
   answer: string;
 }
 
 // URL 쿼리 파라미터 타입 정의
-type FaqQueryParamKeys = 'page' | 'category' | 'keyword';
+type FaqQueryParamKeys = 'page' | 'keyword';
 
 interface FaqQueryState {
   page: number;
-  category: string;
   keyword: string;
 }
 
@@ -38,7 +36,6 @@ export default function FaqPage() {
 
   const query: FaqQueryState = {
     page: Number(getParam('page')) || 1,
-    category: getParam('category') || '전체',
     keyword: getParam('keyword') || searchParams.get('search') || '',
   };
 
@@ -46,9 +43,6 @@ export default function FaqPage() {
     const next: FaqQueryState = { ...query, ...updates };
     const params: Partial<Record<FaqQueryParamKeys, string>> = { page: String(next.page) };
 
-    if (next.category && next.category !== '전체') {
-      params.category = next.category;
-    }
     if (next.keyword) {
       params.keyword = next.keyword;
     }
@@ -64,8 +58,8 @@ export default function FaqPage() {
 
   // 2. React Query 데이터 조회
   const { data: apiFaqs, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['faqs', query.category],
-    queryFn: () => getPublicFaqsApi(query.category),
+    queryKey: ['faqs'],
+    queryFn: () => getPublicFaqsApi(),
     staleTime: 1000 * 60 * 5,
     retry: 1,
   });
@@ -75,7 +69,6 @@ export default function FaqPage() {
     if (apiFaqs && Array.isArray(apiFaqs) && apiFaqs.length > 0) {
       return apiFaqs.map((f: FaqPublicResponse) => ({
         id: f.id,
-        category: f.category || '기타',
         question: f.question,
         answer: f.answer,
       }));
@@ -85,15 +78,13 @@ export default function FaqPage() {
 
   const filteredFaqs = useMemo(() => {
     return faqsData.filter((item) => {
-      const matchesCategory =
-        query.category === '전체' || item.category === query.category;
       const matchesSearch =
         !query.keyword ||
         item.question.includes(query.keyword) ||
         item.answer.includes(query.keyword);
-      return matchesCategory && matchesSearch;
+      return matchesSearch;
     });
-  }, [faqsData, query.category, query.keyword]);
+  }, [faqsData, query.keyword]);
 
   const totalPages = Math.ceil(filteredFaqs.length / itemsPerPage);
   const validPage = Math.min(Math.max(query.page, 1), Math.max(totalPages, 1));
@@ -161,25 +152,8 @@ export default function FaqPage() {
             <p className="text-[15px] text-[#6B7280]">싸부(SSABU) 서비스 이용 관련 자주 묻는 질문과 답변입니다.</p>
           </div>
 
-          {/* 카테고리 필터 및 검색 영역 */}
-          <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[12px] p-5 mb-6 shadow-xs space-y-4">
-            <div className="flex flex-wrap gap-2">
-              {['전체', '가격변동', '알뜰구매', '유통구조', '품질/보관'].map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setQuery({ category: cat, page: 1 })}
-                  className={`px-4 py-2 text-[13px] font-bold rounded-[8px] transition-all cursor-pointer ${
-                    query.category === cat
-                      ? 'bg-[#0F8AA8] text-white shadow-xs'
-                      : 'bg-[#F5FAFC] text-[#6B7280] hover:bg-[#EAF5F8] hover:text-[#0F8AA8] border border-[#DCE8ED]'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
+          {/* 검색 영역 */}
+          <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[12px] p-5 mb-6 shadow-xs">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -212,7 +186,7 @@ export default function FaqPage() {
                   type="button"
                   variant="outline"
                   onClick={() => {
-                    setQuery({ page: 1, category: '전체', keyword: '' });
+                    setQuery({ page: 1, keyword: '' });
                     refetch();
                   }}
                   className="h-[44px] px-5 bg-white border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA] text-[14px] font-bold rounded-[7px]"
@@ -280,9 +254,6 @@ export default function FaqPage() {
                     >
                       <div className="flex items-center gap-3 pr-4 flex-1 min-w-0">
                         <span className="text-[18px] font-black text-[#0F8AA8]">Q.</span>
-                        <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#E6F4F2] text-[#0F766E]">
-                          {faq.category}
-                        </span>
                         <span className="text-[15px] font-bold text-[#13202B] truncate">
                           {faq.question}
                         </span>
@@ -347,4 +318,5 @@ export default function FaqPage() {
     </SectionSidebarLayout>
   );
 }
+
 
