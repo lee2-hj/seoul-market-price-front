@@ -31,7 +31,6 @@ export default function SectionSidebarLayout({
                 <nav className="flex flex-col gap-1" aria-label={`${sectionTitle} 메뉴`}>
                   {menuItems.map(({ label, to, icon: Icon, end, isActive }) => {
                     const customIsActive = isActive?.(location);
-                    const isItemActive = customIsActive ?? (location.pathname === to);
 
                     return (
                       <NavLink
@@ -39,7 +38,7 @@ export default function SectionSidebarLayout({
                         to={to}
                         end={end}
                         onClick={(e) => {
-                          if (isItemActive) {
+                          if (location.pathname === to) {
                             e.preventDefault();
                           }
                         }}

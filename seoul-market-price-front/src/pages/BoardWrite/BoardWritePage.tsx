@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,16 +11,6 @@ import {
 } from "@/api/api";
 import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
-import {
-  getBoardWriteDraftKey,
-  hasBoardTextDraft,
-  loadBoardDraftFiles,
-  loadBoardTextDraft,
-  removeBoardDraftFiles,
-  removeBoardTextDraft,
-  saveBoardDraftFiles,
-  saveBoardTextDraft,
-} from "@/features/board/utils/boardDraftStorage";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
@@ -39,21 +29,38 @@ interface BoardWriteFormData {
 const ALLOWED_FILE_EXTENSIONS =
   ".jpg,.jpeg,.png,.gif,.webp,.pdf,.zip,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv";
 
+const WRITE_SESSION_KEY = "ssabu_board_write_session";
+const WRITE_RELOAD_FLAG_KEY = "ssabu_board_write_is_reload";
+
+function getInitialWriteFormData(): BoardWriteFormData {
+  const isReload = sessionStorage.getItem(WRITE_RELOAD_FLAG_KEY) === "1";
+  sessionStorage.removeItem(WRITE_RELOAD_FLAG_KEY);
+
+  if (isReload) {
+    try {
+      const saved = sessionStorage.getItem(WRITE_SESSION_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          title: typeof parsed?.title === "string" ? parsed.title : "",
+          content: typeof parsed?.content === "string" ? parsed.content : "",
+        };
+      }
+    } catch {
+      // JSON 파싱 실패 시 무시
+    }
+  }
+
+  sessionStorage.removeItem(WRITE_SESSION_KEY);
+  return { title: "", content: "" };
+}
+
 export default function BoardWritePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [textReadyDraftKey, setTextReadyDraftKey] = useState<string | null>(null);
-  const [filesReadyDraftKey, setFilesReadyDraftKey] = useState<string | null>(null);
-  const loginUser = useAuthStore((state) => state.user);
   const isAuthInitialized = useAuthStore((state) => state.isInitialized);
-  const draftKey = loginUser?.userId
-    ? getBoardWriteDraftKey(loginUser.userId)
-    : null;
-  const initializedDraftKeyRef = useRef<string | null>(null);
-  const fileDraftErrorShownRef = useRef(false);
-  const textDraftErrorShownRef = useRef(false);
 
   // 비로그인 접근 방어
   useEffect(() => {
@@ -64,87 +71,44 @@ export default function BoardWritePage() {
     }
   }, [isAuthInitialized, navigate]);
 
+  // 새로고침 이벤트 감지 및 페이지 언마운트(SPA 라우트 이동) 시 세션 삭제
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      sessionStorage.setItem(WRITE_RELOAD_FLAG_KEY, "1");
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      // SPA 라우팅 이동으로 컴포넌트가 언마운트되는 경우 세션 정리
+      if (sessionStorage.getItem(WRITE_RELOAD_FLAG_KEY) !== "1") {
+        sessionStorage.removeItem(WRITE_SESSION_KEY);
+      }
+    };
+  }, []);
+
   const {
     register,
     handleSubmit,
     control,
-    reset,
     formState: { errors },
   } = useForm<BoardWriteFormData>({
-    defaultValues: {
-      title: "",
-      content: "",
-    },
+    defaultValues: getInitialWriteFormData(),
   });
 
   const titleValue = useWatch({ control, name: "title" }) || "";
   const contentValue = useWatch({ control, name: "content" }) || "";
 
-  const showFileDraftError = useCallback((error: unknown) => {
-    console.error("첨부파일 초안 처리 실패:", error);
-    if (fileDraftErrorShownRef.current) return;
-    fileDraftErrorShownRef.current = true;
-    alert(
-      error instanceof Error
-        ? `${error.message}\n제목과 본문 초안은 계속 저장됩니다.`
-        : "첨부파일 초안을 저장하지 못했습니다. 제목과 본문 초안은 계속 저장됩니다.",
-    );
-  }, []);
-
+  // 작성 중인 내용을 세션에 실시간 보관 (새로고침 대비)
   useEffect(() => {
-    if (!draftKey || initializedDraftKeyRef.current === draftKey) return;
-
-    const hasSavedDraft = hasBoardTextDraft(draftKey);
-    const savedDraft = loadBoardTextDraft(draftKey);
-    if (savedDraft) reset(savedDraft);
-    initializedDraftKeyRef.current = draftKey;
-    setTextReadyDraftKey(draftKey);
-
-    let isActive = true;
-    (hasSavedDraft ? loadBoardDraftFiles(draftKey) : Promise.resolve([]))
-      .then((files) => {
-        if (isActive) setSelectedFiles(files.slice(0, BOARD_MAX_FILE_COUNT));
-      })
-      .catch(showFileDraftError)
-      .finally(() => {
-        if (isActive) setFilesReadyDraftKey(draftKey);
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [draftKey, reset, showFileDraftError]);
-
-  useEffect(() => {
-    if (!draftKey || textReadyDraftKey !== draftKey) return;
-    try {
-      saveBoardTextDraft(draftKey, {
-        title: titleValue,
-        content: contentValue,
-      });
-    } catch (error) {
-      console.error("게시글 본문 초안 저장 실패:", error);
-      if (!textDraftErrorShownRef.current) {
-        textDraftErrorShownRef.current = true;
-        alert("게시글 제목과 본문 초안을 저장하지 못했습니다.");
-      }
+    if (titleValue || contentValue) {
+      sessionStorage.setItem(
+        WRITE_SESSION_KEY,
+        JSON.stringify({ title: titleValue, content: contentValue }),
+      );
     }
-  }, [contentValue, draftKey, textReadyDraftKey, titleValue]);
-
-  useEffect(() => {
-    if (!draftKey || filesReadyDraftKey !== draftKey) return;
-    saveBoardDraftFiles(draftKey, selectedFiles).catch(showFileDraftError);
-  }, [draftKey, filesReadyDraftKey, selectedFiles, showFileDraftError]);
-
-  const clearCurrentDraft = useCallback(async () => {
-    if (!draftKey) return;
-    removeBoardTextDraft(draftKey);
-    try {
-      await removeBoardDraftFiles(draftKey);
-    } catch (error) {
-      showFileDraftError(error);
-    }
-  }, [draftKey, showFileDraftError]);
+  }, [titleValue, contentValue]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawFiles = Array.from(e.target.files || []);
@@ -218,8 +182,8 @@ export default function BoardWritePage() {
 
       return { boardId: newBoardId };
     },
-    onSuccess: async (res) => {
-      await clearCurrentDraft();
+    onSuccess: (res) => {
+      sessionStorage.removeItem(WRITE_SESSION_KEY);
       alert("게시글이 성공적으로 등록되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["boardPosts"] });
       if (res.boardId && res.boardId > 0) {
@@ -247,6 +211,7 @@ export default function BoardWritePage() {
   };
 
   const handleGoToList = () => {
+    sessionStorage.removeItem(WRITE_SESSION_KEY);
     navigate("/board");
   };
 

@@ -55,7 +55,7 @@ export function MainHeroSearch() {
 
           {/* AI 질문 입력창 */}
           <form className="mt-5 w-full max-w-2xl" onSubmit={handleFormSubmit}>
-            <div className="flex w-full min-w-0 flex-col gap-2 rounded-xl border border-[#C9DEE6] bg-white p-1.5 shadow-[0_6px_20px_rgba(18,48,71,0.07)] focus-within:border-[#0F8AA8] focus-within:ring-3 focus-within:ring-[#0F8AA8]/15 sm:flex-row sm:items-center sm:gap-0 sm:p-1.5">
+            <div className="flex w-full min-w-0 flex-col gap-2 rounded-xl border border-[#C9DEE6] bg-white p-1.5 shadow-[0_6px_20px_rgba(18,48,71,0.07)] focus-within:border-[#0F8AA8] focus-within:ring-3 focus-within:ring-[#0F8AA8]/15 sm:flex-row sm:items-center sm:gap-2 sm:p-1.5">
               <div className="flex min-w-0 flex-1 items-center">
                 <Input
                   value={ai.question}
