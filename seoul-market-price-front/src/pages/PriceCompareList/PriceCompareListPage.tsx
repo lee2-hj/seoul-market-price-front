@@ -1601,25 +1601,14 @@ export default function PriceCompareListPage() {
 
           {/* 메인 콘텐츠 영역 */}
           <section className="min-w-0">
-            {/* 타이틀 및 초기화 버튼 */}
-            <div className="mb-7 flex items-end justify-between">
-              <div>
-                <h1 className="text-[26px] font-black tracking-tight text-slate-900">
-                  지역별 비교 (리스트)
-                </h1>
-                <p className="mt-1 text-[13px] font-medium text-slate-500">
-                  자치구와 자치동을 선택하여 두 지역의 매매 및 평당 시세를 정밀 비교해보세요.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleReset}
-                className="group flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-4 py-2.5 text-[12px] font-extrabold text-slate-600 shadow-sm transition-all duration-200 hover:border-[#0F8AA8] hover:bg-[#F0FDFA] hover:text-[#0F8AA8] hover:shadow-md cursor-pointer"
-              >
-                <RotateCcw className="size-3.5 transition-transform duration-500 group-hover:-rotate-180" />
-                <span>초기화</span>
-              </button>
+            {/* 타이틀 */}
+            <div className="mb-6">
+              <h1 className="text-[26px] font-black tracking-tight text-slate-900">
+                지역별 비교 (리스트)
+              </h1>
+              <p className="mt-1 text-[13px] font-medium text-slate-500">
+                자치구와 자치동을 선택하여 두 지역의 매매 및 평당 시세를 정밀 비교해보세요.
+              </p>
             </div>
 
             {/* 지역 선택 카드 섹션 */}
@@ -1668,26 +1657,42 @@ export default function PriceCompareListPage() {
                   />
                 </div>
 
-                {/* 우측 영역: 시세 비교 조회하기 버튼 (크기 확대) */}
-                <div className="flex flex-col items-center justify-center shrink-0 w-[140px] sm:w-[155px]">
-                  <button
-                    type="button"
-                    onClick={handleCompare}
-                    disabled={compareMutation.isPending || isSggLoading || !r1District || !r2District || !r1Dong || !r2Dong}
-                    className="flex h-full min-h-[125px] w-full flex-col items-center justify-center gap-3 rounded-[22px] bg-[#2563EB] p-5 text-white shadow-[0_6px_20px_rgba(37,99,235,0.3)] transition-all duration-200 hover:bg-[#1D4ED8] hover:shadow-[0_8px_24px_rgba(37,99,235,0.4)] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
-                  >
-                    {compareMutation.isPending ? (
-                      <Loader2 className="size-6 animate-spin text-white" />
-                    ) : (
-                      <Search className="size-6 stroke-[2.5] text-white" />
-                    )}
-                    <span className="text-[16px] font-black tracking-tight text-white">
-                      {compareMutation.isPending ? "조회 중..." : "조회하기"}
-                    </span>
-                  </button>
-                  <p className="mt-2.5 text-[11.5px] font-bold text-slate-400 text-center leading-tight whitespace-nowrap">
-                    자치구·자치동 <span className="text-blue-500 font-bold">필수 선택</span>
-                  </p>
+                {/* 우측 영역: 시세 비교 조회하기 버튼 & 초기화 (상하 스택) */}
+                <div className="flex flex-col items-center justify-center shrink-0 w-full min-[1100px]:w-[155px] max-[1100px]:mt-2">
+                  <div className="flex w-full flex-col gap-2 h-full justify-center text-center">
+                    {/* 1. 조회하기 버튼 */}
+                    <button
+                      type="button"
+                      onClick={handleCompare}
+                      disabled={compareMutation.isPending || isSggLoading || !r1District || !r2District || !r1Dong || !r2Dong}
+                      className="flex min-[1100px]:w-full flex-row min-[1100px]:flex-col items-center justify-center gap-2 sm:gap-2.5 rounded-[16px] sm:rounded-[20px] bg-[#2563EB] px-4 py-3 sm:p-4 text-white shadow-[0_6px_20px_rgba(37,99,235,0.3)] transition-all duration-200 hover:bg-[#1D4ED8] hover:shadow-[0_8px_24px_rgba(37,99,235,0.4)] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer min-h-[48px] min-[1100px]:min-h-[85px]"
+                    >
+                      {compareMutation.isPending ? (
+                        <Loader2 className="size-5 sm:size-6 animate-spin text-white" />
+                      ) : (
+                        <Search className="size-5 sm:size-6 stroke-[2.5] text-white" />
+                      )}
+                      <span className="text-[14px] sm:text-[16px] font-black tracking-tight text-white">
+                        {compareMutation.isPending ? "조회 중..." : "조회하기"}
+                      </span>
+                    </button>
+
+                    {/* 2. 자치구·자치동 필수 선택 안내 문구 */}
+                    <p className="my-1 text-[11.5px] font-bold text-slate-400 text-center leading-tight whitespace-nowrap">
+                      자치구·자치동 <span className="text-blue-500 font-bold">필수 선택</span>
+                    </p>
+
+                    {/* 3. 초기화 버튼 (안내 문구 하단 위치) */}
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      className="group flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 sm:py-2 text-[12px] font-extrabold text-slate-600 shadow-sm transition-all duration-200 hover:border-[#0F8AA8] hover:bg-[#F0FDFA] hover:text-[#0F8AA8] cursor-pointer w-full"
+                      title="선택 조건을 모두 지우고 초기화합니다"
+                    >
+                      <RotateCcw className="size-3.5 transition-transform duration-500 group-hover:-rotate-180 text-slate-500 group-hover:text-[#0F8AA8]" />
+                      <span>초기화</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

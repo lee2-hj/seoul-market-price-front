@@ -1379,20 +1379,21 @@
   /* Table */
 
   .board {
-    overflow-x: auto;
+    overflow-x: hidden;
     overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
+    width: 100%;
   }
 
   .tableHeader,
   .tableRow {
-    min-width: 680px;
+    min-width: 0;
+    width: 100%;
     grid-template-columns:
-      55px
-      minmax(280px, 1fr)
-      90px
-      100px
-      65px;
+      45px
+      1fr
+      75px
+      85px
+      55px;
   }
 
   .tableHeader {

@@ -1933,63 +1933,64 @@ function ApartmentProfileComparison({
       </div>
 
       {/* 5대 핵심 항목 비교 표 */}
-      <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-6 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Sparkles className="size-5 text-[#0F8AA8]" />
-            <h3 className="text-[17px] font-black text-[#0F172A]">
+      <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-3.5 sm:p-6 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
+        <div className="mb-4 sm:mb-5 flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Sparkles className="size-4 sm:size-5 text-[#0F8AA8]" />
+            <h3 className="text-[15px] sm:text-[17px] font-black text-[#0F172A]">
               핵심 시세 및 단지 지표 비교
             </h3>
           </div>
-          <span className="text-[12px] font-bold text-[#64748B]">
-            서울시 열린데이터광장 부동산 실거래가 공개시스템 데이터 기반
+          <span className="text-[10.5px] sm:text-[12px] font-bold text-[#64748B]">
+            서울시 실거래가 시스템 데이터 기반
           </span>
         </div>
 
         <div className="w-full overflow-x-auto">
-          <table className="w-full table-fixed border-separate border-spacing-1.5 text-[13px]">
+          <table className="w-full table-fixed border-separate border-spacing-1 sm:border-spacing-1.5 text-[11px] sm:text-[13px]">
             <colgroup>
+              <col className="w-[27%]" />
+              <col className="w-[24%]" />
               <col className="w-[24%]" />
               <col className="w-[25%]" />
-              <col className="w-[25%]" />
-              <col className="w-[26%]" />
             </colgroup>
             <thead>
               <tr className="text-center font-black text-[#334155]">
-                <th className="border border-[#CBD5E1] bg-[#F1F5F9] p-2.5 sm:p-3 text-center shadow-xs">
-                  <span className="text-[12px] sm:text-[13px] font-black text-[#334155]">
+                <th className="border border-[#CBD5E1] bg-[#F1F5F9] p-1.5 sm:p-3 text-center shadow-xs">
+                  <span className="text-[10.5px] sm:text-[13px] font-black text-[#334155]">
                     비교 항목
                   </span>
                 </th>
-                <th className="border border-[#CBD5E1] bg-[#F1F5F9] p-2 sm:p-2.5 text-center shadow-xs">
-                  <div className="flex flex-col items-center justify-center gap-1">
-                    <span className="text-[11px] font-bold text-slate-500">
+                <th className="border border-[#CBD5E1] bg-[#F1F5F9] p-1 sm:p-2.5 text-center shadow-xs">
+                  <div className="flex flex-col items-center justify-center gap-0.5 sm:gap-1">
+                    <span className="text-[9.5px] sm:text-[11px] font-bold text-slate-500 truncate max-w-full">
                       {apt1.district} {apt1.dong}
                     </span>
                     <span
-                      className="w-full truncate text-[13px] sm:text-[14px] font-black text-blue-700"
+                      className="w-full truncate text-[11px] sm:text-[14px] font-black text-blue-700"
                       title={`${apt1.district} ${apt1.dong} ${apt1.name}`}
                     >
                       {apt1.name}
                     </span>
                   </div>
                 </th>
-                <th className="border border-[#CBD5E1] bg-[#F1F5F9] p-2 sm:p-2.5 text-center shadow-xs">
-                  <div className="flex flex-col items-center justify-center gap-1">
-                    <span className="text-[11px] font-bold text-slate-500">
+                <th className="border border-[#CBD5E1] bg-[#F1F5F9] p-1 sm:p-2.5 text-center shadow-xs">
+                  <div className="flex flex-col items-center justify-center gap-0.5 sm:gap-1">
+                    <span className="text-[9.5px] sm:text-[11px] font-bold text-slate-500 truncate max-w-full">
                       {apt2.district} {apt2.dong}
                     </span>
                     <span
-                      className="w-full truncate text-[13px] sm:text-[14px] font-black text-emerald-700"
+                      className="w-full truncate text-[11px] sm:text-[14px] font-black text-emerald-700"
                       title={`${apt2.district} ${apt2.dong} ${apt2.name}`}
                     >
                       {apt2.name}
                     </span>
                   </div>
                 </th>
-                <th className="border border-[#CBD5E1] bg-[#F1F5F9] p-2.5 sm:p-3 text-center shadow-xs">
-                  <span className="text-[12px] sm:text-[13px] font-black text-slate-800">
-                    격차 및 우위 분석
+                <th className="border border-[#CBD5E1] bg-[#F1F5F9] p-1.5 sm:p-3 text-center shadow-xs">
+                  <span className="text-[10.5px] sm:text-[13px] font-black text-slate-800">
+                    <span className="hidden sm:inline">격차 및 우위 분석</span>
+                    <span className="sm:hidden">격차 · 우위</span>
                   </span>
                 </th>
               </tr>
@@ -1997,36 +1998,36 @@ function ApartmentProfileComparison({
             <tbody>
               {/* 1행: 평균 매매가 */}
               <tr>
-                <td className="border border-[#CBD5E1] bg-[#F8FAFC] p-2 sm:p-2.5 shadow-xs">
-                  <div className="flex items-center justify-center gap-1.5 sm:gap-2">
-                    <Coins className="size-4 text-[#F59E0B] shrink-0" />
+                <td className="border border-[#CBD5E1] bg-[#F8FAFC] p-1 sm:p-2.5 shadow-xs">
+                  <div className="flex items-center justify-center gap-1 sm:gap-2">
+                    <Coins className="size-3.5 sm:size-4 text-[#F59E0B] shrink-0" />
                     <div className="flex flex-col text-left">
-                      <span className="text-[12px] sm:text-[13px] font-extrabold text-slate-800 leading-tight">
+                      <span className="text-[10.5px] sm:text-[13px] font-extrabold text-slate-800 leading-tight">
                         평균 매매가
                       </span>
-                      <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
+                      <span className="text-[9px] sm:text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
                         (단위: 만 원)
                       </span>
                     </div>
                   </div>
                 </td>
-                <td className="border border-[#CBD5E1] bg-white p-2 sm:p-2.5 text-center shadow-xs">
-                  <span className="text-[14px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
+                <td className="border border-[#CBD5E1] bg-white p-1 sm:p-2.5 text-center shadow-xs">
+                  <span className="text-[11.5px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
                     {(apt1.metrics.avgPrice >= 100
                       ? Math.round(apt1.metrics.avgPrice)
                       : Math.round(apt1.metrics.avgPrice * 10000)
                     ).toLocaleString()}
                   </span>
                 </td>
-                <td className="border border-[#CBD5E1] bg-white p-2 sm:p-2.5 text-center shadow-xs">
-                  <span className="text-[14px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
+                <td className="border border-[#CBD5E1] bg-white p-1 sm:p-2.5 text-center shadow-xs">
+                  <span className="text-[11.5px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
                     {(apt2.metrics.avgPrice >= 100
                       ? Math.round(apt2.metrics.avgPrice)
                       : Math.round(apt2.metrics.avgPrice * 10000)
                     ).toLocaleString()}
                   </span>
                 </td>
-                <td className="border border-[#CBD5E1] bg-white p-2 sm:p-2.5 text-center shadow-xs">
+                <td className="border border-[#CBD5E1] bg-white p-1 sm:p-2.5 text-center shadow-xs">
                   {avgDiff === 0 ? (
                     <span className="font-semibold text-slate-400">-</span>
                   ) : (
@@ -2034,21 +2035,21 @@ function ApartmentProfileComparison({
                       <span
                         className={
                           avgDiff > 0
-                            ? "truncate max-w-[100px] text-[11px] sm:text-[12px] font-black text-blue-600"
-                            : "truncate max-w-[100px] text-[11px] sm:text-[12px] font-black text-emerald-600"
+                            ? "truncate max-w-[55px] sm:max-w-[100px] text-[10px] sm:text-[12px] font-black text-blue-600"
+                            : "truncate max-w-[55px] sm:max-w-[100px] text-[10px] sm:text-[12px] font-black text-emerald-600"
                         }
                         title={avgDiff > 0 ? apt1.name : apt2.name}
                       >
                         {avgDiff > 0 ? apt1.name : apt2.name}
                       </span>
-                      <span className="inline-flex items-center gap-0.5 text-[12px] sm:text-[13px] font-black text-slate-950">
+                      <span className="inline-flex items-center gap-0.5 text-[10.5px] sm:text-[13px] font-black text-slate-950">
                         <span>
                           {(Math.abs(avgDiff) >= 100
                             ? Math.round(Math.abs(avgDiff))
                             : Math.round(Math.abs(avgDiff) * 10000)
                           ).toLocaleString()}
                         </span>
-                        <span className="text-[11px] font-black text-rose-600">
+                        <span className="text-[10px] sm:text-[11px] font-black text-rose-600">
                           ▲
                         </span>
                       </span>
@@ -2059,30 +2060,30 @@ function ApartmentProfileComparison({
 
               {/* 2행: 최근 3개월 총 거래량 */}
               <tr>
-                <td className="border border-[#CBD5E1] bg-[#F8FAFC] p-2 sm:p-2.5 shadow-xs">
-                  <div className="flex items-center justify-center gap-1.5 sm:gap-2">
-                    <BarChart3 className="size-4 text-[#6366F1] shrink-0" />
+                <td className="border border-[#CBD5E1] bg-[#F8FAFC] p-1 sm:p-2.5 shadow-xs">
+                  <div className="flex items-center justify-center gap-1 sm:gap-2">
+                    <BarChart3 className="size-3.5 sm:size-4 text-[#6366F1] shrink-0" />
                     <div className="flex flex-col text-left">
-                      <span className="text-[12px] sm:text-[13px] font-extrabold text-slate-800 leading-tight">
+                      <span className="text-[10.5px] sm:text-[13px] font-extrabold text-slate-800 leading-tight">
                         최근 3개월 총 거래량
                       </span>
-                      <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
+                      <span className="text-[9px] sm:text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
                         (단위: 건)
                       </span>
                     </div>
                   </div>
                 </td>
-                <td className="border border-[#CBD5E1] bg-white p-2 sm:p-2.5 text-center shadow-xs">
-                  <span className="text-[14px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
+                <td className="border border-[#CBD5E1] bg-white p-1 sm:p-2.5 text-center shadow-xs">
+                  <span className="text-[11.5px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
                     {apt1.metrics.recent3MonthVolume}
                   </span>
                 </td>
-                <td className="border border-[#CBD5E1] bg-white p-2 sm:p-2.5 text-center shadow-xs">
-                  <span className="text-[14px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
+                <td className="border border-[#CBD5E1] bg-white p-1 sm:p-2.5 text-center shadow-xs">
+                  <span className="text-[11.5px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
                     {apt2.metrics.recent3MonthVolume}
                   </span>
                 </td>
-                <td className="border border-[#CBD5E1] bg-white p-2 sm:p-2.5 text-center shadow-xs">
+                <td className="border border-[#CBD5E1] bg-white p-1 sm:p-2.5 text-center shadow-xs">
                   {volDiff === 0 ? (
                     <span className="font-semibold text-slate-400">-</span>
                   ) : (
@@ -2090,16 +2091,16 @@ function ApartmentProfileComparison({
                       <span
                         className={
                           volDiff > 0
-                            ? "truncate max-w-[100px] text-[11px] sm:text-[12px] font-black text-blue-600"
-                            : "truncate max-w-[100px] text-[11px] sm:text-[12px] font-black text-emerald-600"
+                            ? "truncate max-w-[55px] sm:max-w-[100px] text-[10px] sm:text-[12px] font-black text-blue-600"
+                            : "truncate max-w-[55px] sm:max-w-[100px] text-[10px] sm:text-[12px] font-black text-emerald-600"
                         }
                         title={volDiff > 0 ? apt1.name : apt2.name}
                       >
                         {volDiff > 0 ? apt1.name : apt2.name}
                       </span>
-                      <span className="inline-flex items-center gap-0.5 text-[12px] sm:text-[13px] font-black text-slate-950">
+                      <span className="inline-flex items-center gap-0.5 text-[10.5px] sm:text-[13px] font-black text-slate-950">
                         <span>{Math.abs(volDiff)}</span>
-                        <span className="text-[11px] font-black text-rose-600">
+                        <span className="text-[10px] sm:text-[11px] font-black text-rose-600">
                           ▲
                         </span>
                       </span>
@@ -2110,34 +2111,34 @@ function ApartmentProfileComparison({
 
               {/* 3행: 평균 평단가 */}
               <tr>
-                <td className="border border-[#CBD5E1] bg-[#F8FAFC] p-2 sm:p-2.5 shadow-xs">
-                  <div className="flex items-center justify-center gap-1.5 sm:gap-2">
-                    <TrendingUp className="size-4 text-[#0F8AA8] shrink-0" />
+                <td className="border border-[#CBD5E1] bg-[#F8FAFC] p-1 sm:p-2.5 shadow-xs">
+                  <div className="flex items-center justify-center gap-1 sm:gap-2">
+                    <TrendingUp className="size-3.5 sm:size-4 text-[#0F8AA8] shrink-0" />
                     <div className="flex flex-col text-left">
-                      <span className="text-[12px] sm:text-[13px] font-extrabold text-slate-800 leading-tight">
+                      <span className="text-[10.5px] sm:text-[13px] font-extrabold text-slate-800 leading-tight">
                         평균 평단가
                       </span>
-                      <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
+                      <span className="text-[9px] sm:text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
                         (단위: 만 원)
                       </span>
                     </div>
                   </div>
                 </td>
-                <td className="border border-[#CBD5E1] bg-white p-2 sm:p-2.5 text-center shadow-xs">
-                  <span className="text-[14px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
+                <td className="border border-[#CBD5E1] bg-white p-1 sm:p-2.5 text-center shadow-xs">
+                  <span className="text-[11.5px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
                     {apt1.metrics.pricePerPyeong > 0
                       ? apt1.metrics.pricePerPyeong.toLocaleString()
                       : "-"}
                   </span>
                 </td>
-                <td className="border border-[#CBD5E1] bg-white p-2 sm:p-2.5 text-center shadow-xs">
-                  <span className="text-[14px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
+                <td className="border border-[#CBD5E1] bg-white p-1 sm:p-2.5 text-center shadow-xs">
+                  <span className="text-[11.5px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
                     {apt2.metrics.pricePerPyeong > 0
                       ? apt2.metrics.pricePerPyeong.toLocaleString()
                       : "-"}
                   </span>
                 </td>
-                <td className="border border-[#CBD5E1] bg-white p-2 sm:p-2.5 text-center shadow-xs">
+                <td className="border border-[#CBD5E1] bg-white p-1 sm:p-2.5 text-center shadow-xs">
                   {pyeongDiff === 0 ? (
                     <span className="font-semibold text-slate-400">-</span>
                   ) : (
@@ -2145,16 +2146,16 @@ function ApartmentProfileComparison({
                       <span
                         className={
                           pyeongDiff > 0
-                            ? "truncate max-w-[100px] text-[11px] sm:text-[12px] font-black text-blue-600"
-                            : "truncate max-w-[100px] text-[11px] sm:text-[12px] font-black text-emerald-600"
+                            ? "truncate max-w-[55px] sm:max-w-[100px] text-[10px] sm:text-[12px] font-black text-blue-600"
+                            : "truncate max-w-[55px] sm:max-w-[100px] text-[10px] sm:text-[12px] font-black text-emerald-600"
                         }
                         title={pyeongDiff > 0 ? apt1.name : apt2.name}
                       >
                         {pyeongDiff > 0 ? apt1.name : apt2.name}
                       </span>
-                      <span className="inline-flex items-center gap-0.5 text-[12px] sm:text-[13px] font-black text-slate-950">
+                      <span className="inline-flex items-center gap-0.5 text-[10.5px] sm:text-[13px] font-black text-slate-950">
                         <span>{Math.abs(pyeongDiff).toLocaleString()}</span>
-                        <span className="text-[11px] font-black text-rose-600">
+                        <span className="text-[10px] sm:text-[11px] font-black text-rose-600">
                           ▲
                         </span>
                       </span>
@@ -2165,34 +2166,34 @@ function ApartmentProfileComparison({
 
               {/* 4행: 단지 규모 */}
               <tr>
-                <td className="border border-[#CBD5E1] bg-[#F8FAFC] p-2 sm:p-2.5 shadow-xs">
-                  <div className="flex items-center justify-center gap-1.5 sm:gap-2">
-                    <Users className="size-4 text-[#10B981] shrink-0" />
+                <td className="border border-[#CBD5E1] bg-[#F8FAFC] p-1 sm:p-2.5 shadow-xs">
+                  <div className="flex items-center justify-center gap-1 sm:gap-2">
+                    <Users className="size-3.5 sm:size-4 text-[#10B981] shrink-0" />
                     <div className="flex flex-col text-left">
-                      <span className="text-[12px] sm:text-[13px] font-extrabold text-slate-800 leading-tight">
+                      <span className="text-[10.5px] sm:text-[13px] font-extrabold text-slate-800 leading-tight">
                         단지 규모
                       </span>
-                      <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
+                      <span className="text-[9px] sm:text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
                         (단위: 세대)
                       </span>
                     </div>
                   </div>
                 </td>
-                <td className="border border-[#CBD5E1] bg-white p-2 sm:p-2.5 text-center shadow-xs">
-                  <span className="text-[14px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
+                <td className="border border-[#CBD5E1] bg-white p-1 sm:p-2.5 text-center shadow-xs">
+                  <span className="text-[11.5px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
                     {apt1.isComplexChosen && apt1.metrics.totalHouseholds > 0
                       ? apt1.metrics.totalHouseholds.toLocaleString()
                       : "-"}
                   </span>
                 </td>
-                <td className="border border-[#CBD5E1] bg-white p-2 sm:p-2.5 text-center shadow-xs">
-                  <span className="text-[14px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
+                <td className="border border-[#CBD5E1] bg-white p-1 sm:p-2.5 text-center shadow-xs">
+                  <span className="text-[11.5px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
                     {apt2.isComplexChosen && apt2.metrics.totalHouseholds > 0
                       ? apt2.metrics.totalHouseholds.toLocaleString()
                       : "-"}
                   </span>
                 </td>
-                <td className="border border-[#CBD5E1] bg-white p-2 sm:p-2.5 text-center shadow-xs">
+                <td className="border border-[#CBD5E1] bg-white p-1 sm:p-2.5 text-center shadow-xs">
                   {!apt1.isComplexChosen || !apt2.isComplexChosen || householdDiff === 0 ? (
                     <span className="font-semibold text-slate-400">-</span>
                   ) : (
@@ -2200,16 +2201,16 @@ function ApartmentProfileComparison({
                       <span
                         className={
                           householdDiff > 0
-                            ? "truncate max-w-[100px] text-[11px] sm:text-[12px] font-black text-blue-600"
-                            : "truncate max-w-[100px] text-[11px] sm:text-[12px] font-black text-emerald-600"
+                            ? "truncate max-w-[55px] sm:max-w-[100px] text-[10px] sm:text-[12px] font-black text-blue-600"
+                            : "truncate max-w-[55px] sm:max-w-[100px] text-[10px] sm:text-[12px] font-black text-emerald-600"
                         }
                         title={householdDiff > 0 ? apt1.name : apt2.name}
                       >
                         {householdDiff > 0 ? apt1.name : apt2.name}
                       </span>
-                      <span className="inline-flex items-center gap-0.5 text-[12px] sm:text-[13px] font-black text-slate-950">
+                      <span className="inline-flex items-center gap-0.5 text-[10.5px] sm:text-[13px] font-black text-slate-950">
                         <span>{Math.abs(householdDiff).toLocaleString()}</span>
-                        <span className="text-[11px] font-black text-rose-600">
+                        <span className="text-[10px] sm:text-[11px] font-black text-rose-600">
                           ▲
                         </span>
                       </span>
@@ -2220,34 +2221,34 @@ function ApartmentProfileComparison({
 
               {/* 5행: 준공 연도 */}
               <tr>
-                <td className="border border-[#CBD5E1] bg-[#F8FAFC] p-2 sm:p-2.5 shadow-xs">
-                  <div className="flex items-center justify-center gap-1.5 sm:gap-2">
-                    <Calendar className="size-4 text-[#8B5CF6] shrink-0" />
+                <td className="border border-[#CBD5E1] bg-[#F8FAFC] p-1 sm:p-2.5 shadow-xs">
+                  <div className="flex items-center justify-center gap-1 sm:gap-2">
+                    <Calendar className="size-3.5 sm:size-4 text-[#8B5CF6] shrink-0" />
                     <div className="flex flex-col text-left">
-                      <span className="text-[12px] sm:text-[13px] font-extrabold text-slate-800 leading-tight">
+                      <span className="text-[10.5px] sm:text-[13px] font-extrabold text-slate-800 leading-tight">
                         준공 연도
                       </span>
-                      <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
+                      <span className="text-[9px] sm:text-[11px] font-semibold text-slate-400 leading-tight mt-0.5">
                         (단위: 년)
                       </span>
                     </div>
                   </div>
                 </td>
-                <td className="border border-[#CBD5E1] bg-white p-2 sm:p-2.5 text-center shadow-xs">
-                  <span className="text-[14px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
+                <td className="border border-[#CBD5E1] bg-white p-1 sm:p-2.5 text-center shadow-xs">
+                  <span className="text-[11.5px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
                     {apt1.isComplexChosen && apt1.metrics.buildYear > 0
                       ? apt1.metrics.buildYear
                       : "-"}
                   </span>
                 </td>
-                <td className="border border-[#CBD5E1] bg-white p-2 sm:p-2.5 text-center shadow-xs">
-                  <span className="text-[14px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
+                <td className="border border-[#CBD5E1] bg-white p-1 sm:p-2.5 text-center shadow-xs">
+                  <span className="text-[11.5px] sm:text-[16px] font-black text-[#0F172A] leading-tight">
                     {apt2.isComplexChosen && apt2.metrics.buildYear > 0
                       ? apt2.metrics.buildYear
                       : "-"}
                   </span>
                 </td>
-                <td className="border border-[#CBD5E1] bg-white p-2 sm:p-2.5 text-center shadow-xs">
+                <td className="border border-[#CBD5E1] bg-white p-1 sm:p-2.5 text-center shadow-xs">
                   {!apt1.isComplexChosen || !apt2.isComplexChosen || yearDiff === 0 ? (
                     <span className="font-semibold text-slate-400">-</span>
                   ) : (
@@ -2255,16 +2256,16 @@ function ApartmentProfileComparison({
                       <span
                         className={
                           yearDiff > 0
-                            ? "truncate max-w-[100px] text-[11px] sm:text-[12px] font-black text-blue-600"
-                            : "truncate max-w-[100px] text-[11px] sm:text-[12px] font-black text-emerald-600"
+                            ? "truncate max-w-[55px] sm:max-w-[100px] text-[10px] sm:text-[12px] font-black text-blue-600"
+                            : "truncate max-w-[55px] sm:max-w-[100px] text-[10px] sm:text-[12px] font-black text-emerald-600"
                         }
                         title={yearDiff > 0 ? apt1.name : apt2.name}
                       >
                         {yearDiff > 0 ? apt1.name : apt2.name}
                       </span>
-                      <span className="inline-flex items-center gap-0.5 text-[12px] sm:text-[13px] font-black text-slate-950">
+                      <span className="inline-flex items-center gap-0.5 text-[10.5px] sm:text-[13px] font-black text-slate-950">
                         <span>{Math.abs(yearDiff)}년</span>
-                        <span className="text-[11px] font-black text-rose-600">
+                        <span className="text-[10px] sm:text-[11px] font-black text-rose-600">
                           ▲
                         </span>
                       </span>
@@ -2354,7 +2355,7 @@ function PriceTrendChart({ apt1, apt2, yearlyTrends }: PriceTrendChartProps) {
   }, []);
 
   return (
-    <div className="flex h-full flex-col rounded-[20px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
+    <div className="flex h-full flex-col rounded-[20px] border border-[#E2E8F0] bg-white p-3.5 sm:p-5 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
       <div className="mb-4 flex flex-col gap-2.5 border-b border-[#F1F5F9] pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -2490,7 +2491,7 @@ function AreaPriceComparison({
   }, []);
 
   return (
-    <div className="flex h-full flex-col rounded-[20px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
+    <div className="flex h-full flex-col rounded-[20px] border border-[#E2E8F0] bg-white p-3.5 sm:p-5 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
       <style>{`
         @keyframes areaChartBarGrow {
           0% {
@@ -2704,7 +2705,7 @@ function QuickVerdict({ apt1, apt2 }: QuickVerdictProps) {
   const v2 = Number(apt2.metrics?.recent3MonthVolume || 0);
 
   return (
-    <div className="flex flex-col justify-between rounded-[24px] border border-[#CBD5E1] bg-white p-6 sm:p-7 shadow-[0_8px_30px_rgba(15,23,42,0.06)] transition-all hover:shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
+    <div className="flex flex-col justify-between rounded-[20px] sm:rounded-[24px] border border-[#CBD5E1] bg-white p-4 sm:p-7 shadow-[0_8px_30px_rgba(15,23,42,0.06)] transition-all hover:shadow-[0_12px_36px_rgba(15,23,42,0.08)]">
       <div>
         {/* 헤더: AI 요약 타이틀 및 AI 상태 배지 */}
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
@@ -3172,30 +3173,18 @@ export default function PriceCompareAptPage() {
 
           {/* 메인 콘텐츠 영역 */}
           <section className="min-w-0">
-            {/* 상단 타이틀 & 버튼 (초기화, 새로고침) */}
-            <div className="mb-6 flex items-start justify-between">
-              <div>
-                <h1 className="text-[24px] font-black text-[#0F172A]">
-                  아파트별 비교
-                </h1>
-                <p className="mt-1 text-[13px] font-medium text-[#64748B]">
-                  두 아파트 단지의 시세와 거래 정보를 한눈에 비교해보세요.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleReset}
-                className="flex items-center gap-1.5 rounded-[10px] border border-[#CBD5E1] bg-white px-3.5 py-2 text-[12px] font-bold text-[#475569] shadow-sm transition-all hover:border-[#0F8AA8] hover:bg-[#F8FAFC] hover:text-[#0F8AA8] cursor-pointer"
-                title="선택 조건을 모두 지우고 초기화합니다"
-              >
-                <RotateCcw className="size-3.5" />
-                <span>초기화</span>
-              </button>
+            {/* 상단 타이틀 */}
+            <div className="mb-4 sm:mb-6">
+              <h1 className="text-[20px] sm:text-[24px] font-black text-[#0F172A]">
+                아파트별 비교
+              </h1>
+              <p className="mt-1 text-[11.5px] sm:text-[13px] font-medium text-[#64748B]">
+                두 아파트 단지의 시세와 거래 정보를 한눈에 비교해보세요.
+              </p>
             </div>
 
-            <div className="mb-8 rounded-[20px] border border-[#E2E8F0] bg-white p-4 sm:p-4.5 shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
-              <div className="grid grid-cols-[1fr_170px] items-stretch gap-4 max-[1024px]:grid-cols-1">
+            <div className="mb-6 sm:mb-8 rounded-[16px] sm:rounded-[20px] border border-[#E2E8F0] bg-white p-3 sm:p-4.5 shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
+              <div className="grid grid-cols-[1fr_180px] items-stretch gap-3.5 sm:gap-4 max-[1024px]:grid-cols-1">
                 {/* 좌측: 아파트 1 (상단) + 중간 VS 인디케이터 + 아파트 2 (하단) */}
                 <div className="flex flex-col gap-1.5">
                   {/* 아파트 1 컨테이너 */}
@@ -3225,7 +3214,7 @@ export default function PriceCompareAptPage() {
                       {/* 소프트 앰비언트 글로우 */}
                       <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-blue-500/25 via-indigo-500/20 to-sky-500/25 blur-sm transition-all duration-300 group-hover:scale-110 opacity-80" />
                       {/* 메인 VS 배지 (이탈릭 볼드 폰트 + 입체 그라데이션) */}
-                      <div className="relative flex size-9 items-center justify-center rounded-full border border-white/60 bg-gradient-to-br from-[#3B82F6] via-[#2563EB] to-[#1D4ED8] text-[11px] font-black italic tracking-widest text-white shadow-[0_4px_14px_rgba(37,99,235,0.3)] ring-2 ring-blue-100/90">
+                      <div className="relative flex size-8 sm:size-9 items-center justify-center rounded-full border border-white/60 bg-gradient-to-br from-[#3B82F6] via-[#2563EB] to-[#1D4ED8] text-[10px] sm:text-[11px] font-black italic tracking-widest text-white shadow-[0_4px_14px_rgba(37,99,235,0.3)] ring-2 ring-blue-100/90">
                         VS
                       </div>
                     </div>
@@ -3253,30 +3242,46 @@ export default function PriceCompareAptPage() {
                   />
                 </div>
 
-                {/* 우측: 일체형 조회 버튼 */}
-                <div className="flex flex-col items-center justify-center p-2 text-center max-[1024px]:py-4">
-                  <button
-                    type="button"
-                    onClick={handleCompare}
-                    disabled={
-                      !canCompare || compareMutation.isPending || isSggLoading
-                    }
-                    className="flex h-full min-h-[120px] w-full flex-col items-center justify-center gap-2.5 rounded-[16px] bg-[#2563EB] p-4 text-white shadow-[0_6px_20px_rgba(37,99,235,0.3)] transition-all duration-200 hover:bg-[#1D4ED8] hover:shadow-[0_8px_24px_rgba(37,99,235,0.4)] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
-                  >
-                    {compareMutation.isPending ? (
-                      <Loader2 className="size-6 animate-spin text-white" />
-                    ) : (
-                      <Search className="size-6 stroke-[2.5] text-white" />
-                    )}
-                    <span className="text-[16px] font-black tracking-tight text-white">
-                      {compareMutation.isPending ? "조회 중..." : "조회하기"}
-                    </span>
-                  </button>
-                  <p className="mt-3 text-[11px] font-medium leading-tight text-slate-500">
-                    자치구 <span className="font-bold text-[#2563EB]">필수 선택</span>
-                    <br />
-                    (동·단지 선택 권장)
-                  </p>
+                {/* 우측: 일체형 조회 & 초기화 버튼 */}
+                <div className="flex flex-col items-center justify-center p-1 sm:p-2 text-center max-[1024px]:py-2 w-full">
+                  <div className="flex w-full flex-col gap-2 h-full justify-center">
+                    {/* 단지 비교하기 버튼 */}
+                    <button
+                      type="button"
+                      onClick={handleCompare}
+                      disabled={
+                        !canCompare || compareMutation.isPending || isSggLoading
+                      }
+                      className="flex flex-1 min-[1024px]:w-full h-full min-h-[48px] min-[1024px]:min-h-[85px] flex-row min-[1024px]:flex-col items-center justify-center gap-2 sm:gap-2.5 rounded-[12px] sm:rounded-[16px] bg-[#2563EB] px-4 py-3 sm:p-4 text-white shadow-[0_6px_20px_rgba(37,99,235,0.3)] transition-all duration-200 hover:bg-[#1D4ED8] hover:shadow-[0_8px_24px_rgba(37,99,235,0.4)] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                    >
+                      {compareMutation.isPending ? (
+                        <Loader2 className="size-5 sm:size-6 animate-spin text-white" />
+                      ) : (
+                        <Search className="size-5 sm:size-6 stroke-[2.5] text-white" />
+                      )}
+                      <span className="text-[14px] sm:text-[16px] font-black tracking-tight text-white">
+                        {compareMutation.isPending ? "조회 중..." : "단지 비교하기"}
+                      </span>
+                    </button>
+
+                    {/* 자치구 필수 선택 안내 문구 */}
+                    <p className="my-1 text-[11px] font-medium leading-tight text-slate-500">
+                      자치구 <span className="font-bold text-[#2563EB]">필수 선택</span>
+                      <span className="hidden sm:inline"><br />(동·단지 선택 권장)</span>
+                      <span className="sm:hidden"> (동·단지 선택 권장)</span>
+                    </p>
+
+                    {/* 초기화 버튼 (안내 문구 하단 위치) */}
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      className="group flex items-center justify-center gap-1.5 rounded-[10px] sm:rounded-[12px] border border-[#CBD5E1] bg-white px-3 py-1.5 sm:py-2 text-[11.5px] sm:text-[12.5px] font-bold text-[#475569] shadow-xs transition-all hover:border-[#0F8AA8] hover:bg-[#F8FAFC] hover:text-[#0F8AA8] cursor-pointer w-full"
+                      title="선택 조건을 모두 지우고 초기화합니다"
+                    >
+                      <RotateCcw className="size-3.5 transition-transform duration-500 group-hover:-rotate-180 text-[#64748B] group-hover:text-[#0F8AA8]" />
+                      <span>초기화</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3356,15 +3361,15 @@ export default function PriceCompareAptPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between rounded-[16px] border border-[#E2E8F0] bg-white px-6 py-4 text-[11px] text-[#94A3B8]">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-[14px] sm:rounded-[16px] border border-[#E2E8F0] bg-white px-4 py-3 sm:px-6 sm:py-4 text-[10.5px] sm:text-[11px] text-[#94A3B8]">
                   <div className="flex items-center gap-1.5">
-                    <Info className="size-3.5 text-[#0F8AA8]" />
+                    <Info className="size-3.5 text-[#0F8AA8] shrink-0" />
                     <span>
                       본 정보는 서울시 열린데이터광장 부동산 실거래가 공개시스템
                       데이터를 기반으로 제공됩니다.
                     </span>
                   </div>
-                  <span>데이터 기준일: {resultData.baseDate}</span>
+                  <span className="shrink-0">데이터 기준일: {resultData.baseDate}</span>
                 </div>
               </div>
             )}
