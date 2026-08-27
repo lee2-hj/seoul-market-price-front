@@ -228,7 +228,7 @@ function AutocompleteSelect({
           placeholder={placeholder}
           disabled={disabled}
           className={cn(
-            "h-[46px] w-full pl-3.5 pr-9 bg-white border border-[#CBD5E1] rounded-[12px] text-[13px] font-bold text-[#0F172A] outline-none transition-all cursor-pointer hover:border-[#94A3B8] focus:border-[#0F8AA8] focus:ring-2 focus:ring-[#0F8AA8]/15",
+            "h-[46px] w-full min-w-[170px] pl-3 pr-8 bg-white border border-[#CBD5E1] rounded-[12px] text-[12.5px] sm:text-[13px] font-bold text-[#0F172A] outline-none transition-all cursor-pointer hover:border-[#94A3B8] focus:border-[#0F8AA8] focus:ring-2 focus:ring-[#0F8AA8]/15",
             disabled && "bg-[#F8FAFC] text-[#94A3B8] border-[#E2E8F0] cursor-not-allowed",
           )}
         />
@@ -241,7 +241,7 @@ function AutocompleteSelect({
             }
           }}
           className={cn(
-            "size-4 text-[#64748B] absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-200",
+            "size-4 text-[#64748B] absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-200",
             isOpen && "rotate-180",
             disabled && "cursor-not-allowed opacity-50",
           )}
@@ -251,7 +251,7 @@ function AutocompleteSelect({
       {isOpen && !disabled && (
         <div
           ref={listRef}
-          className="absolute left-0 top-[calc(100%+4px)] z-50 max-h-60 w-full overflow-y-auto rounded-xl border border-[#CBD5E1] bg-white p-2 shadow-xl animate-in fade-in-0 duration-100"
+          className="absolute left-0 top-[calc(100%+4px)] z-50 max-h-60 w-max min-w-full overflow-y-auto rounded-xl border border-[#CBD5E1] bg-white p-2 shadow-xl animate-in fade-in-0 duration-100"
         >
           {filteredOptions.length === 0 ? (
             <div className="px-3 py-3 text-center text-[12px] font-medium text-slate-400">
@@ -273,18 +273,18 @@ function AutocompleteSelect({
                     setIsOpen(false);
                   }}
                   className={cn(
-                    "flex w-full items-center justify-between rounded-lg border border-[#CBD5E1] bg-[#F1F5F9] px-3.5 py-2.5 mb-1.5 text-left text-[13px] font-bold text-[#1E293B] transition-all duration-100 cursor-pointer hover:bg-[#E2E8F0] hover:border-[#94A3B8] last:mb-0",
+                    "flex w-full items-center justify-between gap-2.5 rounded-lg border border-[#CBD5E1] bg-[#F1F5F9] px-3.5 py-2.5 mb-1.5 text-left text-[13px] font-bold text-[#1E293B] transition-all duration-100 cursor-pointer hover:bg-[#E2E8F0] hover:border-[#94A3B8] last:mb-0",
                     isHighlighted && !isSelected && "bg-[#E2E8F0] border-[#94A3B8] text-[#0F172A]",
                     isSelected && selectedItemStyle,
                   )}
                 >
-                  <span className="truncate">
+                  <span className="whitespace-nowrap">
                     <HighlightMatch text={opt.label} query={searchQuery !== null ? searchQuery : ""} />
                   </span>
                   {isSelected && (
                     <Check
                       className={cn(
-                        "size-3.5 stroke-[3] ml-2 shrink-0",
+                        "size-3.5 stroke-[3] shrink-0",
                         accentColor === "purple" ? "text-[#6366F1]" : "text-[#0284C7]",
                       )}
                     />
@@ -698,13 +698,13 @@ export default function PriceDetailPage() {
             {/* 1:1 비교 조건 지정 섹션 (첫 화면 로딩 시 상시 노출) */}
             <div className="mt-4 grid grid-cols-[1fr_auto_1fr_auto] items-stretch gap-3 border-t border-slate-100 pt-3 max-[1200px]:grid-cols-1">
               {/* 선택 1 카드 */}
-              <div className="flex items-center gap-3 rounded-[16px] border border-slate-200/80 bg-white p-3 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 rounded-[16px] border border-slate-200/80 bg-white p-3.5 sm:p-3 shadow-sm">
                 <div className="flex shrink-0 items-center gap-1.5">
                   <MapPin className="size-4 text-[#0F8AA8]" />
-                  <h3 className="text-[15px] font-black text-[#0F172A]">선택 1 (기준)</h3>
+                  <h3 className="text-[15px] font-black text-[#0F172A] whitespace-nowrap">선택 1 (기준)</h3>
                 </div>
-                <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
-                  <label className="text-[13px] font-bold text-slate-700">
+                <div className="grid min-w-0 flex-1 grid-cols-1 sm:grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 sm:gap-2">
+                  <label className="text-[12px] sm:text-[13px] font-bold text-slate-600 sm:text-slate-700 shrink-0 whitespace-nowrap">
                     {query.compareType === "pyeong" ? "평형대 구간 선택" : "층수 구간 선택"}
                   </label>
                   <AutocompleteSelect
@@ -719,20 +719,20 @@ export default function PriceDetailPage() {
               </div>
 
               {/* 중앙 VS */}
-              <div className="flex items-center justify-center max-[1200px]:py-2">
-                <div className="flex size-12 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] text-[13px] font-black text-white shadow-md">
+              <div className="flex items-center justify-center max-[1200px]:py-1">
+                <div className="flex size-10 sm:size-12 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] text-[12px] sm:text-[13px] font-black text-white shadow-md">
                   VS
                 </div>
               </div>
 
               {/* 선택 2 카드 */}
-              <div className="flex items-center gap-3 rounded-[16px] border border-slate-200/80 bg-white p-3 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 rounded-[16px] border border-slate-200/80 bg-white p-3.5 sm:p-3 shadow-sm">
                 <div className="flex shrink-0 items-center gap-1.5">
                   <MapPin className="size-4 text-[#6366F1]" />
-                  <h3 className="text-[15px] font-black text-[#0F172A]">선택 2 (비교)</h3>
+                  <h3 className="text-[15px] font-black text-[#0F172A] whitespace-nowrap">선택 2 (비교)</h3>
                 </div>
-                <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
-                  <label className="text-[13px] font-bold text-slate-700">
+                <div className="grid min-w-0 flex-1 grid-cols-1 sm:grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 sm:gap-2">
+                  <label className="text-[12px] sm:text-[13px] font-bold text-slate-600 sm:text-slate-700 shrink-0 whitespace-nowrap">
                     {query.compareType === "pyeong" ? "평형대 구간 선택" : "층수 구간 선택"}
                   </label>
                   <AutocompleteSelect
@@ -798,28 +798,28 @@ export default function PriceDetailPage() {
                   <span>{currentComplex.address || `${selectedSgg?.sggNm || ""} ${selectedDong?.dongNm || ""}`.trim()}</span>
                 </p>
 
-                <div className="mt-5 grid grid-cols-4 gap-4 max-[900px]:grid-cols-2">
-                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
-                    <span className="block text-[11px] font-bold text-slate-400">최고 층수</span>
-                    <span className="text-[16px] font-black text-[#0F172A]">
+                <div className="mt-5 grid grid-cols-4 gap-2.5 sm:gap-4 max-[900px]:grid-cols-2">
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 sm:p-4 min-w-0">
+                    <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">최고 층수</span>
+                    <span className="block text-[14px] sm:text-[16px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
                       {maxFloor > 0 ? `${maxFloor}층` : "-"}
                     </span>
                   </div>
-                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
-                    <span className="block text-[11px] font-bold text-slate-400">거래 건수</span>
-                    <span className="text-[16px] font-black text-[#0F172A]">
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 sm:p-4 min-w-0">
+                    <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">거래 건수</span>
+                    <span className="block text-[14px] sm:text-[16px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
                       {dealCount > 0 ? `${dealCount.toLocaleString()}건` : "-"}
                     </span>
                   </div>
-                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
-                    <span className="block text-[11px] font-bold text-slate-400">평형대 종류</span>
-                    <span className="text-[16px] font-black text-[#0F172A]">
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 sm:p-4 min-w-0">
+                    <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">평형대 종류</span>
+                    <span className="block text-[14px] sm:text-[16px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
                       {pyeongTypeCount > 0 ? `${pyeongTypeCount}개 타입` : "-"}
                     </span>
                   </div>
-                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
-                    <span className="block text-[11px] font-bold text-slate-400">평균 거래가 (최근)</span>
-                    <span className="text-[16px] font-black text-[#0F172A]">
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 sm:p-4 min-w-0">
+                    <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">평균 거래가 (최근)</span>
+                    <span className="block text-[13.5px] min-[400px]:text-[15px] sm:text-[16px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
                       {trendItem?.average_deal_price ? formatPriceKRW(trendItem.average_deal_price) : formatPriceKRW(currentComplex.baseSalePrice)}
                     </span>
                   </div>
@@ -876,38 +876,38 @@ export default function PriceDetailPage() {
               ) : query.isActive && compareAnalysis ? (
                 <div className="space-y-6 animate-in fade-in-0 duration-300">
                   {/* 비교 요약 카드 */}
-                  <div className="rounded-[24px] border border-blue-100 bg-gradient-to-r from-blue-50/80 via-indigo-50/60 to-white p-6 shadow-sm">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md">
+                  <div className="rounded-[24px] border border-blue-100 bg-gradient-to-r from-blue-50/80 via-indigo-50/60 to-white p-4 sm:p-6 shadow-sm">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      <div className="flex items-start sm:items-center gap-3 min-w-0">
+                        <div className="flex size-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shrink-0 mt-0.5 sm:mt-0">
                           <Sparkles className="size-5" />
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1">
                             <span className="text-[12px] font-bold text-blue-600">1:1 조건 비교 분석 결과</span>
-                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-extrabold text-blue-700">
+                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-extrabold text-blue-700 whitespace-nowrap">
                               {query.compareType === "floor" ? "층수별 비교" : "평형별 비교"}
                             </span>
                           </div>
-                          <h3 className="text-[18px] font-black text-[#0F172A]">
-                            <span className="text-[#0F8AA8]">{compareAnalysis.label1}</span>
-                            <span className="mx-2 text-slate-400">VS</span>
-                            <span className="text-[#6366F1]">{compareAnalysis.label2}</span>
+                          <h3 className="text-[15px] sm:text-[18px] font-black text-[#0F172A] flex flex-wrap items-center gap-x-2 gap-y-0.5 leading-snug">
+                            <span className="text-[#0F8AA8] break-keep">{compareAnalysis.label1}</span>
+                            <span className="text-[12px] sm:text-[14px] font-extrabold text-slate-400">VS</span>
+                            <span className="text-[#6366F1] break-keep">{compareAnalysis.label2}</span>
                           </h3>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-xl border border-slate-200/80 bg-white px-4 py-2 text-right shadow-sm">
-                          <span className="block text-[11px] font-bold text-slate-500">평균 가격 격차</span>
-                          <span className={cn("text-[16px] font-black", compareAnalysis.diffAvg > 0 ? "text-rose-600" : compareAnalysis.diffAvg < 0 ? "text-blue-600" : "text-slate-700")}>
+                      <div className="flex items-center justify-between sm:justify-end gap-2.5 pt-2 md:pt-0 border-t md:border-t-0 border-blue-100/60">
+                        <div className="rounded-xl border border-slate-200/80 bg-white px-3 sm:px-4 py-2 text-left sm:text-right shadow-sm flex-1 sm:flex-initial">
+                          <span className="block text-[11px] font-bold text-slate-500 whitespace-nowrap">평균 가격 격차</span>
+                          <span className={cn("text-[13.5px] sm:text-[16px] font-black whitespace-nowrap", compareAnalysis.diffAvg > 0 ? "text-rose-600" : compareAnalysis.diffAvg < 0 ? "text-blue-600" : "text-slate-700")}>
                             {compareAnalysis.diffAvg > 0 ? "+" : ""}{formatPriceKRW(Math.abs(compareAnalysis.diffAvg))} ({compareAnalysis.diffAvg > 0 ? "+" : ""}{compareAnalysis.diffAvgPct}%)
                           </span>
                         </div>
                         <button
                           type="button"
                           onClick={() => setQuery({ isActive: false })}
-                          className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-[12px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 cursor-pointer"
+                          className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-[12px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 cursor-pointer whitespace-nowrap shrink-0"
                         >
                           <X className="size-3.5" />
                           비교 닫기
@@ -917,65 +917,63 @@ export default function PriceDetailPage() {
                   </div>
 
                   {/* 듀얼 지표 비교 카드 (2열) */}
-                  <div className="grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
+                  <div className="grid grid-cols-2 gap-4 sm:gap-6 max-[900px]:grid-cols-1">
                     {/* 선택 1 카드 */}
-                    <div className="rounded-[24px] border-2 border-[#0F8AA8]/30 bg-gradient-to-b from-[#E6F4F7]/40 to-white p-6 shadow-sm">
-                      <div className="mb-4 flex items-center justify-between border-b border-teal-100 pb-3">
+                    <div className="rounded-[24px] border-2 border-[#0F8AA8]/30 bg-gradient-to-b from-[#E6F4F7]/40 to-white p-4 sm:p-6 shadow-sm">
+                      <div className="mb-3 sm:mb-4 flex items-center justify-between border-b border-teal-100 pb-2.5 sm:pb-3">
                         <div className="flex items-center gap-2">
-                          <span className="flex size-7 items-center justify-center rounded-lg bg-[#0F8AA8] text-[12px] font-black text-white">1</span>
-                          <h4 className="text-[16px] font-black text-[#0F172A]">{compareAnalysis.label1}</h4>
+                          <span className="flex size-6 sm:size-7 items-center justify-center rounded-lg bg-[#0F8AA8] text-[11px] sm:text-[12px] font-black text-white">1</span>
+                          <h4 className="text-[15px] sm:text-[16px] font-black text-[#0F172A]">{compareAnalysis.label1}</h4>
                         </div>
-                        <span className="rounded-md bg-teal-50 px-2.5 py-1 text-[11px] font-extrabold text-[#0F8AA8] border border-teal-200/60">기준 조건</span>
+                        <span className="rounded-md bg-teal-50 px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-extrabold text-[#0F8AA8] border border-teal-200/60 whitespace-nowrap">기준 조건</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-xl border border-slate-100 bg-white p-3.5 shadow-sm">
-                          <span className="block text-[11px] font-bold text-slate-400">평균 매매가</span>
-                          <span className="text-[18px] font-black text-[#0F8AA8]">{formatPriceKRW(compareAnalysis.avg1)}</span>
+                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                        <div className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3.5 shadow-sm min-w-0">
+                          <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">평균 매매가</span>
+                          <span className="block text-[13.5px] min-[400px]:text-[15px] sm:text-[18px] font-black text-[#0F8AA8] whitespace-nowrap tracking-tight">{formatPriceKRW(compareAnalysis.avg1)}</span>
                         </div>
-                        <div className="rounded-xl border border-slate-100 bg-white p-3.5 shadow-sm">
-                          <span className="block text-[11px] font-bold text-slate-400">거래 건수</span>
-                          <span className="text-[18px] font-black text-slate-800">{compareAnalysis.count1}건</span>
+                        <div className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3.5 shadow-sm min-w-0">
+                          <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">거래 건수</span>
+                          <span className="block text-[13.5px] min-[400px]:text-[15px] sm:text-[18px] font-black text-slate-800 whitespace-nowrap tracking-tight">{compareAnalysis.count1}건</span>
                         </div>
-                        <div className="rounded-xl border border-slate-100 bg-white p-3.5 shadow-sm">
-                          <span className="block text-[11px] font-bold text-slate-400">최근 실거래가</span>
-                          <span className="text-[15px] font-black text-rose-600">{formatPriceKRW(compareAnalysis.recentPrice1)}</span>
+                        <div className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3.5 shadow-sm min-w-0">
+                          <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">최근 실거래가</span>
+                          <span className="block text-[12px] min-[400px]:text-[13.5px] sm:text-[15px] font-black text-rose-600 whitespace-nowrap tracking-tight">{formatPriceKRW(compareAnalysis.recentPrice1)}</span>
                         </div>
-                        <div className="rounded-xl border border-slate-100 bg-white p-3.5 shadow-sm">
-                          <span className="block text-[11px] font-bold text-slate-400">평당 단가</span>
-                          <span className="text-[15px] font-black text-blue-600">{formatPyeongPrice(compareAnalysis.pyeongPrice1)}</span>
+                        <div className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3.5 shadow-sm min-w-0">
+                          <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">평당 단가</span>
+                          <span className="block text-[12px] min-[400px]:text-[13.5px] sm:text-[15px] font-black text-blue-600 whitespace-nowrap tracking-tight">{formatPyeongPrice(compareAnalysis.pyeongPrice1)}</span>
                         </div>
                       </div>
-
                     </div>
 
                     {/* 선택 2 카드 */}
-                    <div className="rounded-[24px] border-2 border-[#6366F1]/30 bg-gradient-to-b from-[#EEF2FF]/40 to-white p-6 shadow-sm">
-                      <div className="mb-4 flex items-center justify-between border-b border-indigo-100 pb-3">
+                    <div className="rounded-[24px] border-2 border-[#6366F1]/30 bg-gradient-to-b from-[#EEF2FF]/40 to-white p-4 sm:p-6 shadow-sm">
+                      <div className="mb-3 sm:mb-4 flex items-center justify-between border-b border-indigo-100 pb-2.5 sm:pb-3">
                         <div className="flex items-center gap-2">
-                          <span className="flex size-7 items-center justify-center rounded-lg bg-[#6366F1] text-[12px] font-black text-white">2</span>
-                          <h4 className="text-[16px] font-black text-[#0F172A]">{compareAnalysis.label2}</h4>
+                          <span className="flex size-6 sm:size-7 items-center justify-center rounded-lg bg-[#6366F1] text-[11px] sm:text-[12px] font-black text-white">2</span>
+                          <h4 className="text-[15px] sm:text-[16px] font-black text-[#0F172A]">{compareAnalysis.label2}</h4>
                         </div>
-                        <span className="rounded-md bg-indigo-50 px-2.5 py-1 text-[11px] font-extrabold text-[#6366F1] border border-indigo-200/60">비교 조건</span>
+                        <span className="rounded-md bg-indigo-50 px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-extrabold text-[#6366F1] border border-indigo-200/60 whitespace-nowrap">비교 조건</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-xl border border-slate-100 bg-white p-3.5 shadow-sm">
-                          <span className="block text-[11px] font-bold text-slate-400">평균 매매가</span>
-                          <span className="text-[18px] font-black text-[#6366F1]">{formatPriceKRW(compareAnalysis.avg2)}</span>
+                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                        <div className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3.5 shadow-sm min-w-0">
+                          <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">평균 매매가</span>
+                          <span className="block text-[13.5px] min-[400px]:text-[15px] sm:text-[18px] font-black text-[#6366F1] whitespace-nowrap tracking-tight">{formatPriceKRW(compareAnalysis.avg2)}</span>
                         </div>
-                        <div className="rounded-xl border border-slate-100 bg-white p-3.5 shadow-sm">
-                          <span className="block text-[11px] font-bold text-slate-400">거래 건수</span>
-                          <span className="text-[18px] font-black text-slate-800">{compareAnalysis.count2}건</span>
+                        <div className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3.5 shadow-sm min-w-0">
+                          <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">거래 건수</span>
+                          <span className="block text-[13.5px] min-[400px]:text-[15px] sm:text-[18px] font-black text-slate-800 whitespace-nowrap tracking-tight">{compareAnalysis.count2}건</span>
                         </div>
-                        <div className="rounded-xl border border-slate-100 bg-white p-3.5 shadow-sm">
-                          <span className="block text-[11px] font-bold text-slate-400">최근 실거래가</span>
-                          <span className="text-[15px] font-black text-rose-600">{formatPriceKRW(compareAnalysis.recentPrice2)}</span>
+                        <div className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3.5 shadow-sm min-w-0">
+                          <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">최근 실거래가</span>
+                          <span className="block text-[12px] min-[400px]:text-[13.5px] sm:text-[15px] font-black text-rose-600 whitespace-nowrap tracking-tight">{formatPriceKRW(compareAnalysis.recentPrice2)}</span>
                         </div>
-                        <div className="rounded-xl border border-slate-100 bg-white p-3.5 shadow-sm">
-                          <span className="block text-[11px] font-bold text-slate-400">평당 단가</span>
-                          <span className="text-[15px] font-black text-blue-600">{formatPyeongPrice(compareAnalysis.pyeongPrice2)}</span>
+                        <div className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3.5 shadow-sm min-w-0">
+                          <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">평당 단가</span>
+                          <span className="block text-[12px] min-[400px]:text-[13.5px] sm:text-[15px] font-black text-blue-600 whitespace-nowrap tracking-tight">{formatPyeongPrice(compareAnalysis.pyeongPrice2)}</span>
                         </div>
                       </div>
-
                     </div>
                   </div>
 
