@@ -103,56 +103,61 @@ function QnaRow({
       : "🔒 비밀글입니다."
     : item.title;
 
+  const shortDate = item.date ? item.date.replace(/^\d{4}\./, "") : "-";
+
   return (
-    <TableRow className={cn('bg-white', 'hover:bg-[#F5FAFC]')}>
-      <TableCell className={cn('w-[9%]', 'text-center', 'text-[#6B7280]', 'font-medium', 'align-middle')}>
+    <TableRow className="bg-white hover:bg-[#F5FAFC]">
+      <TableCell className="w-[8%] sm:w-[9%] text-center text-[#6B7280] font-medium align-middle text-[9.5px] sm:text-[13px] px-0.5 sm:px-2 py-2 sm:py-3">
         {displayNo}
       </TableCell>
 
-      <TableCell className={cn('w-[10%]', 'text-center', 'align-middle')}>
+      <TableCell className="w-[15%] sm:w-[10%] text-center align-middle px-0.5 sm:px-2 py-2 sm:py-3">
         <span
-          className={
+          className={cn(
+            "inline-flex items-center justify-center px-1 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[9px] sm:text-[11px] font-extrabold whitespace-nowrap",
             answered
-              ? "inline-flex items-center justify-center min-w-[58px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#EBF5F8] text-[#0F766E] border border-[#7CC9D8]"
-              : "inline-flex items-center justify-center min-w-[58px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#F5FAFC] text-[#6B7280] border border-[#DCE8ED]"
-          }
+              ? "bg-[#EBF5F8] text-[#0F766E] border border-[#7CC9D8]"
+              : "bg-[#F5FAFC] text-[#6B7280] border border-[#DCE8ED]",
+          )}
         >
-          {answered ? "답변완료" : "답변대기"}
+          <span className="sm:hidden">{answered ? "완료" : "대기"}</span>
+          <span className="hidden sm:inline">{answered ? "답변완료" : "답변대기"}</span>
         </span>
       </TableCell>
 
-      <TableCell className={cn('w-[43%]', 'text-left', 'max-w-0', 'align-middle', 'py-3')}>
+      <TableCell className="w-[40%] sm:w-[43%] text-left max-w-0 align-middle px-0.5 sm:px-3 py-2 sm:py-3">
         <button
           type="button"
           onClick={() => onClick(item)}
-          className={cn('block', 'truncate', 'w-full', 'text-[14px]', 'font-semibold', 'text-[#13202B]', 'hover:text-[#0F8AA8]', 'text-left', 'bg-transparent', 'border-0', 'p-0', 'cursor-pointer')}
+          className="block truncate w-full text-[11px] sm:text-[14px] font-semibold text-[#13202B] hover:text-[#0F8AA8] text-left bg-transparent border-0 p-0 cursor-pointer"
           title={displayTitle}
         >
           {displayTitle}
         </button>
 
         {answered && (
-          <div className={cn('flex', 'items-center', 'gap-1.5', 'mt-1')}>
-            <span className={cn('text-[11px]', 'text-[#6B7280]', 'font-semibold')}>↳</span>
-            <span className={cn('inline-flex', 'items-center', 'gap-1', 'text-[12px]', 'font-semibold', 'text-[#0F766E]')}>
-              <span className={cn('inline-block', 'px-1.5', 'py-0.5', 'rounded', 'bg-[#EBF5F8]', 'text-[10px]', 'font-extrabold', 'text-[#0F766E]')}>
+          <div className="hidden sm:flex items-center gap-1.5 mt-1">
+            <span className="text-[11px] text-[#6B7280] font-semibold">↳</span>
+            <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#0F766E]">
+              <span className="inline-block px-1.5 py-0.5 rounded bg-[#EBF5F8] text-[10px] font-extrabold text-[#0F766E]">
                 답변 완료
               </span>
-              <span>관리자 답변이 등록되었습니다.</span>
+              <span>답변이 완료되었습니다.</span>
             </span>
           </div>
         )}
       </TableCell>
 
-      <TableCell className={cn('w-[14%]', 'text-center', 'text-[#6B7280]', 'align-middle')}>
+      <TableCell className="w-[13%] sm:w-[14%] text-center text-[#6B7280] align-middle text-[9.5px] sm:text-[13px] px-0.5 sm:px-2 py-2 sm:py-3 truncate">
         {item.author}
       </TableCell>
 
-      <TableCell className={cn('w-[15%]', 'text-center', 'text-[#6B7280]', 'align-middle')}>
-        {item.date || "-"}
+      <TableCell className="w-[15%] sm:w-[15%] text-center text-[#6B7280] align-middle text-[9.5px] sm:text-[13px] px-0.5 sm:px-2 py-2 sm:py-3">
+        <span className="hidden sm:inline">{item.date || "-"}</span>
+        <span className="sm:hidden">{shortDate}</span>
       </TableCell>
 
-      <TableCell className={cn('w-[9%]', 'text-center', 'text-[#6B7280]', 'align-middle')}>
+      <TableCell className="w-[9%] sm:w-[9%] text-center text-[#6B7280] align-middle text-[9.5px] sm:text-[13px] px-0.5 sm:px-2 py-2 sm:py-3">
         {item.views}
       </TableCell>
     </TableRow>
@@ -161,11 +166,15 @@ function QnaRow({
 
 function QnaMobileCard({
   item,
-  displayNo: _displayNo,
   onClick,
   currentUserId,
   isAdmin,
-}: QnaRowProps) {
+}: {
+  item: QnaPost;
+  onClick: (item: QnaPost) => void;
+  currentUserId?: string;
+  isAdmin?: boolean;
+}) {
   const answered =
     typeof item.answer === "string" && item.answer.trim().length > 0;
   const isSecret = item.publicQuestion === false || item.isPublic === false;
@@ -184,12 +193,13 @@ function QnaMobileCard({
   return (
     <div
       onClick={() => onClick(item)}
-      className="p-4 bg-white hover:bg-[#F5FAFC] transition-colors cursor-pointer border-b border-[#DCE8ED] last:border-b-0"
+      className="p-3.5 hover:bg-[#F5FAFC] active:bg-[#EFF6FF] cursor-pointer transition-colors"
     >
-      <div className="flex items-start gap-2.5">
+      {/* 상단: 상태 뱃지 */}
+      <div className="flex items-center gap-1.5 mb-1.5">
         <span
           className={cn(
-            "shrink-0 inline-flex items-center justify-center min-w-[54px] px-2 py-0.5 rounded-full text-[10.5px] font-extrabold mt-0.5",
+            "inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-extrabold",
             answered
               ? "bg-[#EBF5F8] text-[#0F766E] border border-[#7CC9D8]"
               : "bg-[#F5FAFC] text-[#6B7280] border border-[#DCE8ED]",
@@ -197,32 +207,43 @@ function QnaMobileCard({
         >
           {answered ? "답변완료" : "답변대기"}
         </span>
-        <h3 className="text-[14px] font-bold text-[#13202B] leading-snug break-keep flex-1">
-          {displayTitle}
-        </h3>
       </div>
 
+      {/* 중단: 제목 */}
+      <h4 className="text-[14px] font-bold text-[#0F172A] leading-snug tracking-tight mb-2 hover:text-[#0F8AA8] transition-colors">
+        {displayTitle}
+      </h4>
+
+      {/* 하단: 작성자 · 작성일 · 조회수 */}
+      <div className="flex items-center gap-1.5 text-[11.5px] font-medium text-[#64748B]">
+        <span>{item.author}</span>
+        <span className="text-[#CBD5E1] font-normal">·</span>
+        <span>{item.date || "-"}</span>
+        <span className="text-[#CBD5E1] font-normal">·</span>
+        <span>조회 {item.views}</span>
+      </div>
+
+      {/* 등록된 답변 정보 */}
       {answered && (
-        <div className="flex items-center gap-1.5 mt-2 text-[11.5px] text-[#0F766E] font-medium bg-[#F0F7FA] p-2 rounded-md">
-          <span className="font-semibold">↳</span>
-          <span className="font-extrabold text-[10px] bg-[#EBF5F8] px-1.5 py-0.5 rounded shrink-0">
+        <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-[#F1F5F9] text-[11.5px] font-semibold text-[#0F766E]">
+          <span className="text-[#6B7280]">↳</span>
+          <span className="inline-block px-1.5 py-0.5 rounded bg-[#EBF5F8] text-[10px] font-extrabold text-[#0F766E] shrink-0">
             답변 완료
           </span>
-          <span className="text-[11px] truncate">관리자 답변이 등록되었습니다.</span>
+          <span className="truncate">
+            {canAccess && typeof item.answer === "string" && item.answer.trim().length > 0
+              ? item.answer
+              : "답변이 완료되었습니다."}
+          </span>
         </div>
       )}
-
-      <div className="mt-2.5 flex items-center justify-between text-[11.5px] text-[#6B7280]">
-        <div className="flex items-center gap-1.5">
-          <span className="font-medium text-[#4B5563]">{item.author}</span>
-          <span>·</span>
-          <span>{item.date || "-"}</span>
-        </div>
-        <span className="text-[11px] text-[#9CA3AF]">조회 {item.views}</span>
-      </div>
     </div>
   );
 }
+
+
+
+
 
 /* --- 커스텀 훅 (데이터 페칭) --- */
 function useQnaData() {
@@ -248,7 +269,7 @@ function useQnaData() {
       views: item.viewCount || 0,
       answer:
         item.answerStatus === "ANSWERED" || item.answeredAt
-          ? "네, 답변되었습니다."
+          ? "답변이 완료되었습니다."
           : undefined,
       publicQuestion: item.publicQuestion,
     }));
@@ -476,7 +497,7 @@ export default function QnaPage() {
           </button>
         </div>
 
-        {/* 테이블 / 모바일 카드리스트 */}
+        {/* 테이블 (데스크톱) & 모바일 카드 리스트 */}
         <div className={cn('w-full', 'bg-white', 'border', 'border-[#DCE8ED]', 'rounded-[12px]', 'shadow-xs', 'overflow-hidden')}>
           {paginatedPosts.length === 0 ? (
             <div className={cn('h-40', 'flex', 'items-center', 'justify-center', 'text-[#6B7280]', 'font-medium', 'text-[14px]')}>
@@ -484,27 +505,40 @@ export default function QnaPage() {
             </div>
           ) : (
             <>
-              {/* 1. PC/태블릿 화면: 6열 테이블 */}
-              <div className="hidden md:block overflow-x-auto">
-                <Table className="min-w-[820px]">
+              {/* 모바일 뷰 (< sm) */}
+              <div className="sm:hidden divide-y divide-[#E2E8F0]">
+                {paginatedPosts.map((post) => (
+                  <QnaMobileCard
+                    key={post.id}
+                    item={post}
+                    onClick={handleRowClick}
+                    currentUserId={currentUserId}
+                    isAdmin={isAdmin}
+                  />
+                ))}
+              </div>
+
+              {/* 데스크톱 뷰 (>= sm) */}
+              <div className="hidden sm:block w-full overflow-hidden">
+                <Table containerClassName="overflow-hidden" className="w-full table-fixed">
                   <TableHeader>
                     <TableRow className={cn('bg-[#F0F7FA]', 'border-b', 'border-[#DCE8ED]')}>
-                      <TableHead className={cn('w-[9%]', 'text-center', 'text-[#123047]', 'font-bold')}>
+                      <TableHead className="w-[9%] text-center text-[#123047] font-bold text-[14px] px-3 py-2.5">
                         번호
                       </TableHead>
-                      <TableHead className={cn('w-[10%]', 'text-center', 'text-[#123047]', 'font-bold')}>
+                      <TableHead className="w-[10%] text-center text-[#123047] font-bold text-[14px] px-3 py-2.5">
                         상태
                       </TableHead>
-                      <TableHead className={cn('w-[43%]', 'text-center', 'text-[#123047]', 'font-bold')}>
+                      <TableHead className="w-[43%] text-left text-[#123047] font-bold text-[14px] px-3 py-2.5">
                         제목
                       </TableHead>
-                      <TableHead className={cn('w-[14%]', 'text-center', 'text-[#123047]', 'font-bold')}>
+                      <TableHead className="w-[14%] text-center text-[#123047] font-bold text-[14px] px-3 py-2.5">
                         작성자
                       </TableHead>
-                      <TableHead className={cn('w-[15%]', 'text-center', 'text-[#123047]', 'font-bold')}>
+                      <TableHead className="w-[15%] text-center text-[#123047] font-bold text-[14px] px-3 py-2.5">
                         작성일
                       </TableHead>
-                      <TableHead className={cn('w-[9%]', 'text-center', 'text-[#123047]', 'font-bold')}>
+                      <TableHead className="w-[9%] text-center text-[#123047] font-bold text-[14px] px-3 py-2.5">
                         조회수
                       </TableHead>
                     </TableRow>
@@ -527,25 +561,6 @@ export default function QnaPage() {
                     })}
                   </TableBody>
                 </Table>
-              </div>
-
-              {/* 2. 모바일 화면: 글씨 안 잘리는 피드형 카드 목록 */}
-              <div className="divide-y divide-[#DCE8ED] md:hidden">
-                {paginatedPosts.map((post, idx) => {
-                  const displayNo =
-                    filteredPosts.length -
-                    ((currentPage - 1) * POSTS_PER_PAGE + idx);
-                  return (
-                    <QnaMobileCard
-                      key={`mobile-${post.id}`}
-                      item={post}
-                      displayNo={displayNo}
-                      onClick={handleRowClick}
-                      currentUserId={currentUserId}
-                      isAdmin={isAdmin}
-                    />
-                  );
-                })}
               </div>
             </>
           )}

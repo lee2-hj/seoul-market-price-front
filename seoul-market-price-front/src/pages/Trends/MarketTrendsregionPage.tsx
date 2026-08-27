@@ -13,6 +13,7 @@ import {
   X,
   Sparkles,
   AlertCircle,
+  MapPin,
 } from "lucide-react";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { TRENDS_NAVIGATION } from "@/config/sectionNavigation";
@@ -1423,53 +1424,29 @@ export default function MarketTrendsregionPage() {
         menuItems={TRENDS_NAVIGATION.menuItems}
       >
         <div className="space-y-6">
-          {/* 상단 타이틀 & 초기화 버튼 */}
-          <div className={cn("flex", "items-start", "justify-between")}>
-            <div>
-              <h1
-                className={cn(
-                  "text-[22px]",
-                  "sm:text-[24px]",
-                  "font-black",
-                  "tracking-tight",
-                  "text-[#0F172A]",
-                )}
-              >
-                지역별 거래동향
-              </h1>
-              <p
-                className={cn(
-                  "mt-1",
-                  "text-[13px]",
-                  "font-normal",
-                  "text-[#64748B]",
-                )}
-              >
-                선택한 지역의 실거래 흐름과 가격 변화를 확인하세요.
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleReset}
+          {/* 상단 타이틀 */}
+          <div>
+            <h1
               className={cn(
-                "h-8",
-                "gap-1.5",
-                "rounded-md",
-                "border-[#CBD5E1]",
-                "bg-white",
-                "text-xs",
-                "font-semibold",
-                "text-[#475569]",
-                "shadow-xs",
-                "hover:bg-slate-50",
-                "cursor-pointer",
+                "text-[22px]",
+                "sm:text-[24px]",
+                "font-black",
+                "tracking-tight",
+                "text-[#0F172A]",
               )}
             >
-              <RotateCcw className="size-3.5" />
-              <span>초기화</span>
-            </Button>
+              지역별 거래동향
+            </h1>
+            <p
+              className={cn(
+                "mt-1",
+                "text-[13px]",
+                "font-normal",
+                "text-[#64748B]",
+              )}
+            >
+              선택한 지역의 실거래 흐름과 가격 변화를 확인하세요.
+            </p>
           </div>
 
           {/* 필터 선택 바 */}
@@ -1542,12 +1519,45 @@ export default function MarketTrendsregionPage() {
                   )}
                 </div>
 
-                {/* 조회하기 버튼 */}
-                <Button type="button" onClick={handleSearch} className="h-11 bg-[#0F8AA8] px-6">
-                  <Search className="size-4" />
-                  조회하기
-                </Button>
+                {/* 조회하기 & 초기화 버튼 그룹 */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    onClick={handleSearch}
+                    className="h-11 flex-1 sm:flex-none bg-[#0F8AA8] hover:bg-[#0B5E73] px-6 font-bold text-[13px] rounded-lg cursor-pointer"
+                  >
+                    <Search className="size-4" />
+                    <span>조회하기</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleReset}
+                    className="h-11 gap-1.5 rounded-lg border-[#CBD5E1] bg-white px-4 text-[13px] font-bold text-[#475569] hover:bg-slate-50 hover:text-[#0F8AA8] hover:border-[#0F8AA8] cursor-pointer shrink-0"
+                    title="선택한 구/동 조건을 초기화합니다"
+                  >
+                    <RotateCcw className="size-4" />
+                    <span>초기화</span>
+                  </Button>
+                </div>
               </div>
+
+              {/* 조회된 선택 지역 표기 (구/동 선택 컨테이너 하단) */}
+              {searchedGuCode && (
+                <div className="mt-3.5 pt-3 border-t border-[#F1F5F9] flex items-center gap-2 text-[13px] font-bold text-[#0F172A]">
+                  <MapPin className="size-4 text-[#0F8AA8] shrink-0" />
+                  <span>
+                    조회한 지역:{" "}
+                    <span className="text-[#0F8AA8] font-extrabold">{searchedGuName}</span>
+                    {searchedDongName ? (
+                      <span className="text-[#0F8AA8] font-extrabold"> {searchedDongName}</span>
+                    ) : (
+                      <span className="text-[#64748B] font-medium"> (구 전체)</span>
+                    )}
+                  </span>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -1820,15 +1830,15 @@ export default function MarketTrendsregionPage() {
                   <button
                     type="button"
                     onClick={() => setIsAllTradesModalOpen(true)}
-                    className="flex items-center gap-0.5 rounded border border-blue-200/60 bg-blue-50/70 px-1 py-0 text-[7.5px] font-semibold text-blue-600 hover:bg-blue-100 transition-all cursor-pointer shrink-0 whitespace-nowrap"
+                    className="flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50/90 px-2 py-0.5 text-[11px] sm:text-[11.5px] font-bold text-blue-600 hover:bg-blue-100 transition-all cursor-pointer shrink-0 whitespace-nowrap shadow-2xs"
                   >
                     <span>전체 실거래 내역 보기</span>
-                    <ChevronRight className="size-2 text-blue-600" />
+                    <ChevronRight className="size-3 text-blue-600" />
                   </button>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full border-separate border-spacing-[3px] text-[11.5px] whitespace-nowrap">
+                <div className="w-full">
+                  <table className="w-full table-fixed border-separate border-spacing-[2px] text-[10.5px] sm:text-[11.5px]">
                     <thead>
                       <tr className="text-[#64748B] font-medium">
                         <th className="py-1.5 px-1.5 text-center border border-[#CBD5E1] bg-white w-[18%]">
@@ -2138,7 +2148,8 @@ export default function MarketTrendsregionPage() {
             "items-center",
             "justify-center",
             "bg-black/40",
-            "p-4",
+            "p-2.5",
+            "sm:p-4",
           )}
         >
           <div
@@ -2147,7 +2158,8 @@ export default function MarketTrendsregionPage() {
               "rounded-xl",
               "w-full",
               "max-w-[760px]",
-              "max-h-[85vh]",
+              "max-h-[90vh]",
+              "sm:max-h-[85vh]",
               "flex",
               "flex-col",
               "shadow-xl",
@@ -2158,14 +2170,15 @@ export default function MarketTrendsregionPage() {
                 "flex",
                 "items-center",
                 "justify-between",
-                "p-4",
+                "p-3.5",
+                "sm:p-4",
                 "border-b",
                 "border-[#E2E8F0]",
               )}
             >
-              <div className={cn("flex", "items-center", "gap-2.5")}>
+              <div className={cn("flex", "flex-wrap", "items-center", "gap-1.5", "sm:gap-2.5")}>
                 <h3
-                  className={cn("text-[15px]", "font-bold", "text-[#0F172A]")}
+                  className={cn("text-[13.5px]", "sm:text-[15px]", "font-bold", "text-[#0F172A]")}
                 >
                   {searchedGuName}{" "}
                   {searchedDongName ? searchedDongName + " " : ""}전체 실거래
@@ -2173,11 +2186,13 @@ export default function MarketTrendsregionPage() {
                 </h3>
                 <span
                   className={cn(
-                    "text-[11px]",
+                    "text-[10px]",
+                    "sm:text-[11px]",
                     "font-bold",
                     "text-[#2563EB]",
                     "bg-[#EFF6FF]",
-                    "px-2.5",
+                    "px-2",
+                    "sm:px-2.5",
                     "py-0.5",
                     "rounded-full",
                     "border",
@@ -2197,10 +2212,10 @@ export default function MarketTrendsregionPage() {
                   "cursor-pointer",
                 )}
               >
-                <X className="size-4" />
+                <X className="size-4.5 sm:size-4" />
               </button>
             </div>
-            <div className={cn("p-4", "overflow-y-auto", "flex-1")}>
+            <div className={cn("p-2.5", "sm:p-4", "overflow-y-auto", "flex-1")}>
               {isAllTradesLoading ? (
                 <div
                   className={cn(
@@ -2228,179 +2243,246 @@ export default function MarketTrendsregionPage() {
                   <span>실거래 내역을 불러오는 중입니다...</span>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow
-                      className={cn("border-[#E2E8F0]", "bg-[#F8FAFC]")}
-                    >
-                      <TableHead
-                        className={cn(
-                          "w-12",
-                          "text-center",
-                          "text-xs",
-                          "font-semibold",
-                          "text-[#475569]",
-                        )}
+                <div className="w-full overflow-hidden">
+                  <Table className="w-full table-fixed">
+                    <TableHeader>
+                      <TableRow
+                        className={cn("border-[#E2E8F0]", "bg-[#F8FAFC]")}
                       >
-                        번호
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          "text-xs",
-                          "font-semibold",
-                          "text-[#475569]",
-                        )}
-                      >
-                        계약일
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          "text-xs",
-                          "font-semibold",
-                          "text-[#475569]",
-                        )}
-                      >
-                        단지명
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          "text-right",
-                          "text-xs",
-                          "font-semibold",
-                          "text-[#475569]",
-                        )}
-                      >
-                        평형
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          "text-center",
-                          "text-xs",
-                          "font-semibold",
-                          "text-[#475569]",
-                        )}
-                      >
-                        층
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          "text-right",
-                          "text-xs",
-                          "font-semibold",
-                          "text-[#475569]",
-                        )}
-                      >
-                        실거래가(만원)
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {allTradesList.length > 0 ? (
-                      allTradesList.map((trade, idx) => {
-                        const areaNum = parseFloat(String(trade.area).replace(/[^0-9.]/g, ""));
-                        const pyeongText = !isNaN(areaNum) && areaNum > 0
-                          ? `${Math.round(areaNum * 0.3025)}평형`
-                          : trade.area;
-
-                        // 만원 단위 순수 숫자 포맷팅
-                        const rawPrice = trade.price || trade.status || "";
-                        let formattedPrice = String(rawPrice).trim();
-                        if (formattedPrice.includes("억")) {
-                          const eokMatch = formattedPrice.match(/(\d+)\s*억/);
-                          const manMatch = formattedPrice.match(/억\s*([\d,]+)/);
-                          const eok = eokMatch ? parseInt(eokMatch[1].replace(/,/g, ""), 10) : 0;
-                          const man = manMatch ? parseInt(manMatch[1].replace(/,/g, ""), 10) : 0;
-                          formattedPrice = (eok * 10000 + man).toLocaleString();
-                        } else {
-                          const cleanNum = formattedPrice.replace(/[^0-9]/g, "");
-                          if (cleanNum) {
-                            formattedPrice = parseInt(cleanNum, 10).toLocaleString();
-                          }
-                        }
-
-                        return (
-                          <TableRow
-                            key={`all-trade-${idx}`}
-                            className={cn(
-                              "hover:bg-slate-50",
-                              "border-[#F1F5F9]",
-                            )}
-                          >
-                            <TableCell
-                              className={cn(
-                                "text-center",
-                                "text-xs",
-                                "text-[#64748B]",
-                              )}
-                            >
-                              {idx + 1}
-                            </TableCell>
-                            <TableCell
-                              className={cn(
-                                "text-xs",
-                                "font-medium",
-                                "text-[#64748B]",
-                              )}
-                            >
-                              {trade.contractDate}
-                            </TableCell>
-                            <TableCell
-                              className={cn(
-                                "text-xs",
-                                "font-bold",
-                                "text-[#0F172A]",
-                              )}
-                            >
-                              {trade.complexName}
-                            </TableCell>
-                            <TableCell
-                              className={cn(
-                                "text-right",
-                                "text-xs",
-                                "text-[#64748B]",
-                              )}
-                            >
-                              {pyeongText}
-                            </TableCell>
-                            <TableCell
-                              className={cn(
-                                "text-center",
-                                "text-xs",
-                                "text-[#64748B]",
-                              )}
-                            >
-                              {trade.floor}
-                            </TableCell>
-                            <TableCell
-                              className={cn(
-                                "text-right",
-                                "text-xs",
-                                "font-black",
-                                "text-[#2563EB]",
-                              )}
-                            >
-                              {formattedPrice || "-"}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    ) : (
-                      <TableRow>
-                        <TableCell
-                          colSpan={6}
+                        <TableHead
                           className={cn(
-                            "h-32",
+                            "w-[8%]",
+                            "sm:w-12",
                             "text-center",
-                            "text-xs",
-                            "text-[#94A3B8]",
+                            "text-[10px]",
+                            "sm:text-xs",
+                            "font-semibold",
+                            "text-[#475569]",
+                            "py-2",
+                            "px-0.5",
+                            "sm:px-1",
                           )}
                         >
-                          조회된 실거래 데이터가 없습니다.
-                        </TableCell>
+                          번호
+                        </TableHead>
+                        <TableHead
+                          className={cn(
+                            "w-[18%]",
+                            "sm:w-20",
+                            "text-center",
+                            "text-[10px]",
+                            "sm:text-xs",
+                            "font-semibold",
+                            "text-[#475569]",
+                            "py-2",
+                            "px-0.5",
+                            "sm:px-1.5",
+                          )}
+                        >
+                          계약일
+                        </TableHead>
+                        <TableHead
+                          className={cn(
+                            "w-[33%]",
+                            "sm:w-auto",
+                            "text-left",
+                            "text-[10px]",
+                            "sm:text-xs",
+                            "font-semibold",
+                            "text-[#475569]",
+                            "py-2",
+                            "px-0.5",
+                            "sm:px-1.5",
+                          )}
+                        >
+                          단지명
+                        </TableHead>
+                        <TableHead
+                          className={cn(
+                            "w-[15%]",
+                            "sm:w-16",
+                            "text-right",
+                            "text-[10px]",
+                            "sm:text-xs",
+                            "font-semibold",
+                            "text-[#475569]",
+                            "py-2",
+                            "px-0.5",
+                            "sm:px-1.5",
+                          )}
+                        >
+                          평형
+                        </TableHead>
+                        <TableHead
+                          className={cn(
+                            "w-[8%]",
+                            "sm:w-12",
+                            "text-center",
+                            "text-[10px]",
+                            "sm:text-xs",
+                            "font-semibold",
+                            "text-[#475569]",
+                            "py-2",
+                            "px-0.5",
+                            "sm:px-1",
+                          )}
+                        >
+                          층
+                        </TableHead>
+                        <TableHead
+                          className={cn(
+                            "w-[18%]",
+                            "sm:w-24",
+                            "text-right",
+                            "text-[10px]",
+                            "sm:text-xs",
+                            "font-semibold",
+                            "text-[#475569]",
+                            "py-2",
+                            "px-0.5",
+                            "sm:px-1.5",
+                          )}
+                        >
+                          실거래가(만원)
+                        </TableHead>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {allTradesList.length > 0 ? (
+                        allTradesList.map((trade, idx) => {
+                          const areaNum = parseFloat(String(trade.area).replace(/[^0-9.]/g, ""));
+                          const pyeongText = !isNaN(areaNum) && areaNum > 0
+                            ? `${Math.round(areaNum * 0.3025)}평형`
+                            : trade.area;
+
+                          // 만원 단위 순수 숫자 포맷팅
+                          const rawPrice = trade.price || trade.status || "";
+                          let formattedPrice = String(rawPrice).trim();
+                          if (formattedPrice.includes("억")) {
+                            const eokMatch = formattedPrice.match(/(\d+)\s*억/);
+                            const manMatch = formattedPrice.match(/억\s*([\d,]+)/);
+                            const eok = eokMatch ? parseInt(eokMatch[1].replace(/,/g, ""), 10) : 0;
+                            const man = manMatch ? parseInt(manMatch[1].replace(/,/g, ""), 10) : 0;
+                            formattedPrice = (eok * 10000 + man).toLocaleString();
+                          } else {
+                            const cleanNum = formattedPrice.replace(/[^0-9]/g, "");
+                            if (cleanNum) {
+                              formattedPrice = parseInt(cleanNum, 10).toLocaleString();
+                            }
+                          }
+
+                          return (
+                            <TableRow
+                              key={`all-trade-${idx}`}
+                              className={cn(
+                                "hover:bg-slate-50",
+                                "border-[#F1F5F9]",
+                              )}
+                            >
+                              <TableCell
+                                className={cn(
+                                  "text-center",
+                                  "text-[10px]",
+                                  "sm:text-xs",
+                                  "text-[#64748B]",
+                                  "py-2",
+                                  "px-0.5",
+                                )}
+                              >
+                                {idx + 1}
+                              </TableCell>
+                              <TableCell
+                                className={cn(
+                                  "text-center",
+                                  "text-[10px]",
+                                  "sm:text-xs",
+                                  "font-medium",
+                                  "text-[#64748B]",
+                                  "py-2",
+                                  "px-0.5",
+                                  "sm:px-1.5",
+                                  "truncate",
+                                )}
+                              >
+                                {trade.contractDate.replace(/^\d{4}\./, "")}
+                              </TableCell>
+                              <TableCell
+                                className={cn(
+                                  "text-left",
+                                  "text-[10px]",
+                                  "sm:text-xs",
+                                  "font-bold",
+                                  "text-[#0F172A]",
+                                  "py-2",
+                                  "px-0.5",
+                                  "sm:px-1.5",
+                                  "truncate",
+                                )}
+                              >
+                                {trade.complexName}
+                              </TableCell>
+                              <TableCell
+                                className={cn(
+                                  "text-right",
+                                  "text-[10px]",
+                                  "sm:text-xs",
+                                  "text-[#64748B]",
+                                  "py-2",
+                                  "px-0.5",
+                                  "sm:px-1.5",
+                                  "truncate",
+                                )}
+                              >
+                                {pyeongText}
+                              </TableCell>
+                              <TableCell
+                                className={cn(
+                                  "text-center",
+                                  "text-[10px]",
+                                  "sm:text-xs",
+                                  "text-[#64748B]",
+                                  "py-2",
+                                  "px-0.5",
+                                )}
+                              >
+                                {trade.floor}
+                              </TableCell>
+                              <TableCell
+                                className={cn(
+                                  "text-right",
+                                  "text-[10.5px]",
+                                  "sm:text-xs",
+                                  "font-black",
+                                  "text-[#2563EB]",
+                                  "py-2",
+                                  "px-0.5",
+                                  "sm:px-1.5",
+                                  "truncate",
+                                )}
+                              >
+                                {formattedPrice || "-"}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      ) : (
+                        <TableRow>
+                          <TableCell
+                            colSpan={6}
+                            className={cn(
+                              "h-32",
+                              "text-center",
+                              "text-xs",
+                              "text-[#94A3B8]",
+                            )}
+                          >
+                            조회된 실거래 데이터가 없습니다.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </div>
           </div>

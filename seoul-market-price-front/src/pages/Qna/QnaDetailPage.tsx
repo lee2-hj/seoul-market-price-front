@@ -135,7 +135,6 @@ export default function QnaDetailPage() {
 
   /* 로그인 및 권한 정보 */
   const currentUser = getLoginUser();
-  const currentUserId = currentUser?.userId || "";
   const isAdmin = useMemo(() => {
     const role = currentUser?.role?.toUpperCase();
     return role === "ADMIN" || role === "ROLE_ADMIN";
@@ -384,9 +383,44 @@ export default function QnaDetailPage() {
 
   /* 권한 검사 */
   const isMyPost = useMemo(() => {
-    if (!post || !currentUserId) return false;
-    return String(currentUserId) === String(post.writerLoginId || "");
-  }, [post, currentUserId]);
+    if (!post) return false;
+    if (isAdmin) return true;
+
+    const u = currentUser;
+    if (!u) return false;
+
+    const userIdentifiers = [
+      u.userId,
+      u.name,
+      (u as { loginId?: string }).loginId,
+      (u as { id?: string | number }).id,
+    ].filter(Boolean).map(String);
+
+    const postWriters = [
+      post.writerLoginId,
+      post.writerName,
+      (post as { authorId?: string | number }).authorId,
+      (post as { author?: string }).author,
+      (post as { writerId?: string | number }).writerId,
+      (post as { userId?: string | number }).userId,
+    ].filter(Boolean).map(String);
+
+    let localMatch = false;
+    try {
+      const stored = localStorage.getItem("qnaPosts");
+      if (stored && id) {
+        const localPosts = JSON.parse(stored) as Array<{ id: number | string; authorId?: string }>;
+        const found = localPosts.find((p) => String(p.id) === String(id));
+        if (found) localMatch = true;
+      }
+    } catch {
+      /* 무시 */
+    }
+
+    const directMatch = userIdentifiers.some((uid) => postWriters.includes(uid));
+
+    return directMatch || localMatch;
+  }, [post, currentUser, isAdmin, id]);
 
   const isPublic = post?.publicQuestion ?? post?.isPublic ?? true;
   const isSecretUnauthorized = !isPublic && !isMyPost && !isAdmin;
@@ -498,9 +532,30 @@ export default function QnaDetailPage() {
 
         {/* 게시글 본문 카드 */}
         <div className="bg-white border border-[#DCE8ED] rounded-[12px] p-4 sm:p-8 space-y-6 shadow-sm">
-          <h2 className="text-[18px] sm:text-[22px] font-bold text-[#13202B] border-b border-[#DCE8ED] pb-4">
-            {post.title}
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#DCE8ED] pb-4">
+            <h2 className="text-[18px] sm:text-[22px] font-bold text-[#13202B]">
+              {post.title}
+            </h2>
+            {isMyPost && (
+              <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleEdit}
+                  className="px-3 py-1.5 bg-[#0F8AA8] text-white text-[12px] sm:text-[13px] font-bold rounded-[6px] hover:bg-[#0B5E73] cursor-pointer"
+                >
+                  수정
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleteMutation.isPending}
+                  className="px-3 py-1.5 bg-white border border-rose-200 text-rose-600 text-[12px] sm:text-[13px] font-bold rounded-[6px] hover:bg-rose-50 cursor-pointer disabled:opacity-50"
+                >
+                  {deleteMutation.isPending ? "삭제 중..." : "삭제"}
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* 메타 정보 */}
           <div className="flex flex-wrap items-center gap-6 text-[13px] text-[#6B7280] bg-[#F5FAFC] p-3.5 rounded-[8px]">
@@ -597,21 +652,21 @@ export default function QnaDetailPage() {
         </div>
 
         {/* 하단 액션 버튼 */}
-        <div className="flex justify-between items-center pt-2">
+        <div className="flex flex-wrap sm:flex-nowrap justify-between items-center gap-2 pt-2">
           <button
             type="button"
-            className="px-5 py-2.5 bg-white border border-[#DCE8ED] text-[#6B7280] text-[14px] font-bold rounded-[7px] hover:bg-[#EBF5F8] cursor-pointer"
+            className="px-4 sm:px-5 py-2.5 bg-white border border-[#DCE8ED] text-[#6B7280] text-[13px] sm:text-[14px] font-bold rounded-[7px] hover:bg-[#EBF5F8] cursor-pointer"
             onClick={handleBack}
           >
             목록으로
           </button>
 
           {isMyPost && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleEdit}
-                className="px-5 py-2.5 bg-[#0F8AA8] text-white text-[14px] font-bold rounded-[7px] hover:bg-[#0B5E73] cursor-pointer"
+                className="px-4 sm:px-5 py-2.5 bg-[#0F8AA8] text-white text-[13px] sm:text-[14px] font-bold rounded-[7px] hover:bg-[#0B5E73] cursor-pointer"
               >
                 수정
               </button>
@@ -619,7 +674,7 @@ export default function QnaDetailPage() {
                 type="button"
                 onClick={handleDelete}
                 disabled={deleteMutation.isPending}
-                className="px-5 py-2.5 bg-white border border-rose-200 text-rose-600 text-[14px] font-bold rounded-[7px] hover:bg-rose-50 cursor-pointer disabled:opacity-50"
+                className="px-4 sm:px-5 py-2.5 bg-white border border-rose-200 text-rose-600 text-[13px] sm:text-[14px] font-bold rounded-[7px] hover:bg-rose-50 cursor-pointer disabled:opacity-50"
               >
                 {deleteMutation.isPending ? "삭제 중..." : "삭제"}
               </button>
