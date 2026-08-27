@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -27,16 +27,6 @@ import {
   BOARD_MAX_FILE_COUNT,
   validateBoardFiles,
 } from "@/features/board/utils/boardFileValidation";
-import {
-  getBoardEditDraftKey,
-  hasBoardTextDraft,
-  loadBoardDraftFiles,
-  loadBoardTextDraft,
-  removeBoardDraftFiles,
-  removeBoardTextDraft,
-  saveBoardDraftFiles,
-  saveBoardTextDraft,
-} from "@/features/board/utils/boardDraftStorage";
 
 interface BoardEditFormData {
   title: string;
@@ -46,24 +36,19 @@ interface BoardEditFormData {
 const ALLOWED_FILE_EXTENSIONS =
   ".jpg,.jpeg,.png,.gif,.webp,.pdf,.zip,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv";
 
+const getEditSessionKey = (id: number) => `ssabu_board_edit_session_${id}`;
+const getEditReloadFlagKey = (id: number) => `ssabu_board_edit_is_reload_${id}`;
+
 export default function BoardEditPage() {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [textReadyDraftKey, setTextReadyDraftKey] = useState<string | null>(null);
-  const [filesReadyDraftKey, setFilesReadyDraftKey] = useState<string | null>(null);
 
   const boardId = Number(postId);
   const loginUser = useAuthStore((state) => state.user);
   const isAuthInitialized = useAuthStore((state) => state.isInitialized);
-  const draftKey = loginUser?.userId && boardId
-    ? getBoardEditDraftKey(boardId, loginUser.userId)
-    : null;
-  const initializedDraftKeyRef = useRef<string | null>(null);
-  const fileDraftErrorShownRef = useRef(false);
-  const textDraftErrorShownRef = useRef(false);
 
   // 비로그인 접근 방어 (인증 초기화 완료 후 체크)
   useEffect(() => {
@@ -73,6 +58,27 @@ export default function BoardEditPage() {
       navigate("/login", { replace: true });
     }
   }, [isAuthInitialized, navigate]);
+
+  // 새로고침 이벤트 감지 및 페이지 언마운트(SPA 라우트 이동) 시 세션 삭제
+  useEffect(() => {
+    if (!boardId) return;
+    const reloadFlagKey = getEditReloadFlagKey(boardId);
+    const editSessionKey = getEditSessionKey(boardId);
+
+    const handleBeforeUnload = () => {
+      sessionStorage.setItem(reloadFlagKey, "1");
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      // SPA 라우팅 이동으로 컴포넌트가 언마운트되는 경우 세션 정리
+      if (sessionStorage.getItem(reloadFlagKey) !== "1") {
+        sessionStorage.removeItem(editSessionKey);
+      }
+    };
+  }, [boardId]);
 
   const {
     register,
@@ -90,16 +96,15 @@ export default function BoardEditPage() {
   const titleValue = useWatch({ control, name: "title" }) || "";
   const contentValue = useWatch({ control, name: "content" }) || "";
 
-  const showFileDraftError = useCallback((draftError: unknown) => {
-    console.error("첨부파일 초안 처리 실패:", draftError);
-    if (fileDraftErrorShownRef.current) return;
-    fileDraftErrorShownRef.current = true;
-    alert(
-      draftError instanceof Error
-        ? `${draftError.message}\n제목과 본문 초안은 계속 저장됩니다.`
-        : "첨부파일 초안을 저장하지 못했습니다. 제목과 본문 초안은 계속 저장됩니다.",
-    );
-  }, []);
+  // 수정 중인 내용을 세션에 실시간 보관 (새로고침 대비)
+  useEffect(() => {
+    if (boardId && (titleValue || contentValue)) {
+      sessionStorage.setItem(
+        getEditSessionKey(boardId),
+        JSON.stringify({ title: titleValue, content: contentValue }),
+      );
+    }
+  }, [boardId, titleValue, contentValue]);
 
   const { data: post, isLoading, isError, error } = useQuery({
     queryKey: ["board", boardId],
@@ -144,74 +149,43 @@ export default function BoardEditPage() {
         return;
       }
 
-      if (!draftKey || initializedDraftKeyRef.current === draftKey) return;
+      const editKey = getEditSessionKey(boardId);
+      const reloadFlagKey = getEditReloadFlagKey(boardId);
+      const isReload = sessionStorage.getItem(reloadFlagKey) === "1";
+      sessionStorage.removeItem(reloadFlagKey);
 
-      const hasSavedDraft = hasBoardTextDraft(draftKey);
-      const savedDraft = loadBoardTextDraft(draftKey);
-      reset(
-        savedDraft ?? {
-          title: post.title,
-          content: post.content,
-        },
-      );
-      initializedDraftKeyRef.current = draftKey;
-      setTextReadyDraftKey(draftKey);
+      let initialTitle = post.title;
+      let initialContent = post.content;
 
-      let isActive = true;
-      (hasSavedDraft ? loadBoardDraftFiles(draftKey) : Promise.resolve([]))
-        .then((files) => {
-          if (isActive) setSelectedFiles(files.slice(0, BOARD_MAX_FILE_COUNT));
-        })
-        .catch(showFileDraftError)
-        .finally(() => {
-          if (isActive) setFilesReadyDraftKey(draftKey);
-        });
+      // 새로고침 시에만 수정 중이던 세션 데이터 복원, 다른 경로 진입 시 세션 클리어
+      if (isReload) {
+        try {
+          const saved = sessionStorage.getItem(editKey);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (typeof parsed?.title === "string") initialTitle = parsed.title;
+            if (typeof parsed?.content === "string") initialContent = parsed.content;
+          }
+        } catch {
+          // JSON 파싱 실패 시 무시
+        }
+      } else {
+        sessionStorage.removeItem(editKey);
+      }
 
-      return () => {
-        isActive = false;
-      };
+      reset({
+        title: initialTitle,
+        content: initialContent,
+      });
     }
   }, [
     post,
     isAuthInitialized,
     loginUser,
     boardId,
-    draftKey,
     navigate,
     reset,
-    showFileDraftError,
   ]);
-
-  useEffect(() => {
-    if (!draftKey || textReadyDraftKey !== draftKey) return;
-    try {
-      saveBoardTextDraft(draftKey, {
-        title: titleValue,
-        content: contentValue,
-      });
-    } catch (draftError) {
-      console.error("게시글 본문 초안 저장 실패:", draftError);
-      if (!textDraftErrorShownRef.current) {
-        textDraftErrorShownRef.current = true;
-        alert("게시글 제목과 본문 초안을 저장하지 못했습니다.");
-      }
-    }
-  }, [contentValue, draftKey, textReadyDraftKey, titleValue]);
-
-  useEffect(() => {
-    if (!draftKey || filesReadyDraftKey !== draftKey) return;
-    saveBoardDraftFiles(draftKey, selectedFiles).catch(showFileDraftError);
-  }, [draftKey, filesReadyDraftKey, selectedFiles, showFileDraftError]);
-
-  const clearCurrentDraft = useCallback(async () => {
-    if (!draftKey) return;
-    removeBoardTextDraft(draftKey);
-    try {
-      await removeBoardDraftFiles(draftKey);
-    } catch (draftError) {
-      showFileDraftError(draftError);
-    }
-  }, [draftKey, showFileDraftError]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawFiles = Array.from(e.target.files || []);
@@ -258,11 +232,11 @@ export default function BoardEditPage() {
       }
       return { uploadFailed };
     },
-    onSuccess: async (result) => {
+    onSuccess: (result) => {
+      sessionStorage.removeItem(getEditSessionKey(boardId));
       if (result?.uploadFailed) {
         alert("게시글은 수정되었으나 첨부파일 업로드 중 오류가 발생했습니다.");
       } else {
-        await clearCurrentDraft();
         alert("게시글이 성공적으로 수정되었습니다.");
       }
       queryClient.invalidateQueries({ queryKey: ["board", boardId] });
@@ -278,6 +252,7 @@ export default function BoardEditPage() {
   const deleteMutation = useMutation({
     mutationFn: () => deleteBoardPostApi(boardId),
     onSuccess: () => {
+      sessionStorage.removeItem(getEditSessionKey(boardId));
       alert("게시글이 삭제되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["boardPosts"] });
       navigate("/board");
@@ -306,6 +281,7 @@ export default function BoardEditPage() {
   };
 
   const handleGoToList = () => {
+    sessionStorage.removeItem(getEditSessionKey(boardId));
     navigate("/board");
   };
 
