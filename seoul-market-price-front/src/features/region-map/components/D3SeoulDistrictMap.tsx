@@ -1,35 +1,38 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { geoMercator, geoPath } from "d3-geo";
-import type { GeoPermissibleObjects } from "d3-geo";
-
+import { geoMercator, geoPath, type GeoPermissibleObjects } from "d3-geo";
 import { DISTRICT_PRICES, PRICE_LEGEND } from "@/features/region-map/data/regionMapData";
 
-type Position = [number, number];
+interface DistrictProperties {
+  name: string;
+  code: string;
+}
 
-interface SeoulFeature {
+interface DistrictFeature {
   type: "Feature";
-  properties: { name: string };
+  properties: DistrictProperties;
   geometry: {
     type: "Polygon" | "MultiPolygon";
-    coordinates: Position[][] | Position[][][];
+    coordinates: number[][][] | number[][][][];
   };
 }
 
 interface SeoulGeoJson {
   type: "FeatureCollection";
-  features: SeoulFeature[];
+  features: DistrictFeature[];
+}
+
+interface DongProperties {
+  COL_ADM_SE: string;
+  EMD_CD: string;
+  EMD_NM: string;
 }
 
 interface DongFeature {
   type: "Feature";
-  properties: {
-    EMD_CD: string;
-    EMD_NM: string;
-    COL_ADM_SE: string;
-  };
+  properties: DongProperties;
   geometry: {
     type: "Polygon" | "MultiPolygon";
-    coordinates: Position[][] | Position[][][];
+    coordinates: number[][][] | number[][][][];
   };
 }
 
@@ -38,12 +41,40 @@ interface DongGeoJson {
   features: DongFeature[];
 }
 
+function rewindRing(ring: number[][]): number[][] {
+  let area = 0;
+  for (let i = 0, len = ring.length, j = len - 1; i < len; j = i++) {
+    const p1 = ring[i];
+    const p2 = ring[j];
+    area += (p2[0] - p1[0]) * (p2[1] + p1[1]);
+  }
+  return area > 0 ? [...ring].reverse() : ring;
+}
+
 function rewindDongFeature(feature: DongFeature): DongFeature {
-  const coordinates = feature.geometry.type === "Polygon"
-    ? (feature.geometry.coordinates as Position[][]).map((ring) => [...ring].reverse())
-    : (feature.geometry.coordinates as Position[][][]).map((polygon) =>
-        polygon.map((ring) => [...ring].reverse()),
-      );
+  if (feature.geometry.type === "Polygon") {
+    const coordinates = (feature.geometry.coordinates as number[][][]).map(
+      (ring, index) => {
+        const rewound = rewindRing(ring);
+        return index === 0 ? rewound : [...rewound].reverse();
+      },
+    );
+    return {
+      ...feature,
+      geometry: {
+        ...feature.geometry,
+        coordinates,
+      } as DongFeature["geometry"],
+    };
+  }
+
+  const coordinates = (feature.geometry.coordinates as number[][][][]).map(
+    (polygon) =>
+      polygon.map((ring, index) => {
+        const rewound = rewindRing(ring);
+        return index === 0 ? rewound : [...rewound].reverse();
+      }),
+  );
 
   return {
     ...feature,
@@ -68,8 +99,8 @@ interface D3SeoulDistrictMapProps {
   onShowAll: () => void;
 }
 
-const WIDTH = 1100;
-const HEIGHT = 650;
+const WIDTH = 960;
+const HEIGHT = 680;
 
 function getDistrictColor(price: number) {
   if (price >= 150000) return PRICE_LEGEND[0].color;
@@ -143,12 +174,12 @@ export default function D3SeoulDistrictMap({
   const mapData = useMemo(() => {
     if (!geoData) return null;
     const projection = geoMercator().fitExtent(
-      [[45, 35], [WIDTH - 45, HEIGHT - 35]],
+      [[20, 20], [WIDTH - 20, HEIGHT - 20]],
       geoData as unknown as GeoPermissibleObjects,
     );
     const path = geoPath(projection);
     return geoData.features.map((feature) => {
-      const district = DISTRICT_PRICES.find((item) => item.name === feature.properties.name);
+      const district = DISTRICT_PRICES.find((item: { name: string; averagePrice?: number }) => item.name === feature.properties.name);
       const realPrice = districtAveragePrices?.[feature.properties.name] ?? district?.averagePrice ?? 0;
       return {
         name: feature.properties.name,
@@ -163,7 +194,7 @@ export default function D3SeoulDistrictMap({
   const dongMapData = useMemo(() => {
     if (!geoData || !dongGeoData || !selectedDistrict) return [];
     const projection = geoMercator().fitExtent(
-      [[45, 35], [WIDTH - 45, HEIGHT - 35]],
+      [[20, 20], [WIDTH - 20, HEIGHT - 20]],
       geoData as unknown as GeoPermissibleObjects,
     );
     const path = geoPath(projection);
@@ -228,6 +259,15 @@ export default function D3SeoulDistrictMap({
   const userZoom = zoomState.district === selectedDistrict ? zoomState.factor : 1;
   const displayScale = zoom.scale * userZoom;
   const panLimits = useMemo(() => {
+    if (!selectedDistrict) {
+      const scaledWidth = WIDTH * displayScale;
+      const scaledHeight = HEIGHT * displayScale;
+      return {
+        x: Math.max(0, (scaledWidth - WIDTH) / 2 + WIDTH * 0.15),
+        y: Math.max(0, (scaledHeight - HEIGHT) / 2 + HEIGHT * 0.15),
+      };
+    }
+
     const selected = mapData?.find((district) => district.name === selectedDistrict);
     if (!selected) return { x: 0, y: 0 };
 
@@ -241,16 +281,77 @@ export default function D3SeoulDistrictMap({
     };
   }, [displayScale, mapData, selectedDistrict]);
 
+  const touchState = useRef({
+    initialDist: 0,
+    initialFactor: 1,
+    isPinching: false,
+  });
+
   const changeUserZoom = (nextFactor: number) => {
     setZoomState({
       district: selectedDistrict,
-      factor: Math.max(0.7, Math.min(2.5, nextFactor)),
+      factor: Math.max(0.6, Math.min(3.5, nextFactor)),
     });
   };
 
   useEffect(() => {
     const svg = svgRef.current;
-    if (!svg || !selectedDistrict) return;
+    if (!svg) return;
+
+    const getTouchDist = (e: TouchEvent) => {
+      if (e.touches.length < 2) return 0;
+      return Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY,
+      );
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dist = getTouchDist(e);
+        touchState.current = {
+          initialDist: dist,
+          initialFactor: userZoom,
+          isPinching: true,
+        };
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && touchState.current.isPinching) {
+        e.preventDefault();
+        const dist = getTouchDist(e);
+        if (touchState.current.initialDist > 0 && dist > 0) {
+          const scaleRatio = dist / touchState.current.initialDist;
+          const nextFactor = touchState.current.initialFactor * scaleRatio;
+          changeUserZoom(nextFactor);
+        }
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        touchState.current.isPinching = false;
+      }
+    };
+
+    svg.addEventListener("touchstart", handleTouchStart, { passive: false });
+    svg.addEventListener("touchmove", handleTouchMove, { passive: false });
+    svg.addEventListener("touchend", handleTouchEnd);
+    svg.addEventListener("touchcancel", handleTouchEnd);
+
+    return () => {
+      svg.removeEventListener("touchstart", handleTouchStart);
+      svg.removeEventListener("touchmove", handleTouchMove);
+      svg.removeEventListener("touchend", handleTouchEnd);
+      svg.removeEventListener("touchcancel", handleTouchEnd);
+    };
+  }, [mapData, userZoom, selectedDistrict]);
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
 
     const handleWheel = (event: WheelEvent) => {
       event.preventDefault();
@@ -260,7 +361,7 @@ export default function D3SeoulDistrictMap({
         const nextFactor = currentFactor * (event.deltaY < 0 ? 1.12 : 0.89);
         return {
           district: selectedDistrict,
-          factor: Math.max(0.7, Math.min(2.5, nextFactor)),
+          factor: Math.max(0.6, Math.min(3.5, nextFactor)),
         };
       });
     };
@@ -277,23 +378,34 @@ export default function D3SeoulDistrictMap({
   const showingDongs = Boolean(selectedDistrict && dongMapData.length);
 
   if (errorMessage) {
-    return <div className="flex h-[650px] items-center justify-center bg-white text-[13px] font-bold text-rose-600">{errorMessage}</div>;
+    return (
+      <div className="flex h-[380px] sm:h-[540px] items-center justify-center bg-white text-[13px] font-bold text-rose-600">
+        {errorMessage}
+      </div>
+    );
   }
 
   if (!mapData) {
-    return <div className="flex h-[650px] items-center justify-center bg-[#F6FAF7] text-[13px] font-bold text-[#64748B]">서울 지도를 불러오는 중입니다...</div>;
+    return (
+      <div className="flex h-[380px] sm:h-[540px] items-center justify-center bg-[#F6FAF7] text-[13px] font-bold text-[#64748B]">
+        서울 지도를 불러오는 중입니다...
+      </div>
+    );
   }
 
+  const canPan = Boolean(selectedDistrict || userZoom > 1);
+
   return (
-    <div className="relative w-full overflow-hidden bg-[radial-gradient(circle_at_50%_40%,#FFFFFF_0%,#F4F8F4_62%,#EAF2ED_100%)]">
+    <div className="relative h-[380px] xs:h-[420px] sm:h-[540px] md:h-[620px] w-full overflow-hidden bg-[radial-gradient(circle_at_50%_40%,#FFFFFF_0%,#F4F8F4_62%,#EAF2ED_100%)]">
       <svg
         ref={svgRef}
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        className={`block h-auto min-h-[520px] w-full touch-none ${selectedDistrict ? (isDragging ? "cursor-grabbing" : "cursor-grab") : ""}`}
+        preserveAspectRatio="xMidYMid meet"
+        className={`block h-full w-full touch-none ${canPan ? (isDragging ? "cursor-grabbing" : "cursor-grab") : ""}`}
         role="img"
         aria-label="서울 자치구별 평균 매매가 지도"
         onPointerDown={(event) => {
-          if (!selectedDistrict || event.button !== 0) return;
+          if (!canPan || event.button !== 0) return;
           dragState.current = {
             pointerId: event.pointerId,
             x: event.clientX,
@@ -319,135 +431,218 @@ export default function D3SeoulDistrictMap({
           if (!dragState.current.moved) return;
           dragState.current.x = event.clientX;
           dragState.current.y = event.clientY;
-          setPanState((current) => ({
-            district: selectedDistrict,
-            x: Math.max(-panLimits.x, Math.min(panLimits.x, (current.district === selectedDistrict ? current.x : 0) + dx)),
-            y: Math.max(-panLimits.y, Math.min(panLimits.y, (current.district === selectedDistrict ? current.y : 0) + dy)),
-          }));
+          setPanState((current) => {
+            const currentPan = current.district === selectedDistrict
+              ? { x: current.x, y: current.y }
+              : { x: 0, y: 0 };
+            return {
+              district: selectedDistrict,
+              x: Math.max(-panLimits.x, Math.min(panLimits.x, currentPan.x + dx)),
+              y: Math.max(-panLimits.y, Math.min(panLimits.y, currentPan.y + dy)),
+            };
+          });
         }}
         onPointerUp={(event) => {
           if (dragState.current.pointerId !== event.pointerId) return;
-          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          if (dragState.current.moved && event.currentTarget.hasPointerCapture(event.pointerId)) {
             event.currentTarget.releasePointerCapture(event.pointerId);
           }
           dragState.current.pointerId = -1;
+          dragState.current.moved = false;
           setIsDragging(false);
         }}
-        onPointerCancel={() => {
+        onPointerCancel={(event) => {
+          if (dragState.current.pointerId !== event.pointerId) return;
+          if (dragState.current.moved && event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
           dragState.current.pointerId = -1;
+          dragState.current.moved = false;
           setIsDragging(false);
         }}
       >
         <defs>
-          <filter id="district-shadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="5" stdDeviation="6" floodColor="#284B3D" floodOpacity="0.15" />
+          <radialGradient id="seoulMapBase" cx="50%" cy="40%" r="60%">
+            <stop offset="0%" stopColor="#FFFFFF" />
+            <stop offset="70%" stopColor="#F6FAF7" />
+            <stop offset="100%" stopColor="#EEF5F0" />
+          </radialGradient>
+          <filter id="seoulDistrictShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="10" stdDeviation="14" floodColor="#0F172A" floodOpacity="0.10" />
+            <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#0F172A" floodOpacity="0.06" />
           </filter>
-          <pattern id="map-grid" width="34" height="34" patternUnits="userSpaceOnUse">
-            <path d="M34 0H0V34" fill="none" stroke="#DCE7E0" strokeWidth="0.7" opacity="0.45" />
-          </pattern>
         </defs>
-        <rect width={WIDTH} height={HEIGHT} fill="url(#map-grid)" opacity="0.55" />
+
         <g
-          filter="url(#district-shadow)"
-          transform={`translate(${pan.x} ${pan.y}) translate(${WIDTH / 2} ${HEIGHT / 2}) scale(${displayScale}) translate(${-zoom.centerX} ${-zoom.centerY})`}
-          style={{ transition: isDragging ? "none" : "transform 520ms cubic-bezier(.22,.8,.3,1)" }}
+          className="map-layer transition-transform"
+          style={{
+            transform: `translate(${pan.x}px, ${pan.y}px) translate(${WIDTH / 2}px, ${HEIGHT / 2}px) scale(${displayScale}) translate(${-zoom.centerX}px, ${-zoom.centerY}px)`,
+            transformOrigin: "0 0",
+            transition: isDragging ? "none" : "transform 520ms cubic-bezier(.22,.8,.3,1)",
+          }}
         >
+          {mapData.map(({ name, path }) => (
+            <path
+              key={`shadow-${name}`}
+              d={path}
+              fill="rgba(15, 23, 42, 0.08)"
+              transform="translate(0 8)"
+              opacity={selectedDistrict ? 0.3 : 1}
+            />
+          ))}
+
           {mapData.map(({ name, price, path }) => {
-            const selected = name === selectedDistrict;
-            const hovered = name === hoveredDistrict;
+            const isSelected = selectedDistrict === name;
+            const isHovered = hoveredDistrict === name;
+            const fillColor = getDistrictColor(price);
+
             return (
               <path
                 key={name}
                 d={path}
-                fill={showingDongs ? "transparent" : getDistrictColor(price)}
-                fillOpacity={showingDongs ? 0 : hovered && !selected ? 0.82 : 0.68}
-                stroke={showingDongs ? "transparent" : selected ? "#FFFFFF" : "#F8FBF9"}
-                strokeWidth={showingDongs ? 0 : selected ? 5 : hovered ? 3 : 1.8}
-                vectorEffect="non-scaling-stroke"
-                className={`${showingDongs ? "pointer-events-none" : "cursor-pointer"} outline-none transition-all duration-200`}
-                onMouseEnter={() => setHoveredDistrict(name)}
-                onMouseLeave={() => setHoveredDistrict("")}
+                fill={fillColor}
+                stroke={isSelected ? "#0F766E" : isHovered ? "#0EA5E9" : "#FFFFFF"}
+                strokeWidth={isSelected ? 3 : isHovered ? 2 : 1.2}
+                opacity={showingDongs && isSelected ? 0.18 : selectedDistrict && !isSelected ? 0.35 : 0.95}
+                className="cursor-pointer transition-colors"
+                onMouseEnter={() => !selectedDistrict && setHoveredDistrict(name)}
+                onMouseLeave={() => !selectedDistrict && setHoveredDistrict("")}
                 onClick={() => {
-                  if (!dragState.current.moved) onSelect(name);
-                  dragState.current.moved = false;
-                }}
-                tabIndex={0}
-                role="button"
-                aria-label={`${name}, 평균 매매가 ${formatEok(price)}`}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") onSelect(name);
-                }}
-              />
-            );
-          })}
-          {dongMapData.map(({ code, name, averagePrice, path }) => {
-            const selected = name === selectedDong;
-            const hovered = name === hoveredDong;
-            return (
-              <path
-                key={code}
-                d={path}
-                fill={getDistrictColor(averagePrice)}
-                fillOpacity={selected ? 0.95 : hovered ? 0.88 : 0.72}
-                stroke={selected ? "#0B7285" : "#7EA99B"}
-                strokeWidth={selected ? 2.4 : 1.15}
-                vectorEffect="non-scaling-stroke"
-                className="cursor-pointer outline-none transition-colors duration-150"
-                onMouseEnter={() => setHoveredDong(name)}
-                onMouseLeave={() => setHoveredDong("")}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (!dragState.current.moved) onSelectDong(name);
-                  dragState.current.moved = false;
-                }}
-                tabIndex={0}
-                role="button"
-                aria-label={`${selectedDistrict} ${name} 선택`}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    onSelectDong(name);
+                  if (!dragState.current.moved) {
+                    onSelect(name);
                   }
                 }}
               />
             );
           })}
+
+          {showingDongs &&
+            dongMapData.map(({ code, name, averagePrice, path }) => {
+              const isSelected = selectedDong === name;
+              const isHovered = hoveredDong === name;
+              const fillColor = getDistrictColor(averagePrice);
+
+              return (
+                <path
+                  key={code}
+                  d={path}
+                  fill={fillColor}
+                  stroke={isSelected ? "#0F766E" : isHovered ? "#0284C7" : "#FFFFFF"}
+                  strokeWidth={isSelected ? 2.5 : isHovered ? 1.8 : 0.8}
+                  opacity={0.96}
+                  className="cursor-pointer transition-colors"
+                  onMouseEnter={() => setHoveredDong(name)}
+                  onMouseLeave={() => setHoveredDong("")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (!dragState.current.moved) {
+                      onSelectDong(name);
+                    }
+                  }}
+                />
+              );
+            })}
         </g>
-        <g className="pointer-events-none">
-          {!showingDongs && mapData.map(({ name, price, center }) => {
-            const selected = name === selectedDistrict;
-            const [labelX, labelY] = transformPoint(center);
-            return (
-              <g key={name} transform={`translate(${labelX} ${labelY})`} style={{ transition: isDragging ? "none" : "transform 520ms cubic-bezier(.22,.8,.3,1)" }}>
-                {name === preferredDistrict && <text x="0" y="-21" textAnchor="middle" fill="#E11D48" fontSize="17" aria-label="선호지역">♥</text>}
-                <text textAnchor="middle" y="-2" fill="#17252E" stroke="#FFFFFF" strokeWidth="4" paintOrder="stroke" fontSize={selected ? 16 : 14} fontWeight="900">{name}</text>
-                <text textAnchor="middle" y="17" fill="#17252E" stroke="#FFFFFF" strokeWidth="4" paintOrder="stroke" fontSize={selected ? 15 : 13} fontWeight="800">{formatEok(price)}</text>
-              </g>
-            );
-          })}
-          {showingDongs && dongMapData.map(({ code, name, averagePrice, center }) => {
-            const [labelX, labelY] = transformPoint(center);
-            return (
-              <g
-                key={code}
-                transform={`translate(${labelX} ${labelY})`}
-                style={{ transition: isDragging ? "none" : "transform 520ms cubic-bezier(.22,.8,.3,1)" }}
-              >
-                <text textAnchor="middle" y="-2" fill="#17352D" stroke="#FFFFFF" strokeWidth="3" paintOrder="stroke" fontSize="11" fontWeight="900">
-                  {name}
-                </text>
-                <text textAnchor="middle" y="12" fill="#315C50" stroke="#FFFFFF" strokeWidth="3" paintOrder="stroke" fontSize="9.5" fontWeight="800">
-                  {formatEok(averagePrice)}
-                </text>
-              </g>
-            );
-          })}
+
+        <g className="labels-layer pointer-events-none">
+          {!showingDongs &&
+            mapData.map(({ name, price, center }) => {
+              const isSelected = selectedDistrict === name;
+              const isHovered = hoveredDistrict === name;
+              const [labelX, labelY] = transformPoint(center as [number, number]);
+
+              return (
+                <g
+                  key={name}
+                  transform={`translate(${labelX} ${labelY})`}
+                  style={{ transition: isDragging ? "none" : "transform 520ms cubic-bezier(.22,.8,.3,1)" }}
+                >
+                  {name === preferredDistrict && (
+                    <text x="0" y="-23" textAnchor="middle" fill="#E11D48" fontSize="18" aria-label="선호지역">
+                      ♥
+                    </text>
+                  )}
+                  <text
+                    textAnchor="middle"
+                    y="-5"
+                    fill={isSelected ? "#042F2E" : "#0F172A"}
+                    stroke="#FFFFFF"
+                    strokeWidth={isSelected ? 4.5 : 3.8}
+                    paintOrder="stroke"
+                    fontSize={isSelected ? "16" : isHovered ? "15" : "13.5"}
+                    fontWeight="900"
+                  >
+                    {name}
+                  </text>
+                  <text
+                    textAnchor="middle"
+                    y="14"
+                    fill={isSelected ? "#0F766E" : "#334155"}
+                    stroke="#FFFFFF"
+                    strokeWidth="3.5"
+                    paintOrder="stroke"
+                    fontSize={isSelected ? "13" : "11.5"}
+                    fontWeight="800"
+                  >
+                    {formatEok(price)}
+                  </text>
+                </g>
+              );
+            })}
+
+          {showingDongs &&
+            dongMapData.map(({ code, name, averagePrice, center }) => {
+              const [labelX, labelY] = transformPoint(center as [number, number]);
+              const isSelected = selectedDong === name;
+              const dongCount = dongMapData.length;
+              // 동 개수가 적은 구(강남, 서초 등)는 글자를 시원하게 키우고, 동이 많은 구(종로, 성북)는 적절히 조절
+              const dongFontSize = dongCount >= 45 ? 13 : dongCount >= 25 ? 15.5 : 18;
+              const priceFontSize = dongCount >= 45 ? 11 : dongCount >= 25 ? 13 : 15;
+
+              return (
+                <g
+                  key={code}
+                  transform={`translate(${labelX} ${labelY})`}
+                  style={{ transition: isDragging ? "none" : "transform 520ms cubic-bezier(.22,.8,.3,1)" }}
+                >
+                  <text
+                    textAnchor="middle"
+                    y={dongCount >= 45 ? "-3" : "-5"}
+                    fill={isSelected ? "#042F2E" : "#0F172A"}
+                    stroke="#FFFFFF"
+                    strokeWidth={isSelected ? 4.5 : 3.8}
+                    paintOrder="stroke"
+                    fontSize={isSelected ? dongFontSize + 2 : dongFontSize}
+                    fontWeight="900"
+                  >
+                    {name}
+                  </text>
+                  <text
+                    textAnchor="middle"
+                    y={dongCount >= 45 ? "12" : "15"}
+                    fill={isSelected ? "#0F766E" : "#0F766E"}
+                    stroke="#FFFFFF"
+                    strokeWidth="3.5"
+                    paintOrder="stroke"
+                    fontSize={isSelected ? priceFontSize + 1.5 : priceFontSize}
+                    fontWeight="800"
+                  >
+                    {formatEok(averagePrice)}
+                  </text>
+                </g>
+              );
+            })}
         </g>
       </svg>
-      {selectedDistrict && (
-        <div className="absolute left-4 top-4 flex items-center gap-2 sm:left-6 sm:top-6">
+      {(selectedDistrict || userZoom !== 1) && (
+        <div className="absolute left-3 top-3 flex items-center gap-2 sm:left-6 sm:top-6 z-20">
           <button
             type="button"
-            onClick={onShowAll}
+            onClick={() => {
+              setZoomState({ district: "", factor: 1 });
+              setPanState({ district: "", x: 0, y: 0 });
+              onShowAll();
+            }}
             className="rounded-[10px] border border-[#CBD5E1] bg-white/95 px-3.5 py-2 text-[12px] font-extrabold text-[#334155] shadow-[0_6px_18px_rgba(15,23,42,.12)] backdrop-blur transition-colors hover:border-[#0F8AA8] hover:text-[#0F8AA8] cursor-pointer"
           >
             서울 전체 보기

@@ -263,62 +263,109 @@ export default function BoardPage() {
               ) : !data?.items?.length && !data?.notices?.length ? (
                 <div className="p-16 text-center text-[#6B7280] text-[14px]">등록된 게시글이 없습니다.</div>
               ) : (
-                <Table className="min-w-[820px] border-collapse">
-                  <TableHeader>
-                    <TableRow className="bg-[#F0F7FA] border-b border-[#DCE8ED]">
-                      <TableHead className="w-[9%] text-center text-[#123047] font-bold">번호</TableHead>
-                      <TableHead className="w-[10%] text-center text-[#123047] font-bold">구분</TableHead>
-                      <TableHead className="w-[43%] text-center text-[#123047] font-bold">제목</TableHead>
-                      <TableHead className="w-[14%] text-center text-[#123047] font-bold">작성자</TableHead>
-                      <TableHead className="w-[15%] text-center text-[#123047] font-bold">작성일</TableHead>
-                      <TableHead className="w-[9%] text-center text-[#123047] font-bold">조회수</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody className="divide-y divide-[#DCE8ED]">
-                    {/* 1페이지의 최신 공지 2개만 상단 고정, 이전 공지는 원래 순서로 노출  */}
-                    {[...(data?.notices || []), ...(data?.items || [])].map((item: BoardListItem, index: number) => {
-                      const displayNo = Math.max(
-                        1,
-                        (data?.totalElements ?? 0) - ((query.page - 1) * 10 + index),
-                      );
+                <>
+                  {/* 1. PC/태블릿 화면: 기존 6열 테이블 */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <Table className="min-w-[820px] border-collapse">
+                      <TableHeader>
+                        <TableRow className="bg-[#F0F7FA] border-b border-[#DCE8ED]">
+                          <TableHead className="w-[9%] text-center text-[#123047] font-bold">번호</TableHead>
+                          <TableHead className="w-[10%] text-center text-[#123047] font-bold">구분</TableHead>
+                          <TableHead className="w-[43%] text-center text-[#123047] font-bold">제목</TableHead>
+                          <TableHead className="w-[14%] text-center text-[#123047] font-bold">작성자</TableHead>
+                          <TableHead className="w-[15%] text-center text-[#123047] font-bold">작성일</TableHead>
+                          <TableHead className="w-[9%] text-center text-[#123047] font-bold">조회수</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-[#DCE8ED]">
+                        {[...(data?.notices || []), ...(data?.items || [])].map((item: BoardListItem, index: number) => {
+                          const displayNo = Math.max(
+                            1,
+                            (data?.totalElements ?? 0) - ((query.page - 1) * 10 + index),
+                          );
+                          const isNotice = item.postType === 'NOTICE' || data?.notices?.some((n) => n.boardId === item.boardId);
+
+                          return (
+                            <TableRow
+                              key={`row-${item.boardId}`}
+                              className={isNotice ? 'bg-[#F0F7FA] hover:bg-[#E1EFF5] border-b border-[#DCE8ED]' : 'bg-white hover:bg-[#F5FAFC] border-b border-[#DCE8ED]'}
+                            >
+                              <TableCell className="w-[9%] text-center text-[#6B7280] font-medium">
+                                {displayNo}
+                              </TableCell>
+                              <TableCell className="w-[10%] text-center">
+                                <span
+                                  className={
+                                    isNotice
+                                      ? 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]'
+                                      : 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#E6F4F2] text-[#0F766E]'
+                                  }
+                                >
+                                  {isNotice ? '공지' : '일반'}
+                                </span>
+                              </TableCell>
+                              <TableCell className="w-[43%] text-left max-w-0">
+                                <Link
+                                  to={`/board/${item.boardId}`}
+                                  className={`block truncate w-full text-[14px] no-underline hover:text-[#0F8AA8] ${isNotice ? 'font-bold text-[#0B5E73]' : 'font-semibold text-[#13202B]'}`}
+                                  title={item.title}
+                                >
+                                  {item.title}
+                                </Link>
+                              </TableCell>
+                              <TableCell className="w-[14%] text-center text-[#6B7280]">{maskAuthorName(item.authorName)}</TableCell>
+                              <TableCell className="w-[15%] text-center text-[#6B7280]">{formatBoardDate(item.createdAt)}</TableCell>
+                              <TableCell className="w-[9%] text-center text-[#6B7280]">{item.viewCount?.toLocaleString() || 0}</TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* 2. 모바일 화면: 가로 스크롤 없는 한눈에 들어오는 카드형 피드 */}
+                  <div className="divide-y divide-[#DCE8ED] md:hidden">
+                    {[...(data?.notices || []), ...(data?.items || [])].map((item: BoardListItem) => {
                       const isNotice = item.postType === 'NOTICE' || data?.notices?.some((n) => n.boardId === item.boardId);
 
                       return (
-                        <TableRow
-                          key={`row-${item.boardId}`}
-                          className={isNotice ? 'bg-[#F0F7FA] hover:bg-[#E1EFF5] border-b border-[#DCE8ED]' : 'bg-white hover:bg-[#F5FAFC] border-b border-[#DCE8ED]'}
+                        <Link
+                          key={`mobile-row-${item.boardId}`}
+                          to={`/board/${item.boardId}`}
+                          className={`block p-4 transition-colors no-underline ${
+                            isNotice ? 'bg-[#F0F7FA] hover:bg-[#E1EFF5]' : 'bg-white hover:bg-[#F5FAFC]'
+                          }`}
                         >
-                          <TableCell className="w-[9%] text-center text-[#6B7280] font-medium">
-                            {displayNo}
-                          </TableCell>
-                          <TableCell className="w-[10%] text-center">
+                          <div className="flex items-start gap-2">
                             <span
-                              className={
+                              className={`shrink-0 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
                                 isNotice
-                                  ? 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]'
-                                  : 'inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-[#E6F4F2] text-[#0F766E]'
-                              }
+                                  ? 'bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]'
+                                  : 'bg-[#E6F4F2] text-[#0F766E]'
+                              }`}
                             >
                               {isNotice ? '공지' : '일반'}
                             </span>
-                          </TableCell>
-                          <TableCell className="w-[43%] text-left max-w-0">
-                            <Link
-                              to={`/board/${item.boardId}`}
-                              className={`block truncate w-full text-[14px] no-underline hover:text-[#0F8AA8] ${isNotice ? 'font-bold text-[#0B5E73]' : 'font-semibold text-[#13202B]'}`}
-                              title={item.title}
+                            <h3
+                              className={`text-[14px] leading-snug line-clamp-2 ${
+                                isNotice ? 'font-bold text-[#0B5E73]' : 'font-semibold text-[#13202B]'
+                              }`}
                             >
                               {item.title}
-                            </Link>
-                          </TableCell>
-                          <TableCell className="w-[14%] text-center text-[#6B7280]">{maskAuthorName(item.authorName)}</TableCell>
-                          <TableCell className="w-[15%] text-center text-[#6B7280]">{formatBoardDate(item.createdAt)}</TableCell>
-                          <TableCell className="w-[9%] text-center text-[#6B7280]">{item.viewCount?.toLocaleString() || 0}</TableCell>
-                        </TableRow>
+                            </h3>
+                          </div>
+                          <div className="mt-2.5 flex items-center gap-2 text-[11.5px] text-[#6B7280]">
+                            <span>{maskAuthorName(item.authorName)}</span>
+                            <span>·</span>
+                            <span>{formatBoardDate(item.createdAt)}</span>
+                            <span>·</span>
+                            <span>조회 {item.viewCount?.toLocaleString() || 0}</span>
+                          </div>
+                        </Link>
                       );
                     })}
-                  </TableBody>
-                </Table>
+                  </div>
+                </>
               )}
             </div>
 

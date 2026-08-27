@@ -14,8 +14,8 @@ import { useAuthStore } from "@/features/auth/store/useAuthStore";
 type ActivityType = "POST" | "COMMENT" | "QNA";
 
 const ACTIVITY_TAB_BASE_CLASS =
-  "h-[38px] px-4 rounded-[8px] border font-bold text-[14px] cursor-pointer shrink-0";
-const ACTIVITY_TAB_ACTIVE_CLASS = "bg-[#0F8AA8] border-[#0F8AA8] text-white";
+  "h-[40px] px-1.5 sm:px-4 rounded-[8px] border font-bold text-[12.5px] sm:text-[14px] cursor-pointer flex items-center justify-center text-center transition-all whitespace-nowrap";
+const ACTIVITY_TAB_ACTIVE_CLASS = "bg-[#0F8AA8] border-[#0F8AA8] text-white shadow-xs";
 const ACTIVITY_TAB_INACTIVE_CLASS =
   "bg-white border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA]";
 const MY_ACTIVITY_TAB_KEY_PREFIX = "mypage_activity_tab_";
@@ -115,17 +115,17 @@ export default function MyActivityPage() {
   ];
 
   return (
-    <div className="rounded-[12px] border border-[#DCE8ED] bg-white p-8 shadow-xs md:p-10">
+    <div className="rounded-[12px] border border-[#DCE8ED] bg-white p-4 sm:p-8 shadow-xs md:p-10">
       <div className="space-y-6">
         <div className="text-center space-y-1 mb-6">
           <h2 className="text-[20px] font-bold text-[#123047]">내 활동</h2>
-          <p className="text-[14px] text-[#6B7280]">
+          <p className="text-[13px] sm:text-[14px] text-[#6B7280]">
             내가 작성한 게시글, 댓글 및 질의응답 현황을 확인하고 바로 이동할 수 있습니다.
           </p>
         </div>
 
-        {/* 내 활동 서브 탭 */}
-        <div className="flex items-center gap-2 pb-3 border-b border-[#DCE8ED] overflow-x-auto">
+        {/* 내 활동 서브 탭: 모바일에서는 3등분 그리드로 한눈에 표시 */}
+        <div className="grid grid-cols-3 gap-1.5 sm:flex sm:items-center sm:gap-2 pb-3 border-b border-[#DCE8ED]">
           {activityTabs.map((tab) => (
             <button
               key={tab.type}
@@ -137,8 +137,10 @@ export default function MyActivityPage() {
                   : ACTIVITY_TAB_INACTIVE_CLASS
               }`}
             >
-              {tab.label}{" "}
-              {isLoggedIn && !tab.isLoading && `(${tab.count})`}
+              <span>{tab.label}</span>
+              {isLoggedIn && !tab.isLoading && (
+                <span className="hidden sm:inline ml-1 opacity-90">({tab.count})</span>
+              )}
             </button>
           ))}
         </div>
