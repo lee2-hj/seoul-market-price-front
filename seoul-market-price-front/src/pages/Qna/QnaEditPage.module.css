@@ -1,0 +1,187 @@
+/* Q&A 수정 페이지 전체 */
+
+.page {
+  min-height: 100vh;
+  padding: 0 0 100px;
+  background: #F5FAFC;
+  color: #13202B;
+  font-family:
+    "Pretendard",
+    "Noto Sans KR",
+    Arial,
+    sans-serif;
+  box-sizing: border-box;
+}
+
+.page *,
+.page *::before,
+.page *::after {
+  box-sizing: border-box;
+}
+
+/* 본문 */
+.container {
+  width: min(980px, calc(100% - 48px));
+  margin: 0 auto;
+  padding-top: 68px;
+}
+
+/* 페이지 헤더 */
+.pageHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 30px;
+  margin-bottom: 32px;
+}
+
+.headerText {
+  min-width: 0;
+}
+
+.pageLabel {
+  display: block;
+  margin-bottom: 9px;
+  color: #0F8AA8;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.pageHeader h1 {
+  margin: 0;
+  color: #123047;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -1.5px;
+}
+
+.pageHeader p {
+  margin: 12px 0 0;
+  color: #6B7280;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.listButton {
+  flex-shrink: 0;
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid #DCE8ED;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #13202B;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.listButton:hover:not(:disabled) {
+  border-color: #7CC9D8;
+  background: #F5FAFC;
+  color: #0B5E73;
+}
+
+/* 작성 폼 */
+.form {
+  padding: 38px;
+  border: 1px solid #DCE8ED;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 8px 25px rgba(15, 138, 168, 0.04);
+}
+
+.formGroup {
+  margin-bottom: 30px;
+}
+
+.formGroup > label {
+  display: block;
+  margin-bottom: 10px;
+  color: #13202B;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.formGroup > label span {
+  color: #DC2626;
+}
+
+.formGroup input,
+.formGroup textarea {
+  width: 100%;
+  border: 1px solid #DCE8ED;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #13202B;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.formGroup input {
+  height: 50px;
+  padding: 0 15px;
+}
+
+.formGroup textarea {
+  min-height: 270px;
+  padding: 15px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.formGroup input:focus,
+.formGroup textarea:focus {
+  border-color: #0F8AA8;
+  box-shadow: 0 0 0 3px rgba(15, 138, 168, 0.15);
+}
+
+.buttonArea {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 34px;
+  padding-top: 28px;
+  border-top: 1px solid #DCE8ED;
+}
+
+.cancelButton,
+.submitButton {
+  min-width: 110px;
+  height: 48px;
+  padding: 0 22px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.cancelButton {
+  border: 1px solid #DCE8ED;
+  background: #ffffff;
+  color: #13202B;
+}
+
+.submitButton {
+  border: 1px solid #0F8AA8;
+  background: #0F8AA8;
+  color: #ffffff;
+}
+
+.submitButton:hover:not(:disabled) {
+  border-color: #0B5E73;
+  background: #0B5E73;
+}

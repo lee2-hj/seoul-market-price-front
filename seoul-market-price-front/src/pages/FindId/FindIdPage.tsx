@@ -1,131 +1,183 @@
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import axios from "axios";
 
-import PassAuth from "@/features/auth/components/PassAuth";
-
+import PassAuth, { type PassAuthResult } from "@/features/auth/components/PassAuth";
+import { findIdApi } from "@/api/api";
 import styles from "./FindIdPage.module.css";
 
-function FindIdPage() {
-  /*
-    STEP
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as
+      | { message?: string; error?: string }
+      | undefined;
 
-    1 : 휴대폰 PASS 인증
-    2 : 아이디 표시
+    return data?.message || data?.error || fallback;
+  }
 
-  */
+  return error instanceof Error && error.message ? error.message : fallback;
+}
 
-  const [step, setStep] = useState(1);
+/* 메인 컴포넌트 */
+export default function FindIdPage() {
+  const [step, setStep] = useState<1 | 2>(1);
+  const [maskedUserIds, setMaskedUserIds] = useState<string[]>([]);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  /*
-    휴대폰 번호
-
-  */
-
-  const [phone, setPhone] = useState("");
-
-  /*
-    PASS 인증 여부
-
-  */
-
-  const [passVerified, setPassVerified] = useState(false);
-
-  /*
-    찾은 아이디
-
-  */
-
-  const [userId, setUserId] = useState("");
-
-  /*
-    PASS 인증 성공
-
-  */
-
-  const handlePassSuccess = () => {
-    setPassVerified(true);
-  };
-
-  /*
-    아이디 조회
-
-  */
-
-  const handleFindId = async () => {
-    if (!passVerified) {
-      alert("PASS 인증을 완료해주세요.");
-
-      return;
-    }
+  /* PASS 본인인증 성공 시 백엔드 조회 */
+  const handlePassSuccess = async (result: PassAuthResult) => {
+    if (isVerifying) return;
 
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_BACKEND_URL}/api/users/find-id`,
+      setIsVerifying(true);
+      setApiError(null);
 
-        {
-          phone,
-        },
-      );
+      const data = await findIdApi(result.identityVerificationId);
+      const ids = Array.isArray(data.maskedUserIds)
+        ? Array.from(new Set(data.maskedUserIds.filter(Boolean)))
+        : [];
 
-      if (response.data.success) {
-        setUserId(response.data.userId);
-
-        setStep(2);
-      } else {
-        alert("등록된 회원 정보를 찾을 수 없습니다.");
+      if (data.found !== (ids.length > 0)) {
+        throw new Error("아이디 조회 응답을 확인할 수 없습니다.");
       }
-    } catch (error) {
-      console.error("아이디 찾기 오류", error);
 
-      alert("아이디 찾기에 실패했습니다.");
+      setMaskedUserIds(data.found ? ids : []);
+      setStep(2);
+    } catch (error) {
+      setMaskedUserIds([]);
+      setApiError(
+        getApiErrorMessage(
+          error,
+          "아이디 조회에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        ),
+      );
+      setStep(2);
+    } finally {
+      setIsVerifying(false);
     }
+  };
+
+  /* 초기화 */
+  const handleReset = () => {
+    setStep(1);
+    setMaskedUserIds([]);
+    setApiError(null);
+    setIsVerifying(false);
   };
 
   return (
     <div className={styles.container}>
       <div className={styles.box}>
+        {/* 로고 */}
+        <Link to="/" aria-label="싸부 홈으로 이동" className={`${styles.logoLink} no-underline`}>
+          <img src="/logo-teal.png" alt="싸부 로고" className={styles.logo} />
+        </Link>
+
+        {/* STEP 1: 본인인증 */}
         {step === 1 && (
           <>
             <h1>아이디 찾기</h1>
-
-            <p>
-              회원가입 시 등록한 휴대폰 번호로
-              <br />
-              아이디를 확인합니다.
+            <p className={styles.description}>
+              PASS 휴대폰 본인인증을 진행하시면<br />
+              가입된 아이디를 찾을 수 있습니다.
             </p>
 
-            <div className={styles.inputGroup}>
-              <input
-                type="tel"
-                placeholder="휴대폰 번호 입력"
-                value={phone}
-                disabled={passVerified}
-                onChange={(e) => setPhone(e.target.value)}
-              />
+            {!isVerifying && (
+              <div style={{ width: "100%", marginTop: "24px" }}>
+                <PassAuth
+                  onSuccess={handlePassSuccess}
+                  className={styles.mainButton}
+                />
+              </div>
+            )}
 
-              <PassAuth phone={phone} onSuccess={handlePassSuccess} />
-            </div>
-
-            {passVerified && <p className={styles.success}>✔ PASS 인증 완료</p>}
-
-            <button type="button" onClick={handleFindId}>
-              아이디 조회
-            </button>
+            {isVerifying && <p className={styles.loading}>가입된 아이디를 조회하고 있습니다...</p>}
           </>
         )}
 
+        {/* STEP 2: 조회 결과 */}
         {step === 2 && (
           <>
-            <h1>아이디 확인</h1>
+            <h1>{maskedUserIds.length > 0 ? "아이디 확인" : "아이디 찾기 결과"}</h1>
+            <p className={styles.description}>
+              {apiError ? (
+                <>아이디 조회 중 문제가 발생했습니다.<br />잠시 후 다시 시도해 주세요.</>
+              ) : (
+                <>본인인증이 완료되었습니다.<br />가입된 아이디를 확인해 주세요.</>
+              )}
+            </p>
 
-            <p>가입된 아이디는</p>
+            {maskedUserIds.length > 0 ? (
+              <div className={styles.result}>
+                <span className={styles.resultLabel}>가입된 아이디</span>
+                {maskedUserIds.map((id) => (
+                  <div key={id} className={styles.userId}>
+                    {id}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.result}>
+                <span className={styles.resultLabel}>조회 결과</span>
+                <div
+                  className={styles.userId}
+                  style={{
+                    fontSize: "14px",
+                    color: "#444",
+                    lineHeight: "1.6",
+                    fontWeight: "normal",
+                    textAlign: "left",
+                    padding: "10px 0",
+                  }}
+                >
+                  <strong style={{ color: "#e53935", display: "block", marginBottom: "6px", fontSize: "15px" }}>
+                    {apiError ? "아이디 조회에 실패했습니다." : "미가입 회원입니다."}
+                  </strong>
+                  <span style={{ fontSize: "12px", color: "#666" }}>
+                    {apiError ? (
+                      apiError
+                    ) : (
+                      <>
+                        • 본인인증 정보와 일치하는 가입된 회원 계정을 찾을 수 없습니다.<br />
+                        • 하단의 &apos;회원가입하기&apos; 버튼을 눌러 신규 회원가입을 진행해 주세요.<br />
+                        • 카카오 / 구글 소셜 연동 계정은 로그인 페이지에서 소셜 로그인을 이용해 주세요.
+                      </>
+                    )}
+                  </span>
+                </div>
+              </div>
+            )}
 
-            <div className={styles.userId}>{userId}</div>
+            {/* 버튼 그룹 */}
+            <div className={styles.actionGroup}>
+              {maskedUserIds.length > 0 ? (
+                <>
+                  <Link to="/login" className={styles.loginButton}>로그인하기</Link>
+                  <Link to="/find-password" className={styles.passwordButton}>비밀번호 찾기</Link>
+                </>
+              ) : apiError ? (
+                <button type="button" className={styles.passwordButton} onClick={handleReset}>
+                  다시 시도하기
+                </button>
+              ) : (
+                <>
+                  <Link to="/signup/select" className={styles.loginButton}>회원가입하기</Link>
+                  <button type="button" className={styles.passwordButton} onClick={handleReset}>
+                    다시 찾기
+                  </button>
+                </>
+              )}
+            </div>
+
+            {maskedUserIds.length > 0 && (
+              <button type="button" className={styles.resetButton} onClick={handleReset}>
+                다시 찾기
+              </button>
+            )}
           </>
         )}
       </div>
     </div>
   );
 }
-
-export default FindIdPage;

@@ -1,85 +1,104 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 
+import { cn } from "@/lib/utils";
 import LoginForm from "@/features/auth/components/LoginForm";
 import SocialLogin from "@/features/auth/components/SocialLogin";
 
-import styles from "./LoginPage.module.css";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 function LoginPage() {
-  const [activeItem, setActiveItem] = useState<number | null>(null);
-
-  const categoryItems = ["🍎", "🥬", "🐟", "🛒"];
-
-  const handleIconClick = (index: number) => {
-    setActiveItem(activeItem === index ? null : index);
-  };
-
   return (
-    <div className={styles.loginPage}>
-      <div className={styles.container}>
-        {/* =========================
-            브랜드 영역
-        ========================== */}
+    <div className="tw-scope flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-[#f5f8f3] to-white px-[20px] py-[40px] max-[600px]:px-[15px] max-[600px]:py-[30px]">
+      {/*
+        기존 CSS의 @keyframes fadeInRight(0.8s)를 순수 Tailwind
+        유틸리티만으로는 표현할 수 없어(전역 파일을 건드리지 않기
+        위해) 이 컴포넌트 안에서만 쓰는 키프레임을 인라인으로 선언한다.
+      */}
+      <style>{`
+        @keyframes login-card-fade-in {
+          from { opacity: 0; transform: translateX(50px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
 
-        <div className={styles.brandArea}>
-          <div className={styles.categoryIcons}>
-            {categoryItems.map((item, index) => (
-              <button
-                key={index}
-                type="button"
-                className={
-                  activeItem === index ? styles.activeIcon : styles.iconButton
-                }
-                onClick={() => handleIconClick(index)}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-
-          <div className={styles.brandBox}>
-            <div className={styles.brandTitle}>싸.농</div>
-
-            <div className={styles.brandSubTitle}>
-              <span className={styles.point}>싸</span>게 보는 내 주변{" "}
-              <span className={styles.point}>농</span>
-              수산물
-            </div>
-          </div>
-        </div>
-
+      <div className="flex w-full flex-col items-center gap-5 max-[900px]:gap-4 max-[600px]:gap-[14px] max-[380px]:gap-3">
         {/* =========================
             로그인 카드
         ========================== */}
 
-        <div className={styles.loginBox}>
-          <h2>로그인</h2>
+        <Card
+          className={cn(
+            "w-[380px] max-w-full rounded-[25px] border-0 bg-card p-[45px]",
+            "shadow-[0_20px_50px_rgba(0,0,0,0.15)]",
+            "animate-[login-card-fade-in_0.8s_ease_both]",
+            "max-[900px]:p-[40px]",
+            "max-[600px]:rounded-[20px] max-[600px]:px-[20px] max-[600px]:py-[30px]",
+            "max-[380px]:px-[15px] max-[380px]:py-[25px]"
+          )}
+        >
+          <CardContent className="p-0">
+            <div className="mb-8 text-center">
+              <Link
+                to="/"
+                aria-label="싸부 홈으로 이동"
+                className="mx-auto mb-3 block w-fit no-underline"
+              >
+                <img
+                  src="/logo-teal.png"
+                  alt="싸부 로고"
+                  className="block h-[120px] w-auto object-contain drop-shadow-sm max-[600px]:h-[105px]"
+                />
+              </Link>
+              <h1 className="m-0 text-[28px] font-black tracking-[-0.045em] text-[#141714]">
+                로그인
+              </h1>
+              <p className="mt-2 text-[12px] text-[#777d77]">
+                싸부에서 오늘의 부동산 가격을 확인해보세요.
+              </p>
+            </div>
 
-          <LoginForm />
+            <LoginForm />
 
-          <SocialLogin mode="login" />
+            <SocialLogin mode="login" />
 
-          {/* 회원가입 */}
+            {/* 회원가입 안내 */}
 
-          <div className={styles.signupGuide}>
-            <span>아직 계정이 없으신가요?</span>
+            <div className="mt-[25px] flex items-center justify-center text-[14px] text-[#888]">
+              <span>아직 계정이 없으신가요?</span>
 
-            <Link to="/signup" className={styles.signupLink}>
-              회원가입
-            </Link>
-          </div>
+              <Button
+                asChild
+                variant="link"
+                className="ml-[10px] h-auto p-0 font-bold text-primary no-underline hover:underline"
+              >
+                <Link to="/signup/select">회원가입</Link>
+              </Button>
+            </div>
 
-          {/* 아이디 / 비밀번호 찾기 */}
+            {/* 아이디 / 비밀번호 찾기 */}
 
-          <div className={styles.links}>
-            <Link to="/find-id">아이디 찾기</Link>
+            <div className="mt-[20px] flex flex-wrap items-center justify-center gap-[15px]">
+              <Button
+                asChild
+                variant="link"
+                className="h-auto p-0 text-[14px] font-normal text-[#777] no-underline hover:font-bold hover:text-primary hover:no-underline"
+              >
+                <Link to="/find-id">아이디 찾기</Link>
+              </Button>
 
-            <span className={styles.divider}>|</span>
+              <span className="text-[#aaa]">|</span>
 
-            <Link to="/find-password">비밀번호 찾기</Link>
-          </div>
-        </div>
+              <Button
+                asChild
+                variant="link"
+                className="h-auto p-0 text-[14px] font-normal text-[#777] no-underline hover:font-bold hover:text-primary hover:no-underline"
+              >
+                <Link to="/find-password">비밀번호 찾기</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

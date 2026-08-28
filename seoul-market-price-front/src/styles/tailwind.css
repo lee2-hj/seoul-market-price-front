@@ -1,0 +1,81 @@
+/* ================================
+   Tailwind (utilities only)
+
+   프로젝트 전역은 CSS Modules 로 스타일링되어 있어
+   Tailwind 의 preflight(전역 리셋)는 불러오지 않고
+   theme 토큰 + utility 클래스만 사용한다.
+================================ */
+
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+
+@layer base {
+  /*
+    Tailwind preflight(전역 box-sizing 리셋)를 불러오지 않기 때문에
+    <a> 는 content-box, <button> 은 border-box 로 기본값이 갈려
+    같은 w-full + border + padding 조합에서 요소별로 실제 너비가 달라진다.
+    Tailwind 로 작성한 화면(.tw-scope 하위)에서만 border-box 로 통일한다.
+  */
+
+  .tw-scope,
+  .tw-scope *,
+  .tw-scope *::before,
+  .tw-scope *::after {
+    box-sizing: border-box;
+  }
+
+  :root {
+    --background: #fbfbf7;
+    --foreground: #141714;
+
+    --card: #ffffff;
+    --card-foreground: #141714;
+
+    --primary: #177827;
+    --primary-foreground: #ffffff;
+
+    --secondary: #f1faeb;
+    --secondary-foreground: #177827;
+
+    --muted: #f5f7f3;
+    --muted-foreground: #686d68;
+
+    --accent: #dff2d8;
+    --accent-foreground: #177827;
+
+    --border: #e5e8e4;
+    --input: #e5e8e4;
+    --ring: #177827;
+
+    --radius: 0.75rem;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 8px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
