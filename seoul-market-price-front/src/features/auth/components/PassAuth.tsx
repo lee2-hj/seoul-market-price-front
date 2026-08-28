@@ -156,11 +156,10 @@ function PassAuth({ phone, onSuccess, className }: PassAuthProps) {
       */
 
       const response = await axios.post(
-        `${import.meta.env.VITE_BACKEND_URL}/api/members/phone-verification/confirm`,
+        `${import.meta.env.VITE_BACKEND_URL ?? ''}/api/members/phone-verification/confirm`,
 
-        {
-          identityVerificationId,
-        },
+        { identityVerificationId },
+        { withCredentials: true },
       );
 
       if (!response.data?.verified) {
