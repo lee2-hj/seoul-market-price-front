@@ -1200,6 +1200,9 @@ export type DistrictRankingResponse = {
 };
 
 export type NaturalRegionCandidate = DongRegionResponse & { slot: number };
+export type RagAnswerResponse = {
+  answer: string;
+};
 export type NaturalSearchResponse = {
   status: "SUCCESS" | "NEED_CLARIFICATION" | "ERROR";
   intent?:
@@ -1209,13 +1212,15 @@ export type NaturalSearchResponse = {
   | "DISTRICT_RANKING"
   | "TOP_BOTTOM"
   | "RANKING_SEARCH"
-  | "TRADE_TREND";
+  | "TRADE_TREND"
+  | "RAG_FAQ";
   message?: string;
   result?:
   | AiSearchResponse
   | TradeVolumeRankingResponse
   | PriceRankingResponse
-  | DistrictRankingResponse;
+  | DistrictRankingResponse
+  | RagAnswerResponse;
   missingFields: string[];
   candidates: NaturalRegionCandidate[];
   errorCode?: string;

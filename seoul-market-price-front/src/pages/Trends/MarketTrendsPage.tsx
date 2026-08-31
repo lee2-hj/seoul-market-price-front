@@ -132,14 +132,6 @@ export default function MarketTrendsPage() {
   }, [apartmentHighlight]);
 
   useEffect(() => {
-    if (!searchParams.toString()) {
-      const savedQuery = sessionStorage.getItem(TRENDS_SESSION_KEY);
-      if (savedQuery) {
-        setSearchParams(new URLSearchParams(savedQuery), { replace: true });
-        return;
-      }
-    }
-
     const restoredApartment = getApartmentFromSearchParams(searchParams);
     const restoredSggCd = searchParams.get("sggCd") ?? "";
     const restoredDongCd = searchParams.get("dongCd") ?? "";
@@ -152,6 +144,14 @@ export default function MarketTrendsPage() {
       setDebouncedKeyword(restoredAptName);
       setSelectedApartment(restoredApartment);
       setSubmittedApartment(restoredApartment);
+      if (!restoredApartment) {
+        setGuInput("");
+        setDongInput("");
+        setIsRecentDealsModalOpen(false);
+        setIsAreaDealsModalOpen(false);
+        setIsTrendChartReady(false);
+        setIsPieChartReady(false);
+      }
     });
 
     if (searchParams.toString()) {
@@ -159,7 +159,17 @@ export default function MarketTrendsPage() {
     } else {
       sessionStorage.removeItem(TRENDS_SESSION_KEY);
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const handleReset = () => {
+      reset();
+    };
+    window.addEventListener("resetMarketTrends", handleReset);
+    return () => {
+      window.removeEventListener("resetMarketTrends", handleReset);
+    };
+  }, []);
 
   useEffect(() => {
     const id = window.setTimeout(() => setDebouncedKeyword(keyword), 300);
@@ -325,9 +335,12 @@ export default function MarketTrendsPage() {
     setSggCd("");
     setDongCd("");
     setKeyword("");
+    setDebouncedKeyword("");
     setSelectedApartment(null);
     setSubmittedApartment(null);
     setDropdownOpen(false);
+    setIsGuDropdownOpen(false);
+    setIsDongDropdownOpen(false);
     setGuHighlight(-1);
     setDongHighlight(-1);
     setApartmentHighlight(-1);

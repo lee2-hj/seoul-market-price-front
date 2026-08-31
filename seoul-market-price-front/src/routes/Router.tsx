@@ -3,12 +3,12 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 /* 공통 레이아웃 및 공개·인증 전용 라우트 접근 제어 */
 import Layout from "@/components/Layout";
+import PageLoadingFallback from "@/components/PageLoadingFallback";
 import PrivateRoute from "@/routes/PrivateRoute";
 import PublicRoute from "@/routes/PublicRoute";
 import SignupFlowLayout from "@/routes/SignupFlowLayout";
 
-/* 인증 상태 복원과 단계형 회원가입 임시 데이터 관리 */
-import { useAuthStore } from "@/features/auth/store/useAuthStore";
+/* 인증 상태 복원(백그라운드)과 단계형 회원가입 임시 데이터 관리 */
 import { ensureAuthLoaded } from "@/features/auth/utils/auth";
 import {
   clearAllSignupStorage,
@@ -56,34 +56,11 @@ const QnaDetailPage = lazy(() => import("@/pages/Qna/QnaDetailPage"));
 const QnaEditPage = lazy(() => import("@/pages/Qna/QnaEditPage"));
 const QnaWritePage = lazy(() => import("@/pages/Qna/QnaWritePage"));
 
-/**
- * 페이지 지연 로딩 시 노출되는 가볍고 접근성 있는 로딩 Fallback UI
- * Header와 Footer는 유지한 채 본문 영역에만 간결한 스피너를 표시한다.
- */
-function PageLoadingFallback() {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      aria-label="화면 로딩 중"
-      className="flex min-h-[50vh] w-full flex-col items-center justify-center gap-3 px-4 py-16 text-center"
-    >
-      <div
-        className="size-8 animate-spin rounded-full border-[3px] border-[#DCE8ED] border-t-[#0F8AA8]"
-        aria-hidden="true"
-      />
-      <p className="m-0 text-sm font-semibold text-[#526573]">화면을 불러오는 중입니다...</p>
-    </div>
-  );
-}
-
 function withSuspense(element: React.ReactNode) {
   return <Suspense fallback={<PageLoadingFallback />}>{element}</Suspense>;
 }
 
 function Router() {
-  const isAuthInitialized = useAuthStore((state) => state.isInitialized);
-
   /**
    * 새로고침이 아닌 새 문서 탐색으로 회원가입 경로를 벗어났을 때만
    * 약관 동의, PASS 인증 결과 등 회원가입 임시 데이터를 정리한다.
@@ -97,17 +74,14 @@ function Router() {
 
   /**
    * accessToken이 HttpOnly 쿠키에 있으므로 앱 시작 시 회원 API를 통해
-   * 로그인 상태를 복원한다. 복원이 끝나기 전에 보호 라우트가 사용자를
-   * 비로그인 상태로 잘못 판단하지 않도록 초기화를 먼저 완료한다.
+   * 로그인 상태를 복원한다. 화면 렌더링을 막지 않고 백그라운드에서
+   * 진행하며, 로그인 여부에 따라 결과가 달라지는 화면(PrivateRoute,
+   * PublicRoute, Header의 로그인 영역 등)은 각자 isInitialized를
+   * 구독해 복원이 끝날 때까지 스켈레톤을 보여준다.
    */
   useEffect(() => {
     void ensureAuthLoaded();
   }, []);
-
-  if (!isAuthInitialized) {
-    // 인증 상태 확인 중에는 라우트와 화면을 렌더링하지 않는다.
-    return null;
-  }
 
   return (
     <BrowserRouter>

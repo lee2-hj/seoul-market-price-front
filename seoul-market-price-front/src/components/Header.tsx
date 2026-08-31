@@ -71,6 +71,12 @@ function DesktopDropdown({ label, links, icon: Icon }: { label: string; links: M
           <Link
             key={`${item.to}-${item.label}`}
             to={item.to}
+            onClick={() => {
+              if (item.to === "/trends") {
+                sessionStorage.removeItem("market_trends_query");
+                window.dispatchEvent(new CustomEvent("resetMarketTrends"));
+              }
+            }}
             className="flex min-h-10 items-center rounded-[7px] px-3 text-[12px] font-semibold text-[#6B7280] no-underline hover:bg-[#E8F6F9] hover:text-[#0F8AA8]"
           >
             {item.label}
@@ -83,6 +89,7 @@ function DesktopDropdown({ label, links, icon: Icon }: { label: string; links: M
 
 export default function Header() {
   const user = useAuthStore((state) => state.user);
+  const isAuthInitialized = useAuthStore((state) => state.isInitialized);
   const [open, setOpen] = useState(false);
   const [locating, setLocating] = useState(false);
   const [detectedDistrict, setDetectedDistrict] = useState(getDetectedDistrict);
@@ -253,7 +260,7 @@ export default function Header() {
           ) : (
             <NavLink key={item.label} to={item.to!} className={linkClass}><item.icon className="size-[18px] stroke-[1.8]" />{item.label}</NavLink>
           ))}
-          {isAuthenticated && <DesktopDropdown label="마이페이지" links={MYPAGE_LINKS} icon={UserRound} />}
+          {isAuthInitialized && isAuthenticated && <DesktopDropdown label="마이페이지" links={MYPAGE_LINKS} icon={UserRound} />}
         </nav>
 
         <div className="hidden shrink-0 items-center gap-2.5 lg:flex">
@@ -270,7 +277,12 @@ export default function Header() {
               {locating ? <LoaderCircle className="size-[18px] animate-spin text-[#0F8AA8]" /> : <LocateFixed className="size-[18px]" />}
             </button>
           </div>
-          {isAuthenticated ? (
+          {!isAuthInitialized ? (
+            <div className="flex items-center gap-2.5" aria-hidden="true">
+              <span className="h-4 w-14 animate-pulse rounded bg-[#E8F0F2]" />
+              <span className="h-9 w-[88px] animate-pulse rounded-[10px] bg-[#E8F0F2]" />
+            </div>
+          ) : isAuthenticated ? (
             <>
               <span className="flex items-center gap-1.5 text-[13px] font-extrabold text-[#263329]"><UserRound className="size-4" />{user?.name}님</span>
               <Button type="button" variant="outline" onClick={handleLogout} className="h-9 rounded-[8px] border-[#dfe5dd] px-3 text-[11px] font-bold text-[#596259] shadow-none hover:bg-[#f4f8f2]">로그아웃</Button>
@@ -292,9 +304,22 @@ export default function Header() {
           <nav className="mx-auto flex max-w-[720px] flex-col" aria-label="모바일 메뉴">
             <Link to="/" onClick={() => setOpen(false)} className="flex min-h-11 items-center text-[14px] font-extrabold no-underline">홈</Link>
             {NAV_ITEMS.filter((item) => !item.hidden).flatMap((item) => item.links ?? [{ to: item.to!, label: item.label }]).map((item) => (
-              <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>
+              <Link
+                key={`${item.to}-${item.label}`}
+                to={item.to}
+                onClick={() => {
+                  setOpen(false);
+                  if (item.to === "/trends") {
+                    sessionStorage.removeItem("market_trends_query");
+                    window.dispatchEvent(new CustomEvent("resetMarketTrends"));
+                  }
+                }}
+                className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline"
+              >
+                {item.label}
+              </Link>
             ))}
-            {isAuthenticated && MYPAGE_LINKS.map((item) => <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>)}
+            {isAuthInitialized && isAuthenticated && MYPAGE_LINKS.map((item) => <Link key={`${item.to}-${item.label}`} to={item.to} onClick={() => setOpen(false)} className="flex min-h-11 items-center border-t border-[#f0f2ef] text-[13px] font-semibold text-[#505850] no-underline">{item.label}</Link>)}
             <div className="mt-3 flex items-center gap-2 border-t border-[#e5e8e4] pt-3 text-[13px] font-extrabold text-[#344037]">
               <span>현재 위치</span>
               {region ? <span className="ml-auto text-[18px] font-bold text-[#123047]">{region}</span> : null}
@@ -303,7 +328,13 @@ export default function Header() {
               </button>
             </div>
             <div className="mt-3 border-t border-[#e5e8e4] pt-3">
-              {isAuthenticated ? <Button type="button" variant="outline" onClick={handleLogout} className="h-11 w-full rounded-[8px]">{user?.name}님 · 로그아웃</Button> : <Button asChild className="h-11 w-full rounded-[8px] bg-[#0F8AA8] text-white"><Link to="/login" onClick={() => setOpen(false)} className="no-underline">로그인</Link></Button>}
+              {!isAuthInitialized ? (
+                <div className="h-11 w-full animate-pulse rounded-[8px] bg-[#EEF2F0]" aria-hidden="true" />
+              ) : isAuthenticated ? (
+                <Button type="button" variant="outline" onClick={handleLogout} className="h-11 w-full rounded-[8px]">{user?.name}님 · 로그아웃</Button>
+              ) : (
+                <Button asChild className="h-11 w-full rounded-[8px] bg-[#0F8AA8] text-white"><Link to="/login" onClick={() => setOpen(false)} className="no-underline">로그인</Link></Button>
+              )}
             </div>
           </nav>
         </div>

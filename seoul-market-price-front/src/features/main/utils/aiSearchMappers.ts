@@ -2,6 +2,7 @@ import type {
   AiSearchResponse,
   DistrictRankingResponse,
   PriceRankingResponse,
+  RagAnswerResponse,
   TradeVolumeRankingResponse,
 } from "@/api/api";
 
@@ -9,7 +10,12 @@ export type AiSearchResult =
   | AiSearchResponse
   | TradeVolumeRankingResponse
   | PriceRankingResponse
-  | DistrictRankingResponse;
+  | DistrictRankingResponse
+  | RagAnswerResponse;
+
+function isRagAnswerResponse(result: AiSearchResult): result is RagAnswerResponse {
+  return "answer" in result;
+}
 
 function isTradeVolumeRankingResponse(result: AiSearchResult): result is TradeVolumeRankingResponse {
   return "totalDealCount" in result;
@@ -31,6 +37,14 @@ export function formatAiMoneyText(text?: string): string {
 }
 
 export function toAiDisplayResult(result: AiSearchResult): AiSearchResponse {
+  if (isRagAnswerResponse(result)) {
+    return {
+      summary: result.answer,
+      keyPoints: [],
+      cautions: ["서비스 안내 문서를 근거로 한 답변입니다."],
+    };
+  }
+
   if (isDistrictRankingResponse(result)) {
     return {
       summary: "서울시 자치구 평균 평단가 순위입니다.",

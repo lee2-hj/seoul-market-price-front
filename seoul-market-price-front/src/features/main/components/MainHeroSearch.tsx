@@ -32,15 +32,27 @@ export function MainHeroSearch() {
         className="pointer-events-none absolute inset-y-0 right-0 hidden w-1/2 overflow-hidden md:block select-none"
         aria-hidden="true"
       >
-        <img
-          src="/apartment-hero.png"
-          alt=""
-          className="size-full object-cover object-[75%_center] opacity-30 lg:opacity-55 [mask-image:linear-gradient(to_left,black_25%,transparent_100%)]"
-        />
+        <picture>
+          <source
+            type="image/webp"
+            srcSet="/apartment-hero-700w.webp 700w, /apartment-hero-1400w.webp 1400w"
+            sizes="(min-width: 1360px) 680px, 50vw"
+          />
+          <source
+            type="image/jpeg"
+            srcSet="/apartment-hero-700w.jpg 700w, /apartment-hero-1400w.jpg 1400w"
+            sizes="(min-width: 1360px) 680px, 50vw"
+          />
+          <img
+            src="/apartment-hero-1400w.jpg"
+            alt=""
+            className="size-full object-cover object-[75%_center] opacity-30 lg:opacity-55 [mask-image:linear-gradient(to_left,black_25%,transparent_100%)]"
+          />
+        </picture>
       </div>
 
       <div className="relative mx-auto w-full max-w-[1360px] px-4 py-8 sm:px-6 sm:py-10 md:px-8 md:py-12">
-        <div className="max-w-3xl">
+        <div className="max-w-3xl mx-auto text-center">
           <p className="mb-2 text-xs font-black tracking-[0.16em] text-[#0F8AA8]">
             SEOUL APARTMENT MARKET
           </p>
@@ -54,7 +66,7 @@ export function MainHeroSearch() {
           </p>
 
           {/* AI 질문 입력창 */}
-          <form className="mt-5 w-full max-w-2xl" onSubmit={handleFormSubmit}>
+          <form className="mt-5 w-full max-w-2xl mx-auto" onSubmit={handleFormSubmit}>
             <div className="flex w-full min-w-0 flex-col gap-2 rounded-xl border border-[#C9DEE6] bg-white p-1.5 shadow-[0_6px_20px_rgba(18,48,71,0.07)] focus-within:border-[#0F8AA8] focus-within:ring-3 focus-within:ring-[#0F8AA8]/15 sm:flex-row sm:items-center sm:gap-2 sm:p-1.5">
               <div className="flex min-w-0 flex-1 items-center">
                 <Input
@@ -126,7 +138,7 @@ export function MainHeroSearch() {
         </div>
       </div>
 
-      {ai.result && <AiResultModal result={ai.result} onClose={ai.closeResult} />}
+      {ai.result && <AiResultModal result={ai.result} question={ai.submittedQuestion} onClose={ai.closeResult} />}
       {activeCandidates.length > 0 && (
         <AiCandidateModal
           candidates={activeCandidates}
