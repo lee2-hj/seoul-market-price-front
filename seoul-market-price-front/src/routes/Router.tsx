@@ -6,6 +6,8 @@ import Layout from "@/components/Layout";
 import PrivateRoute from "@/routes/PrivateRoute";
 import PublicRoute from "@/routes/PublicRoute";
 import SignupFlowLayout from "@/routes/SignupFlowLayout";
+import AdminRoute from "@/routes/AdminRoute";
+import MasterRoute from "@/routes/MasterRoute";
 
 /* 인증 상태 복원과 단계형 회원가입 임시 데이터 관리 */
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
@@ -55,6 +57,14 @@ const QnaPage = lazy(() => import("@/pages/Qna/QnaPage"));
 const QnaDetailPage = lazy(() => import("@/pages/Qna/QnaDetailPage"));
 const QnaEditPage = lazy(() => import("@/pages/Qna/QnaEditPage"));
 const QnaWritePage = lazy(() => import("@/pages/Qna/QnaWritePage"));
+
+/* 백오피스 화면 (admin) */
+const AdminLayout = lazy(() => import("@/pages/Admin/AdminLayout"));
+const AdminForbiddenPage = lazy(() => import("@/pages/Admin/AdminForbiddenPage"));
+const DashboardPage = lazy(() => import("@/pages/Admin/dashboard/DashboardPage"));
+const MenuManagePage = lazy(() => import("@/pages/Admin/menu/MenuManagePage"));
+const AccountManagePage = lazy(() => import("@/pages/Admin/accounts/AccountManagePage"));
+const BoardManagePage = lazy(() => import("@/pages/Admin/board/BoardManagePage"));
 
 /**
  * 페이지 지연 로딩 시 노출되는 가볍고 접근성 있는 로딩 Fallback UI
@@ -297,6 +307,61 @@ function Router() {
 
         {/* 정의되지 않은 모든 경로는 서비스 홈으로 이동한다. */}
         <Route path="*" element={<Navigate to="/" replace />} />
+
+        {/* ==================================================================
+            백오피스
+            ADMIN/MASTER 역할만 진입할 수 있다. 공통 Layout(Header/Footer)을
+            사용하지 않으며 별도 AdminLayout(사이드바)을 사용한다.
+        ================================================================== */}
+        <Route
+          element={
+            <AdminRoute>
+              {withSuspense(<AdminLayout />)}
+            </AdminRoute>
+          }
+        >
+          {/* 대시보드 (기본 진입점) */}
+          <Route
+            path="/admin"
+            element={withSuspense(<DashboardPage />)}
+          />
+
+          {/* 게시판 관리 (ADMIN/MASTER 공용) */}
+          <Route
+            path="/admin/board"
+            element={
+              <AdminRoute>
+                {withSuspense(<BoardManagePage />)}
+              </AdminRoute>
+            }
+          />
+
+          {/* 메뉴 관리 (MASTER 전용) */}
+          <Route
+            path="/admin/menus"
+            element={
+              <MasterRoute>
+                {withSuspense(<MenuManagePage />)}
+              </MasterRoute>
+            }
+          />
+
+          {/* 계정 관리 (MASTER 전용) */}
+          <Route
+            path="/admin/accounts"
+            element={
+              <MasterRoute>
+                {withSuspense(<AccountManagePage />)}
+              </MasterRoute>
+            }
+          />
+
+          {/* 권한 없음 페이지 */}
+          <Route
+            path="/admin/forbidden"
+            element={withSuspense(<AdminForbiddenPage />)}
+          />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
