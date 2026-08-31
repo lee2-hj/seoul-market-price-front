@@ -5,7 +5,7 @@ import { useAuthStore } from "@/features/auth/store/useAuthStore";
 
 
 // 백엔드 서버 주소 (외부 노출 금지: api.ts를 통해서만 사용)
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? '';
 
 
 // 백엔드와 통신하는 미들웨어

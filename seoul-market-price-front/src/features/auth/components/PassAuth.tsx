@@ -104,7 +104,12 @@ function PassAuth({ phone, onSuccess, className }: PassAuthProps) {
         짧은 prefix만 붙여 제한 내로 맞춘다.
 
       */
-      const identityVerificationId = `iv${crypto.randomUUID().replace(/-/g, "")}`;
+      const uuid = crypto.randomUUID?.() ??
+        'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+          const r = Math.random() * 16 | 0;
+          return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+      const identityVerificationId = `iv${uuid.replace(/-/g, "")}`;
 
       /*
         이 KG이니시스 본인인증 채널은 PC 환경에서 IFRAME 창 유형을
@@ -123,8 +128,8 @@ function PassAuth({ phone, onSuccess, className }: PassAuthProps) {
 
         customer: phone
           ? {
-              phoneNumber: phone.replace(/-/g, ""),
-            }
+            phoneNumber: phone.replace(/-/g, ""),
+          }
           : undefined,
 
         windowType: {
@@ -151,11 +156,10 @@ function PassAuth({ phone, onSuccess, className }: PassAuthProps) {
       */
 
       const response = await axios.post(
-        `${import.meta.env.VITE_BACKEND_URL}/api/members/phone-verification/confirm`,
+        `${import.meta.env.VITE_BACKEND_URL ?? ''}/api/members/phone-verification/confirm`,
 
-        {
-          identityVerificationId,
-        },
+        { identityVerificationId },
+        { withCredentials: true },
       );
 
       if (!response.data?.verified) {
