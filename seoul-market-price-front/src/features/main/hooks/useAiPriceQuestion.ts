@@ -15,6 +15,7 @@ const INVALID_LENGTH_MESSAGE = "질문은 500자 이내로 입력해 주세요."
 
 export function useAiPriceQuestion() {
   const [question, setQuestion] = useState("");
+  const [submittedQuestion, setSubmittedQuestion] = useState("");
   const [result, setResult] = useState<AiSearchResponse | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -35,6 +36,7 @@ export function useAiPriceQuestion() {
     try {
       const response = await searchNaturalWithAiApi(nextQuestion);
       if (response.status === "SUCCESS" && response.result) {
+        setSubmittedQuestion(nextQuestion);
         setResult({
           ...toAiDisplayResult(response.result),
           interpretation: response.interpretation,
@@ -121,6 +123,7 @@ export function useAiPriceQuestion() {
   return {
     question,
     setQuestion,
+    submittedQuestion,
     result,
     error,
     isLoading,
