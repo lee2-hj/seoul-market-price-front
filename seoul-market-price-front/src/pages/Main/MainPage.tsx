@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { recordPageViewApi } from "@/api/api";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   PreferenceDashboard,
@@ -45,6 +46,10 @@ export default function MainPage() {
     return () => {
       window.removeEventListener(REGION_CHANGED_EVENT, handleRegionChange);
     };
+  }, []);
+
+  useEffect(() => {
+    void recordPageViewApi();
   }, []);
 
   const resolvedRegion = resolveMainRegion(user);

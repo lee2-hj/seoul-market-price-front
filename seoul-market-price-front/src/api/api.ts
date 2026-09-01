@@ -54,6 +54,14 @@ export async function loginApi(
 }
 
 // ===============================
+// 페이지뷰 기록
+// ===============================
+
+export async function recordPageViewApi(): Promise<void> {
+  await apiMiddleware.post("/api/page-views");
+}
+
+// ===============================
 // 내 정보 조회
 // ===============================
 
