@@ -60,10 +60,10 @@ export function toAiDisplayResult(result: AiSearchResult): AiSearchResponse {
     const metricLabel = result.metricType === "pyeong" ? "평당가" : "평균 거래가";
     const metricUnit = result.metricType === "pyeong" ? "만원/평" : "만원";
     return {
-      summary: `${result.regionName} ${metricLabel} 상위 아파트입니다.`,
+      summary: result.summary || `${result.regionName} ${metricLabel} 상위 아파트입니다.`,
       criteria: result.criteria,
       keyPoints: result.items.map(
-        (item) => `${item.rank}. ${item.regionName ? `${item.regionName} · ` : ""}${item.apartmentName} · ${metricLabel} ${item.metricValue?.toLocaleString("ko-KR") ?? "정보 없음"}${metricUnit} · 거래 ${item.dealCount}건`,
+        (item) => `${item.rank}. ${item.regionName ? `${item.regionName} · ` : ""}${item.apartmentName}${item.exclusiveAreaM2 != null || item.pyeong != null ? ` · 전용 ${item.exclusiveAreaM2 ?? "-"}㎡ (${item.pyeong?.toFixed(1) ?? "-"}평)` : ""} · ${metricLabel} ${item.metricValue?.toLocaleString("ko-KR") ?? "정보 없음"}${metricUnit} · 거래 ${item.dealCount}건${item.dealDate ? ` · 거래일 ${item.dealDate}` : ""}`,
       ),
       cautions: result.baseDate ? [`기준일: ${result.baseDate}`] : [],
     };
