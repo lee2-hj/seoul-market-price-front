@@ -11,7 +11,8 @@ import {
 import SeoulDistrictMap from "@/features/region-map/components/D3SeoulDistrictMap";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { getLocalPreferredDistrict } from "@/features/member/utils/preferredDistrictStorage";
-import { getDongs, getSggs } from "@/features/location/services/locationService";
+import { useDistricts, useDongs } from "@/hooks/useDistricts";
+import { Button } from "@/components/ui/button";
 import {
   getApartmentPriceRanking,
   getFastApiDistrictPrices,
@@ -87,11 +88,7 @@ export default function RegionMapPage() {
   }, []);
 
   // 1. 서울시 전체 구 목록 (법정동 코드 매핑용)
-  const { data: sggs = [] } = useQuery({
-    queryKey: ["location", "sggs"],
-    queryFn: getSggs,
-    staleTime: Infinity,
-  });
+  const { data: sggs = [] } = useDistricts();
 
   // 2. FastAPI 서울시 전체 25개 구별 실제 평균 매매가
   const { data: districtPrices = {} } = useQuery({
@@ -110,16 +107,11 @@ export default function RegionMapPage() {
       : "";
 
   // 3. 선택된 구의 법정동 목록
-  const { data: dongs = [] } = useQuery({
-    queryKey: ["location", "dongs", selectedSggCode],
-    queryFn: () => getDongs(selectedSggCode),
-    enabled: Boolean(selectedSggCode),
-    staleTime: Infinity,
-  });
+  const { data: dongs = [] } = useDongs(selectedSggCode);
 
   // 4. FastAPI 선택된 구의 동별 실제 평균 매매가
   const { data: fastApiDongPrices = {} } = useQuery({
-    queryKey: ["region-map", "dong-prices", selectedSggCode],
+    queryKey: ["region-map", "dong-prices", { sggCd: selectedSggCode }],
     queryFn: () => getFastApiDongPrices(selectedSggCode),
     enabled: Boolean(selectedSggCode),
     staleTime: 1000 * 60 * 5,
@@ -131,7 +123,11 @@ export default function RegionMapPage() {
 
   const selectedDongCode = dongs.find((dong) => dong.dongNm === selectedDong)?.dongCd ?? "";
   const apartmentRankingQuery = useQuery({
-    queryKey: ["region-map", "apartment-ranking", selectedDongCode, priceMetric],
+    queryKey: [
+      "region-map",
+      "apartment-ranking",
+      { sggCd: selectedSggCode, dongCd: selectedDongCode, priceMetric },
+    ],
     queryFn: () => getApartmentPriceRanking(selectedSggCode, selectedDongCode, priceMetric),
     enabled: Boolean(selectedDongCode),
   });
@@ -279,14 +275,15 @@ export default function RegionMapPage() {
               </div>
               <div className="flex rounded-[10px] border border-[#CBD5E1] bg-[#F8FAFC] p-1" aria-label="가격 기준 선택">
                 {([{"value":"thing_amt","label":"매매가"},{"value":"pyeong","label":"평당가"}] as const).map((option) => (
-                  <button
+                  <Button
                     key={option.value}
                     type="button"
+                    variant="ghost"
                     onClick={() => setPriceMetric(option.value)}
-                    className={`rounded-[7px] border-0 px-4 py-2 text-[12px] font-bold transition-colors ${priceMetric === option.value ? "bg-[#0F8AA8] text-white shadow-sm" : "bg-transparent text-[#64748B] hover:text-[#0F172A]"}`}
+                    className={`h-auto rounded-[7px] border-0 px-4 py-2 text-[12px] font-bold shadow-none transition-colors hover:bg-transparent ${priceMetric === option.value ? "bg-[#0F8AA8] text-white shadow-sm hover:bg-[#0F8AA8] hover:text-white" : "bg-transparent text-[#64748B] hover:text-[#0F172A]"}`}
                   >
                     {option.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>

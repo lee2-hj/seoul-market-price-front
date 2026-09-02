@@ -138,14 +138,18 @@ export function MainHeroSearch() {
         </div>
       </div>
 
-      {ai.result && <AiResultModal result={ai.result} question={ai.submittedQuestion} onClose={ai.closeResult} />}
-      {activeCandidates.length > 0 && (
-        <AiCandidateModal
-          candidates={activeCandidates}
-          onChoose={ai.singleCandidates.length > 0 ? ai.chooseSingleCandidate : ai.chooseCandidate}
-          onClose={ai.closeCandidates}
-        />
-      )}
+      <AiResultModal
+        open={Boolean(ai.result)}
+        result={ai.result}
+        question={ai.submittedQuestion}
+        onClose={ai.closeResult}
+      />
+      <AiCandidateModal
+        open={activeCandidates.length > 0}
+        candidates={activeCandidates}
+        onChoose={ai.singleCandidates.length > 0 ? ai.chooseSingleCandidate : ai.chooseCandidate}
+        onClose={ai.closeCandidates}
+      />
     </section>
   );
 }

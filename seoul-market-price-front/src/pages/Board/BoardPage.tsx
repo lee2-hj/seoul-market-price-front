@@ -1,9 +1,16 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, type FormEvent } from 'react';
 import { getBoardPostsApi } from '@/api/api';
 import { isLogin } from '@/features/auth/utils/auth';
 import type { BoardListItem, BoardSearchType } from '@/features/board/types/board.types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Pagination,
   PaginationContent,
@@ -30,10 +37,14 @@ import { formatBoardDate } from '@/features/board/utils/boardDisplay';
 
 const BOARD_LIST_SESSION_KEY = 'board_list_query';
 
+// 목록에 렌더링할 게시글 항목(공지/일반 통합 + 공지 여부 플래그 사전 계산)
+interface BoardDisplayItem extends BoardListItem {
+  isNotice: boolean;
+}
+
 // select 반환 타입 정의
 interface BoardPostsSelectResult {
-  notices: BoardListItem[];
-  items: BoardListItem[];
+  rows: BoardDisplayItem[];
   totalElements: number;
   totalPages: number;
 }
@@ -46,6 +57,9 @@ interface BoardQueryState {
   searchType: BoardSearchType;
   keyword: string;
 }
+
+// 1페이지 공지 고정 노출을 위해 안전 상한 내에서만 최신 게시글을 스캔한다.
+const NOTICE_SCAN_SIZE = 20;
 
 export default function BoardPage() {
   const navigate = useNavigate();
@@ -91,55 +105,91 @@ export default function BoardPage() {
     setSearchParams(params);
   };
 
+  // 검색 폼: searchType/keyword 2개 필드뿐이라 RHF 없이 네이티브 FormData 제출로 처리한다.
+  // URL 쿼리(query)가 SSOT이므로, Select/Input은 defaultValue로만 초기화하고
+  // query가 바뀌면(초기화 버튼, 세션 복원 등) key를 바꿔 강제로 리마운트해 동기화한다.
+  const onSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const keyword = String(formData.get('keyword') ?? '').trim();
+    if (!keyword) {
+      alert('검색어를 입력해 주세요.');
+      return;
+    }
+    const searchType = (formData.get('searchType') as BoardSearchType) || 'TITLE';
+    setQuery({ page: 1, searchType, keyword });
+  };
+
+  const handleResetSearch = () => {
+    sessionStorage.removeItem(BOARD_LIST_SESSION_KEY);
+    setQuery({ page: 1, searchType: 'TITLE', keyword: '' });
+  };
+
   // 2. URL 검색 조건이 변경되면 React Query가 자동으로 다시 조회한다.
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['boardPosts', query.page, query.searchType, query.keyword],
     queryFn: async () => {
-      const currentPageData = await getBoardPostsApi({
-        page: query.page,
-        size: 10,
-        searchType: query.keyword ? (query.searchType as BoardSearchType) : undefined,
-        keyword: query.keyword || undefined,
-      });
-
-      // 서버는 공지/일반 구분 없이 최신순으로 페이지를 먼저 나눈다
-      // 따라서 1페이지 응답만으로는 뒤 페이지의 공지를 상단 고정할 수 없어
-
+      // 키워드 검색: 공지 고정 없이 검색 결과를 최신순으로 그대로 보여준다 (단일 호출).
       if (query.keyword) {
-        const searchItems = [...currentPageData.notices, ...currentPageData.items].sort(
+        const searchData = await getBoardPostsApi({
+          page: query.page,
+          size: 10,
+          searchType: query.searchType,
+          keyword: query.keyword,
+        });
+        const searchItems = [...searchData.notices, ...searchData.items].sort(
           (a, b) =>
             Date.parse(b.createdAt) - Date.parse(a.createdAt) || b.boardId - a.boardId,
         );
-        return { ...currentPageData, notices: [], items: searchItems };
+        return {
+          notices: [],
+          items: searchItems,
+          totalElements: searchData.totalElements,
+          totalPages: searchData.totalPages,
+        };
       }
 
-      const allPostsData = await getBoardPostsApi({
-        page: 1,
-        size: Math.max(10, currentPageData.totalElements),
-      });
-      const pinnedNotices = allPostsData.notices.slice(0, 2);
-      const pinnedIds = new Set(pinnedNotices.map((notice) => notice.boardId));
-      const orderedPosts = [
-        ...pinnedNotices,
-        ...allPostsData.items.filter((item) => !pinnedIds.has(item.boardId)),
-      ];
-      const pageStart = (query.page - 1) * 10;
-      const pageItems = orderedPosts.slice(pageStart, pageStart + 10);
+      if (query.page === 1) {
+        // 공지사항은 1페이지 상단에만 고정 노출된다(2페이지부터는 공지 없이 일반 목록만 표시).
+        // 백엔드에 공지 전용 조회 API가 없어, DB 전체를 다시 긁어오는 대신
+        // 최신 상위 NOTICE_SCAN_SIZE건 안에서만 공지를 찾는 안전 상한을 둔다.
+        // TODO(backend): 공지 전용 API(예: GET /api/boards/notices)가 분리되면
+        // 이 스캔 로직 없이 정확한 전체 공지 목록을 가져오도록 교체할 것.
+        const scanData = await getBoardPostsApi({ page: 1, size: NOTICE_SCAN_SIZE });
+        const pinnedNotices = scanData.notices.slice(0, 2);
+        const items = scanData.items.slice(0, 10 - pinnedNotices.length);
 
+        return {
+          notices: pinnedNotices,
+          items,
+          totalElements: scanData.totalElements,
+          totalPages: Math.ceil(scanData.totalElements / 10),
+        };
+      }
+
+      // 2페이지 이상: 공지가 항상 없으므로 단일 호출로 그대로 사용한다.
+      const pageData = await getBoardPostsApi({ page: query.page, size: 10 });
       return {
-        notices: query.page === 1 ? pageItems.filter((item) => pinnedIds.has(item.boardId)) : [],
-        items: pageItems.filter((item) => !pinnedIds.has(item.boardId)),
-        totalElements: allPostsData.totalElements,
-        totalPages: Math.ceil(allPostsData.totalElements / 10),
-        currentPage: query.page,
+        notices: [],
+        items: pageData.items,
+        totalElements: pageData.totalElements,
+        totalPages: pageData.totalPages,
       };
     },
-    select: (res): BoardPostsSelectResult => ({
-      notices: (res?.notices || []) as BoardListItem[],
-      items: (res?.items || []) as BoardListItem[],
-      totalElements: res?.totalElements || 0,
-      totalPages: res?.totalPages || 0,
-    }),
+    select: (res): BoardPostsSelectResult => {
+      const notices = (res?.notices ?? []) as BoardListItem[];
+      const items = (res?.items ?? []) as BoardListItem[];
+      const rows: BoardDisplayItem[] = [...notices, ...items].map((item) => ({
+        ...item,
+        isNotice: item.postType === 'NOTICE',
+      }));
+
+      return {
+        rows,
+        totalElements: res?.totalElements ?? 0,
+        totalPages: res?.totalPages ?? 0,
+      };
+    },
   });
 
   // 3. 현재 페이지 그룹에 표시할 페이지 번호 계산
@@ -180,36 +230,23 @@ export default function BoardPage() {
             {/* 검색 영역 */}
             <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[12px] p-5 mb-6 shadow-xs">
               <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.currentTarget);
-                  const keyword = (formData.get('keyword') as string).trim();
-                  if (!keyword) {
-                    alert('검색어를 입력해 주세요.');
-                    return;
-                  }
-                  setQuery({
-                    page: 1,
-                    searchType: formData.get('searchType') as BoardSearchType,
-                    keyword,
-                  });
-                }}
+                onSubmit={onSearchSubmit}
                 className="flex flex-col md:flex-row items-center gap-3"
               >
-                <select
-                  name="searchType"
-                  key={`select-${query.searchType}`}
-                  defaultValue={query.searchType}
-                  className="h-[44px] w-full md:w-[130px] rounded-[7px] border border-[#DCE8ED] bg-[#F5FAFC] px-3 text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8]"
-                >
-                  <option value="TITLE">제목</option>
-                  <option value="WRITER">작성자</option>
-                </select>
+                <Select name="searchType" key={`select-${query.searchType}`} defaultValue={query.searchType}>
+                  <SelectTrigger className="h-[44px] w-full md:w-[130px] rounded-[7px] border-[#DCE8ED] bg-[#F5FAFC] text-[14px] text-[#13202B]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TITLE">제목</SelectItem>
+                    <SelectItem value="WRITER">작성자</SelectItem>
+                  </SelectContent>
+                </Select>
 
                 <Input
+                  type="text"
                   name="keyword"
                   key={`input-${query.keyword}`}
-                  type="text"
                   defaultValue={query.keyword}
                   placeholder="검색어를 입력하세요."
                   className="h-[44px] flex-1 bg-[#F5FAFC] border-[#DCE8ED] text-[14px] text-[#13202B] placeholder:text-[#9CA3AF] focus-visible:ring-[#0F8AA8]"
@@ -222,10 +259,7 @@ export default function BoardPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => {
-                      sessionStorage.removeItem(BOARD_LIST_SESSION_KEY);
-                      setQuery({ page: 1, searchType: 'TITLE', keyword: '' });
-                    }}
+                    onClick={handleResetSearch}
                     className="h-[44px] px-5 bg-white border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA] text-[14px] font-bold rounded-[7px]"
                   >
                     초기화
@@ -260,7 +294,7 @@ export default function BoardPage() {
                 <div className="p-16 text-center text-[#6B7280] text-[14px]">게시글 목록을 불러오는 중입니다...</div>
               ) : isError ? (
                 <div className="p-16 text-center text-rose-500 text-[14px]">오류가 발생했습니다: {(error as Error).message}</div>
-              ) : !data?.items?.length && !data?.notices?.length ? (
+              ) : !data?.rows.length ? (
                 <div className="p-16 text-center text-[#6B7280] text-[14px]">등록된 게시글이 없습니다.</div>
               ) : (
                 <>
@@ -278,12 +312,12 @@ export default function BoardPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody className="divide-y divide-[#DCE8ED]">
-                        {[...(data?.notices || []), ...(data?.items || [])].map((item: BoardListItem, index: number) => {
+                        {(data?.rows ?? []).map((item: BoardDisplayItem, index: number) => {
                           const displayNo = Math.max(
                             1,
                             (data?.totalElements ?? 0) - ((query.page - 1) * 10 + index),
                           );
-                          const isNotice = item.postType === 'NOTICE' || data?.notices?.some((n) => n.boardId === item.boardId);
+                          const { isNotice } = item;
 
                           return (
                             <TableRow
@@ -325,8 +359,8 @@ export default function BoardPage() {
 
                   {/* 2. 모바일 화면: 가로 스크롤 없는 한눈에 들어오는 카드형 피드 */}
                   <div className="divide-y divide-[#DCE8ED] md:hidden">
-                    {[...(data?.notices || []), ...(data?.items || [])].map((item: BoardListItem) => {
-                      const isNotice = item.postType === 'NOTICE' || data?.notices?.some((n) => n.boardId === item.boardId);
+                    {(data?.rows ?? []).map((item: BoardDisplayItem) => {
+                      const { isNotice } = item;
 
                       return (
                         <Link

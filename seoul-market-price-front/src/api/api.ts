@@ -633,6 +633,50 @@ export async function deleteBoardCommentApi(
   await apiMiddleware.delete(`/api/boards/${boardId}/comments/${commentId}`);
 }
 
+/** 마이페이지 내 작성한 게시글 단건 응답 */
+export interface MyBoardPostResponse {
+  boardId?: number;
+  id?: number;
+  title: string;
+  authorName?: string;
+  writerName?: string;
+  name?: string;
+  createdAt: string;
+  viewCount?: number;
+  hit?: number;
+  readCount?: number;
+  postType?: PostType;
+  type?: string;
+  commentCount?: number;
+}
+
+/** 마이페이지 내 작성한 게시글 페이징 응답 */
+export interface MyBoardPostPageResponse {
+  content: MyBoardPostResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
+/** 내가 작성한 게시글 목록 조회 API (GET /api/boards/me) */
+export async function getMyBoardPostsApi(
+  params: { page?: number; size?: number } = { page: 0, size: 100 },
+): Promise<MyBoardPostPageResponse> {
+  const { data } = await apiMiddleware.get<MyBoardPostPageResponse>(
+    "/api/boards/me",
+    {
+      params: {
+        page: params.page ?? 0,
+        size: params.size ?? 100,
+      },
+    },
+  );
+  return data;
+}
+
 /** 마이페이지 내 댓글 단건 응답 */
 export interface MyCommentResponse {
   id: number;
