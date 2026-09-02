@@ -1145,6 +1145,19 @@ export type AiSearchResponse = {
   cautions: string[];
   criteria?: RankingCriteria;
   interpretation?: SearchInterpretation;
+  rankingItems?: AiRankingItem[];
+};
+
+export type AiRankingItem = {
+  rank: number;
+  regionName?: string;
+  apartmentName: string;
+  primaryLabel: string;
+  primaryValue: string;
+  exclusiveAreaM2?: number;
+  pyeong?: number;
+  dealCount?: number;
+  dealDate?: string;
 };
 
 export type SearchInterpretation = {
