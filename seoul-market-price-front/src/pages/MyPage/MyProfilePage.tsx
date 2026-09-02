@@ -323,12 +323,27 @@ export default function MyProfilePage() {
     selectedSggCd,
   );
   const initializedDraftUserRef = useRef<string | null>(null);
+  // 세션 초안 저장 핸들러(beforeunload/언마운트)가 리렌더마다 재구독되지 않도록
+  // 최신 선호지역 값을 ref로 보관해 둔다.
+  const preferredDistrictRef = useRef(preferredDistrict);
+  preferredDistrictRef.current = preferredDistrict;
+  const selectedSggCdRef = useRef(selectedSggCd);
+  selectedSggCdRef.current = selectedSggCd;
 
-  const { register, handleSubmit, setValue, reset, control } = useForm<Profile>({
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    reset,
+    control,
+    getValues,
+    formState: { isDirty },
+  } = useForm<Profile>({
     defaultValues: profile,
   });
 
-  const formValues = useWatch({ control });
+  // PassAuth 표시용으로만 필요하므로 phone 필드만 가볍게 구독한다.
+  const phoneValue = useWatch({ control, name: "phone" }) || "";
 
   // 1. PASS 본인인증 훅
   const {
@@ -387,83 +402,75 @@ export default function MyProfilePage() {
 
   // authUser 변경 시 해당 사용자 고유의 프로필 및 설정 동기화
   useEffect(() => {
-    if (authUserId) {
-      let isActive = true;
-      const isSocial = memberData
-        ? Boolean(memberData.socialId) ||
-          isSocialAccount(memberData.userId, "LOCAL")
-        : isSocialAccount(authUserId, "LOCAL");
+    if (!authUserId) return;
 
-      const saved = getStoredMyPageSettings(authUserId);
-      const resolvedName =
-        sanitizePlainText(authUserName) ||
-        sanitizePlainText(memberData?.name) ||
-        sanitizePlainText(saved?.profile?.name);
-      const resolvedUserId = memberData
-        ? sanitizePlainText(memberData.userId)
-        : sanitizePlainText(authUserId) ||
-          sanitizePlainText(saved?.profile?.userId);
+    const isSocial = memberData
+      ? Boolean(memberData.socialId) ||
+        isSocialAccount(memberData.userId, "LOCAL")
+      : isSocialAccount(authUserId, "LOCAL");
 
-      const nextProfile: Profile = {
-        ...DEFAULT_PROFILE,
-        ...(memberData
-          ? {
-              phone: formatPhoneNumber(memberData.phone ?? ""),
-              email: memberData.email ?? "",
-              address: memberData.address ?? "",
-              detailAddress: memberData.addressDetail ?? "",
-            }
-          : saved?.profile || {}),
-        name: resolvedName,
-        userId: resolvedUserId,
-        loginType: isSocial ? "SOCIAL" : "LOCAL",
-      };
+    const saved = getStoredMyPageSettings(authUserId);
+    const resolvedName =
+      sanitizePlainText(authUserName) ||
+      sanitizePlainText(memberData?.name) ||
+      sanitizePlainText(saved?.profile?.name);
+    const resolvedUserId = memberData
+      ? sanitizePlainText(memberData.userId)
+      : sanitizePlainText(authUserId) ||
+        sanitizePlainText(saved?.profile?.userId);
 
-      const nextDistrict = memberData
-        ? memberData.myGu ?? ""
-        : authUser?.myGu || saved?.preferredDistrict || "";
-      const nextSggCd = memberData
-        ? memberData.myGuCode
-        : authUser?.myGuCode ?? saved?.selectedSggCd ?? null;
+    const nextProfile: Profile = {
+      ...DEFAULT_PROFILE,
+      ...(memberData
+        ? {
+            phone: formatPhoneNumber(memberData.phone ?? ""),
+            email: memberData.email ?? "",
+            address: memberData.address ?? "",
+            detailAddress: memberData.addressDetail ?? "",
+          }
+        : saved?.profile || {}),
+      name: resolvedName,
+      userId: resolvedUserId,
+      loginType: isSocial ? "SOCIAL" : "LOCAL",
+    };
 
-      queueMicrotask(() => {
-        if (!isActive) return;
-        const latestDraft = getStoredProfileDraft(authUserId);
-        const displayedProfile: Profile = latestDraft
-          ? {
-              ...nextProfile,
-              email: latestDraft.email,
-              address: latestDraft.address,
-              detailAddress: latestDraft.detailAddress,
-            }
-          : nextProfile;
+    const nextDistrict = memberData
+      ? memberData.myGu ?? ""
+      : authUser?.myGu || saved?.preferredDistrict || "";
+    const nextSggCd = memberData
+      ? memberData.myGuCode
+      : authUser?.myGuCode ?? saved?.selectedSggCd ?? null;
 
-        setProfile(nextProfile);
-        setOriginalProfile(nextProfile);
-        reset(displayedProfile);
-        const draftDistrict =
-          latestDraft?.selectedSggName ?? latestDraft?.preferredDistrict;
-        const hasDraftSggCd = Boolean(
-          latestDraft && Object.prototype.hasOwnProperty.call(latestDraft, "selectedSggCd"),
-        );
-        const draftSggCd = hasDraftSggCd
-          ? latestDraft?.selectedSggCd ?? null
-          : draftDistrict && draftDistrict !== nextDistrict
-            ? null
-            : nextSggCd;
+    const latestDraft = getStoredProfileDraft(authUserId);
+    const displayedProfile: Profile = latestDraft
+      ? {
+          ...nextProfile,
+          email: latestDraft.email,
+          address: latestDraft.address,
+          detailAddress: latestDraft.detailAddress,
+        }
+      : nextProfile;
 
-        setPreferredDistrict(draftDistrict ?? nextDistrict);
-        setSelectedSggCd(draftSggCd);
-        setOriginalDistrict(nextDistrict);
-        setOriginalSggCd(nextSggCd);
-        setPreferredDistrictError("");
-        initializedDraftUserRef.current = normalizeIdentity(authUserId);
-      });
+    setProfile(nextProfile);
+    setOriginalProfile(nextProfile);
+    reset(displayedProfile);
+    const draftDistrict =
+      latestDraft?.selectedSggName ?? latestDraft?.preferredDistrict;
+    const hasDraftSggCd = Boolean(
+      latestDraft && Object.prototype.hasOwnProperty.call(latestDraft, "selectedSggCd"),
+    );
+    const draftSggCd = hasDraftSggCd
+      ? latestDraft?.selectedSggCd ?? null
+      : draftDistrict && draftDistrict !== nextDistrict
+        ? null
+        : nextSggCd;
 
-      return () => {
-        isActive = false;
-      };
-    }
+    setPreferredDistrict(draftDistrict ?? nextDistrict);
+    setSelectedSggCd(draftSggCd);
+    setOriginalDistrict(nextDistrict);
+    setOriginalSggCd(nextSggCd);
+    setPreferredDistrictError("");
+    initializedDraftUserRef.current = normalizeIdentity(authUserId);
   }, [
     authUser?.myGu,
     authUser?.myGuCode,
@@ -473,27 +480,32 @@ export default function MyProfilePage() {
     reset,
   ]);
 
+  // 새로고침(beforeunload) 또는 페이지 이탈(언마운트) 시점에만 form.getValues()를
+  // 1회 읽어 세션에 초안을 저장한다. 타이핑마다 저장하지 않아 렌더링/I/O 비용이 없다.
   useEffect(() => {
     const userId = normalizeIdentity(authUser?.userId);
-    if (!userId || initializedDraftUserRef.current !== userId) return;
+    if (!userId) return;
 
-    const draft: ProfileDraft = {
-      email: formValues.email ?? "",
-      address: formValues.address ?? "",
-      detailAddress: formValues.detailAddress ?? "",
-      preferredDistrict,
-      selectedSggCd,
-      selectedSggName: preferredDistrict,
+    const saveDraft = () => {
+      if (initializedDraftUserRef.current !== userId) return;
+      const { email, address, detailAddress } = getValues();
+      const draft: ProfileDraft = {
+        email: email ?? "",
+        address: address ?? "",
+        detailAddress: detailAddress ?? "",
+        preferredDistrict: preferredDistrictRef.current,
+        selectedSggCd: selectedSggCdRef.current,
+        selectedSggName: preferredDistrictRef.current,
+      };
+      sessionStorage.setItem(getProfileDraftKey(userId), JSON.stringify(draft));
     };
-    sessionStorage.setItem(getProfileDraftKey(userId), JSON.stringify(draft));
-  }, [
-    authUser?.userId,
-    formValues.email,
-    formValues.address,
-    formValues.detailAddress,
-    preferredDistrict,
-    selectedSggCd,
-  ]);
+
+    window.addEventListener("beforeunload", saveDraft);
+    return () => {
+      window.removeEventListener("beforeunload", saveDraft);
+      saveDraft();
+    };
+  }, [authUser?.userId, getValues]);
 
   const updateMemberMutation = useMutation({
     mutationFn: async ({
@@ -596,30 +608,10 @@ export default function MyProfilePage() {
     },
   });
 
-  // 폼이 수정되었는지 여부 계산 (Dirty check)
-  const isFormDirty = useMemo(() => {
-    const isProfileChanged =
-      (formValues.name ?? "") !== (originalProfile.name ?? "") ||
-      (formValues.phone ?? "") !== (originalProfile.phone ?? "") ||
-      (formValues.email ?? "") !== (originalProfile.email ?? "") ||
-      (formValues.address ?? "") !== (originalProfile.address ?? "") ||
-      (formValues.detailAddress ?? "") !== (originalProfile.detailAddress ?? "");
-
-    const isDistrictChanged =
-      preferredDistrict !== originalDistrict || selectedSggCd !== originalSggCd;
-    return isProfileChanged || isDistrictChanged;
-  }, [
-    formValues.name,
-    formValues.phone,
-    formValues.email,
-    formValues.address,
-    formValues.detailAddress,
-    originalProfile,
-    preferredDistrict,
-    originalDistrict,
-    selectedSggCd,
-    originalSggCd,
-  ]);
+  // 폼이 수정되었는지 여부: RHF의 isDirty(마지막 reset() 기준 변경 여부)에
+  // 선호지역 변경 여부만 가볍게 결합한다.
+  const isFormDirty =
+    isDirty || preferredDistrict !== originalDistrict || selectedSggCd !== originalSggCd;
 
   // [변경 취소] 버튼 클릭 핸들러
   const handleCancelChanges = () => {
@@ -844,7 +836,7 @@ export default function MyProfilePage() {
                     className="h-[48px] flex-1 rounded-[8px] border-[#DCE8ED] bg-[#F0F7FA] text-[15px] text-[#13202B] cursor-not-allowed font-medium"
                   />
                   <PassAuth
-                    phone={formValues.phone || ""}
+                    phone={phoneValue}
                     onSuccess={handlePassSuccess}
                     className="h-[48px] px-5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white font-bold text-[14px] rounded-[8px] cursor-pointer whitespace-nowrap transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-xs shrink-0"
                   />
