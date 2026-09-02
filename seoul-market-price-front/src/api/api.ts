@@ -1189,6 +1189,19 @@ export type AiSearchResponse = {
   cautions: string[];
   criteria?: RankingCriteria;
   interpretation?: SearchInterpretation;
+  rankingItems?: AiRankingItem[];
+};
+
+export type AiRankingItem = {
+  rank: number;
+  regionName?: string;
+  apartmentName: string;
+  primaryLabel: string;
+  primaryValue: string;
+  exclusiveAreaM2?: number;
+  pyeong?: number;
+  dealCount?: number;
+  dealDate?: string;
 };
 
 export type SearchInterpretation = {
@@ -1228,6 +1241,7 @@ export type PriceRankingResponse = {
   regionName: string;
   metricType: "pyeong" | "thing_amt";
   baseDate?: string;
+  summary?: string;
   criteria: RankingCriteria;
   items: Array<{
     rank: number;
@@ -1235,6 +1249,9 @@ export type PriceRankingResponse = {
     apartmentName: string;
     metricValue?: number;
     dealCount: number;
+    exclusiveAreaM2?: number;
+    pyeong?: number;
+    dealDate?: string;
   }>;
 };
 
@@ -1252,6 +1269,15 @@ export type DistrictRankingResponse = {
 };
 
 export type NaturalRegionCandidate = DongRegionResponse & { slot: number };
+export type NaturalApartmentCandidate = {
+  apartmentName: string;
+  sggName: string;
+  sggCode: string;
+  dongName: string;
+  dongCode: string;
+  mno?: string;
+  sno?: string;
+};
 export type RagAnswerResponse = {
   answer: string;
 };
@@ -1275,6 +1301,7 @@ export type NaturalSearchResponse = {
   | RagAnswerResponse;
   missingFields: string[];
   candidates: NaturalRegionCandidate[];
+  apartmentCandidates?: NaturalApartmentCandidate[];
   errorCode?: string;
   interpretation?: SearchInterpretation;
 };
