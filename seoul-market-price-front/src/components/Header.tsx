@@ -272,7 +272,7 @@ export default function Header() {
               disabled={locating}
               aria-label="현재 위치로 자치구 찾기"
               title="내 위치 찾기"
-              className="flex size-8 items-center justify-center rounded-full border-0 bg-transparent text-[#69747C] transition-colors hover:bg-[#E8F6F9] hover:text-[#0F8AA8] disabled:cursor-wait disabled:opacity-60 cursor-pointer"
+              className={`flex size-8 items-center justify-center rounded-full border-0 bg-transparent text-[#69747C] transition-colors hover:bg-[#E8F6F9] hover:text-[#0F8AA8] disabled:cursor-wait disabled:opacity-60 cursor-pointer ${isAuthInitialized && isAuthenticated ? "" : "hidden"}`}
             >
               {locating ? <LoaderCircle className="size-[18px] animate-spin text-[#0F8AA8]" /> : <LocateFixed className="size-[18px]" />}
             </button>

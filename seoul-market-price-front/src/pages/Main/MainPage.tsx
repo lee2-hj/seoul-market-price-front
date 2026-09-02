@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
+import { recordPageViewApi } from "@/api/api";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   PreferenceDashboard,
@@ -35,7 +36,7 @@ function LoadingCard() {
 export default function MainPage() {
   const user = useAuthStore((state) => state.user);
   const isAuthInitialized = useAuthStore((state) => state.isInitialized);
-  const [, setDetectedDistrict] = useState(getValidDetectedDistrict);
+  const [detectedDistrict, setDetectedDistrict] = useState(getValidDetectedDistrict);
 
   useEffect(() => {
     const handleRegionChange = () => {
@@ -47,7 +48,17 @@ export default function MainPage() {
     };
   }, []);
 
-  const resolvedRegion = resolveMainRegion(user);
+  useEffect(() => {
+    void recordPageViewApi();
+  }, []);
+
+  // resolveMainRegion은 내부적으로 getValidDetectedDistrict()를 다시 읽으므로,
+  // detectedDistrict(지역 변경 이벤트로만 갱신됨)를 deps에 정확히 포함시켜
+  // 이벤트가 없는 리렌더링에서는 재계산을 건너뛴다.
+  const resolvedRegion = useMemo(
+    () => resolveMainRegion(user),
+    [user, detectedDistrict],
+  );
 
   // 서울 전체 시세 개요(구별 TOP5, 상승/하락)는 로그인 여부와 무관한
   // 공개 데이터라 인증 확인을 기다리지 않고 곧바로 요청한다.
@@ -66,6 +77,35 @@ export default function MainPage() {
 
   const data = mainPageQuery.data;
   const regionData = regionDashboardQuery.data;
+
+  // PriceChangeTop5Card는 로딩/에러/정상 분기 중 어디서든 동일하게 쓰이므로
+  // 한 번만 만들어 재사용한다(기존 3중 삼항에서 중복 작성되던 부분 정리).
+  let regionSection: ReactNode = null;
+  if (data) {
+    const priceChangeCard = <PriceChangeTop5Card rising={data.rising} falling={data.falling} />;
+
+    if (regionDashboardQuery.isPending) {
+      regionSection = <PreferenceDashboardLoading />;
+    } else if (regionDashboardQuery.isError) {
+      regionSection = (
+        <>
+          {priceChangeCard}
+          <PreferenceDashboardError onRetry={() => void regionDashboardQuery.refetch()} />
+        </>
+      );
+    } else if (regionData) {
+      regionSection = (
+        <PreferenceDashboard
+          titlePrefix={resolvedRegion.titlePrefix}
+          districtName={resolvedRegion.districtName}
+          data={regionData}
+          middleCard={priceChangeCard}
+        />
+      );
+    } else {
+      regionSection = priceChangeCard;
+    }
+  }
 
   return (
     <div className="min-w-0 w-full max-w-full bg-[#F5FAFC] text-[#13202B]">
@@ -103,23 +143,7 @@ export default function MainPage() {
           ) : data ? (
             <>
               <DistrictTop5Card items={data.districts} />
-              {regionDashboardQuery.isPending ? (
-                <PreferenceDashboardLoading />
-              ) : regionDashboardQuery.isError ? (
-                <>
-                  <PriceChangeTop5Card rising={data.rising} falling={data.falling} />
-                  <PreferenceDashboardError onRetry={() => void regionDashboardQuery.refetch()} />
-                </>
-              ) : regionData ? (
-                <PreferenceDashboard
-                  titlePrefix={resolvedRegion.titlePrefix}
-                  districtName={resolvedRegion.districtName}
-                  data={regionData}
-                  middleCard={<PriceChangeTop5Card rising={data.rising} falling={data.falling} />}
-                />
-              ) : (
-                <PriceChangeTop5Card rising={data.rising} falling={data.falling} />
-              )}
+              {regionSection}
 
               {/* user는 로그인 복원 전 항상 null이므로, 로그인/선호지역
                   안내 배너는 isAuthInitialized가 true인 뒤에만 판단한다. */}

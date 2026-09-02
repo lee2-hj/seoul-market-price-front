@@ -3,25 +3,41 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import {
-  getBoardPostsApi,
+  getMyBoardPostsApi,
   getMyCommentsApi,
   type QnaPageResponse,
 } from "@/api/api";
 import apiMiddleware from "@/api/middleware";
 import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type ActivityType = "POST" | "COMMENT" | "QNA";
 
 const ACTIVITY_TAB_BASE_CLASS =
   "h-[40px] px-1.5 sm:px-4 rounded-[8px] border font-bold text-[12.5px] sm:text-[14px] cursor-pointer flex items-center justify-center text-center transition-all whitespace-nowrap";
-const ACTIVITY_TAB_ACTIVE_CLASS = "bg-[#0F8AA8] border-[#0F8AA8] text-white shadow-xs";
+const ACTIVITY_TAB_ACTIVE_CLASS = "data-[state=active]:bg-[#0F8AA8] data-[state=active]:border-[#0F8AA8] data-[state=active]:text-white data-[state=active]:shadow-xs";
 const ACTIVITY_TAB_INACTIVE_CLASS =
   "bg-white border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA]";
 const MY_ACTIVITY_TAB_KEY_PREFIX = "mypage_activity_tab_";
 
 const normalizeIdentity = (value?: string | null): string =>
   (value || "").trim().toLowerCase();
+
+// POST/COMMENT는 날짜+시간, QNA는 날짜만 표시하던 중복 삼항 로직을 일원화한 헬퍼.
+function formatActivityDate(
+  createdAt?: string | null,
+  options?: { includeTime?: boolean },
+): string {
+  if (!createdAt) return "-";
+  if (!createdAt.includes("T")) return createdAt;
+
+  const [datePart, timePart] = createdAt.split("T");
+  const formattedDate = datePart.replace(/-/g, ".");
+  return options?.includeTime && timePart
+    ? `${formattedDate} ${timePart.slice(0, 5)}`
+    : formattedDate;
+}
 
 async function getMyQnas() {
   const { data } = await apiMiddleware.get<QnaPageResponse>("/api/qnas/me", {
@@ -45,7 +61,7 @@ export default function MyActivityPage() {
     const nextType: ActivityType = savedType === "COMMENT" || savedType === "QNA"
       ? savedType
       : "POST";
-    queueMicrotask(() => setActivityType(nextType));
+    setActivityType(nextType);
   }, [activityTabKey]);
 
   const selectActivityType = (nextType: ActivityType) => {
@@ -53,39 +69,39 @@ export default function MyActivityPage() {
     sessionStorage.setItem(activityTabKey, nextType);
   };
 
-  // 실제 게시판 데이터 조회 (API 연동)
+  // 내가 작성한 게시글 조회 (GET /api/boards/me 연동)
   const {
-    data: boardData,
+    data: myBoardData,
     isLoading: isBoardLoading,
     isError: isBoardError,
   } = useQuery({
-    queryKey: ["myBoardPosts"],
-    queryFn: () => getBoardPostsApi({ page: 1, size: 100 }),
-    enabled: isLoggedIn,
+    queryKey: ["myBoardPosts", { userId: currentUserIdentity }],
+    queryFn: () => getMyBoardPostsApi({ page: 0, size: 100 }),
+    enabled: isLoggedIn && Boolean(currentUserIdentity),
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
   });
 
-  // 내가 작성한 게시글 필터링
   const myPosts = useMemo(() => {
-    if (!boardData?.items || !authUser) return [];
-    const currentName = normalizeIdentity(authUser.name);
-    const currentId = normalizeIdentity(authUser.userId);
-
-    return boardData.items.filter((item) => {
-      const author = normalizeIdentity(item.authorName);
-      return (currentName && author === currentName) || (currentId && author === currentId);
-    });
-  }, [boardData, authUser]);
+    return (myBoardData?.content ?? []).map((item) => ({
+      boardId: item.boardId || item.id || 0,
+      title: item.title || "게시글 제목",
+      postType: item.postType || (item.type as "NOTICE" | "GENERAL") || "GENERAL",
+      createdAt: item.createdAt || "",
+      viewCount: item.viewCount ?? item.hit ?? item.readCount ?? 0,
+    }));
+  }, [myBoardData]);
 
   const {
     data: myQnaData,
     isLoading: isMyQnasLoading,
     isError: isMyQnasError,
   } = useQuery({
-    queryKey: ["myQnas"],
+    queryKey: ["myQnas", { userId: currentUserIdentity }],
     queryFn: getMyQnas,
-    enabled: isLoggedIn,
+    enabled: isLoggedIn && Boolean(currentUserIdentity),
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 
   const myQnas = myQnaData?.content ?? [];
@@ -96,9 +112,11 @@ export default function MyActivityPage() {
     isLoading: isCommentsLoading,
     isError: isCommentsError,
   } = useQuery({
-    queryKey: ["myComments", currentUserIdentity],
+    queryKey: ["myComments", { userId: currentUserIdentity }],
     queryFn: () => getMyCommentsApi({ page: 0, size: 100 }),
     enabled: isLoggedIn && Boolean(currentUserIdentity),
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 
   const myComments = myCommentsData?.content ?? [];
@@ -109,9 +127,9 @@ export default function MyActivityPage() {
     count: number;
     isLoading: boolean;
   }> = [
-    { type: "POST", label: "작성한 게시글", count: myPosts.length, isLoading: isBoardLoading },
-    { type: "COMMENT", label: "작성한 댓글", count: myComments.length, isLoading: isCommentsLoading },
-    { type: "QNA", label: "질의응답", count: myQnas.length, isLoading: isMyQnasLoading },
+    { type: "POST", label: "작성한 게시글", count: myBoardData?.totalElements ?? myPosts.length, isLoading: isBoardLoading },
+    { type: "COMMENT", label: "작성한 댓글", count: myCommentsData?.totalElements ?? myComments.length, isLoading: isCommentsLoading },
+    { type: "QNA", label: "질의응답", count: myQnaData?.totalElements ?? myQnas.length, isLoading: isMyQnasLoading },
   ];
 
   return (
@@ -124,31 +142,29 @@ export default function MyActivityPage() {
           </p>
         </div>
 
+        <Tabs
+          value={activityType}
+          onValueChange={(value) => selectActivityType(value as ActivityType)}
+        >
         {/* 내 활동 서브 탭: 모바일에서는 3등분 그리드로 한눈에 표시 */}
-        <div className="grid grid-cols-3 gap-1.5 sm:flex sm:items-center sm:gap-2 pb-3 border-b border-[#DCE8ED]">
+        <TabsList className="grid h-auto w-full grid-cols-3 gap-1.5 rounded-none border-0 border-b border-[#DCE8ED] bg-transparent p-0 pb-3 sm:flex sm:w-auto sm:items-center sm:gap-2">
           {activityTabs.map((tab) => (
-            <button
+            <TabsTrigger
               key={tab.type}
-              type="button"
-              onClick={() => selectActivityType(tab.type)}
-              className={`${ACTIVITY_TAB_BASE_CLASS} ${
-                activityType === tab.type
-                  ? ACTIVITY_TAB_ACTIVE_CLASS
-                  : ACTIVITY_TAB_INACTIVE_CLASS
-              }`}
+              value={tab.type}
+              className={`${ACTIVITY_TAB_BASE_CLASS} ${ACTIVITY_TAB_ACTIVE_CLASS} ${ACTIVITY_TAB_INACTIVE_CLASS}`}
             >
               <span>{tab.label}</span>
               {isLoggedIn && !tab.isLoading && (
                 <span className="hidden sm:inline ml-1 opacity-90">({tab.count})</span>
               )}
-            </button>
+            </TabsTrigger>
           ))}
-        </div>
+        </TabsList>
 
         {/* 실제 게시글/댓글 목록 리스트 */}
-        <div className="border border-[#DCE8ED] rounded-[10px] divide-y divide-[#DCE8ED] bg-white overflow-hidden">
-          {activityType === "POST" && (
-            <>
+        <div className="border border-[#DCE8ED] rounded-[10px] divide-y divide-[#DCE8ED] bg-white overflow-hidden mt-6">
+          <TabsContent value="POST" className="m-0">
               {isBoardLoading ? (
                 <div className="p-12 text-center text-[#6B7280] text-[14px]">
                   내가 작성한 게시글을 불러오는 중입니다...
@@ -164,16 +180,13 @@ export default function MyActivityPage() {
                 </div>
               ) : myPosts.length > 0 ? (
                 myPosts.map((post) => {
-                  const formattedDate = post.createdAt?.includes("T")
-                    ? `${post.createdAt.split("T")[0].replace(/-/g, ".")} ${post.createdAt.split("T")[1].slice(0, 5)}`
-                    : post.createdAt;
+                  const formattedDate = formatActivityDate(post.createdAt, { includeTime: true });
 
                   return (
                     <Link
                       key={post.boardId}
                       to={`/board/${post.boardId}`}
                       className="flex items-center justify-between p-5 hover:bg-[#F0F7FA] transition-colors group no-underline text-inherit"
-                      style={{ textDecoration: "none", color: "inherit" }}
                     >
                       <div className="min-w-0 pr-4">
                         <div className="flex items-center gap-2">
@@ -206,17 +219,14 @@ export default function MyActivityPage() {
                   <Link
                     to="/board/write"
                     className="inline-block px-5 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[13px] font-bold rounded-[8px] transition-colors shadow-xs no-underline"
-                    style={{ textDecoration: "none" }}
                   >
                     새 게시글 작성하러 가기 →
                   </Link>
                 </div>
               )}
-            </>
-          )}
+          </TabsContent>
 
-          {activityType === "COMMENT" && (
-            <>
+          <TabsContent value="COMMENT" className="m-0">
               {isCommentsLoading ? (
                 <div className="p-12 text-center text-[#6B7280] text-[14px]">
                   내가 작성한 댓글을 불러오는 중입니다...
@@ -232,16 +242,13 @@ export default function MyActivityPage() {
                 </div>
               ) : myComments.length > 0 ? (
                 myComments.map((comment) => {
-                  const formattedDate = comment.createdAt?.includes("T")
-                    ? `${comment.createdAt.split("T")[0].replace(/-/g, ".")} ${comment.createdAt.split("T")[1].slice(0, 5)}`
-                    : comment.createdAt || "-";
+                  const formattedDate = formatActivityDate(comment.createdAt, { includeTime: true });
 
                   return (
                     <Link
                       key={`${comment.postId}-${comment.id}`}
                       to={`/board/${comment.postId}`}
                       className="flex items-center justify-between p-5 hover:bg-[#F0F7FA] transition-colors group no-underline text-inherit"
-                      style={{ textDecoration: "none", color: "inherit" }}
                     >
                       <div className="min-w-0 pr-4">
                         <div className="flex items-center gap-2">
@@ -274,17 +281,14 @@ export default function MyActivityPage() {
                   <Link
                     to="/board"
                     className="inline-block px-5 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[13px] font-bold rounded-[8px] transition-colors shadow-xs no-underline"
-                    style={{ textDecoration: "none" }}
                   >
                     게시판 둘러보기 →
                   </Link>
                 </div>
               )}
-            </>
-          )}
+          </TabsContent>
 
-          {activityType === "QNA" && (
-            <>
+          <TabsContent value="QNA" className="m-0">
               {isMyQnasLoading ? (
                 <div className="p-12 text-center text-[#6B7280] text-[14px]">
                   내가 작성한 질의응답을 불러오는 중입니다...
@@ -302,16 +306,13 @@ export default function MyActivityPage() {
                 myQnas.map((qna) => {
                   const isAnswered =
                     qna.answerStatus === "ANSWERED" || Boolean(qna.answeredAt);
-                  const formattedDate = qna.createdAt?.includes("T")
-                    ? qna.createdAt.split("T")[0].replace(/-/g, ".")
-                    : qna.createdAt || "-";
+                  const formattedDate = formatActivityDate(qna.createdAt);
 
                   return (
                     <Link
                       key={qna.id}
                       to={`/qna/${qna.id}`}
                       className="flex items-center justify-between p-5 hover:bg-[#F0F7FA] transition-colors group no-underline text-inherit"
-                      style={{ textDecoration: "none", color: "inherit" }}
                     >
                       <div className="min-w-0 pr-4">
                         <div className="flex items-center gap-2">
@@ -355,15 +356,14 @@ export default function MyActivityPage() {
                   <Link
                     to="/qna/write"
                     className="inline-block px-5 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[13px] font-bold rounded-[8px] transition-colors shadow-xs no-underline"
-                    style={{ textDecoration: "none" }}
                   >
                     질의응답 작성하러 가기 →
                   </Link>
                 </div>
               )}
-            </>
-          )}
+          </TabsContent>
         </div>
+        </Tabs>
       </div>
     </div>
   );

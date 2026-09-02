@@ -5,6 +5,7 @@ import {
   searchNaturalWithAiApi,
   type AiSearchResponse,
   type DongRegionResponse,
+  type NaturalApartmentCandidate,
 } from "@/api/api";
 import { toAiDisplayResult } from "@/features/main/utils/aiSearchMappers";
 
@@ -23,6 +24,7 @@ export function useAiPriceQuestion() {
   const [candidateStep, setCandidateStep] = useState(0);
   const [selectedRegions, setSelectedRegions] = useState<DongRegionResponse[]>([]);
   const [singleCandidates, setSingleCandidates] = useState<DongRegionResponse[]>([]);
+  const [apartmentCandidates, setApartmentCandidates] = useState<NaturalApartmentCandidate[]>([]);
   const lastQuestionRef = useRef("");
   const requestInFlightRef = useRef(false);
 
@@ -46,6 +48,10 @@ export function useAiPriceQuestion() {
       }
 
       if (response.status === "NEED_CLARIFICATION") {
+        if (response.apartmentCandidates && response.apartmentCandidates.length > 0) {
+          setApartmentCandidates(response.apartmentCandidates);
+          return;
+        }
         const slots = [...new Set(response.candidates.map((candidate) => candidate.slot))];
         const groups = slots.map((slot) => response.candidates.filter((candidate) => candidate.slot === slot));
         if (groups.length === 1) {
@@ -100,6 +106,11 @@ export function useAiPriceQuestion() {
     void runQuestion(`${candidate.sggName} ${candidate.dongName} 가격 알려줘`);
   }, [runQuestion]);
 
+  const chooseApartmentCandidate = useCallback((candidate: NaturalApartmentCandidate) => {
+    setApartmentCandidates([]);
+    void runQuestion(`${candidate.sggName} ${candidate.dongName} ${candidate.apartmentName} 아파트 시세 알려줘`);
+  }, [runQuestion]);
+
   const chooseCandidate = useCallback((candidate: DongRegionResponse) => {
     const next = [...selectedRegions];
     next[candidateStep] = candidate;
@@ -128,14 +139,16 @@ export function useAiPriceQuestion() {
     error,
     isLoading,
     singleCandidates,
+    apartmentCandidates,
     candidateGroups,
     candidateStep,
     submit,
     retry: () => lastQuestionRef.current && void runQuestion(lastQuestionRef.current),
     chooseSingleCandidate,
+    chooseApartmentCandidate,
     chooseCandidate,
     closeResult: () => setResult(null),
-    closeCandidates: () => { setSingleCandidates([]); setCandidateGroups([]); },
+    closeCandidates: () => { setSingleCandidates([]); setCandidateGroups([]); setApartmentCandidates([]); },
     clearMessage: () => { setError(""); },
   };
 }
