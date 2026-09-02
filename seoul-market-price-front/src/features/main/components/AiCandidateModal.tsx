@@ -4,19 +4,17 @@ import type { DongRegionResponse } from "@/api/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export function AiCandidateModal({
-  open,
   candidates,
   onChoose,
   onClose,
 }: {
-  open: boolean;
   candidates: DongRegionResponse[];
   onChoose: (candidate: DongRegionResponse) => void;
   onClose: () => void;
 }) {
   const requestedName = candidates[0]?.requestedName ?? "입력한 지역";
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent className="max-w-md rounded-2xl border border-[#DCE8ED] p-5 md:p-6">
         <DialogHeader className="space-y-0 text-left">
           <p className="m-0 text-xs font-black tracking-[0.14em] text-[#0F8AA8]">SELECT REGION</p>
