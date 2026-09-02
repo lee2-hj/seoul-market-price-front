@@ -13,19 +13,17 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import type { AiSearchResponse } from "@/api/api";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { formatAiMoneyText } from "@/features/main/utils/aiSearchMappers";
 
 const AI_MODEL_LABEL = import.meta.env.VITE_AI_MODEL || "gpt-5.6-luna";
 
 export function AiResultModal({
-  open,
   result,
   question,
   onClose,
 }: {
-  open: boolean;
-  result: AiSearchResponse | null;
+  result: AiSearchResponse;
   question: string;
   onClose: () => void;
 }) {
