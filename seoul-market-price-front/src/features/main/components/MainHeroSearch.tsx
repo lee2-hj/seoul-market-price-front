@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { Bot, Info, LoaderCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { AiApartmentCandidateModal } from "@/features/main/components/AiApartmen
 import { AiResultModal } from "@/features/main/components/AiResultModal";
 import { useAiPriceQuestion } from "@/features/main/hooks/useAiPriceQuestion";
 
-export function MainHeroSearch() {
+function MainHeroSearchComponent() {
   const user = useAuthStore((state) => state.user);
   const ai = useAiPriceQuestion();
   const [hasSubmittedAsGuest, setHasSubmittedAsGuest] = useState(false);
@@ -165,3 +165,7 @@ export function MainHeroSearch() {
     </section>
   );
 }
+
+// MainPage가 검색과 무관한 사유(쿼리 데이터 갱신 등)로 리렌더링될 때
+// props가 없는 이 컴포넌트까지 함께 재실행되는 것을 막는다.
+export const MainHeroSearch = memo(MainHeroSearchComponent);
