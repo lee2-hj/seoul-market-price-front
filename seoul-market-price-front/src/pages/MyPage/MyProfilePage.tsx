@@ -13,8 +13,11 @@ import {
   type MemberUpdateRequest,
 } from "@/api/api";
 import apiMiddleware from "@/api/middleware";
-import { getSggs } from "@/features/location/services/locationService";
+import { useDistricts } from "@/hooks/useDistricts";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { REGION_STORAGE_KEY } from "@/features/region-map/utils/regionSelection";
 import { usePassAuth } from "./hooks/usePassAuth";
 import { usePasswordChangeModal } from "./hooks/usePasswordChangeModal";
@@ -273,11 +276,7 @@ export default function MyProfilePage() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const { data: sggs = [], isLoading: isSggsLoading } = useQuery({
-    queryKey: ["location", "sggs"],
-    queryFn: getSggs,
-    staleTime: Infinity,
-  });
+  const { data: sggs = [], isLoading: isSggsLoading } = useDistricts();
 
   // 초기 프로필 로드
   const [profile, setProfile] = useState<Profile>(() => {
@@ -365,6 +364,7 @@ export default function MyProfilePage() {
   // 3. 회원 탈퇴 모달 훅
   const {
     isWithdrawModalOpen,
+    isSocialConfirmOpen,
     withdrawPassword,
     withdrawError,
     isWithdrawing,
@@ -372,6 +372,8 @@ export default function MyProfilePage() {
     handleClickWithdraw,
     handleCloseWithdrawModal,
     handleConfirmWithdrawWithPassword,
+    handleConfirmSocialWithdraw,
+    handleCancelSocialWithdraw,
   } = useWithdrawModal({
     isLoggedIn,
     isSocialUser,
@@ -745,11 +747,11 @@ export default function MyProfilePage() {
                 <div className="flex flex-col md:flex-row gap-4 w-full">
                   <div className="space-y-1.5 flex-1 w-full md:w-1/2">
                     <label className="text-[14px] font-bold text-[#13202B] block">아이디</label>
-                    <input
+                    <Input
                       {...register("userId")}
                       readOnly
                       placeholder="아이디 정보가 없습니다"
-                      className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-[#F0F7FA] px-3.5 text-[15px] text-[#6B7280] cursor-not-allowed outline-none box-border m-0 font-medium"
+                      className="h-[48px] rounded-[8px] border-[#DCE8ED] bg-[#F0F7FA] text-[15px] text-[#6B7280] cursor-not-allowed font-medium"
                     />
                   </div>
 
@@ -766,18 +768,18 @@ export default function MyProfilePage() {
                         </span>
                       )}
                     </div>
-                    <button
+                    <Button
                       type="button"
                       disabled={!isLoggedIn || !phoneVerified}
                       onClick={handleOpenPasswordModal}
-                      className={`w-full h-[48px] rounded-[8px] border font-bold text-[14px] transition-all box-border m-0 shadow-xs flex items-center justify-center ${
+                      className={`h-[48px] w-full rounded-[8px] border font-bold text-[14px] shadow-xs ${
                         phoneVerified
-                          ? "bg-[#0F8AA8] hover:bg-[#0B5E73] text-white border-[#0F8AA8] cursor-pointer"
-                          : "bg-[#F0F7FA] text-[#6B7280] border-[#DCE8ED] cursor-not-allowed select-none opacity-85"
+                          ? "bg-[#0F8AA8] hover:bg-[#0B5E73] text-white border-[#0F8AA8]"
+                          : "bg-[#F0F7FA] text-[#6B7280] border-[#DCE8ED] select-none opacity-85"
                       }`}
                     >
                       비밀번호 변경하기
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -796,7 +798,7 @@ export default function MyProfilePage() {
                     </span>
                   )}
                 </div>
-                <input
+                <Input
                   {...register("name", {
                     onChange: (e) => {
                       const val = e.target.value.replace(/[^a-zA-Z가-힣ㄱ-ㅎㅏ-ㅣ]/g, "");
@@ -810,9 +812,9 @@ export default function MyProfilePage() {
                       ? "이름을 입력해주세요 (숫자, 공백 불가)"
                       : "본인인증 시 실명이 자동 입력됩니다"
                   }
-                  className={`w-full h-[48px] rounded-[8px] border border-[#DCE8ED] px-3.5 text-[15px] outline-none box-border m-0 transition-colors ${
+                  className={`h-[48px] rounded-[8px] border-[#DCE8ED] text-[15px] ${
                     phoneVerified
-                      ? "bg-white text-[#13202B] focus:border-[#0F8AA8]"
+                      ? "bg-white text-[#13202B] focus-visible:border-[#0F8AA8]"
                       : "bg-[#F0F7FA] text-[#6B7280] cursor-not-allowed"
                   }`}
                 />
@@ -834,12 +836,12 @@ export default function MyProfilePage() {
                   )}
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
-                  <input
+                  <Input
                     {...register("phone")}
                     readOnly
                     disabled={!isLoggedIn}
                     placeholder="본인인증 시 번호가 자동 입력됩니다"
-                    className="flex-1 h-[48px] rounded-[8px] border border-[#DCE8ED] bg-[#F0F7FA] px-3.5 text-[15px] text-[#13202B] outline-none cursor-not-allowed font-medium"
+                    className="h-[48px] flex-1 rounded-[8px] border-[#DCE8ED] bg-[#F0F7FA] text-[15px] text-[#13202B] cursor-not-allowed font-medium"
                   />
                   <PassAuth
                     phone={formValues.phone || ""}
@@ -855,12 +857,12 @@ export default function MyProfilePage() {
               {/* ROW 4: 이메일 주소 (인증 없이 직접 입력) */}
               <div className="space-y-1.5 w-full">
                 <label className="text-[14px] font-bold text-[#13202B] block">이메일 주소</label>
-                <input
+                <Input
                   {...register("email")}
                   type="email"
                   disabled={!isLoggedIn}
                   placeholder="이메일 주소를 입력해 주세요 (예: user@example.com)"
-                  className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
+                  className="h-[48px] rounded-[8px] border-[#DCE8ED] bg-white text-[15px] text-[#13202B] focus-visible:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
                 />
               </div>
 
@@ -868,7 +870,7 @@ export default function MyProfilePage() {
               <div className="flex flex-col md:flex-row gap-4 w-full">
                 <div className="space-y-1.5 flex-1 w-full md:w-1/2">
                   <label className="text-[14px] font-bold text-[#13202B] block">기본 주소</label>
-                  <input
+                  <Input
                     {...register("address", {
                       onChange: (e) => {
                         const cleaned = sanitizeAddress(e.target.value);
@@ -877,13 +879,13 @@ export default function MyProfilePage() {
                     })}
                     disabled={!isLoggedIn}
                     placeholder="기본 주소를 입력해 주세요 (특수문자 제외)"
-                    className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA]"
+                    className="h-[48px] rounded-[8px] border-[#DCE8ED] bg-white text-[15px] text-[#13202B] focus-visible:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
                   />
                 </div>
 
                 <div className="space-y-1.5 flex-1 w-full md:w-1/2">
                   <label className="text-[14px] font-bold text-[#13202B] block">상세 주소</label>
-                  <input
+                  <Input
                     {...register("detailAddress", {
                       onChange: (e) => {
                         const cleaned = sanitizeAddress(e.target.value);
@@ -892,7 +894,7 @@ export default function MyProfilePage() {
                     })}
                     disabled={!isLoggedIn}
                     placeholder="상세 주소(동, 호수 등)를 입력해 주세요"
-                    className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA]"
+                    className="h-[48px] rounded-[8px] border-[#DCE8ED] bg-white text-[15px] text-[#13202B] focus-visible:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
                   />
                 </div>
               </div>
@@ -932,21 +934,22 @@ export default function MyProfilePage() {
           ======================================================== */}
           <div className="pt-8 border-t border-[#DCE8ED] text-center">
             <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3">
-              <button
+              <Button
                 type="submit"
                 disabled={!isLoggedIn || updateMemberMutation.isPending}
-                className="w-full sm:w-auto order-1 sm:order-2 h-[52px] px-10 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[16px] font-bold rounded-[8px] border-none outline-none cursor-pointer transition-colors shadow-xs disabled:opacity-50"
+                className="order-1 h-[52px] w-full bg-[#0F8AA8] px-10 text-[16px] text-white shadow-xs hover:bg-[#0B5E73] sm:order-2 sm:w-auto"
               >
                 {updateMemberMutation.isPending ? "저장 중..." : "회원 정보 저장"}
-              </button>
+              </Button>
               {isFormDirty && (
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={handleCancelChanges}
-                  className="w-full sm:w-auto order-2 sm:order-1 h-[52px] px-8 bg-white hover:bg-[#F0F7FA] text-[#6B7280] border border-[#DCE8ED] text-[15px] font-bold rounded-[8px] cursor-pointer transition-all shadow-xs"
+                  className="order-2 h-[52px] w-full border-[#DCE8ED] px-8 text-[15px] text-[#6B7280] shadow-xs hover:bg-[#F0F7FA] sm:order-1 sm:w-auto"
                 >
                   변경 취소
-                </button>
+                </Button>
               )}
             </div>
             <p className="text-[13px] text-[#6B7280] mt-2">
@@ -962,14 +965,15 @@ export default function MyProfilePage() {
                 탈퇴 후에도 작성한 게시글과 댓글은 유지되며, 계정 정보는 복구할 수 없습니다.
               </p>
             </div>
-            <button
+            <Button
               type="button"
+              variant="outline"
               disabled={!isLoggedIn}
               onClick={handleClickWithdraw}
-              className="h-[44px] px-5 border border-[#d96666] bg-white text-[#c54e4e] hover:bg-[#fff0f0] font-bold text-[14px] rounded-[8px] cursor-pointer whitespace-nowrap transition-colors disabled:opacity-50"
+              className="h-[44px] whitespace-nowrap border-[#d96666] bg-white px-5 text-[14px] text-[#c54e4e] hover:bg-[#fff0f0]"
             >
               회원 탈퇴
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -1001,6 +1005,19 @@ export default function MyProfilePage() {
         }}
         onConfirm={handleConfirmWithdrawWithPassword}
         onClose={handleCloseWithdrawModal}
+      />
+
+      {/* 소셜 회원 탈퇴 2차 확인 */}
+      <ConfirmDialog
+        open={isSocialConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open) handleCancelSocialWithdraw();
+        }}
+        title="회원 탈퇴"
+        description="정말로 회원 탈퇴를 진행하시겠습니까? 탈퇴 후에도 작성한 게시글과 댓글은 유지됩니다."
+        isDestructive
+        confirmText="탈퇴"
+        onConfirm={handleConfirmSocialWithdraw}
       />
     </div>
   );

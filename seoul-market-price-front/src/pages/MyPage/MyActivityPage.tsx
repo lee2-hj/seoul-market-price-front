@@ -10,12 +10,13 @@ import {
 import apiMiddleware from "@/api/middleware";
 import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type ActivityType = "POST" | "COMMENT" | "QNA";
 
 const ACTIVITY_TAB_BASE_CLASS =
   "h-[40px] px-1.5 sm:px-4 rounded-[8px] border font-bold text-[12.5px] sm:text-[14px] cursor-pointer flex items-center justify-center text-center transition-all whitespace-nowrap";
-const ACTIVITY_TAB_ACTIVE_CLASS = "bg-[#0F8AA8] border-[#0F8AA8] text-white shadow-xs";
+const ACTIVITY_TAB_ACTIVE_CLASS = "data-[state=active]:bg-[#0F8AA8] data-[state=active]:border-[#0F8AA8] data-[state=active]:text-white data-[state=active]:shadow-xs";
 const ACTIVITY_TAB_INACTIVE_CLASS =
   "bg-white border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA]";
 const MY_ACTIVITY_TAB_KEY_PREFIX = "mypage_activity_tab_";
@@ -86,6 +87,8 @@ export default function MyActivityPage() {
     queryKey: ["myQnas"],
     queryFn: getMyQnas,
     enabled: isLoggedIn,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 
   const myQnas = myQnaData?.content ?? [];
@@ -96,9 +99,11 @@ export default function MyActivityPage() {
     isLoading: isCommentsLoading,
     isError: isCommentsError,
   } = useQuery({
-    queryKey: ["myComments", currentUserIdentity],
+    queryKey: ["myComments", { userId: currentUserIdentity }],
     queryFn: () => getMyCommentsApi({ page: 0, size: 100 }),
     enabled: isLoggedIn && Boolean(currentUserIdentity),
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 
   const myComments = myCommentsData?.content ?? [];
@@ -124,30 +129,29 @@ export default function MyActivityPage() {
           </p>
         </div>
 
+        <Tabs
+          value={activityType}
+          onValueChange={(value) => selectActivityType(value as ActivityType)}
+        >
         {/* 내 활동 서브 탭: 모바일에서는 3등분 그리드로 한눈에 표시 */}
-        <div className="grid grid-cols-3 gap-1.5 sm:flex sm:items-center sm:gap-2 pb-3 border-b border-[#DCE8ED]">
+        <TabsList className="grid h-auto w-full grid-cols-3 gap-1.5 rounded-none border-0 border-b border-[#DCE8ED] bg-transparent p-0 pb-3 sm:flex sm:w-auto sm:items-center sm:gap-2">
           {activityTabs.map((tab) => (
-            <button
+            <TabsTrigger
               key={tab.type}
-              type="button"
-              onClick={() => selectActivityType(tab.type)}
-              className={`${ACTIVITY_TAB_BASE_CLASS} ${
-                activityType === tab.type
-                  ? ACTIVITY_TAB_ACTIVE_CLASS
-                  : ACTIVITY_TAB_INACTIVE_CLASS
-              }`}
+              value={tab.type}
+              className={`${ACTIVITY_TAB_BASE_CLASS} ${ACTIVITY_TAB_ACTIVE_CLASS} ${ACTIVITY_TAB_INACTIVE_CLASS}`}
             >
               <span>{tab.label}</span>
               {isLoggedIn && !tab.isLoading && (
                 <span className="hidden sm:inline ml-1 opacity-90">({tab.count})</span>
               )}
-            </button>
+            </TabsTrigger>
           ))}
-        </div>
+        </TabsList>
 
         {/* 실제 게시글/댓글 목록 리스트 */}
-        <div className="border border-[#DCE8ED] rounded-[10px] divide-y divide-[#DCE8ED] bg-white overflow-hidden">
-          {activityType === "POST" && (
+        <div className="border border-[#DCE8ED] rounded-[10px] divide-y divide-[#DCE8ED] bg-white overflow-hidden mt-6">
+          <TabsContent value="POST" className="m-0">
             <>
               {isBoardLoading ? (
                 <div className="p-12 text-center text-[#6B7280] text-[14px]">
@@ -213,9 +217,9 @@ export default function MyActivityPage() {
                 </div>
               )}
             </>
-          )}
+          </TabsContent>
 
-          {activityType === "COMMENT" && (
+          <TabsContent value="COMMENT" className="m-0">
             <>
               {isCommentsLoading ? (
                 <div className="p-12 text-center text-[#6B7280] text-[14px]">
@@ -281,9 +285,9 @@ export default function MyActivityPage() {
                 </div>
               )}
             </>
-          )}
+          </TabsContent>
 
-          {activityType === "QNA" && (
+          <TabsContent value="QNA" className="m-0">
             <>
               {isMyQnasLoading ? (
                 <div className="p-12 text-center text-[#6B7280] text-[14px]">
@@ -362,8 +366,9 @@ export default function MyActivityPage() {
                 </div>
               )}
             </>
-          )}
+          </TabsContent>
         </div>
+        </Tabs>
       </div>
     </div>
   );
