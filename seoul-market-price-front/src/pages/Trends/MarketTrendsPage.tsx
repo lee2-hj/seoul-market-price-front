@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useForm } from "react-hook-form";
 import { Chart } from "react-google-charts";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
@@ -15,6 +16,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import type {
+  ApartmentTrendPeriod,
+  MarketTrendsFilterState,
+} from "@/features/trends/types/marketTrends.types";
 
 const EMPTY_VALUE = "__all__";
 const TRENDS_SESSION_KEY = "market_trends_query";
@@ -51,16 +58,6 @@ const formatEokAmount = (amount: number | null | undefined) => {
   if (!Number.isFinite(value)) return "-";
   return `${(value / 10_000).toFixed(1)}억`;
 };
-interface ApartmentTrendPeriod {
-  biweekly_period?: string;
-  period_label?: string;
-  start_date?: string;
-  end_date?: string;
-  deal_count?: number | null;
-  deal_cnt?: number | null;
-  avg_price?: number | null;
-  avg_trade_amount?: number | null;
-}
 const formatTrendDate = (date: string) => {
   const match = date.match(/\d{4}-(\d{2})-(\d{2})/);
   return match ? `${match[1]}.${match[2]}` : date;
@@ -88,10 +85,22 @@ function EmptyState({ message }: { message: string }) {
 
 export default function MarketTrendsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [sggCd, setSggCd] = useState(searchParams.get("sggCd") ?? "");
-  const [dongCd, setDongCd] = useState(searchParams.get("dongCd") ?? "");
-  const [keyword, setKeyword] = useState(searchParams.get("aptName") ?? "");
-  const [debouncedKeyword, setDebouncedKeyword] = useState(keyword);
+
+  // 필터 상태(구/동/아파트명 키워드) 통합 관리. guInput/dongInput 등 콤보박스 표시용 텍스트와
+  // 드롭다운 열림/하이라이트 상태는 필터 값이 아니라 UI 로컬 상태이므로 별도 useState로 유지한다.
+  const filterForm = useForm<MarketTrendsFilterState>({
+    defaultValues: {
+      sggCd: searchParams.get("sggCd") ?? "",
+      dongCd: searchParams.get("dongCd") ?? "",
+      keyword: searchParams.get("aptName") ?? "",
+    },
+  });
+  const { watch: watchFilter, setValue: setFilterValue, reset: resetFilterForm } = filterForm;
+  const sggCd = watchFilter("sggCd");
+  const dongCd = watchFilter("dongCd");
+  const keyword = watchFilter("keyword");
+  const debouncedKeyword = useDebouncedValue(keyword, 300);
+
   const [selectedApartment, setSelectedApartment] = useState<ApartmentAutocompleteItem | null>(() => getApartmentFromSearchParams(searchParams));
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [submittedApartment, setSubmittedApartment] = useState<ApartmentAutocompleteItem | null>(() => getApartmentFromSearchParams(searchParams));
@@ -138,10 +147,7 @@ export default function MarketTrendsPage() {
     const restoredAptName = searchParams.get("aptName") ?? "";
 
     queueMicrotask(() => {
-      setSggCd(restoredSggCd);
-      setDongCd(restoredDongCd);
-      setKeyword(restoredAptName);
-      setDebouncedKeyword(restoredAptName);
+      resetFilterForm({ sggCd: restoredSggCd, dongCd: restoredDongCd, keyword: restoredAptName });
       setSelectedApartment(restoredApartment);
       setSubmittedApartment(restoredApartment);
       if (!restoredApartment) {
@@ -171,12 +177,8 @@ export default function MarketTrendsPage() {
     };
   }, []);
 
-  useEffect(() => {
-    const id = window.setTimeout(() => setDebouncedKeyword(keyword), 300);
-    return () => window.clearTimeout(id);
-  }, [keyword]);
 
-  const { data: sggs = [] } = useQuery({ queryKey: ["trendSggs"], queryFn: getSggsApi, staleTime: 1800000 });
+  const { data: sggs = [] } = useQuery({ queryKey: ["trendSggs"], queryFn: getSggsApi, staleTime: Infinity });
   const selectedGuName = sggs.find((item) => item.sggCd === sggCd)?.sggNm ?? "";
   const filteredSggs = useMemo(() => {
     const query = guInput.trim().toLowerCase();
@@ -195,7 +197,7 @@ export default function MarketTrendsPage() {
     return () => document.removeEventListener("mousedown", closeDropdown);
   }, []);
   const { data: dongs = [] } = useQuery({
-    queryKey: ["trendDongs", sggCd], queryFn: () => getDongsApi(sggCd), enabled: Boolean(sggCd), staleTime: 1800000,
+    queryKey: ["trendDongs", { sggCd }], queryFn: () => getDongsApi(sggCd), enabled: Boolean(sggCd), staleTime: Infinity,
   });
   const selectedDongName = dongs.find((item) => item.dongCd.slice(-5) === dongCd)?.dongNm ?? "";
   const filteredDongs = useMemo(() => {
@@ -206,7 +208,10 @@ export default function MarketTrendsPage() {
     return dongs.filter((item) => item.dongNm.toLowerCase().includes(query));
   }, [dongInput, selectedDongName, dongs]);
   const autocomplete = useQuery({
-    queryKey: ["trendAutocomplete", debouncedKeyword, sggCd, dongCd, selectedApartment?.aptName],
+    queryKey: [
+      "trendAutocomplete",
+      { keyword: debouncedKeyword, sggCd, dongCd, selectedAptName: selectedApartment?.aptName },
+    ],
     queryFn: () =>
       searchApartmentAutocompleteApi({
         aptName: debouncedKeyword === selectedApartment?.aptName ? "" : debouncedKeyword,
@@ -217,7 +222,18 @@ export default function MarketTrendsPage() {
     staleTime: 30000,
   });
   const trend = useQuery({
-    queryKey: ["apartmentMarketTrend", submittedApartment && apartmentKey(submittedApartment)],
+    queryKey: [
+      "apartmentMarketTrend",
+      submittedApartment
+        ? {
+            sggCd: submittedApartment.sggCd,
+            dongCd: submittedApartment.dongCd,
+            aptName: submittedApartment.aptName,
+            mno: submittedApartment.mno,
+            sno: submittedApartment.sno,
+          }
+        : null,
+    ],
     queryFn: () => getApartmentMarketTrendApi({
       guCode: submittedApartment!.sggCd, dongCode: submittedApartment!.dongCd,
       aptName: submittedApartment!.aptName, mno: submittedApartment!.mno, sno: submittedApartment!.sno,
@@ -234,13 +250,12 @@ export default function MarketTrendsPage() {
       sessionStorage.removeItem(TRENDS_SESSION_KEY);
       setGuInput("");
     }
-    setSggCd(code);
-    setDongCd("");
+    setFilterValue("sggCd", code);
+    setFilterValue("dongCd", "");
     setDongInput("");
     setIsDongDropdownOpen(false);
     setDongHighlight(-1);
-    setKeyword("");
-    setDebouncedKeyword("");
+    setFilterValue("keyword", "");
     setSelectedApartment(null);
     setSubmittedApartment(null);
     setDropdownOpen(false);
@@ -263,9 +278,8 @@ export default function MarketTrendsPage() {
     if (!code) {
       setDongInput("");
     }
-    setDongCd(code);
-    setKeyword("");
-    setDebouncedKeyword("");
+    setFilterValue("dongCd", code);
+    setFilterValue("keyword", "");
     setSelectedApartment(null);
     setSubmittedApartment(null);
     setDropdownOpen(false);
@@ -307,7 +321,7 @@ export default function MarketTrendsPage() {
   };
   const selectApartment = (apt: ApartmentAutocompleteItem) => {
     setSelectedApartment(apt);
-    setKeyword(apt.aptName);
+    setFilterValue("keyword", apt.aptName);
     setDropdownOpen(false);
     setApartmentHighlight(-1);
   };
@@ -332,10 +346,7 @@ export default function MarketTrendsPage() {
     setIsAreaDealsModalOpen(false);
     setGuInput("");
     setDongInput("");
-    setSggCd("");
-    setDongCd("");
-    setKeyword("");
-    setDebouncedKeyword("");
+    resetFilterForm({ sggCd: "", dongCd: "", keyword: "" });
     setSelectedApartment(null);
     setSubmittedApartment(null);
     setDropdownOpen(false);
@@ -472,9 +483,9 @@ export default function MarketTrendsPage() {
   return <div className="tw-scope [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]"><SectionSidebarLayout sectionTitle={TRENDS_NAVIGATION.sectionTitle} menuItems={TRENDS_NAVIGATION.menuItems}>
     <div className="space-y-1"><h1 className="text-[24px] font-extrabold text-[#0F172A]">아파트별 거래동향</h1><p className="text-[13px] text-[#64748B]">관심 아파트의 실거래 추이와 가격 변화를 확인하세요.</p></div>
     <Card className="rounded-xl border-[#E2E8F0] shadow-none"><CardContent className="p-4 sm:p-5"><div className="grid grid-cols-1 gap-3 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto_auto] lg:items-start">
-      <div ref={guContainerRef} className="w-full"><Input value={guInput || selectedGuName} onFocus={() => { setIsGuDropdownOpen(true); setGuHighlight(-1); }} onClick={(e) => { setIsGuDropdownOpen(true); e.currentTarget.select(); }} onChange={(event) => { const nextVal = event.target.value; setGuInput(nextVal); setIsGuDropdownOpen(true); setGuHighlight(-1); if (sggCd && nextVal !== selectedGuName) { setSggCd(""); setDongCd(""); setDongInput(""); } }} onKeyDown={handleGuKeyDown} placeholder="구 선택" className="h-11 rounded-lg border-[#DCE8ED] bg-white focus-visible:border-[#0F8AA8] focus-visible:ring-[#0F8AA8]/20" />{isGuDropdownOpen && <div className="mt-2 max-h-[260px] overflow-y-auto rounded-lg border border-[#E2E8F0] bg-white py-1 shadow-sm"><Button type="button" variant="ghost" onClick={() => { setGuInput(""); chooseGu(""); setIsGuDropdownOpen(false); }} className={`h-auto w-full justify-between rounded-none border-x-0 border-b border-t-0 border-[#F1F5F9] px-4 py-2.5 last:border-b-0 hover:bg-[#EFF6FF] ${!sggCd ? "bg-[#EFF6FF]" : ""}`}>선택 안 함</Button>{sggs.length === 0 ? <EmptyState message="구 목록을 불러오는 중입니다." /> : filteredSggs.length ? filteredSggs.map((item, index) => <Button key={item.sggCd} ref={(el) => { guItemRefs.current[index] = el; }} type="button" variant="ghost" onMouseEnter={() => setGuHighlight(index)} onClick={() => selectGu(item.sggCd, item.sggNm)} className={`h-auto w-full justify-between rounded-none border-x-0 border-b border-t-0 border-[#F1F5F9] px-4 py-2.5 last:border-b-0 hover:bg-[#EFF6FF] ${index === guHighlight || item.sggCd === sggCd ? "bg-[#EFF6FF]" : ""}`}>{item.sggNm}</Button>) : <EmptyState message="검색 조건에 맞는 구가 없습니다." />}</div>}</div>
-      <div ref={dongContainerRef} className="w-full"><Input disabled={!sggCd} value={dongInput || selectedDongName} onFocus={() => { if (sggCd) { setIsDongDropdownOpen(true); setDongHighlight(-1); } }} onClick={(e) => { if (sggCd) { setIsDongDropdownOpen(true); e.currentTarget.select(); } }} onChange={(event) => { const nextVal = event.target.value; setDongInput(nextVal); setIsDongDropdownOpen(true); setDongHighlight(-1); if (dongCd && nextVal !== selectedDongName) { setDongCd(""); } }} onKeyDown={handleDongKeyDown} placeholder={sggCd ? "동 선택" : "구를 먼저 선택해 주세요"} className="h-11 rounded-lg border-[#DCE8ED] bg-white focus-visible:border-[#0F8AA8] focus-visible:ring-[#0F8AA8]/20" />{isDongDropdownOpen && sggCd && <div className="mt-2 max-h-[260px] overflow-y-auto rounded-lg border border-[#E2E8F0] bg-white py-1 shadow-sm"><Button type="button" variant="ghost" onClick={() => { setDongInput(""); chooseDong(""); setIsDongDropdownOpen(false); }} className={`h-auto w-full justify-between rounded-none border-x-0 border-b border-t-0 border-[#F1F5F9] px-4 py-2.5 last:border-b-0 hover:bg-[#EFF6FF] ${!dongCd ? "bg-[#EFF6FF]" : ""}`}>선택 안 함</Button>{filteredDongs.length ? filteredDongs.map((item, index) => <Button key={item.dongCd} ref={(el) => { dongItemRefs.current[index] = el; }} type="button" variant="ghost" onMouseEnter={() => setDongHighlight(index)} onClick={() => selectDong(item.dongCd.slice(-5), item.dongNm)} className={`h-auto w-full justify-between rounded-none border-x-0 border-b border-t-0 border-[#F1F5F9] px-4 py-2.5 last:border-b-0 hover:bg-[#EFF6FF] ${index === dongHighlight || item.dongCd.slice(-5) === dongCd ? "bg-[#EFF6FF]" : ""}`}>{item.dongNm}</Button>) : <EmptyState message="검색 조건에 맞는 동이 없습니다." />}</div>}</div>
-      <div ref={apartmentContainerRef} className="w-full"><Input value={keyword} onFocus={() => { setDropdownOpen(true); setApartmentHighlight(-1); }} onClick={(e) => { setDropdownOpen(true); e.currentTarget.select(); }} onChange={(e) => { setKeyword(e.target.value); setSelectedApartment(null); setDropdownOpen(true); setApartmentHighlight(-1); }} onKeyDown={handleApartmentKeyDown} placeholder="아파트명을 입력해 주세요" className="h-11 rounded-lg border-[#DCE8ED] bg-white focus-visible:border-[#0F8AA8] focus-visible:ring-[#0F8AA8]/20" />
+      <div ref={guContainerRef} className="w-full"><Input value={guInput || selectedGuName} onFocus={() => { setIsGuDropdownOpen(true); setGuHighlight(-1); }} onClick={(e) => { setIsGuDropdownOpen(true); e.currentTarget.select(); }} onChange={(event) => { const nextVal = event.target.value; setGuInput(nextVal); setIsGuDropdownOpen(true); setGuHighlight(-1); if (sggCd && nextVal !== selectedGuName) { setFilterValue("sggCd", ""); setFilterValue("dongCd", ""); setDongInput(""); } }} onKeyDown={handleGuKeyDown} placeholder="구 선택" className="h-11 rounded-lg border-[#DCE8ED] bg-white focus-visible:border-[#0F8AA8] focus-visible:ring-[#0F8AA8]/20" />{isGuDropdownOpen && <div className="mt-2 max-h-[260px] overflow-y-auto rounded-lg border border-[#E2E8F0] bg-white py-1 shadow-sm"><Button type="button" variant="ghost" onClick={() => { setGuInput(""); chooseGu(""); setIsGuDropdownOpen(false); }} className={`h-auto w-full justify-between rounded-none border-x-0 border-b border-t-0 border-[#F1F5F9] px-4 py-2.5 last:border-b-0 hover:bg-[#EFF6FF] ${!sggCd ? "bg-[#EFF6FF]" : ""}`}>선택 안 함</Button>{sggs.length === 0 ? <EmptyState message="구 목록을 불러오는 중입니다." /> : filteredSggs.length ? filteredSggs.map((item, index) => <Button key={item.sggCd} ref={(el) => { guItemRefs.current[index] = el; }} type="button" variant="ghost" onMouseEnter={() => setGuHighlight(index)} onClick={() => selectGu(item.sggCd, item.sggNm)} className={`h-auto w-full justify-between rounded-none border-x-0 border-b border-t-0 border-[#F1F5F9] px-4 py-2.5 last:border-b-0 hover:bg-[#EFF6FF] ${index === guHighlight || item.sggCd === sggCd ? "bg-[#EFF6FF]" : ""}`}>{item.sggNm}</Button>) : <EmptyState message="검색 조건에 맞는 구가 없습니다." />}</div>}</div>
+      <div ref={dongContainerRef} className="w-full"><Input disabled={!sggCd} value={dongInput || selectedDongName} onFocus={() => { if (sggCd) { setIsDongDropdownOpen(true); setDongHighlight(-1); } }} onClick={(e) => { if (sggCd) { setIsDongDropdownOpen(true); e.currentTarget.select(); } }} onChange={(event) => { const nextVal = event.target.value; setDongInput(nextVal); setIsDongDropdownOpen(true); setDongHighlight(-1); if (dongCd && nextVal !== selectedDongName) { setFilterValue("dongCd", ""); } }} onKeyDown={handleDongKeyDown} placeholder={sggCd ? "동 선택" : "구를 먼저 선택해 주세요"} className="h-11 rounded-lg border-[#DCE8ED] bg-white focus-visible:border-[#0F8AA8] focus-visible:ring-[#0F8AA8]/20" />{isDongDropdownOpen && sggCd && <div className="mt-2 max-h-[260px] overflow-y-auto rounded-lg border border-[#E2E8F0] bg-white py-1 shadow-sm"><Button type="button" variant="ghost" onClick={() => { setDongInput(""); chooseDong(""); setIsDongDropdownOpen(false); }} className={`h-auto w-full justify-between rounded-none border-x-0 border-b border-t-0 border-[#F1F5F9] px-4 py-2.5 last:border-b-0 hover:bg-[#EFF6FF] ${!dongCd ? "bg-[#EFF6FF]" : ""}`}>선택 안 함</Button>{filteredDongs.length ? filteredDongs.map((item, index) => <Button key={item.dongCd} ref={(el) => { dongItemRefs.current[index] = el; }} type="button" variant="ghost" onMouseEnter={() => setDongHighlight(index)} onClick={() => selectDong(item.dongCd.slice(-5), item.dongNm)} className={`h-auto w-full justify-between rounded-none border-x-0 border-b border-t-0 border-[#F1F5F9] px-4 py-2.5 last:border-b-0 hover:bg-[#EFF6FF] ${index === dongHighlight || item.dongCd.slice(-5) === dongCd ? "bg-[#EFF6FF]" : ""}`}>{item.dongNm}</Button>) : <EmptyState message="검색 조건에 맞는 동이 없습니다." />}</div>}</div>
+      <div ref={apartmentContainerRef} className="w-full"><Input value={keyword} onFocus={() => { setDropdownOpen(true); setApartmentHighlight(-1); }} onClick={(e) => { setDropdownOpen(true); e.currentTarget.select(); }} onChange={(e) => { setFilterValue("keyword", e.target.value); setSelectedApartment(null); setDropdownOpen(true); setApartmentHighlight(-1); }} onKeyDown={handleApartmentKeyDown} placeholder="아파트명을 입력해 주세요" className="h-11 rounded-lg border-[#DCE8ED] bg-white focus-visible:border-[#0F8AA8] focus-visible:ring-[#0F8AA8]/20" />
         {dropdownOpen && <div className="mt-2 max-h-[260px] w-full overflow-y-auto rounded-lg border border-[#E2E8F0] bg-white py-1 shadow-sm">{autocomplete.isLoading ? <EmptyState message="아파트를 검색하고 있습니다." /> : autocomplete.isError ? <EmptyState message="아파트 목록을 불러오지 못했습니다. 다시 시도해 주세요." /> : autocomplete.data?.length ? autocomplete.data.map((apt, index) => <Button key={apartmentKey(apt)} ref={(el) => { apartmentItemRefs.current[index] = el; }} type="button" variant="ghost" onMouseEnter={() => setApartmentHighlight(index)} onClick={() => selectApartment(apt)} className={`h-auto w-full justify-between rounded-none border-b border-[#F1F5F9] px-4 py-2.5 last:border-b-0 hover:bg-[#EFF6FF] ${index === apartmentHighlight || (selectedApartment && apartmentKey(selectedApartment) === apartmentKey(apt)) ? "bg-[#EFF6FF]" : ""}`}><span>{apt.aptName}</span><span className="text-xs text-[#64748B]">{apt.sggNm} · {apt.dongNm}</span></Button>) : <EmptyState message="검색 조건에 맞는 아파트가 없습니다." />}</div>}</div>
       <Button type="button" onClick={search} className="h-11 bg-[#0F8AA8] px-6">검색</Button><Button type="button" variant="outline" onClick={reset} className="h-11"><RotateCcw className="size-4" />초기화</Button>
     </div>{selectedApartment && <div className="mt-4 text-[13px] font-semibold text-[#334155]"><Building2 className="mr-1 inline size-4" />{selectedApartment.aptName} · {selectedApartment.sggNm || selectedGuName} {selectedApartment.dongNm || selectedDongName}</div>}</CardContent></Card>
@@ -496,25 +507,19 @@ export default function MarketTrendsPage() {
     </div>
 
     {/* 전체 실거래 내역 모달 */}
-    {isRecentDealsModalOpen && item && (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-        onClick={() => setIsRecentDealsModalOpen(false)}
-      >
-        <div
-          className="flex max-h-[85vh] w-full max-w-[700px] flex-col rounded-xl bg-white shadow-xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between border-b border-[#E2E8F0] p-4">
+    {item && (
+      <Dialog open={isRecentDealsModalOpen} onOpenChange={setIsRecentDealsModalOpen}>
+        <DialogContent className="flex max-h-[85vh] w-full max-w-[700px] flex-col gap-0 p-0">
+          <DialogHeader className="flex-row items-center justify-between gap-2 space-y-0 border-b border-[#E2E8F0] p-4 text-left">
             <div className="flex items-center gap-2">
-              <h3 className="text-[15px] font-bold text-[#0F172A]">
+              <DialogTitle className="text-[15px] font-bold text-[#0F172A]">
                 {item.apt_name} 전체 실거래 내역
-              </h3>
+              </DialogTitle>
               <span className="rounded bg-[#EFF6FF] px-2 py-0.5 text-[11px] font-bold text-[#2563EB]">
                 총 {item.recent_deals.length}건
               </span>
             </div>
-          </div>
+          </DialogHeader>
           <div className="overflow-y-auto p-4 max-h-[calc(85vh-120px)]">
             <Rows
               rows={item.recent_deals.map((r) => [
@@ -536,30 +541,24 @@ export default function MarketTrendsPage() {
               닫기
             </Button>
           </div>
-        </div>
-      </div>
+        </DialogContent>
+      </Dialog>
     )}
 
     {/* 전체 전용면적별 거래 현황 모달 */}
-    {isAreaDealsModalOpen && item && (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-        onClick={() => setIsAreaDealsModalOpen(false)}
-      >
-        <div
-          className="flex max-h-[85vh] w-full max-w-[650px] flex-col rounded-xl bg-white shadow-xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between border-b border-[#E2E8F0] p-4">
+    {item && (
+      <Dialog open={isAreaDealsModalOpen} onOpenChange={setIsAreaDealsModalOpen}>
+        <DialogContent className="flex max-h-[85vh] w-full max-w-[650px] flex-col gap-0 p-0">
+          <DialogHeader className="flex-row items-center justify-between gap-2 space-y-0 border-b border-[#E2E8F0] p-4 text-left">
             <div className="flex items-center gap-2">
-              <h3 className="text-[15px] font-bold text-[#0F172A]">
+              <DialogTitle className="text-[15px] font-bold text-[#0F172A]">
                 {item.apt_name} 전용면적(평수)별 전체 거래 현황
-              </h3>
+              </DialogTitle>
               <span className="rounded bg-[#EFF6FF] px-2 py-0.5 text-[11px] font-bold text-[#2563EB]">
                 총 {item.area_deals.length}개 평형
               </span>
             </div>
-          </div>
+          </DialogHeader>
           <div className="overflow-y-auto p-4 max-h-[calc(85vh-120px)]">
             <Rows
               rows={item.area_deals.map((r) => [
@@ -580,8 +579,8 @@ export default function MarketTrendsPage() {
               닫기
             </Button>
           </div>
-        </div>
-      </div>
+        </DialogContent>
+      </Dialog>
     )}
   </SectionSidebarLayout></div>;
 }

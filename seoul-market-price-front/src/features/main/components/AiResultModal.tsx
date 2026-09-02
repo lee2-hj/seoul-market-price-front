@@ -13,12 +13,22 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import type { AiSearchResponse } from "@/api/api";
-import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatAiMoneyText } from "@/features/main/utils/aiSearchMappers";
 
 const AI_MODEL_LABEL = import.meta.env.VITE_AI_MODEL || "gpt-5.6-luna";
 
-export function AiResultModal({ result, question, onClose }: { result: AiSearchResponse; question: string; onClose: () => void }) {
+export function AiResultModal({
+  open,
+  result,
+  question,
+  onClose,
+}: {
+  open: boolean;
+  result: AiSearchResponse | null;
+  question: string;
+  onClose: () => void;
+}) {
   const navigate = useNavigate();
   const quickLinks = [
     { label: "비교하러 가기", description: "지역별 가격을 한눈에 비교", to: "/price/compare-list", icon: ArrowRightLeft },
