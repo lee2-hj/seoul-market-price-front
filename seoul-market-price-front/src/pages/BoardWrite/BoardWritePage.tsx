@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Paperclip, X, Upload } from "lucide-react";
 
@@ -13,18 +14,26 @@ import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
 import BoardPageHeader from "@/features/board/components/BoardPageHeader";
 import {
+  boardPostSchema,
+  type BoardPostFormData,
+} from "@/features/board/schemas/boardPostSchema";
+import {
   BOARD_MAX_FILE_COUNT,
   validateBoardFiles,
 } from "@/features/board/utils/boardFileValidation";
-
-interface BoardWriteFormData {
-  title: string;
-  content: string;
-}
 
 const ALLOWED_FILE_EXTENSIONS =
   ".jpg,.jpeg,.png,.gif,.webp,.pdf,.zip,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv";
@@ -32,7 +41,14 @@ const ALLOWED_FILE_EXTENSIONS =
 const WRITE_SESSION_KEY = "ssabu_board_write_session";
 const WRITE_RELOAD_FLAG_KEY = "ssabu_board_write_is_reload";
 
-function getInitialWriteFormData(): BoardWriteFormData {
+// createBoardPostApi는 정적으로 { boardId: number }를 반환하지만,
+// 백엔드 응답이 id 필드로 내려오는 과거 케이스를 방어적으로 함께 허용한다.
+interface BoardCreateResponse {
+  boardId?: number;
+  id?: number;
+}
+
+function getInitialWriteFormData(): BoardPostFormData {
   const isReload = sessionStorage.getItem(WRITE_RELOAD_FLAG_KEY) === "1";
   sessionStorage.removeItem(WRITE_RELOAD_FLAG_KEY);
 
@@ -71,10 +87,28 @@ export default function BoardWritePage() {
     }
   }, [isAuthInitialized, navigate]);
 
-  // 새로고침 이벤트 감지 및 페이지 언마운트(SPA 라우트 이동) 시 세션 삭제
+  const form = useForm<BoardPostFormData>({
+    resolver: zodResolver(boardPostSchema),
+    defaultValues: getInitialWriteFormData(),
+  });
+  const { handleSubmit, control, getValues } = form;
+
+  // 글자 수 표시에만 필요하므로 title만 가볍게 구독한다.
+  const titleValue = useWatch({ control, name: "title" }) || "";
+
+  // 새로고침(beforeunload) 시점에만 form.getValues()를 1회 읽어 세션에 백업한다.
+  // 타이핑마다 JSON.stringify+setItem을 반복하지 않아 렌더링/I/O 비용이 없다.
+  // 페이지 언마운트(SPA 라우트 이동) 시에는 세션을 정리한다.
   useEffect(() => {
     const handleBeforeUnload = () => {
       sessionStorage.setItem(WRITE_RELOAD_FLAG_KEY, "1");
+      const { title, content } = getValues();
+      if (title || content) {
+        sessionStorage.setItem(
+          WRITE_SESSION_KEY,
+          JSON.stringify({ title, content }),
+        );
+      }
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -86,29 +120,7 @@ export default function BoardWritePage() {
         sessionStorage.removeItem(WRITE_SESSION_KEY);
       }
     };
-  }, []);
-
-  const {
-    register,
-    handleSubmit,
-    control,
-    formState: { errors },
-  } = useForm<BoardWriteFormData>({
-    defaultValues: getInitialWriteFormData(),
-  });
-
-  const titleValue = useWatch({ control, name: "title" }) || "";
-  const contentValue = useWatch({ control, name: "content" }) || "";
-
-  // 작성 중인 내용을 세션에 실시간 보관 (새로고침 대비)
-  useEffect(() => {
-    if (titleValue || contentValue) {
-      sessionStorage.setItem(
-        WRITE_SESSION_KEY,
-        JSON.stringify({ title: titleValue, content: contentValue }),
-      );
-    }
-  }, [titleValue, contentValue]);
+  }, [getValues]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawFiles = Array.from(e.target.files || []);
@@ -144,13 +156,12 @@ export default function BoardWritePage() {
       files: File[];
     }) => {
       // 1. 게시글 텍스트 등록
-      const postRes = await createBoardPostApi({
+      const postRes: BoardCreateResponse = await createBoardPostApi({
         title: data.title,
         content: data.content,
       });
 
-      const rawRes = postRes as unknown as { boardId?: number; id?: number };
-      const newBoardId = rawRes?.boardId || rawRes?.id;
+      const newBoardId = postRes.boardId || postRes.id;
 
       if (!newBoardId) {
         throw new Error("게시글 번호를 받아오지 못했습니다.");
@@ -183,9 +194,9 @@ export default function BoardWritePage() {
       return { boardId: newBoardId };
     },
     onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["boardPosts"] });
       sessionStorage.removeItem(WRITE_SESSION_KEY);
       alert("게시글이 성공적으로 등록되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["boardPosts"] });
       if (res.boardId && res.boardId > 0) {
         navigate(`/board/${res.boardId}`);
       } else {
@@ -197,7 +208,7 @@ export default function BoardWritePage() {
     },
   });
 
-  const onSubmit = (formData: BoardWriteFormData) => {
+  const onSubmit = (formData: BoardPostFormData) => {
     if (!isLogin()) {
       alert("로그인이 필요합니다.");
       navigate("/login");
@@ -230,55 +241,58 @@ export default function BoardWritePage() {
 
         {/* 둥근 카드 폼 컨테이너 */}
         <div className="bg-white rounded-2xl shadow-xs border border-[#DCE8ED] p-6 md:p-8">
+          <Form {...form}>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* 제목 */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-[#13202B]">
-                  제목
-                </label>
-                <span
-                  className={`text-xs ${titleValue.length > 20 ? "text-rose-500 font-bold" : "text-[#6B7280]"}`}
-                >
-                  {titleValue.length} / 20자
-                </span>
-              </div>
-              <Input
-                type="text"
-                placeholder="제목을 입력하세요"
-                {...register("title", {
-                  required: "제목을 입력하세요",
-                  maxLength: {
-                    value: 20,
-                    message: "제목은 최대 20자까지 입력 가능합니다.",
-                  },
-                })}
-                className="h-10 bg-[#F5FAFC] border-[#DCE8ED] text-xs text-[#13202B] focus-visible:ring-[#0F8AA8]"
-              />
-              {errors.title && (
-                <p className="text-xs text-rose-500">{errors.title.message}</p>
+            <FormField
+              control={control}
+              name="title"
+              render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <FormLabel className="text-xs font-semibold text-[#13202B]">
+                      제목
+                    </FormLabel>
+                    <span
+                      className={`text-xs ${titleValue.length > 20 ? "text-rose-500 font-bold" : "text-[#6B7280]"}`}
+                    >
+                      {titleValue.length} / 20자
+                    </span>
+                  </div>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      placeholder="제목을 입력하세요"
+                      {...field}
+                      className="h-10 bg-[#F5FAFC] border-[#DCE8ED] text-xs text-[#13202B] focus-visible:ring-[#0F8AA8]"
+                    />
+                  </FormControl>
+                  <FormMessage className="text-xs" />
+                </FormItem>
               )}
-            </div>
+            />
 
             {/* 내용 */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-[#13202B]">
-                내용
-              </label>
-              <textarea
-                rows={12}
-                placeholder="내용을 입력하세요"
-                {...register("content", {
-                  required: "내용을 입력하세요",
-                })}
-                className="w-full rounded-xl border border-[#DCE8ED] bg-[#F5FAFC] p-4 text-xs text-[#13202B] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#0F8AA8]"
-              />
-              {errors.content && (
-                <p className="text-xs text-rose-500">
-                  {errors.content.message}
-                </p>
+            <FormField
+              control={control}
+              name="content"
+              render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-xs font-semibold text-[#13202B]">
+                    내용
+                  </FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={12}
+                      placeholder="내용을 입력하세요"
+                      {...field}
+                      className="w-full rounded-xl border border-[#DCE8ED] bg-[#F5FAFC] p-4 text-xs text-[#13202B] placeholder:text-[#9CA3AF] focus-visible:ring-2 focus-visible:ring-[#0F8AA8] min-h-[240px]"
+                    />
+                  </FormControl>
+                  <FormMessage className="text-xs" />
+                </FormItem>
               )}
-            </div>
+            />
 
             {/* 첨부파일 (최대 5개) */}
             <div className="p-4 bg-[#F0F7FA] rounded-xl border border-[#DCE8ED] space-y-3">
@@ -319,14 +333,16 @@ export default function BoardWritePage() {
                           ({(file.size / 1024).toFixed(1)} KB)
                         </span>
                       </span>
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleRemoveFile(idx)}
-                        className="text-[#9CA3AF] hover:text-rose-500 p-1 rounded transition-colors border-none bg-transparent cursor-pointer"
+                        className="size-6 rounded text-[#9CA3AF] hover:bg-transparent hover:text-rose-500"
                         title="파일 제거"
                       >
                         <X className="w-4 h-4" />
-                      </button>
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -357,6 +373,7 @@ export default function BoardWritePage() {
               </Button>
             </div>
           </form>
+          </Form>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Paperclip, X, Upload } from "lucide-react";
 
@@ -19,19 +20,28 @@ import type {
 } from "@/features/board/types/board.types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
 import BoardPageHeader from "@/features/board/components/BoardPageHeader";
 import { toBoardAttachmentView } from "@/features/board/utils/boardMappers";
 import {
+  boardPostSchema,
+  type BoardPostFormData,
+} from "@/features/board/schemas/boardPostSchema";
+import {
   BOARD_MAX_FILE_COUNT,
   validateBoardFiles,
 } from "@/features/board/utils/boardFileValidation";
-
-interface BoardEditFormData {
-  title: string;
-  content: string;
-}
 
 const ALLOWED_FILE_EXTENSIONS =
   ".jpg,.jpeg,.png,.gif,.webp,.pdf,.zip,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv";
@@ -45,6 +55,9 @@ export default function BoardEditPage() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  // 삭제 확인 다이얼로그: 첨부파일은 대상 id, 게시글은 단일 플래그로 제어
+  const [targetAttachmentId, setTargetAttachmentId] = useState<number | null>(null);
+  const [isPostDeleteDialogOpen, setIsPostDeleteDialogOpen] = useState(false);
 
   const boardId = Number(postId);
   const loginUser = useAuthStore((state) => state.user);
@@ -59,7 +72,21 @@ export default function BoardEditPage() {
     }
   }, [isAuthInitialized, navigate]);
 
-  // 새로고침 이벤트 감지 및 페이지 언마운트(SPA 라우트 이동) 시 세션 삭제
+  const form = useForm<BoardPostFormData>({
+    resolver: zodResolver(boardPostSchema),
+    defaultValues: {
+      title: "",
+      content: "",
+    },
+  });
+  const { handleSubmit, control, reset, getValues } = form;
+
+  // 글자 수 표시에만 필요하므로 title만 가볍게 구독한다.
+  const titleValue = useWatch({ control, name: "title" }) || "";
+
+  // 새로고침(beforeunload) 시점에만 form.getValues()를 1회 읽어 세션에 백업한다.
+  // 타이핑마다 JSON.stringify+setItem을 반복하지 않아 렌더링/I/O 비용이 없다.
+  // 페이지 언마운트(SPA 라우트 이동) 시에는 세션을 정리한다.
   useEffect(() => {
     if (!boardId) return;
     const reloadFlagKey = getEditReloadFlagKey(boardId);
@@ -67,6 +94,10 @@ export default function BoardEditPage() {
 
     const handleBeforeUnload = () => {
       sessionStorage.setItem(reloadFlagKey, "1");
+      const { title, content } = getValues();
+      if (title || content) {
+        sessionStorage.setItem(editSessionKey, JSON.stringify({ title, content }));
+      }
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -78,42 +109,16 @@ export default function BoardEditPage() {
         sessionStorage.removeItem(editSessionKey);
       }
     };
-  }, [boardId]);
-
-  const {
-    register,
-    handleSubmit,
-    control,
-    reset,
-    formState: { errors },
-  } = useForm<BoardEditFormData>({
-    defaultValues: {
-      title: "",
-      content: "",
-    },
-  });
-
-  const titleValue = useWatch({ control, name: "title" }) || "";
-  const contentValue = useWatch({ control, name: "content" }) || "";
-
-  // 수정 중인 내용을 세션에 실시간 보관 (새로고침 대비)
-  useEffect(() => {
-    if (boardId && (titleValue || contentValue)) {
-      sessionStorage.setItem(
-        getEditSessionKey(boardId),
-        JSON.stringify({ title: titleValue, content: contentValue }),
-      );
-    }
-  }, [boardId, titleValue, contentValue]);
+  }, [boardId, getValues]);
 
   const { data: post, isLoading, isError, error } = useQuery({
-    queryKey: ["board", boardId],
+    queryKey: ["board", { boardId }],
     queryFn: () => getBoardPostApi(boardId),
     enabled: !!boardId && !Number.isNaN(boardId),
   });
 
   const { data: attachments = [] } = useQuery<AttachmentResponse[]>({
-    queryKey: ["boardAttachments", boardId],
+    queryKey: ["boardAttachments", { boardId }],
     queryFn: () => getBoardAttachmentsApi(boardId),
     enabled: !!boardId && !Number.isNaN(boardId),
   });
@@ -122,7 +127,7 @@ export default function BoardEditPage() {
     mutationFn: (attachmentId: number) =>
       deleteBoardAttachmentApi(boardId, attachmentId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["boardAttachments", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["boardAttachments", { boardId }] });
       alert("첨부파일이 삭제되었습니다.");
     },
     onError: (err: Error) => {
@@ -140,7 +145,7 @@ export default function BoardEditPage() {
       const isAuthor =
         loginUser &&
         (loginUser.role === "ADMIN" ||
-          (curId && authorId && (curId === authorId || curId.includes(authorId) || authorId.includes(curId))) ||
+          (curId && authorId && curId === authorId) ||
           (curName && authorName && curName === authorName));
 
       if (!isAuthor) {
@@ -233,15 +238,15 @@ export default function BoardEditPage() {
       return { uploadFailed };
     },
     onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["board", { boardId }] });
+      queryClient.invalidateQueries({ queryKey: ["boardPosts"] });
+      queryClient.invalidateQueries({ queryKey: ["boardAttachments", { boardId }] });
       sessionStorage.removeItem(getEditSessionKey(boardId));
       if (result?.uploadFailed) {
         alert("게시글은 수정되었으나 첨부파일 업로드 중 오류가 발생했습니다.");
       } else {
         alert("게시글이 성공적으로 수정되었습니다.");
       }
-      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
-      queryClient.invalidateQueries({ queryKey: ["boardPosts"] });
-      queryClient.invalidateQueries({ queryKey: ["boardAttachments", boardId] });
       navigate(`/board/${boardId}`, { replace: true });
     },
     onError: (err: Error) => {
@@ -252,9 +257,9 @@ export default function BoardEditPage() {
   const deleteMutation = useMutation({
     mutationFn: () => deleteBoardPostApi(boardId),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["boardPosts"] });
       sessionStorage.removeItem(getEditSessionKey(boardId));
       alert("게시글이 삭제되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["boardPosts"] });
       navigate("/board");
     },
     onError: (err: Error) => {
@@ -262,7 +267,7 @@ export default function BoardEditPage() {
     },
   });
 
-  const onSubmit = (formData: BoardEditFormData) => {
+  const onSubmit = (formData: BoardPostFormData) => {
     if (!loginUser) {
       alert("로그인이 필요합니다.");
       return;
@@ -272,12 +277,6 @@ export default function BoardEditPage() {
       content: formData.content.trim(),
       files: selectedFiles,
     });
-  };
-
-  const handleDelete = () => {
-    if (window.confirm("정말 이 게시글을 삭제하시겠습니까?")) {
-      deleteMutation.mutate();
-    }
   };
 
   const handleGoToList = () => {
@@ -317,49 +316,54 @@ export default function BoardEditPage() {
               </Button>
             </div>
           ) : (
+            <Form {...form}>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-[#13202B]">
-                    제목
-                  </label>
-                  <span className={`text-xs ${titleValue.length > 20 ? "text-rose-500 font-bold" : "text-[#6B7280]"}`}>
-                    {titleValue.length} / 20자
-                  </span>
-                </div>
-                <Input
-                  type="text"
-                  placeholder="제목을 입력하세요"
-                  {...register("title", {
-                    required: "제목을 입력하세요",
-                    maxLength: {
-                      value: 20,
-                      message: "제목은 최대 20자까지 입력 가능합니다.",
-                    },
-                  })}
-                  className="h-10 bg-[#F5FAFC] border-[#DCE8ED] text-xs text-[#13202B] focus-visible:ring-[#0F8AA8]"
-                />
-                {errors.title && (
-                  <p className="text-xs text-rose-500">{errors.title.message}</p>
+              <FormField
+                control={control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <FormLabel className="text-xs font-semibold text-[#13202B]">
+                        제목
+                      </FormLabel>
+                      <span className={`text-xs ${titleValue.length > 20 ? "text-rose-500 font-bold" : "text-[#6B7280]"}`}>
+                        {titleValue.length} / 20자
+                      </span>
+                    </div>
+                    <FormControl>
+                      <Input
+                        type="text"
+                        placeholder="제목을 입력하세요"
+                        {...field}
+                        className="h-10 bg-[#F5FAFC] border-[#DCE8ED] text-xs text-[#13202B] focus-visible:ring-[#0F8AA8]"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs" />
+                  </FormItem>
                 )}
-              </div>
+              />
 
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-[#13202B]">
-                  내용
-                </label>
-                <textarea
-                  rows={12}
-                  placeholder="내용을 입력하세요"
-                  {...register("content", {
-                    required: "내용을 입력하세요",
-                  })}
-                  className="w-full rounded-xl border border-[#DCE8ED] bg-[#F5FAFC] p-4 text-xs text-[#13202B] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#0F8AA8]"
-                />
-                {errors.content && (
-                  <p className="text-xs text-rose-500">{errors.content.message}</p>
+              <FormField
+                control={control}
+                name="content"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-xs font-semibold text-[#13202B]">
+                      내용
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        rows={12}
+                        placeholder="내용을 입력하세요"
+                        {...field}
+                        className="w-full rounded-xl border border-[#DCE8ED] bg-[#F5FAFC] p-4 text-xs text-[#13202B] placeholder:text-[#9CA3AF] focus-visible:ring-2 focus-visible:ring-[#0F8AA8] min-h-[240px]"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs" />
+                  </FormItem>
                 )}
-              </div>
+              />
 
               {attachments.length > 0 && (
                 <div className="p-4 bg-[#F0F7FA] rounded-xl border border-[#DCE8ED] space-y-2">
@@ -382,19 +386,15 @@ export default function BoardEditPage() {
                               ({(attachment.size / 1024).toFixed(1)} KB)
                             </span>
                           </span>
-                          <button
+                          <Button
                             type="button"
-                            onClick={() => {
-                              if (window.confirm("이 첨부파일을 삭제하시겠습니까?")) {
-                                deleteAttachmentMutation.mutate(
-                                  Number(attachment.id),
-                                );
-                              }
-                            }}
-                            className="text-rose-500 hover:text-rose-700 font-semibold px-2 py-1 text-[11px] rounded hover:bg-rose-50 transition-colors cursor-pointer border-none bg-transparent"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setTargetAttachmentId(Number(attachment.id))}
+                            className="h-auto rounded px-2 py-1 text-[11px] font-semibold text-rose-500 hover:bg-rose-50 hover:text-rose-700"
                           >
                             삭제
-                          </button>
+                          </Button>
                         </div>
                       );
                     })}
@@ -439,14 +439,16 @@ export default function BoardEditPage() {
                             ({(file.size / 1024).toFixed(1)} KB)
                           </span>
                         </span>
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="icon"
                           onClick={() => handleRemoveNewFile(idx)}
-                          className="text-[#9CA3AF] hover:text-rose-500 p-1 rounded transition-colors border-none bg-transparent cursor-pointer"
+                          className="size-6 rounded text-[#9CA3AF] hover:bg-transparent hover:text-rose-500"
                           title="파일 제거"
                         >
                           <X className="w-4 h-4" />
-                        </button>
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -479,7 +481,7 @@ export default function BoardEditPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={handleDelete}
+                  onClick={() => setIsPostDeleteDialogOpen(true)}
                   disabled={deleteMutation.isPending}
                   className="h-9 w-24 border-rose-200 text-xs text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
                 >
@@ -487,8 +489,37 @@ export default function BoardEditPage() {
                 </Button>
               </div>
             </form>
+            </Form>
           )}
         </div>
+
+        <ConfirmDialog
+          open={targetAttachmentId != null}
+          onOpenChange={(open) => {
+            if (!open) setTargetAttachmentId(null);
+          }}
+          title="첨부파일 삭제"
+          description="이 첨부파일을 삭제하시겠습니까?"
+          isDestructive
+          onConfirm={() => {
+            if (targetAttachmentId != null) {
+              deleteAttachmentMutation.mutate(targetAttachmentId);
+              setTargetAttachmentId(null);
+            }
+          }}
+        />
+
+        <ConfirmDialog
+          open={isPostDeleteDialogOpen}
+          onOpenChange={setIsPostDeleteDialogOpen}
+          title="게시글 삭제"
+          description="정말 이 게시글을 삭제하시겠습니까?"
+          isDestructive
+          onConfirm={() => {
+            setIsPostDeleteDialogOpen(false);
+            deleteMutation.mutate();
+          }}
+        />
       </div>
     </div>
     </SectionSidebarLayout>

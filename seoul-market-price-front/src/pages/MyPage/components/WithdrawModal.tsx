@@ -1,3 +1,7 @@
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+
 interface WithdrawModalProps {
   isOpen: boolean;
   withdrawPassword: string;
@@ -17,26 +21,24 @@ export default function WithdrawModal({
   onConfirm,
   onClose,
 }: WithdrawModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-      <div className="w-full max-w-[420px] rounded-[16px] bg-white p-6 shadow-2xl space-y-5 border border-[#DCE8ED]">
-        <div className="text-center space-y-1">
+    <Dialog open={isOpen} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent className="max-w-[420px] space-y-5 rounded-[16px] border border-[#DCE8ED] p-6">
+        <DialogHeader className="items-center space-y-1 text-center">
           <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-2 text-xl font-bold">
             ⚠️
           </div>
-          <h3 className="text-[20px] font-bold text-[#123047]">회원 탈퇴 확인</h3>
+          <DialogTitle className="text-[20px] font-bold text-[#123047]">회원 탈퇴 확인</DialogTitle>
           <p className="text-[13px] text-[#6B7280]">
             안전한 탈퇴를 위해 현재 계정의 비밀번호를 입력해 주세요.
           </p>
-        </div>
+        </DialogHeader>
 
         <div className="space-y-2">
           <label className="block text-[13px] font-bold text-[#13202B]">
             비밀번호 입력
           </label>
-          <input
+          <Input
             type="password"
             placeholder="현재 비밀번호를 입력하세요"
             value={withdrawPassword}
@@ -47,7 +49,7 @@ export default function WithdrawModal({
                 onConfirm();
               }
             }}
-            className="h-[46px] w-full rounded-[8px] border border-[#DCE8ED] bg-white px-4 text-[14px] text-[#13202B] outline-none focus:border-rose-400"
+            className="h-[46px] rounded-[8px] border-[#DCE8ED] text-[14px] focus-visible:border-rose-400"
           />
           {withdrawError && (
             <p className="text-[12px] font-bold text-rose-500">{withdrawError}</p>
@@ -59,23 +61,24 @@ export default function WithdrawModal({
         </div>
 
         <div className="flex items-center justify-end gap-2.5 pt-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={onClose}
-            className="h-[42px] px-5 rounded-[8px] border border-[#DCE8ED] bg-white text-[14px] font-bold text-[#6B7280] hover:bg-[#F0F7FA] cursor-pointer transition-colors"
+            className="h-[42px] px-5 border-[#DCE8ED] text-[14px] text-[#6B7280] hover:bg-[#F0F7FA]"
           >
             취소
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             disabled={isWithdrawing}
             onClick={onConfirm}
-            className="h-[42px] px-6 rounded-[8px] bg-rose-600 hover:bg-rose-700 text-[14px] font-bold text-white border-none cursor-pointer transition-colors shadow-xs disabled:opacity-50"
+            className="h-[42px] px-6 bg-rose-600 text-[14px] text-white shadow-xs hover:bg-rose-700"
           >
             {isWithdrawing ? "탈퇴 처리 중..." : "탈퇴 확인"}
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
