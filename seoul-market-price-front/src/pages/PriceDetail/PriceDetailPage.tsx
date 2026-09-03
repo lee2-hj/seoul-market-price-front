@@ -1099,10 +1099,10 @@ export default function PriceDetailPage() {
                         <tbody className="divide-y divide-slate-100">
                           {pyungs.map((p, idx) => (
                             <tr key={idx} className="hover:bg-slate-50/60">
-                              <td className="py-2 px-2.5 font-bold text-[#0F172A]">{p.area}</td>
-                              <td className="py-2 px-2.5 text-slate-600">{p.pyeong}</td>
-                              <td className="py-2 px-2.5 font-bold text-[#0F172A]">{formatPriceKRW(p.salePrice)}</td>
-                              <td className="py-2 px-2.5 font-bold text-[#0F172A]">{formatPriceKRW(p.pricePerPyung)}</td>
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{p.area}</td>
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{p.pyeong}</td>
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{formatPriceKRW(p.salePrice)}</td>
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{formatPriceKRW(p.pricePerPyung)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1137,11 +1137,11 @@ export default function PriceDetailPage() {
                         <tbody className="divide-y divide-slate-100">
                           {trendItem.recent_deals.map((trade, idx) => (
                             <tr key={idx} className="hover:bg-slate-50/60">
-                              <td className="py-2 px-2.5 text-slate-600">{trade.deal_date}</td>
-                              <td className="py-2 px-2.5 text-slate-600">{trade.exclusive_area}㎡</td>
-                              <td className="py-2 px-2.5 text-slate-600">{trade.pyeong ? `${trade.pyeong}평` : "-"}</td>
-                              <td className="py-2 px-2.5 text-slate-600">{trade.floor}층</td>
-                              <td className="py-2 px-2.5 font-bold text-[#0F172A]">{formatPriceKRW(trade.deal_amount)}</td>
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{trade.deal_date}</td>
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{trade.exclusive_area}㎡</td>
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{trade.pyeong ? `${trade.pyeong}평` : "-"}</td>
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{trade.floor}층</td>
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{formatPriceKRW(trade.deal_amount)}</td>
                             </tr>
                           ))}
                         </tbody>
