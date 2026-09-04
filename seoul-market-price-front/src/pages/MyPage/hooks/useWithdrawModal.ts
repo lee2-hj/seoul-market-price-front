@@ -23,7 +23,6 @@ export function useWithdrawModal({
   userId,
 }: UseWithdrawModalOptions) {
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
-  const [isSocialConfirmOpen, setIsSocialConfirmOpen] = useState(false);
   const [withdrawPassword, setWithdrawPassword] = useState("");
   const [withdrawError, setWithdrawError] = useState("");
   const [isWithdrawing, setIsWithdrawing] = useState(false);
@@ -78,24 +77,21 @@ export function useWithdrawModal({
     }
 
     if (isSocialUser) {
-      // 소셜 로그인은 2차 확인 다이얼로그
-      setIsSocialConfirmOpen(true);
+      // 소셜 로그인은 2차 컨펌 팝업
+      if (
+        window.confirm(
+          "정말로 회원 탈퇴를 진행하시겠습니까?\n탈퇴 후에도 작성한 게시글과 댓글은 유지됩니다.",
+        )
+      ) {
+        executeWithdrawal();
+      }
     } else {
       // 일반 회원은 비밀번호 검증 모달 오픈
       setWithdrawPassword("");
       setWithdrawError("");
       setIsWithdrawModalOpen(true);
     }
-  }, [isLoggedIn, isSocialUser]);
-
-  const handleConfirmSocialWithdraw = useCallback(() => {
-    setIsSocialConfirmOpen(false);
-    void executeWithdrawal();
-  }, [executeWithdrawal]);
-
-  const handleCancelSocialWithdraw = useCallback(() => {
-    setIsSocialConfirmOpen(false);
-  }, []);
+  }, [executeWithdrawal, isLoggedIn, isSocialUser]);
 
   const handleConfirmWithdrawWithPassword = useCallback(async () => {
     const pwd = withdrawPassword.trim();
@@ -112,7 +108,6 @@ export function useWithdrawModal({
 
   return {
     isWithdrawModalOpen,
-    isSocialConfirmOpen,
     withdrawPassword,
     withdrawError,
     isWithdrawing,
@@ -121,7 +116,5 @@ export function useWithdrawModal({
     handleClickWithdraw,
     handleCloseWithdrawModal,
     handleConfirmWithdrawWithPassword,
-    handleConfirmSocialWithdraw,
-    handleCancelSocialWithdraw,
   };
 }

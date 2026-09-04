@@ -5,7 +5,6 @@ import {
   searchNaturalWithAiApi,
   type AiSearchResponse,
   type DongRegionResponse,
-  type NaturalApartmentCandidate,
 } from "@/api/api";
 import { toAiDisplayResult } from "@/features/main/utils/aiSearchMappers";
 
@@ -16,7 +15,6 @@ const INVALID_LENGTH_MESSAGE = "질문은 500자 이내로 입력해 주세요."
 
 export function useAiPriceQuestion() {
   const [question, setQuestion] = useState("");
-  const [submittedQuestion, setSubmittedQuestion] = useState("");
   const [result, setResult] = useState<AiSearchResponse | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -24,7 +22,6 @@ export function useAiPriceQuestion() {
   const [candidateStep, setCandidateStep] = useState(0);
   const [selectedRegions, setSelectedRegions] = useState<DongRegionResponse[]>([]);
   const [singleCandidates, setSingleCandidates] = useState<DongRegionResponse[]>([]);
-  const [apartmentCandidates, setApartmentCandidates] = useState<NaturalApartmentCandidate[]>([]);
   const lastQuestionRef = useRef("");
   const requestInFlightRef = useRef(false);
 
@@ -38,7 +35,6 @@ export function useAiPriceQuestion() {
     try {
       const response = await searchNaturalWithAiApi(nextQuestion);
       if (response.status === "SUCCESS" && response.result) {
-        setSubmittedQuestion(nextQuestion);
         setResult({
           ...toAiDisplayResult(response.result),
           interpretation: response.interpretation,
@@ -48,10 +44,6 @@ export function useAiPriceQuestion() {
       }
 
       if (response.status === "NEED_CLARIFICATION") {
-        if (response.apartmentCandidates && response.apartmentCandidates.length > 0) {
-          setApartmentCandidates(response.apartmentCandidates);
-          return;
-        }
         const slots = [...new Set(response.candidates.map((candidate) => candidate.slot))];
         const groups = slots.map((slot) => response.candidates.filter((candidate) => candidate.slot === slot));
         if (groups.length === 1) {
@@ -106,11 +98,6 @@ export function useAiPriceQuestion() {
     void runQuestion(`${candidate.sggName} ${candidate.dongName} 가격 알려줘`);
   }, [runQuestion]);
 
-  const chooseApartmentCandidate = useCallback((candidate: NaturalApartmentCandidate) => {
-    setApartmentCandidates([]);
-    void runQuestion(`${candidate.sggName} ${candidate.dongName} ${candidate.apartmentName} 아파트 시세 알려줘`);
-  }, [runQuestion]);
-
   const chooseCandidate = useCallback((candidate: DongRegionResponse) => {
     const next = [...selectedRegions];
     next[candidateStep] = candidate;
@@ -134,21 +121,18 @@ export function useAiPriceQuestion() {
   return {
     question,
     setQuestion,
-    submittedQuestion,
     result,
     error,
     isLoading,
     singleCandidates,
-    apartmentCandidates,
     candidateGroups,
     candidateStep,
     submit,
     retry: () => lastQuestionRef.current && void runQuestion(lastQuestionRef.current),
     chooseSingleCandidate,
-    chooseApartmentCandidate,
     chooseCandidate,
     closeResult: () => setResult(null),
-    closeCandidates: () => { setSingleCandidates([]); setCandidateGroups([]); setApartmentCandidates([]); },
+    closeCandidates: () => { setSingleCandidates([]); setCandidateGroups([]); },
     clearMessage: () => { setError(""); },
   };
 }

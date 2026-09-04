@@ -63,6 +63,44 @@ export function isLogin(): boolean {
   return useAuthStore.getState().user !== null;
 }
 
+/* 관리자 권한 확인
+
+   인자로 유저 객체를 전달받거나, 전달받지 않으면 현재 로그인된 사용자(zustand 기준)의
+   role을 검사하여 관리자(ADMIN, ROLE_ADMIN) 권한 소유 여부를 반증한다. */
+
+export function isAdmin(user?: AuthUser | null): boolean {
+  const targetUser = user !== undefined ? user : useAuthStore.getState().user;
+  if (!targetUser || !targetUser.role) return false;
+  const role = targetUser.role.toUpperCase();
+  return role === "ADMIN" || role === "ROLE_ADMIN";
+}
+
+/* 관리자 권한 확인 (isAdmin의 래퍼/별칭 함수) */
+
+export function hasAdminRole(user?: AuthUser | null): boolean {
+  return isAdmin(user);
+}
+
+/* 마스터 권한 확인
+
+   MASTER 또는 ROLE_MASTER 역할을 가진 사용자인지 검사한다.
+   MASTER는 백오피스의 모든 메뉴에 접근하고 메뉴/계정을 관리할 수 있다. */
+
+export function isMaster(user?: AuthUser | null): boolean {
+  const targetUser = user !== undefined ? user : useAuthStore.getState().user;
+  if (!targetUser || !targetUser.role) return false;
+  const role = targetUser.role.toUpperCase();
+  return role === "MASTER" || role === "ROLE_MASTER";
+}
+
+/* ADMIN 또는 MASTER 권한 확인
+
+   백오피스 진입 자체를 허용할지 판단할 때 사용한다. */
+
+export function isAdminOrMaster(user?: AuthUser | null): boolean {
+  return isAdmin(user) || isMaster(user);
+}
+
 /* zustand 로그인 정보 복구
 
    새로고침 등으로 zustand(메모리)가 초기화되어 비어있을 때 시도한다.
@@ -107,7 +145,7 @@ export async function ensureAuthLoaded(): Promise<void> {
     useAuthStore.getState().setUser({
       userId: me.userId,
       name: me.name,
-      role: "",
+      role: me.role || "",
       myGu: me.myGu,
       myGuCode: me.myGuCode,
       preferredDistrict: me.preferredDistrict,

@@ -1,19 +1,17 @@
-import { memo, useRef, useState } from "react";
+import { useState } from "react";
 import { Bot, Info, LoaderCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { AiCandidateModal } from "@/features/main/components/AiCandidateModal";
-import { AiApartmentCandidateModal } from "@/features/main/components/AiApartmentCandidateModal";
 import { AiResultModal } from "@/features/main/components/AiResultModal";
 import { useAiPriceQuestion } from "@/features/main/hooks/useAiPriceQuestion";
 
-function MainHeroSearchComponent() {
+export function MainHeroSearch() {
   const user = useAuthStore((state) => state.user);
   const ai = useAiPriceQuestion();
   const [hasSubmittedAsGuest, setHasSubmittedAsGuest] = useState(false);
-  const hadQuestion = useRef(Boolean(ai.question));
 
   const activeCandidates = ai.singleCandidates.length > 0
     ? ai.singleCandidates
@@ -34,27 +32,15 @@ function MainHeroSearchComponent() {
         className="pointer-events-none absolute inset-y-0 right-0 hidden w-1/2 overflow-hidden md:block select-none"
         aria-hidden="true"
       >
-        <picture>
-          <source
-            type="image/webp"
-            srcSet="/apartment-hero-700w.webp 700w, /apartment-hero-1400w.webp 1400w"
-            sizes="(min-width: 1360px) 680px, 50vw"
-          />
-          <source
-            type="image/jpeg"
-            srcSet="/apartment-hero-700w.jpg 700w, /apartment-hero-1400w.jpg 1400w"
-            sizes="(min-width: 1360px) 680px, 50vw"
-          />
-          <img
-            src="/apartment-hero-1400w.jpg"
-            alt=""
-            className="size-full object-cover object-[75%_center] opacity-30 lg:opacity-55 [mask-image:linear-gradient(to_left,black_25%,transparent_100%)]"
-          />
-        </picture>
+        <img
+          src="/apartment-hero.png"
+          alt=""
+          className="size-full object-cover object-[75%_center] opacity-30 lg:opacity-55 [mask-image:linear-gradient(to_left,black_25%,transparent_100%)]"
+        />
       </div>
 
       <div className="relative mx-auto w-full max-w-[1360px] px-4 py-8 sm:px-6 sm:py-10 md:px-8 md:py-12">
-        <div className="max-w-3xl mx-auto text-center">
+        <div className="max-w-3xl">
           <p className="mb-2 text-xs font-black tracking-[0.16em] text-[#0F8AA8]">
             SEOUL APARTMENT MARKET
           </p>
@@ -68,27 +54,20 @@ function MainHeroSearchComponent() {
           </p>
 
           {/* AI 질문 입력창 */}
-          <form className="mt-5 w-full max-w-2xl mx-auto" onSubmit={handleFormSubmit}>
+          <form className="mt-5 w-full max-w-2xl" onSubmit={handleFormSubmit}>
             <div className="flex w-full min-w-0 flex-col gap-2 rounded-xl border border-[#C9DEE6] bg-white p-1.5 shadow-[0_6px_20px_rgba(18,48,71,0.07)] focus-within:border-[#0F8AA8] focus-within:ring-3 focus-within:ring-[#0F8AA8]/15 sm:flex-row sm:items-center sm:gap-2 sm:p-1.5">
               <div className="flex min-w-0 flex-1 items-center">
                 <Input
                   value={ai.question}
                   onChange={(event) => {
-                    const nextQuestion = event.target.value;
-                    if (!hadQuestion.current && nextQuestion.trim()) {
-                      // 입력 포커스가 모바일 키보드의 자동 스크롤과 충돌하지 않도록 즉시 최상단으로 이동합니다.
-                      window.scrollTo(0, 0);
-                      requestAnimationFrame(() => window.scrollTo(0, 0));
-                    }
-                    hadQuestion.current = Boolean(nextQuestion);
-                    ai.setQuestion(nextQuestion);
+                    ai.setQuestion(event.target.value);
                     ai.clearMessage();
                   }}
                   aria-label="AI 아파트 시세 질문"
                   autoComplete="off"
                   maxLength={500}
                   placeholder="무엇이든 물어보세요"
-                  className="h-10 sm:h-11 min-w-0 w-full border-0 bg-transparent px-3 text-center text-sm sm:text-base shadow-none focus-visible:ring-0 placeholder:text-[#94A3B8]"
+                  className="h-10 sm:h-11 min-w-0 w-full border-0 bg-transparent px-3 text-sm sm:text-base shadow-none focus-visible:ring-0 placeholder:text-[#94A3B8]"
                 />
               </div>
               <Button
@@ -147,7 +126,7 @@ function MainHeroSearchComponent() {
         </div>
       </div>
 
-      {ai.result && <AiResultModal result={ai.result} question={ai.submittedQuestion} onClose={ai.closeResult} />}
+      {ai.result && <AiResultModal result={ai.result} onClose={ai.closeResult} />}
       {activeCandidates.length > 0 && (
         <AiCandidateModal
           candidates={activeCandidates}
@@ -155,17 +134,6 @@ function MainHeroSearchComponent() {
           onClose={ai.closeCandidates}
         />
       )}
-      {ai.apartmentCandidates.length > 0 && (
-        <AiApartmentCandidateModal
-          candidates={ai.apartmentCandidates}
-          onChoose={ai.chooseApartmentCandidate}
-          onClose={ai.closeCandidates}
-        />
-      )}
     </section>
   );
 }
-
-// MainPage가 검색과 무관한 사유(쿼리 데이터 갱신 등)로 리렌더링될 때
-// props가 없는 이 컴포넌트까지 함께 재실행되는 것을 막는다.
-export const MainHeroSearch = memo(MainHeroSearchComponent);

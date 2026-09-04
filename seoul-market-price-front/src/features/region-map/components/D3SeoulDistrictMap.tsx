@@ -1,10 +1,45 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { GeoPermissibleObjects } from "d3-geo";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { geoMercator, geoPath, type GeoPermissibleObjects } from "d3-geo";
 import { DISTRICT_PRICES, PRICE_LEGEND } from "@/features/region-map/data/regionMapData";
-import {
-  useSeoulDistrictGeometries,
-  type DongFeature,
-} from "@/features/region-map/hooks/useSeoulDistrictGeometries";
+
+interface DistrictProperties {
+  name: string;
+  code: string;
+}
+
+interface DistrictFeature {
+  type: "Feature";
+  properties: DistrictProperties;
+  geometry: {
+    type: "Polygon" | "MultiPolygon";
+    coordinates: number[][][] | number[][][][];
+  };
+}
+
+interface SeoulGeoJson {
+  type: "FeatureCollection";
+  features: DistrictFeature[];
+}
+
+interface DongProperties {
+  COL_ADM_SE: string;
+  EMD_CD: string;
+  EMD_NM: string;
+}
+
+interface DongFeature {
+  type: "Feature";
+  properties: DongProperties;
+  geometry: {
+    type: "Polygon" | "MultiPolygon";
+    coordinates: number[][][] | number[][][][];
+  };
+}
+
+interface DongGeoJson {
+  type: "FeatureCollection";
+  features: DongFeature[];
+}
 
 function rewindRing(ring: number[][]): number[][] {
   let area = 0;
@@ -92,8 +127,8 @@ export default function D3SeoulDistrictMap({
   onSelectDong,
   onShowAll,
 }: D3SeoulDistrictMapProps) {
-  const { districtGeometries, basePathContext, dongGeoData, error: geoError } =
-    useSeoulDistrictGeometries();
+  const [geoData, setGeoData] = useState<SeoulGeoJson | null>(null);
+  const [dongGeoData, setDongGeoData] = useState<DongGeoJson | null>(null);
   const [hoveredDistrict, setHoveredDistrict] = useState("");
   const [hoveredDong, setHoveredDong] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -122,25 +157,58 @@ export default function D3SeoulDistrictMap({
   });
 
   useEffect(() => {
-    if (geoError) {
-      setErrorMessage(geoError instanceof Error ? geoError.message : "지도를 불러오지 못했습니다.");
-    }
-  }, [geoError]);
+    const controller = new AbortController();
+    Promise.all([
+      fetch("/seoul-municipalities.geo.json", { signal: controller.signal }),
+      fetch("/geo/seoul-legal-dongs.geojson", { signal: controller.signal }),
+    ])
+      .then(async ([districtResponse, dongResponse]) => {
+        if (!districtResponse.ok || !dongResponse.ok) {
+          throw new Error("서울 행정구역 경계를 불러오지 못했습니다.");
+        }
+        return Promise.all([
+          districtResponse.json() as Promise<SeoulGeoJson>,
+          dongResponse.json() as Promise<DongGeoJson>,
+        ]);
+      })
+      .then(([districts, dongs]) => {
+        setGeoData(districts);
+        setDongGeoData(dongs);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setErrorMessage(error instanceof Error ? error.message : "지도를 불러오지 못했습니다.");
+      });
+    return () => controller.abort();
+  }, []);
 
-  // 가격 매핑은 지오메트리와 분리해, districtAveragePrices만 바뀌었을 때
-  // path/center/bounds를 다시 계산하지 않고 가벼운 매핑만 다시 수행한다.
   const mapData = useMemo(() => {
-    if (!districtGeometries) return null;
-    return districtGeometries.map((geometry) => {
-      const district = DISTRICT_PRICES.find((item: { name: string; averagePrice?: number }) => item.name === geometry.name);
-      const realPrice = districtAveragePrices?.[geometry.name] ?? district?.averagePrice ?? 0;
-      return { ...geometry, price: realPrice };
+    if (!geoData) return null;
+    const projection = geoMercator().fitExtent(
+      [[20, 20], [WIDTH - 20, HEIGHT - 20]],
+      geoData as unknown as GeoPermissibleObjects,
+    );
+    const path = geoPath(projection);
+    return geoData.features.map((feature) => {
+      const district = DISTRICT_PRICES.find((item: { name: string; averagePrice?: number }) => item.name === feature.properties.name);
+      const realPrice = districtAveragePrices?.[feature.properties.name] ?? district?.averagePrice ?? 0;
+      return {
+        name: feature.properties.name,
+        price: realPrice,
+        path: path(feature as unknown as GeoPermissibleObjects) ?? "",
+        center: path.centroid(feature as unknown as GeoPermissibleObjects),
+        bounds: path.bounds(feature as unknown as GeoPermissibleObjects),
+      };
     });
-  }, [districtGeometries, districtAveragePrices]);
+  }, [districtAveragePrices, geoData]);
 
-  const dongGeometries = useMemo(() => {
-    if (!dongGeoData || !selectedDistrict || !basePathContext) return [];
-    const { basePath } = basePathContext;
+  const dongMapData = useMemo(() => {
+    if (!geoData || !dongGeoData || !selectedDistrict) return [];
+    const projection = geoMercator().fitExtent(
+      [[20, 20], [WIDTH - 20, HEIGHT - 20]],
+      geoData as unknown as GeoPermissibleObjects,
+    );
+    const path = geoPath(projection);
     const normalizedDistrictCode = String(selectedDistrictCode).slice(0, 5);
     const availableDongsByCode = new Map(
       availableDongs.map((dong) => [String(dong.dongCd).replace(/00$/, ""), dong]),
@@ -159,22 +227,22 @@ export default function D3SeoulDistrictMap({
       return [{
         code: dongCode,
         name: dongName,
-        // 원본 dongGeoData.features 배열 기준 인덱스(폴백 가격 시드용, 필터링 전 값 그대로 보존)
-        index,
-        path: basePath(rewoundFeature as unknown as GeoPermissibleObjects) ?? "",
-        center: basePath.centroid(rewoundFeature as unknown as GeoPermissibleObjects),
+        averagePrice:
+          dongAveragePrices[dongName] ??
+          Math.round(districtAveragePrice * (0.9 + (index % 6) * 0.035) / 100) * 100,
+        path: path(rewoundFeature as unknown as GeoPermissibleObjects) ?? "",
+        center: path.centroid(rewoundFeature as unknown as GeoPermissibleObjects),
       }];
     });
-  }, [availableDongs, dongGeoData, selectedDistrict, selectedDistrictCode, basePathContext]);
-
-  const dongMapData = useMemo(() => {
-    return dongGeometries.map((geometry) => ({
-      ...geometry,
-      averagePrice:
-        dongAveragePrices[geometry.name] ??
-        Math.round(districtAveragePrice * (0.9 + (geometry.index % 6) * 0.035) / 100) * 100,
-    }));
-  }, [dongGeometries, dongAveragePrices, districtAveragePrice]);
+  }, [
+    availableDongs,
+    districtAveragePrice,
+    dongAveragePrices,
+    dongGeoData,
+    geoData,
+    selectedDistrict,
+    selectedDistrictCode,
+  ]);
 
   const zoom = useMemo(() => {
     const selected = mapData?.find((district) => district.name === selectedDistrict);
@@ -316,28 +384,6 @@ export default function D3SeoulDistrictMap({
     return () => svg.removeEventListener("wheel", handleWheel);
   }, [isMobile, mapData, selectedDistrict]);
 
-  // 구/동 path 아이템(React.memo)에 안정적인 참조로 전달하기 위한 핸들러.
-  // 참조가 매 렌더 바뀌지 않아야 memo 비교가 실제로 리렌더를 걸러낸다.
-  const handleDistrictMouseEnter = useCallback((name: string) => {
-    if (!selectedDistrict) setHoveredDistrict(name);
-  }, [selectedDistrict]);
-  const handleDistrictMouseLeave = useCallback(() => {
-    if (!selectedDistrict) setHoveredDistrict("");
-  }, [selectedDistrict]);
-  const handleDistrictClick = useCallback((name: string) => {
-    if (!dragState.current.moved) onSelect(name);
-  }, [onSelect]);
-
-  const handleDongMouseEnter = useCallback((name: string) => {
-    setHoveredDong(name);
-  }, []);
-  const handleDongMouseLeave = useCallback(() => {
-    setHoveredDong("");
-  }, []);
-  const handleDongSelect = useCallback((name: string) => {
-    if (!dragState.current.moved) onSelectDong(name);
-  }, [onSelectDong]);
-
   const transformPoint = ([x, y]: [number, number]) => [
     (x - zoom.centerX) * displayScale + WIDTH / 2 + pan.x,
     (y - zoom.centerY) * displayScale + HEIGHT / 2 + pan.y,
@@ -462,17 +508,29 @@ export default function D3SeoulDistrictMap({
 
           {/* 구 선택 전 서울 전체 뷰에서만 구 다각형 표시 (구 선택 시 주변 구는 완전히 숨김) */}
           {!showingDongs &&
-            mapData.map(({ name, price, path }) => (
-              <DistrictItem
-                key={name}
-                name={name}
-                path={path}
-                fillColor={getDistrictColor(price)}
-                onMouseEnter={handleDistrictMouseEnter}
-                onMouseLeave={handleDistrictMouseLeave}
-                onClick={handleDistrictClick}
-              />
-            ))}
+            mapData.map(({ name, price, path }) => {
+              const fillColor = getDistrictColor(price);
+
+              return (
+                <path
+                  key={name}
+                  d={path}
+                  fill={fillColor}
+                  stroke="#FFFFFF"
+                  strokeWidth={0.8}
+                  vectorEffect="non-scaling-stroke"
+                  opacity={0.95}
+                  className="cursor-pointer transition-colors"
+                  onMouseEnter={() => !selectedDistrict && setHoveredDistrict(name)}
+                  onMouseLeave={() => !selectedDistrict && setHoveredDistrict("")}
+                  onClick={() => {
+                    if (!dragState.current.moved) {
+                      onSelect(name);
+                    }
+                  }}
+                />
+              );
+            })}
 
           {/* 선택되거나 호버된 구의 외곽선을 최상단에 렌더링하여 사방 균일한 두께 유지 */}
           {!showingDongs &&
@@ -495,17 +553,30 @@ export default function D3SeoulDistrictMap({
 
           {/* 구 선택 시: 오직 해당 구의 동들만 단독 렌더링 */}
           {showingDongs &&
-            dongMapData.map(({ code, name, averagePrice, path }) => (
-              <DongItem
-                key={code}
-                name={name}
-                path={path}
-                fillColor={getDistrictColor(averagePrice)}
-                onMouseEnter={handleDongMouseEnter}
-                onMouseLeave={handleDongMouseLeave}
-                onSelect={handleDongSelect}
-              />
-            ))}
+            dongMapData.map(({ code, name, averagePrice, path }) => {
+              const fillColor = getDistrictColor(averagePrice);
+
+              return (
+                <path
+                  key={code}
+                  d={path}
+                  fill={fillColor}
+                  stroke="#FFFFFF"
+                  strokeWidth={0.8}
+                  vectorEffect="non-scaling-stroke"
+                  opacity={0.96}
+                  className="cursor-pointer transition-colors"
+                  onMouseEnter={() => setHoveredDong(name)}
+                  onMouseLeave={() => setHoveredDong("")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (!dragState.current.moved) {
+                      onSelectDong(name);
+                    }
+                  }}
+                />
+              );
+            })}
 
           {/* 선택되거나 호버된 동의 외곽선을 최상단에 렌더링하여 사방 균일한 두께 유지 */}
           {showingDongs &&
@@ -538,38 +609,152 @@ export default function D3SeoulDistrictMap({
         >
           {!showingDongs &&
             mapData.map(({ name, price, center }) => {
+              const isSelected = selectedDistrict === name;
+              const isHovered = hoveredDistrict === name;
               const [labelX, labelY] = transformPoint(center as [number, number]);
+
+              const districtNameSize = isMobile
+                ? isSelected ? 16 : isHovered ? 15 : 13.5
+                : isSelected ? 14 : isHovered ? 13 : 12;
+
+              const districtPriceSize = isMobile
+                ? isSelected ? 13 : 11.5
+                : isSelected ? 11.5 : 10.5;
+
               return (
-                <DistrictLabel
+                <g
                   key={name}
-                  name={name}
-                  price={price}
-                  labelX={labelX}
-                  labelY={labelY}
-                  isSelected={selectedDistrict === name}
-                  isHovered={hoveredDistrict === name}
-                  isMobile={isMobile}
-                  isPreferred={name === preferredDistrict}
-                  isDragging={isDragging}
-                />
+                  transform={`translate(${labelX} ${labelY})`}
+                  style={{
+                    transition: isDragging ? "none" : "transform 520ms cubic-bezier(.22,.8,.3,1)",
+                    userSelect: "none",
+                    WebkitUserSelect: "none",
+                    MozUserSelect: "none",
+                    pointerEvents: "none",
+                  }}
+                >
+                  {name === preferredDistrict && (
+                    <text
+                      x="0"
+                      y={isMobile ? "-23" : "-20"}
+                      textAnchor="middle"
+                      fill="#E11D48"
+                      fontSize={isMobile ? 18 : 15}
+                      aria-label="선호지역"
+                      style={{
+                        userSelect: "none",
+                        WebkitUserSelect: "none",
+                        MozUserSelect: "none",
+                        pointerEvents: "none",
+                      }}
+                    >
+                      ♥
+                    </text>
+                  )}
+                  <text
+                    textAnchor="middle"
+                    y={isMobile ? "-5" : "-4"}
+                    fill={isSelected ? "#042F2E" : "#0F172A"}
+                    stroke="#FFFFFF"
+                    strokeWidth={isMobile ? 3.2 : 2.2}
+                    paintOrder="stroke"
+                    fontSize={districtNameSize}
+                    fontWeight="900"
+                    style={{
+                      userSelect: "none",
+                      WebkitUserSelect: "none",
+                      MozUserSelect: "none",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    {name}
+                  </text>
+                  <text
+                    textAnchor="middle"
+                    y={isMobile ? "14" : "12"}
+                    fill={isSelected ? "#0F766E" : "#334155"}
+                    stroke="#FFFFFF"
+                    strokeWidth={isMobile ? 2.8 : 2}
+                    paintOrder="stroke"
+                    fontSize={districtPriceSize}
+                    fontWeight="800"
+                    style={{
+                      userSelect: "none",
+                      WebkitUserSelect: "none",
+                      MozUserSelect: "none",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    {formatEok(price)}
+                  </text>
+                </g>
               );
             })}
 
           {showingDongs &&
             dongMapData.map(({ code, name, averagePrice, center }) => {
               const [labelX, labelY] = transformPoint(center as [number, number]);
+              const isSelected = selectedDong === name;
+              const dongCount = dongMapData.length;
+
+              // PC(모니터)에서는 깔끔한 기본 크기, 모바일에서는 시원하게 큰 크기 적용
+              const dongFontSize = isMobile
+                ? dongCount >= 45 ? 13 : dongCount >= 25 ? 15.5 : 18
+                : dongCount >= 45 ? 10.5 : dongCount >= 25 ? 11.5 : 12.5;
+
+              const priceFontSize = isMobile
+                ? dongCount >= 45 ? 11 : dongCount >= 25 ? 13 : 15
+                : dongCount >= 45 ? 9 : dongCount >= 25 ? 9.5 : 10.5;
+
               return (
-                <DongLabel
+                <g
                   key={code}
-                  name={name}
-                  price={averagePrice}
-                  labelX={labelX}
-                  labelY={labelY}
-                  isSelected={selectedDong === name}
-                  isMobile={isMobile}
-                  dongCount={dongMapData.length}
-                  isDragging={isDragging}
-                />
+                  transform={`translate(${labelX} ${labelY})`}
+                  style={{
+                    transition: isDragging ? "none" : "transform 520ms cubic-bezier(.22,.8,.3,1)",
+                    userSelect: "none",
+                    WebkitUserSelect: "none",
+                    MozUserSelect: "none",
+                    pointerEvents: "none",
+                  }}
+                >
+                  <text
+                    textAnchor="middle"
+                    y={isMobile ? (dongCount >= 45 ? "-3" : "-5") : "-3"}
+                    fill={isSelected ? "#042F2E" : "#0F172A"}
+                    stroke="#FFFFFF"
+                    strokeWidth={isMobile ? 3.2 : 2.2}
+                    paintOrder="stroke"
+                    fontSize={isSelected ? dongFontSize + (isMobile ? 2 : 1) : dongFontSize}
+                    fontWeight="900"
+                    style={{
+                      userSelect: "none",
+                      WebkitUserSelect: "none",
+                      MozUserSelect: "none",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    {name}
+                  </text>
+                  <text
+                    textAnchor="middle"
+                    y={isMobile ? (dongCount >= 45 ? "12" : "15") : "11"}
+                    fill={isSelected ? "#0F766E" : "#0F766E"}
+                    stroke="#FFFFFF"
+                    strokeWidth={isMobile ? 2.8 : 2}
+                    paintOrder="stroke"
+                    fontSize={isSelected ? priceFontSize + (isMobile ? 1.5 : 1) : priceFontSize}
+                    fontWeight="800"
+                    style={{
+                      userSelect: "none",
+                      WebkitUserSelect: "none",
+                      MozUserSelect: "none",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    {formatEok(averagePrice)}
+                  </text>
+                </g>
               );
             })}
         </g>
@@ -610,262 +795,3 @@ export default function D3SeoulDistrictMap({
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// 호버/선택 시 전체 SVG가 통째로 리렌더되는 것을 막기 위해 채우기(fill)/라벨을
-// 각각 React.memo로 분리한다. 다만 "선택·호버된 구/동의 외곽선을 항상 채우기
-// 레이어 위에 그린다"는 z-order 요구사항이 있어(구현 상단 주석 참고),
-// fill/highlight/label 레이어 자체의 순서(3-패스 구조)는 그대로 유지하고
-// 각 레이어 안의 개별 아이템만 메모이즈했다. highlight 레이어는 항상
-// 선택+호버 대상 최대 2개만 렌더링되어 이미 비용이 낮으므로 별도 분리하지 않았다.
-// ---------------------------------------------------------------------------
-
-interface DistrictItemProps {
-  name: string;
-  path: string;
-  fillColor: string;
-  onMouseEnter: (name: string) => void;
-  onMouseLeave: () => void;
-  onClick: (name: string) => void;
-}
-
-const DistrictItem = memo(function DistrictItem({
-  name,
-  path,
-  fillColor,
-  onMouseEnter,
-  onMouseLeave,
-  onClick,
-}: DistrictItemProps) {
-  return (
-    <path
-      d={path}
-      fill={fillColor}
-      stroke="#FFFFFF"
-      strokeWidth={0.8}
-      vectorEffect="non-scaling-stroke"
-      opacity={0.95}
-      className="cursor-pointer transition-colors"
-      onMouseEnter={() => onMouseEnter(name)}
-      onMouseLeave={onMouseLeave}
-      onClick={() => onClick(name)}
-    />
-  );
-});
-
-interface DongItemProps {
-  name: string;
-  path: string;
-  fillColor: string;
-  onMouseEnter: (name: string) => void;
-  onMouseLeave: () => void;
-  onSelect: (name: string) => void;
-}
-
-const DongItem = memo(function DongItem({
-  name,
-  path,
-  fillColor,
-  onMouseEnter,
-  onMouseLeave,
-  onSelect,
-}: DongItemProps) {
-  return (
-    <path
-      d={path}
-      fill={fillColor}
-      stroke="#FFFFFF"
-      strokeWidth={0.8}
-      vectorEffect="non-scaling-stroke"
-      opacity={0.96}
-      className="cursor-pointer transition-colors"
-      onMouseEnter={() => onMouseEnter(name)}
-      onMouseLeave={onMouseLeave}
-      onClick={(event) => {
-        event.stopPropagation();
-        onSelect(name);
-      }}
-    />
-  );
-});
-
-interface DistrictLabelProps {
-  name: string;
-  price: number;
-  labelX: number;
-  labelY: number;
-  isSelected: boolean;
-  isHovered: boolean;
-  isMobile: boolean;
-  isPreferred: boolean;
-  isDragging: boolean;
-}
-
-const DistrictLabel = memo(function DistrictLabel({
-  name,
-  price,
-  labelX,
-  labelY,
-  isSelected,
-  isHovered,
-  isMobile,
-  isPreferred,
-  isDragging,
-}: DistrictLabelProps) {
-  const districtNameSize = isMobile
-    ? isSelected ? 16 : isHovered ? 15 : 13.5
-    : isSelected ? 14 : isHovered ? 13 : 12;
-
-  const districtPriceSize = isMobile
-    ? isSelected ? 13 : 11.5
-    : isSelected ? 11.5 : 10.5;
-
-  return (
-    <g
-      transform={`translate(${labelX} ${labelY})`}
-      style={{
-        transition: isDragging ? "none" : "transform 520ms cubic-bezier(.22,.8,.3,1)",
-        userSelect: "none",
-        WebkitUserSelect: "none",
-        MozUserSelect: "none",
-        pointerEvents: "none",
-      }}
-    >
-      {isPreferred && (
-        <text
-          x="0"
-          y={isMobile ? "-23" : "-20"}
-          textAnchor="middle"
-          fill="#E11D48"
-          fontSize={isMobile ? 18 : 15}
-          aria-label="선호지역"
-          style={{
-            userSelect: "none",
-            WebkitUserSelect: "none",
-            MozUserSelect: "none",
-            pointerEvents: "none",
-          }}
-        >
-          ♥
-        </text>
-      )}
-      <text
-        textAnchor="middle"
-        y={isMobile ? "-5" : "-4"}
-        fill={isSelected ? "#042F2E" : "#0F172A"}
-        stroke="#FFFFFF"
-        strokeWidth={isMobile ? 3.2 : 2.2}
-        paintOrder="stroke"
-        fontSize={districtNameSize}
-        fontWeight="900"
-        style={{
-          userSelect: "none",
-          WebkitUserSelect: "none",
-          MozUserSelect: "none",
-          pointerEvents: "none",
-        }}
-      >
-        {name}
-      </text>
-      <text
-        textAnchor="middle"
-        y={isMobile ? "14" : "12"}
-        fill={isSelected ? "#0F766E" : "#334155"}
-        stroke="#FFFFFF"
-        strokeWidth={isMobile ? 2.8 : 2}
-        paintOrder="stroke"
-        fontSize={districtPriceSize}
-        fontWeight="800"
-        style={{
-          userSelect: "none",
-          WebkitUserSelect: "none",
-          MozUserSelect: "none",
-          pointerEvents: "none",
-        }}
-      >
-        {formatEok(price)}
-      </text>
-    </g>
-  );
-});
-
-interface DongLabelProps {
-  name: string;
-  price: number;
-  labelX: number;
-  labelY: number;
-  isSelected: boolean;
-  isMobile: boolean;
-  dongCount: number;
-  isDragging: boolean;
-}
-
-const DongLabel = memo(function DongLabel({
-  name,
-  price,
-  labelX,
-  labelY,
-  isSelected,
-  isMobile,
-  dongCount,
-  isDragging,
-}: DongLabelProps) {
-  // PC(모니터)에서는 깔끔한 기본 크기, 모바일에서는 시원하게 큰 크기 적용
-  const dongFontSize = isMobile
-    ? dongCount >= 45 ? 13 : dongCount >= 25 ? 15.5 : 18
-    : dongCount >= 45 ? 10.5 : dongCount >= 25 ? 11.5 : 12.5;
-
-  const priceFontSize = isMobile
-    ? dongCount >= 45 ? 11 : dongCount >= 25 ? 13 : 15
-    : dongCount >= 45 ? 9 : dongCount >= 25 ? 9.5 : 10.5;
-
-  return (
-    <g
-      transform={`translate(${labelX} ${labelY})`}
-      style={{
-        transition: isDragging ? "none" : "transform 520ms cubic-bezier(.22,.8,.3,1)",
-        userSelect: "none",
-        WebkitUserSelect: "none",
-        MozUserSelect: "none",
-        pointerEvents: "none",
-      }}
-    >
-      <text
-        textAnchor="middle"
-        y={isMobile ? (dongCount >= 45 ? "-3" : "-5") : "-3"}
-        fill={isSelected ? "#042F2E" : "#0F172A"}
-        stroke="#FFFFFF"
-        strokeWidth={isMobile ? 3.2 : 2.2}
-        paintOrder="stroke"
-        fontSize={isSelected ? dongFontSize + (isMobile ? 2 : 1) : dongFontSize}
-        fontWeight="900"
-        style={{
-          userSelect: "none",
-          WebkitUserSelect: "none",
-          MozUserSelect: "none",
-          pointerEvents: "none",
-        }}
-      >
-        {name}
-      </text>
-      <text
-        textAnchor="middle"
-        y={isMobile ? (dongCount >= 45 ? "12" : "15") : "11"}
-        fill={isSelected ? "#0F766E" : "#0F766E"}
-        stroke="#FFFFFF"
-        strokeWidth={isMobile ? 2.8 : 2}
-        paintOrder="stroke"
-        fontSize={isSelected ? priceFontSize + (isMobile ? 1.5 : 1) : priceFontSize}
-        fontWeight="800"
-        style={{
-          userSelect: "none",
-          WebkitUserSelect: "none",
-          MozUserSelect: "none",
-          pointerEvents: "none",
-        }}
-      >
-        {formatEok(price)}
-      </text>
-    </g>
-  );
-});

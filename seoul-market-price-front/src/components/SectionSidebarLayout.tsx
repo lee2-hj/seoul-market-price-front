@@ -38,15 +38,13 @@ export default function SectionSidebarLayout({
                         to={to}
                         end={end}
                         onClick={(e) => {
-                          const isCurrentPath = location.pathname === to;
-                          if (isCurrentPath) {
-                            if (to === "/trends") {
-                              sessionStorage.removeItem("market_trends_query");
-                              window.dispatchEvent(new CustomEvent("resetMarketTrends"));
-                            }
-                            if (!location.search) {
-                              e.preventDefault();
-                            }
+                          const isAlreadyActive =
+                            customIsActive ??
+                            (location.pathname + location.search === to ||
+                              (location.pathname === to && !location.search));
+
+                          if (isAlreadyActive) {
+                            e.preventDefault();
                           }
                         }}
                         aria-current={
