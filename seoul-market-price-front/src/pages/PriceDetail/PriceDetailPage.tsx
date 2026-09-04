@@ -251,7 +251,7 @@ function AutocompleteSelect({
           placeholder={placeholder}
           disabled={disabled}
           className={cn(
-            "h-[46px] w-full min-w-[170px] pl-3 pr-8 bg-white border border-[#CBD5E1] rounded-[12px] text-[12.5px] sm:text-[13px] font-bold text-[#0F172A] outline-none transition-all cursor-pointer hover:border-[#94A3B8] focus:border-[#0F8AA8] focus:ring-2 focus:ring-[#0F8AA8]/15",
+            "h-[38px] w-full min-w-[150px] pl-3 pr-7 bg-white border border-[#CBD5E1] rounded-[10px] text-[12px] font-bold text-[#0F172A] outline-none transition-all cursor-pointer hover:border-[#94A3B8] focus:border-[#0F8AA8] focus:ring-2 focus:ring-[#0F8AA8]/15",
             disabled && "bg-[#F8FAFC] text-[#94A3B8] border-[#E2E8F0] cursor-not-allowed",
           )}
         />
@@ -264,7 +264,7 @@ function AutocompleteSelect({
             }
           }}
           className={cn(
-            "size-4 text-[#64748B] absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-200",
+            "size-3.5 text-[#64748B] absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-200",
             isOpen && "rotate-180",
             disabled && "cursor-not-allowed opacity-50",
           )}
@@ -274,10 +274,10 @@ function AutocompleteSelect({
       {isOpen && !disabled && (
         <div
           ref={listRef}
-          className="absolute left-0 top-[calc(100%+4px)] z-50 max-h-60 w-max min-w-full overflow-y-auto rounded-xl border border-[#CBD5E1] bg-white p-2 shadow-xl animate-in fade-in-0 duration-100"
+          className="absolute left-0 top-[calc(100%+3px)] z-50 max-h-52 w-max min-w-full overflow-y-auto rounded-xl border border-[#CBD5E1] bg-white p-1.5 shadow-xl animate-in fade-in-0 duration-100"
         >
           {filteredOptions.length === 0 ? (
-            <div className="px-3 py-3 text-center text-[12px] font-medium text-slate-400">
+            <div className="px-3 py-2 text-center text-[11.5px] font-medium text-slate-400">
               일치하는 항목이 없습니다.
             </div>
           ) : (
@@ -296,7 +296,7 @@ function AutocompleteSelect({
                     setIsOpen(false);
                   }}
                   className={cn(
-                    "flex w-full items-center justify-between gap-2.5 rounded-lg border border-[#CBD5E1] bg-[#F1F5F9] px-3.5 py-2.5 mb-1.5 text-left text-[13px] font-bold text-[#1E293B] transition-all duration-100 cursor-pointer hover:bg-[#E2E8F0] hover:border-[#94A3B8] last:mb-0",
+                    "flex w-full items-center justify-between gap-2 rounded-lg border border-[#CBD5E1] bg-[#F1F5F9] px-3 py-1.5 mb-1 text-left text-[12px] font-bold text-[#1E293B] transition-all duration-100 cursor-pointer hover:bg-[#E2E8F0] hover:border-[#94A3B8] last:mb-0",
                     isHighlighted && !isSelected && "bg-[#E2E8F0] border-[#94A3B8] text-[#0F172A]",
                     isSelected && selectedItemStyle,
                   )}
@@ -307,7 +307,7 @@ function AutocompleteSelect({
                   {isSelected && (
                     <Check
                       className={cn(
-                        "size-3.5 stroke-[3] shrink-0",
+                        "size-3 stroke-[3] shrink-0",
                         accentColor === "purple" ? "text-[#6366F1]" : "text-[#0284C7]",
                       )}
                     />
@@ -400,7 +400,7 @@ export default function PriceDetailPage() {
     [query.complexId, complexList],
   );
 
-  /* 4. 아파트 실거래 시장 트렌드 조회 (FastAPI) - 비교하기 클릭 시에만 호출 */
+  /* 4. 아파트 실거래 시장 트렌드 조회 (FastAPI) - 비교하기 클릭 시 조회 */
   const { data: trendData } = useQuery<ApartmentMarketTrendResponse>({
     queryKey: [
       "apartmentMarketTrend",
@@ -528,15 +528,18 @@ export default function PriceDetailPage() {
   const pyungs = useMemo(() => {
     if (trendItem?.area_deals && trendItem.area_deals.length > 0) {
       return trendItem.area_deals.map((a) => ({
-        name: `${a.exclusive_area}㎡${a.pyeong ? ` (${a.pyeong}평)` : ""}`,
-        area: Number(a.exclusive_area),
+        area: a.exclusive_area ? `${a.exclusive_area}㎡` : "-",
+        pyeong: a.pyeong ? `${a.pyeong}평` : "-",
         salePrice: a.avg_deal_price,
-        recentFloor: 0,
-        recentTradeDate: "",
         pricePerPyung: a.pyeong ? Math.round(a.avg_deal_price / a.pyeong) : 0,
       }));
     }
-    return currentComplex?.pyungs || [];
+    return (currentComplex?.pyungs || []).map((p) => ({
+      area: p.area ? `${p.area}㎡` : "-",
+      pyeong: p.name || "-",
+      salePrice: p.salePrice,
+      pricePerPyung: p.pricePerPyung,
+    }));
   }, [trendItem, currentComplex]);
 
   /* 유형별 비교 분석 데이터 계산 (/fastApi/aptcompare 응답) */
@@ -560,8 +563,8 @@ export default function PriceDetailPage() {
 
     const label1 = getCompareOptionLabel(query.compareType, query.val1);
     const label2 = getCompareOptionLabel(query.compareType, query.val2);
-    const diffAvg = avg2 - avg1;
-    const diffAvgPct = avg1 > 0 ? ((diffAvg / avg1) * 100).toFixed(1) : "0";
+    const diffAvg = avg1 - avg2;
+    const diffAvgPct = avg2 > 0 ? ((diffAvg / avg2) * 100).toFixed(1) : "0";
 
     return {
       label1,
@@ -615,12 +618,12 @@ export default function PriceDetailPage() {
       sectionTitle={PRICE_NAVIGATION.sectionTitle}
       menuItems={PRICE_NAVIGATION.menuItems}
     >
-      <main className="w-full max-w-[1400px] px-6 py-8">
-        <section className="space-y-6">
+      <main className="w-full max-w-[1400px] px-5 py-6">
+        <section className="space-y-4">
           {/* 상단 헤더 */}
-          <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-6">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div>
-              <div className="flex items-center gap-1.5 text-[12px] font-bold text-slate-400">
+              <div className="flex items-center gap-1.5 text-[11.5px] font-bold text-slate-400">
                 <span>서울시 아파트 시세 정보</span>
                 <ChevronRight className="size-3" />
                 <span>{selectedSgg ? selectedSgg.sggNm : "자치구 선택"}</span>
@@ -633,15 +636,15 @@ export default function PriceDetailPage() {
                   </>
                 )}
               </div>
-              <h1 className="mt-1 text-[26px] font-black tracking-tight text-[#0F172A]">단지별 시세 분석</h1>
-              <p className="text-[13px] font-semibold text-[#64748B]">
+              <h1 className="mt-1 text-[21px] font-black tracking-tight text-[#0F172A]">단지별 시세 분석</h1>
+              <p className="text-[12px] font-semibold text-[#64748B]">
                 선택한 자치구와 동 내 아파트 단지들의 실거래가와 매매/전세 시세를 확인하세요.
               </p>
             </div>
             <button
               type="button"
               onClick={() => setQuery({ sggCd: "", dongCd: "", complexId: null, compareType: "floor", val1: "LOW", val2: "HIGH", isActive: false })}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 cursor-pointer"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 cursor-pointer"
             >
               <RotateCcw className="size-3.5" />
               선택 초기화
@@ -649,13 +652,13 @@ export default function PriceDetailPage() {
           </header>
 
           {/* 4분할 옵션 선택 카드 */}
-          <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-6 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
-            <div className="grid grid-cols-4 gap-4 max-[1024px]:grid-cols-2 max-[640px]:grid-cols-1">
+          <div className="rounded-[18px] border border-[#E2E8F0] bg-white p-4 sm:p-5 shadow-[0_2px_12px_rgba(15,23,42,0.03)]">
+            <div className="grid grid-cols-4 gap-3 max-[1024px]:grid-cols-2 max-[640px]:grid-cols-1">
               {/* 1. 자치구 */}
-              <div className="flex flex-col gap-1.5">
-                <label className="flex items-center justify-between text-[13px] font-extrabold text-[#0F172A]">
+              <div className="flex flex-col gap-1">
+                <label className="flex items-center justify-between text-[12px] font-extrabold text-[#0F172A]">
                   <span>자치구 선택</span>
-                  <span className="rounded bg-[#F1F5F9] px-1.5 py-0.5 text-[10px] font-black text-[#475569]">필수</span>
+                  <span className="rounded bg-[#F1F5F9] px-1.5 py-0.5 text-[9.5px] font-black text-[#475569]">필수</span>
                 </label>
                 <AutocompleteSelect
                   value={selectedSgg?.sggNm || ""}
@@ -668,10 +671,10 @@ export default function PriceDetailPage() {
               </div>
 
               {/* 2. 자치동 */}
-              <div className="flex flex-col gap-1.5">
-                <label className="flex items-center justify-between text-[13px] font-extrabold text-[#0F172A]">
+              <div className="flex flex-col gap-1">
+                <label className="flex items-center justify-between text-[12px] font-extrabold text-[#0F172A]">
                   <span>자치동 선택</span>
-                  <span className="rounded bg-[#F1F5F9] px-1.5 py-0.5 text-[10px] font-black text-[#475569]">필수</span>
+                  <span className="rounded bg-[#F1F5F9] px-1.5 py-0.5 text-[9.5px] font-black text-[#475569]">필수</span>
                 </label>
                 <AutocompleteSelect
                   value={selectedDong?.dongNm || ""}
@@ -684,10 +687,10 @@ export default function PriceDetailPage() {
               </div>
 
               {/* 3. 단지 */}
-              <div className="flex flex-col gap-1.5">
-                <label className="flex items-center justify-between text-[13px] font-extrabold text-[#0F172A]">
+              <div className="flex flex-col gap-1">
+                <label className="flex items-center justify-between text-[12px] font-extrabold text-[#0F172A]">
                   <span>아파트 단지</span>
-                  <span className="rounded bg-[#F1F5F9] px-1.5 py-0.5 text-[10px] font-black text-[#475569]">필수</span>
+                  <span className="rounded bg-[#F1F5F9] px-1.5 py-0.5 text-[9.5px] font-black text-[#475569]">필수</span>
                 </label>
                 <AutocompleteSelect
                   value={currentComplex?.name || ""}
@@ -700,10 +703,10 @@ export default function PriceDetailPage() {
               </div>
 
               {/* 4. 비교 기준 타입 */}
-              <div className="flex flex-col gap-1.5">
-                <label className="flex items-center justify-between text-[13px] font-extrabold text-[#0F172A]">
+              <div className="flex flex-col gap-1">
+                <label className="flex items-center justify-between text-[12px] font-extrabold text-[#0F172A]">
                   <span>비교 기준 타입</span>
-                  <span className="rounded bg-[#EEF2FF] px-1.5 py-0.5 text-[10px] font-black text-[#4F46E5]">타입</span>
+                  <span className="rounded bg-[#EEF2FF] px-1.5 py-0.5 text-[9.5px] font-black text-[#4F46E5]">타입</span>
                 </label>
                 <AutocompleteSelect
                   value={query.compareType === "pyeong" ? "평형별 비교" : "층수별 비교"}
@@ -721,17 +724,17 @@ export default function PriceDetailPage() {
               </div>
             </div>
 
-            {/* 1:1 비교 조건 지정 섹션 (첫 화면 로딩 시 상시 노출) */}
-            <div className="mt-4 grid grid-cols-[1fr_auto_1fr_auto] items-stretch gap-3 border-t border-slate-100 pt-3 max-[1200px]:grid-cols-1">
+            {/* 1:1 비교 조건 지정 섹션 */}
+            <div className="mt-3.5 grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2.5 border-t border-slate-100 pt-3 max-[1200px]:grid-cols-1">
               {/* 선택 1 카드 */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 rounded-[16px] border border-slate-200/80 bg-white p-3.5 sm:p-3 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-[12px] border border-slate-200/80 bg-white p-2.5 shadow-xs">
                 <div className="flex shrink-0 items-center gap-1.5">
-                  <MapPin className="size-4 text-[#0F8AA8]" />
-                  <h3 className="text-[15px] font-black text-[#0F172A] whitespace-nowrap">선택 1 (기준)</h3>
+                  <MapPin className="size-3.5 text-[#0F8AA8]" />
+                  <h3 className="text-[13.5px] font-black text-[#0F172A] whitespace-nowrap">선택 1 (기준)</h3>
                 </div>
-                <div className="grid min-w-0 flex-1 grid-cols-1 sm:grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 sm:gap-2">
-                  <label className="text-[12px] sm:text-[13px] font-bold text-slate-600 sm:text-slate-700 shrink-0 whitespace-nowrap">
-                    {query.compareType === "pyeong" ? "평형대 구간 선택" : "층수 구간 선택"}
+                <div className="grid min-w-0 flex-1 grid-cols-1 sm:grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5">
+                  <label className="text-[11.5px] font-bold text-slate-600 shrink-0 whitespace-nowrap">
+                    {query.compareType === "pyeong" ? "평형대 선택" : "층수 선택"}
                   </label>
                   <AutocompleteSelect
                     value={getCompareOptionLabel(query.compareType, query.val1)}
@@ -745,21 +748,21 @@ export default function PriceDetailPage() {
               </div>
 
               {/* 중앙 VS */}
-              <div className="flex items-center justify-center max-[1200px]:py-1">
-                <div className="flex size-10 sm:size-12 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] text-[12px] sm:text-[13px] font-black text-white shadow-md">
+              <div className="flex items-center justify-center max-[1200px]:py-0.5">
+                <div className="flex size-8 items-center justify-center rounded-full border-2 border-white bg-gradient-to-br from-[#FDE047] via-[#EAB308] to-[#B45309] text-[11px] font-black text-white shadow-xs">
                   VS
                 </div>
               </div>
 
               {/* 선택 2 카드 */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 rounded-[16px] border border-slate-200/80 bg-white p-3.5 sm:p-3 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-[12px] border border-slate-200/80 bg-white p-2.5 shadow-xs">
                 <div className="flex shrink-0 items-center gap-1.5">
-                  <MapPin className="size-4 text-[#6366F1]" />
-                  <h3 className="text-[15px] font-black text-[#0F172A] whitespace-nowrap">선택 2 (비교)</h3>
+                  <MapPin className="size-3.5 text-[#6366F1]" />
+                  <h3 className="text-[13.5px] font-black text-[#0F172A] whitespace-nowrap">선택 2 (비교)</h3>
                 </div>
-                <div className="grid min-w-0 flex-1 grid-cols-1 sm:grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 sm:gap-2">
-                  <label className="text-[12px] sm:text-[13px] font-bold text-slate-600 sm:text-slate-700 shrink-0 whitespace-nowrap">
-                    {query.compareType === "pyeong" ? "평형대 구간 선택" : "층수 구간 선택"}
+                <div className="grid min-w-0 flex-1 grid-cols-1 sm:grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5">
+                  <label className="text-[11.5px] font-bold text-slate-600 shrink-0 whitespace-nowrap">
+                    {query.compareType === "pyeong" ? "평형대 선택" : "층수 선택"}
                   </label>
                   <AutocompleteSelect
                     value={getCompareOptionLabel(query.compareType, query.val2)}
@@ -773,339 +776,380 @@ export default function PriceDetailPage() {
               </div>
 
               {/* 비교하기 버튼 */}
-              <div className="flex flex-col items-center justify-center rounded-[16px] border border-slate-200/80 bg-slate-50 p-2 text-center">
+              <div className="flex items-center justify-center">
                 <button
                   type="button"
                   onClick={() => query.compareType && query.val1 && query.val2 && setQuery({ isActive: true })}
                   disabled={!currentComplex || !query.compareType || !query.val1 || !query.val2}
-                  className="flex h-[56px] w-full min-w-[130px] flex-col items-center justify-center gap-1 rounded-[10px] bg-[#2563EB] p-2 text-white shadow-md transition-all hover:bg-[#1D4ED8] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                  className="flex h-[38px] w-full min-w-[100px] items-center justify-center gap-1.5 rounded-[9px] bg-[#2563EB] px-4 py-2 text-white shadow-sm transition-all hover:bg-[#1D4ED8] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
                 >
-                  <Search className="size-5 stroke-[2.5]" />
-                  <span className="text-[14px] font-bold">비교하기</span>
+                  <Search className="size-4 stroke-[2.5]" />
+                  <span className="text-[13px] font-bold whitespace-nowrap">비교하기</span>
                 </button>
-                <p className="mt-2 text-[11px] font-medium text-slate-400">조건 지정 후 클릭</p>
               </div>
             </div>
           </div>
 
           {/* 안내 및 데이터 영역 */}
           {!query.sggCd || !query.dongCd ? (
-            <div className="rounded-[24px] border border-slate-200 bg-white p-12 text-center shadow-sm">
-              <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                <Building2 className="size-8" />
+            <div className="rounded-[18px] border border-slate-200 bg-white p-8 text-center shadow-xs">
+              <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                <Building2 className="size-6" />
               </div>
-              <h3 className="text-[18px] font-black text-[#0F172A]">자치구와 자치동을 선택해 주세요</h3>
-              <p className="mt-1 text-[13px] text-slate-500">
+              <h3 className="text-[16px] font-black text-[#0F172A]">자치구와 자치동을 선택해 주세요</h3>
+              <p className="mt-1 text-[12.5px] text-slate-500">
                 상단의 콤보 박스에서 자치구와 자치동을 선택하시면 단지 목록이 활성화됩니다.
               </p>
             </div>
           ) : !currentComplex ? (
-            <div className="rounded-[24px] border border-slate-200 bg-white p-12 text-center shadow-sm">
-              <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                <Building2 className="size-8" />
+            <div className="rounded-[18px] border border-slate-200 bg-white p-8 text-center shadow-xs">
+              <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                <Building2 className="size-6" />
               </div>
-              <h3 className="text-[18px] font-black text-[#0F172A]">아파트 단지를 선택해 주세요</h3>
-              <p className="mt-1 text-[13px] text-slate-500">
-                시세를 조회할 아파트 단지를 선택하시면 실거래 시세 분석 결과가 표시됩니다.
+              <h3 className="text-[16px] font-black text-[#0F172A]">아파트 단지를 선택해 주세요</h3>
+              <p className="mt-1 text-[12.5px] text-slate-500">
+                시세를 조회할 아파트 단지를 선택하신 후 비교하기 버튼을 클릭해 주세요.
+              </p>
+            </div>
+          ) : !query.isActive ? (
+            <div className="rounded-[18px] border border-slate-200 bg-white p-8 text-center shadow-xs">
+              <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                <Search className="size-6 stroke-[2.2]" />
+              </div>
+              <h3 className="text-[16px] font-black text-[#0F172A]">비교 조건을 확인 후 [비교하기] 버튼을 클릭해 주세요</h3>
+              <p className="mt-1 text-[12.5px] text-slate-500">
+                선택하신 <span className="font-extrabold text-[#0F8AA8]">{currentComplex.name}</span> 단지의 1:1 시세 비교 분석과 평형별 시세 및 최근 실거래 내역이 함께 출력됩니다.
               </p>
             </div>
           ) : (
-            <div className="space-y-6">
-              {/* 단지 프로필 카드 (상시 유지) */}
-              <div className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="space-y-4 animate-in fade-in-0 duration-300">
+              {/* 단지 프로필 카드 */}
+              <div className="rounded-[18px] border border-slate-200 bg-white p-4 sm:p-4.5 shadow-sm">
                 <div className="flex items-center gap-2">
-                  <span className="rounded-md bg-blue-50 px-2.5 py-1 text-[11px] font-extrabold text-blue-600 border border-blue-100">
+                  <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[10.5px] font-extrabold text-blue-600 border border-blue-100">
                     단지 정보
                   </span>
-                  <h2 className="text-[20px] font-black text-[#0F172A]">{currentComplex.name}</h2>
+                  <h2 className="text-[17px] font-black text-[#0F172A]">{currentComplex.name}</h2>
                 </div>
-                <p className="mt-1 flex items-center gap-1.5 text-[13px] text-slate-500">
-                  <MapPin className="size-3.5" />
+                <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-slate-500">
+                  <MapPin className="size-3" />
                   <span>{currentComplex.address || `${selectedSgg?.sggNm || ""} ${selectedDong?.dongNm || ""}`.trim()}</span>
                 </p>
 
-                <div className="mt-5 grid grid-cols-4 gap-2.5 sm:gap-4 max-[900px]:grid-cols-2">
-                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 sm:p-4 min-w-0">
-                    <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">최고 층수</span>
-                    <span className="block text-[14px] sm:text-[16px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
+                <div className="mt-3 grid grid-cols-4 gap-2 sm:gap-3 max-[900px]:grid-cols-2">
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-2.5 sm:p-3 min-w-0">
+                    <span className="block text-[10.5px] font-bold text-slate-400 whitespace-nowrap">최고 층수</span>
+                    <span className="block text-[13.5px] sm:text-[14.5px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
                       {maxFloor > 0 ? `${maxFloor}층` : "-"}
                     </span>
                   </div>
-                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 sm:p-4 min-w-0">
-                    <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">거래 건수</span>
-                    <span className="block text-[14px] sm:text-[16px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-2.5 sm:p-3 min-w-0">
+                    <span className="block text-[10.5px] font-bold text-slate-400 whitespace-nowrap">거래 건수</span>
+                    <span className="block text-[13.5px] sm:text-[14.5px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
                       {dealCount > 0 ? `${dealCount.toLocaleString()}건` : "-"}
                     </span>
                   </div>
-                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 sm:p-4 min-w-0">
-                    <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">평형대 종류</span>
-                    <span className="block text-[14px] sm:text-[16px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-2.5 sm:p-3 min-w-0">
+                    <span className="block text-[10.5px] font-bold text-slate-400 whitespace-nowrap">평형대 종류</span>
+                    <span className="block text-[13.5px] sm:text-[14.5px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
                       {pyeongTypeCount > 0 ? `${pyeongTypeCount}개 타입` : "-"}
                     </span>
                   </div>
-                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 sm:p-4 min-w-0">
-                    <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">평균 거래가 (최근)</span>
-                    <span className="block text-[13.5px] min-[400px]:text-[15px] sm:text-[16px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-2.5 sm:p-3 min-w-0">
+                    <span className="block text-[10.5px] font-bold text-slate-400 whitespace-nowrap">평균 거래가 (최근)</span>
+                    <span className="block text-[13px] min-[400px]:text-[14px] sm:text-[14.5px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
                       {trendItem?.average_deal_price ? formatPriceKRW(trendItem.average_deal_price) : formatPriceKRW(currentComplex.baseSalePrice)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* 비교 모드 결과 영역 (로딩 / 에러 / 성공 상태) */}
-              {query.isActive && isCompareLoading ? (
-                <div className="rounded-[24px] border border-blue-100 bg-white p-12 text-center shadow-sm">
-                  <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 animate-spin">
-                    <Search className="size-6" />
-                  </div>
-                  <h4 className="text-[16px] font-black text-[#0F172A]">1:1 비교 데이터를 분석 중입니다...</h4>
-                  <p className="mt-1 text-[13px] text-slate-500">선택하신 조건에 맞춰 실거래 시세를 비교하고 있습니다.</p>
-                </div>
-              ) : query.isActive && isCompareError && !isCompareNoDataError ? (
-                <div className="rounded-[24px] border border-rose-200 bg-rose-50/70 p-8 text-center shadow-sm">
-                  <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
-                    <X className="size-6 stroke-[2.5]" />
-                  </div>
-                  <h4 className="text-[17px] font-black text-rose-900">검색에 실패했습니다</h4>
-                  <p className="mt-1.5 text-[13px] font-semibold text-rose-700">
-                    {axios.isAxiosError(compareError)
-                      ? compareError.response?.data?.message || "1:1 비교 API 호출 중 오류가 발생했습니다."
-                      : compareError instanceof Error
-                        ? compareError.message
-                        : "1:1 비교 API 호출 중 오류가 발생했습니다."}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setQuery({ isActive: false })}
-                    className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-rose-300 bg-white px-4 py-2 text-[12px] font-bold text-rose-700 shadow-sm transition-all hover:bg-rose-50 cursor-pointer"
-                  >
-                    비교 닫기
-                  </button>
-                </div>
-              ) : query.isActive && (isCompareNoDataError || (compareData && !compareAnalysis)) ? (
-                <div className="rounded-[24px] border border-amber-200 bg-amber-50/70 p-8 text-center shadow-sm">
-                  <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
-                    <Search className="size-6" />
-                  </div>
-                  <h4 className="text-[17px] font-black text-amber-900">최근 90일 내에 해당하는 데이터가 없습니다</h4>
-                  <button
-                    type="button"
-                    onClick={() => setQuery({ isActive: false })}
-                    className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-white px-4 py-2 text-[12px] font-bold text-amber-700 shadow-sm transition-all hover:bg-amber-50 cursor-pointer"
-                  >
-                    비교 조건 변경
-                  </button>
-                </div>
-              ) : query.isActive && compareAnalysis ? (
-                <div className="space-y-6 animate-in fade-in-0 duration-300">
-                  {/* 비교 요약 카드 */}
-                  <div className="rounded-[24px] border border-blue-100 bg-gradient-to-r from-blue-50/80 via-indigo-50/60 to-white p-4 sm:p-6 shadow-sm">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                      <div className="flex items-start sm:items-center gap-3 min-w-0">
-                        <div className="flex size-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shrink-0 mt-0.5 sm:mt-0">
-                          <Sparkles className="size-5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[12px] font-bold text-blue-600">1:1 조건 비교 분석 결과</span>
-                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-extrabold text-blue-700 whitespace-nowrap">
-                              {query.compareType === "floor" ? "층수별 비교" : "평형별 비교"}
-                            </span>
+              {/* 1:1 비교 모드 결과 영역 */}
+              {query.isActive && (
+                <div className="space-y-3.5 animate-in fade-in-0 duration-300">
+                  {isCompareLoading ? (
+                    <div className="rounded-[18px] border border-blue-100 bg-white p-8 text-center shadow-sm">
+                      <div className="mx-auto mb-2.5 flex size-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 animate-spin">
+                        <Search className="size-5" />
+                      </div>
+                      <h4 className="text-[15px] font-black text-[#0F172A]">1:1 비교 데이터를 분석 중입니다...</h4>
+                      <p className="mt-1 text-[12px] text-slate-500">선택하신 조건에 맞춰 실거래 시세를 비교하고 있습니다.</p>
+                    </div>
+                  ) : isCompareError && !isCompareNoDataError ? (
+                    <div className="rounded-[18px] border border-rose-200 bg-rose-50/70 p-5 text-center shadow-sm">
+                      <div className="mx-auto mb-2 flex size-9 items-center justify-center rounded-xl bg-rose-100 text-rose-600">
+                        <X className="size-4 stroke-[2.5]" />
+                      </div>
+                      <h4 className="text-[14.5px] font-black text-rose-900">비교 데이터 조회 실패</h4>
+                      <p className="mt-1 text-[12px] font-semibold text-rose-700">
+                        {axios.isAxiosError(compareError)
+                          ? compareError.response?.data?.message || "1:1 비교 API 호출 중 오류가 발생했습니다."
+                          : compareError instanceof Error
+                            ? compareError.message
+                            : "1:1 비교 API 호출 중 오류가 발생했습니다."}
+                      </p>
+                    </div>
+                  ) : isCompareNoDataError || (compareData && !compareAnalysis) ? (
+                    <div className="rounded-[18px] border border-amber-200 bg-amber-50/70 p-5 text-center shadow-sm">
+                      <div className="mx-auto mb-2 flex size-9 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+                        <Search className="size-4" />
+                      </div>
+                      <h4 className="text-[14.5px] font-black text-amber-900">최근 90일 내에 해당하는 1:1 비교 데이터가 없습니다</h4>
+                      <p className="mt-0.5 text-[11.5px] text-amber-700">다른 층수 또는 평형대 조건을 선택하여 비교해 보세요.</p>
+                    </div>
+                  ) : compareAnalysis ? (
+                    <div className="space-y-3.5">
+                      {/* 비교 요약 카드 */}
+                      <div className="rounded-[18px] border border-blue-100 bg-gradient-to-r from-blue-50/80 via-indigo-50/60 to-white p-3 sm:p-3.5 shadow-sm">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex size-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs shrink-0">
+                            <Sparkles className="size-4" />
                           </div>
-                          <h3 className="text-[15px] sm:text-[18px] font-black text-[#0F172A] flex flex-wrap items-center gap-x-2 gap-y-0.5 leading-snug">
-                            <span className="text-[#0F8AA8] break-keep">{compareAnalysis.label1}</span>
-                            <span className="text-[12px] sm:text-[14px] font-extrabold text-slate-400">VS</span>
-                            <span className="text-[#6366F1] break-keep">{compareAnalysis.label2}</span>
-                          </h3>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className="text-[11px] font-bold text-blue-600">1:1 조건 비교 분석 결과</span>
+                              <span className="rounded-full bg-blue-100 px-1.5 py-0.2 text-[10px] font-extrabold text-blue-700 whitespace-nowrap">
+                                {query.compareType === "floor" ? "층수별" : "평형별"}
+                              </span>
+                            </div>
+                            <h3 className="text-[14px] sm:text-[15.5px] font-black text-[#0F172A] flex flex-wrap items-center gap-x-2 gap-y-0.5 leading-snug">
+                              <span className="text-[#0F8AA8] break-keep">{compareAnalysis.label1}</span>
+                              <span className="text-[11.5px] sm:text-[13px] font-extrabold text-slate-400">VS</span>
+                              <span className="text-[#6366F1] break-keep">{compareAnalysis.label2}</span>
+                            </h3>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between sm:justify-end gap-2.5 pt-2 md:pt-0 border-t md:border-t-0 border-blue-100/60">
-                        <div className="rounded-xl border border-slate-200/80 bg-white px-3 sm:px-4 py-2 text-left sm:text-right shadow-sm flex-1 sm:flex-initial">
-                          <span className="block text-[11px] font-bold text-slate-500 whitespace-nowrap">평균 가격 격차</span>
-                          <span className={cn("text-[13.5px] sm:text-[16px] font-black whitespace-nowrap", compareAnalysis.diffAvg > 0 ? "text-rose-600" : compareAnalysis.diffAvg < 0 ? "text-blue-600" : "text-slate-700")}>
-                            {compareAnalysis.diffAvg > 0 ? "+" : ""}{formatPriceKRW(Math.abs(compareAnalysis.diffAvg))} ({compareAnalysis.diffAvg > 0 ? "+" : ""}{compareAnalysis.diffAvgPct}%)
-                          </span>
+                      {/* 듀얼 지표 비교 카드 (2열) */}
+                      <div className="grid grid-cols-2 gap-3 sm:gap-4 max-[900px]:grid-cols-1">
+                        {/* 선택 1 카드 */}
+                        <div className="rounded-[18px] border-2 border-[#0F8AA8]/30 bg-gradient-to-b from-[#E6F4F7]/40 to-white p-3 sm:p-3.5 shadow-sm">
+                          <div className="mb-2 flex items-center justify-between border-b border-teal-100 pb-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="flex size-5 items-center justify-center rounded bg-[#0F8AA8] text-[10.5px] font-black text-white">1</span>
+                              <h4 className="text-[13.5px] sm:text-[14.5px] font-black text-[#0F172A]">{compareAnalysis.label1}</h4>
+                            </div>
+                            <span className="rounded bg-teal-50 px-1.5 py-0.5 text-[9.5px] font-extrabold text-[#0F8AA8] border border-teal-200/60 whitespace-nowrap">기준 조건</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {/* 1. 평균 매매가 */}
+                            <div className="rounded-lg border border-slate-100 bg-white p-2 sm:p-2.5 shadow-2xs min-w-0">
+                              <span className="block text-[10px] font-bold text-slate-400 whitespace-nowrap">평균 매매가</span>
+                              <div className="flex flex-wrap items-baseline gap-1 mt-0.5">
+                                <span className="text-[12.5px] min-[400px]:text-[13.5px] sm:text-[15px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
+                                  {formatPriceKRW(compareAnalysis.avg1)}
+                                </span>
+                                {compareAnalysis.avg1 > compareAnalysis.avg2 && compareAnalysis.avg2 > 0 && (
+                                  <span className="text-[10px] sm:text-[11px] font-bold text-rose-600 whitespace-nowrap">
+                                    (▲ {formatPriceKRW(Math.abs(compareAnalysis.avg1 - compareAnalysis.avg2))})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* 2. 거래 건수 */}
+                            <div className="rounded-lg border border-slate-100 bg-white p-2 sm:p-2.5 shadow-2xs min-w-0">
+                              <span className="block text-[10px] font-bold text-slate-400 whitespace-nowrap">거래 건수</span>
+                              <div className="flex flex-wrap items-baseline gap-1 mt-0.5">
+                                <span className="text-[12.5px] min-[400px]:text-[13.5px] sm:text-[15px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
+                                  {compareAnalysis.count1}건
+                                </span>
+                                {compareAnalysis.count1 > compareAnalysis.count2 && compareAnalysis.count2 > 0 && (
+                                  <span className="text-[10px] sm:text-[11px] font-bold text-rose-600 whitespace-nowrap">
+                                    (▲ {(compareAnalysis.count1 - compareAnalysis.count2).toLocaleString()}건)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* 3. 최근 실거래가 */}
+                            <div className="rounded-lg border border-slate-100 bg-white p-2 sm:p-2.5 shadow-2xs min-w-0">
+                              <span className="block text-[10px] font-bold text-slate-400 whitespace-nowrap">최근 실거래가</span>
+                              <div className="flex flex-wrap items-baseline gap-1 mt-0.5">
+                                <span className="text-[11.5px] min-[400px]:text-[12.5px] sm:text-[13.5px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
+                                  {formatPriceKRW(compareAnalysis.recentPrice1)}
+                                </span>
+                                {(compareAnalysis.recentPrice1 ?? 0) > (compareAnalysis.recentPrice2 ?? 0) && (compareAnalysis.recentPrice2 ?? 0) > 0 && (
+                                  <span className="text-[10px] sm:text-[11px] font-bold text-rose-600 whitespace-nowrap">
+                                    (▲ {formatPriceKRW(Math.abs((compareAnalysis.recentPrice1 ?? 0) - (compareAnalysis.recentPrice2 ?? 0)))})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* 4. 평당 단가 */}
+                            <div className="rounded-lg border border-slate-100 bg-white p-2 sm:p-2.5 shadow-2xs min-w-0">
+                              <span className="block text-[10px] font-bold text-slate-400 whitespace-nowrap">평당 단가</span>
+                              <div className="flex flex-wrap items-baseline gap-1 mt-0.5">
+                                <span className="text-[11.5px] min-[400px]:text-[12.5px] sm:text-[13.5px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
+                                  {formatPyeongPrice(compareAnalysis.pyeongPrice1)}
+                                </span>
+                                {(compareAnalysis.pyeongPrice1 ?? 0) > (compareAnalysis.pyeongPrice2 ?? 0) && (compareAnalysis.pyeongPrice2 ?? 0) > 0 && (
+                                  <span className="text-[10px] sm:text-[11px] font-bold text-rose-600 whitespace-nowrap">
+                                    (▲ {formatPyeongPrice(Math.abs((compareAnalysis.pyeongPrice1 ?? 0) - (compareAnalysis.pyeongPrice2 ?? 0)))})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setQuery({ isActive: false })}
-                          className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-[12px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 cursor-pointer whitespace-nowrap shrink-0"
-                        >
-                          <X className="size-3.5" />
-                          비교 닫기
-                        </button>
+
+                        {/* 선택 2 카드 */}
+                        <div className="rounded-[18px] border-2 border-[#6366F1]/30 bg-gradient-to-b from-[#EEF2FF]/40 to-white p-3 sm:p-3.5 shadow-sm">
+                          <div className="mb-2 flex items-center justify-between border-b border-indigo-100 pb-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="flex size-5 items-center justify-center rounded bg-[#6366F1] text-[10.5px] font-black text-white">2</span>
+                              <h4 className="text-[13.5px] sm:text-[14.5px] font-black text-[#0F172A]">{compareAnalysis.label2}</h4>
+                            </div>
+                            <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[9.5px] font-extrabold text-[#6366F1] border border-indigo-200/60 whitespace-nowrap">비교 조건</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {/* 1. 평균 매매가 */}
+                            <div className="rounded-lg border border-slate-100 bg-white p-2 sm:p-2.5 shadow-2xs min-w-0">
+                              <span className="block text-[10px] font-bold text-slate-400 whitespace-nowrap">평균 매매가</span>
+                              <div className="flex flex-wrap items-baseline gap-1 mt-0.5">
+                                <span className="text-[12.5px] min-[400px]:text-[13.5px] sm:text-[15px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
+                                  {formatPriceKRW(compareAnalysis.avg2)}
+                                </span>
+                                {compareAnalysis.avg2 > compareAnalysis.avg1 && compareAnalysis.avg1 > 0 && (
+                                  <span className="text-[10px] sm:text-[11px] font-bold text-rose-600 whitespace-nowrap">
+                                    (▲ {formatPriceKRW(Math.abs(compareAnalysis.avg2 - compareAnalysis.avg1))})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* 2. 거래 건수 */}
+                            <div className="rounded-lg border border-slate-100 bg-white p-2 sm:p-2.5 shadow-2xs min-w-0">
+                              <span className="block text-[10px] font-bold text-slate-400 whitespace-nowrap">거래 건수</span>
+                              <div className="flex flex-wrap items-baseline gap-1 mt-0.5">
+                                <span className="text-[12.5px] min-[400px]:text-[13.5px] sm:text-[15px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
+                                  {compareAnalysis.count2}건
+                                </span>
+                                {compareAnalysis.count2 > compareAnalysis.count1 && compareAnalysis.count1 > 0 && (
+                                  <span className="text-[10px] sm:text-[11px] font-bold text-rose-600 whitespace-nowrap">
+                                    (▲ {(compareAnalysis.count2 - compareAnalysis.count1).toLocaleString()}건)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* 3. 최근 실거래가 */}
+                            <div className="rounded-lg border border-slate-100 bg-white p-2 sm:p-2.5 shadow-2xs min-w-0">
+                              <span className="block text-[10px] font-bold text-slate-400 whitespace-nowrap">최근 실거래가</span>
+                              <div className="flex flex-wrap items-baseline gap-1 mt-0.5">
+                                <span className="text-[11.5px] min-[400px]:text-[12.5px] sm:text-[13.5px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
+                                  {formatPriceKRW(compareAnalysis.recentPrice2)}
+                                </span>
+                                {(compareAnalysis.recentPrice2 ?? 0) > (compareAnalysis.recentPrice1 ?? 0) && (compareAnalysis.recentPrice1 ?? 0) > 0 && (
+                                  <span className="text-[10px] sm:text-[11px] font-bold text-rose-600 whitespace-nowrap">
+                                    (▲ {formatPriceKRW(Math.abs((compareAnalysis.recentPrice2 ?? 0) - (compareAnalysis.recentPrice1 ?? 0)))})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* 4. 평당 단가 */}
+                            <div className="rounded-lg border border-slate-100 bg-white p-2 sm:p-2.5 shadow-2xs min-w-0">
+                              <span className="block text-[10px] font-bold text-slate-400 whitespace-nowrap">평당 단가</span>
+                              <div className="flex flex-wrap items-baseline gap-1 mt-0.5">
+                                <span className="text-[11.5px] min-[400px]:text-[12.5px] sm:text-[13.5px] font-black text-[#0F172A] whitespace-nowrap tracking-tight">
+                                  {formatPyeongPrice(compareAnalysis.pyeongPrice2)}
+                                </span>
+                                {(compareAnalysis.pyeongPrice2 ?? 0) > (compareAnalysis.pyeongPrice1 ?? 0) && (compareAnalysis.pyeongPrice1 ?? 0) > 0 && (
+                                  <span className="text-[10px] sm:text-[11px] font-bold text-rose-600 whitespace-nowrap">
+                                    (▲ {formatPyeongPrice(Math.abs((compareAnalysis.pyeongPrice2 ?? 0) - (compareAnalysis.pyeongPrice1 ?? 0)))})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-
-                  {/* 듀얼 지표 비교 카드 (2열) */}
-                  <div className="grid grid-cols-2 gap-4 sm:gap-6 max-[900px]:grid-cols-1">
-                    {/* 선택 1 카드 */}
-                    <div className="rounded-[24px] border-2 border-[#0F8AA8]/30 bg-gradient-to-b from-[#E6F4F7]/40 to-white p-4 sm:p-6 shadow-sm">
-                      <div className="mb-3 sm:mb-4 flex items-center justify-between border-b border-teal-100 pb-2.5 sm:pb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="flex size-6 sm:size-7 items-center justify-center rounded-lg bg-[#0F8AA8] text-[11px] sm:text-[12px] font-black text-white">1</span>
-                          <h4 className="text-[15px] sm:text-[16px] font-black text-[#0F172A]">{compareAnalysis.label1}</h4>
-                        </div>
-                        <span className="rounded-md bg-teal-50 px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-extrabold text-[#0F8AA8] border border-teal-200/60 whitespace-nowrap">기준 조건</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                        <div className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3.5 shadow-sm min-w-0">
-                          <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">평균 매매가</span>
-                          <span className="block text-[13.5px] min-[400px]:text-[15px] sm:text-[18px] font-black text-[#0F8AA8] whitespace-nowrap tracking-tight">{formatPriceKRW(compareAnalysis.avg1)}</span>
-                        </div>
-                        <div className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3.5 shadow-sm min-w-0">
-                          <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">거래 건수</span>
-                          <span className="block text-[13.5px] min-[400px]:text-[15px] sm:text-[18px] font-black text-slate-800 whitespace-nowrap tracking-tight">{compareAnalysis.count1}건</span>
-                        </div>
-                        <div className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3.5 shadow-sm min-w-0">
-                          <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">최근 실거래가</span>
-                          <span className="block text-[12px] min-[400px]:text-[13.5px] sm:text-[15px] font-black text-rose-600 whitespace-nowrap tracking-tight">{formatPriceKRW(compareAnalysis.recentPrice1)}</span>
-                        </div>
-                        <div className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3.5 shadow-sm min-w-0">
-                          <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">평당 단가</span>
-                          <span className="block text-[12px] min-[400px]:text-[13.5px] sm:text-[15px] font-black text-blue-600 whitespace-nowrap tracking-tight">{formatPyeongPrice(compareAnalysis.pyeongPrice1)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 선택 2 카드 */}
-                    <div className="rounded-[24px] border-2 border-[#6366F1]/30 bg-gradient-to-b from-[#EEF2FF]/40 to-white p-4 sm:p-6 shadow-sm">
-                      <div className="mb-3 sm:mb-4 flex items-center justify-between border-b border-indigo-100 pb-2.5 sm:pb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="flex size-6 sm:size-7 items-center justify-center rounded-lg bg-[#6366F1] text-[11px] sm:text-[12px] font-black text-white">2</span>
-                          <h4 className="text-[15px] sm:text-[16px] font-black text-[#0F172A]">{compareAnalysis.label2}</h4>
-                        </div>
-                        <span className="rounded-md bg-indigo-50 px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-extrabold text-[#6366F1] border border-indigo-200/60 whitespace-nowrap">비교 조건</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                        <div className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3.5 shadow-sm min-w-0">
-                          <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">평균 매매가</span>
-                          <span className="block text-[13.5px] min-[400px]:text-[15px] sm:text-[18px] font-black text-[#6366F1] whitespace-nowrap tracking-tight">{formatPriceKRW(compareAnalysis.avg2)}</span>
-                        </div>
-                        <div className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3.5 shadow-sm min-w-0">
-                          <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">거래 건수</span>
-                          <span className="block text-[13.5px] min-[400px]:text-[15px] sm:text-[18px] font-black text-slate-800 whitespace-nowrap tracking-tight">{compareAnalysis.count2}건</span>
-                        </div>
-                        <div className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3.5 shadow-sm min-w-0">
-                          <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">최근 실거래가</span>
-                          <span className="block text-[12px] min-[400px]:text-[13.5px] sm:text-[15px] font-black text-rose-600 whitespace-nowrap tracking-tight">{formatPriceKRW(compareAnalysis.recentPrice2)}</span>
-                        </div>
-                        <div className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3.5 shadow-sm min-w-0">
-                          <span className="block text-[11px] font-bold text-slate-400 whitespace-nowrap">평당 단가</span>
-                          <span className="block text-[12px] min-[400px]:text-[13.5px] sm:text-[15px] font-black text-blue-600 whitespace-nowrap tracking-tight">{formatPyeongPrice(compareAnalysis.pyeongPrice2)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 하단 1:1 통합 꺾은선 차트 */}
-                  {/*
-                  <div className="rounded-[24px] border border-slate-200/80 bg-white p-6 shadow-sm">
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="size-4 text-[#0F8AA8]" />
-                        <h4 className="text-[15px] font-black text-[#0F172A]">최근 12개월 실거래 시세 추이 1:1 비교</h4>
-                      </div>
-                      <div className="flex items-center gap-4 text-[12px] font-bold">
-                        <span className="flex items-center gap-1.5 text-[#0F8AA8]">
-                          <span className="inline-block size-2.5 rounded-full bg-[#0F8AA8]" />
-                          선택 1: {compareAnalysis.label1}
-                        </span>
-                        <span className="flex items-center gap-1.5 text-[#6366F1]">
-                          <span className="inline-block size-2.5 rounded-full bg-[#6366F1]" />
-                          선택 2: {compareAnalysis.label2}
-                        </span>
-                      </div>
-                    </div>
-
-                    {combinedChartData.length > 1 ? (
-                      <div className="h-[280px] w-full">
-                        <Chart chartType="LineChart" width="100%" height="100%" data={combinedChartData} options={combinedChartOptions} />
-                      </div>
-                    ) : (
-                      <div className="flex h-48 items-center justify-center text-[13px] text-slate-400">
-                        표시할 시세 추이 데이터가 충분하지 않습니다.
-                      </div>
-                    )}
-                  </div>
-                  */}
+                  ) : null}
                 </div>
-              ) : (
-                /* 기본 모드: 평형별 시세 테이블 & 최근 실거래 내역 */
-                <div className="space-y-6">
-                  {/* 평형별 시세 정보 카드 */}
-                  <div className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm">
-                    <h3 className="text-[16px] font-black text-[#0F172A]">평형별 시세 정보</h3>
-                    <p className="mt-0.5 text-[12px] text-slate-500">
+              )}
+
+              {/* 하단: 평형별 시세 테이블 & 최근 실거래 내역 (2열 그리드 배치로 세로 길이 단축) */}
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 max-[1024px]:grid-cols-1 items-stretch">
+                {/* 평형별 시세 정보 카드 */}
+                <div className="rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm flex flex-col h-full">
+                  <div>
+                    <h3 className="text-[14.5px] font-black text-[#0F172A]">평형별 시세 정보</h3>
+                    <p className="mt-0.5 text-[11.5px] text-slate-500">
                       공급/전용 면적별 최근 매매 및 전세 실거래 기준 시세입니다.
                     </p>
-
-                    {pyungs.length === 0 ? (
-                      <div className="py-8 text-center text-[13px] text-slate-400">등록된 평형별 시세 정보가 없습니다.</div>
-                    ) : (
-                      <div className="mt-4 overflow-x-auto">
-                        <table className="w-full text-left text-[13px]">
-                          <thead>
-                            <tr className="border-b border-slate-200 bg-slate-50 text-[12px] font-extrabold text-slate-500">
-                              <th className="p-3">평형 / 타입</th>
-                              <th className="p-3">전용면적</th>
-                              <th className="p-3">평균 매매가</th>
-                              <th className="p-3">평당가</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {pyungs.map((p, idx) => (
-                              <tr key={idx} className="hover:bg-slate-50/60">
-                                <td className="p-3 font-bold text-[#0F172A]">{p.name}</td>
-                                <td className="p-3 text-slate-600">{p.area ? `${p.area}㎡` : "-"}</td>
-                                <td className="p-3 font-bold text-[#0F8AA8]">{formatPriceKRW(p.salePrice)}</td>
-                                <td className="p-3 font-bold text-slate-700">{formatPriceKRW(p.pricePerPyung)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
                   </div>
 
-                  {/* 최근 실거래 내역 카드 */}
-                  {trendItem?.recent_deals && trendItem.recent_deals.length > 0 && (
-                    <div className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm">
-                      <h3 className="text-[16px] font-black text-[#0F172A]">최근 실거래 내역</h3>
-                      <p className="mt-0.5 text-[12px] text-slate-500">
-                        국토교통부 실거래가 기준 최근 체결된 매매 계약 내역입니다.
-                      </p>
-
-                      <div className="mt-4 overflow-x-auto">
-                        <table className="w-full text-left text-[13px]">
-                          <thead>
-                            <tr className="border-b border-slate-200 bg-slate-50 text-[12px] font-extrabold text-slate-500">
-                              <th className="p-3">계약일자</th>
-                              <th className="p-3">전용면적</th>
-                              <th className="p-3">평형</th>
-                              <th className="p-3">층수</th>
-                              <th className="p-3">거래금액</th>
+                  {pyungs.length === 0 ? (
+                    <div className="py-8 text-center text-[12px] text-slate-400">등록된 평형별 시세 정보가 없습니다.</div>
+                  ) : (
+                    <div className="mt-3 overflow-x-auto max-h-[340px] overflow-y-auto rounded-lg border border-slate-100">
+                      <table className="w-full text-left text-[12px]">
+                        <thead>
+                          <tr className="sticky top-0 border-b border-slate-200 bg-slate-50 text-[11.5px] font-extrabold text-slate-600">
+                            <th className="py-2 px-2.5">전용면적</th>
+                            <th className="py-2 px-2.5">평형</th>
+                            <th className="py-2 px-2.5">평균 매매가</th>
+                            <th className="py-2 px-2.5">평당가</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {pyungs.map((p, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50/60">
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{p.area}</td>
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{p.pyeong}</td>
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{formatPriceKRW(p.salePrice)}</td>
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{formatPriceKRW(p.pricePerPyung)}</td>
                             </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {trendItem.recent_deals.map((trade, idx) => (
-                              <tr key={idx} className="hover:bg-slate-50/60">
-                                <td className="p-3 text-slate-600">{trade.deal_date}</td>
-                                <td className="p-3 text-slate-600">{trade.exclusive_area}㎡</td>
-                                <td className="p-3 text-slate-600">{trade.pyeong ? `${trade.pyeong}평` : "-"}</td>
-                                <td className="p-3 text-slate-600">{trade.floor}층</td>
-                                <td className="p-3 font-bold text-[#0F8AA8]">{formatPriceKRW(trade.deal_amount)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>
-              )}
+
+                {/* 최근 실거래 내역 카드 */}
+                <div className="rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm flex flex-col h-full">
+                  <div>
+                    <h3 className="text-[14.5px] font-black text-[#0F172A]">최근 실거래 내역</h3>
+                    <p className="mt-0.5 text-[11.5px] text-slate-500">
+                      국토교통부 실거래가 기준 최근 체결된 매매 계약 내역입니다.
+                    </p>
+                  </div>
+
+                  {!trendItem?.recent_deals || trendItem.recent_deals.length === 0 ? (
+                    <div className="py-8 text-center text-[12px] text-slate-400">최근 실거래 내역이 없습니다.</div>
+                  ) : (
+                    <div className="mt-3 overflow-x-auto max-h-[340px] overflow-y-auto rounded-lg border border-slate-100">
+                      <table className="w-full text-left text-[12px]">
+                        <thead>
+                          <tr className="sticky top-0 border-b border-slate-200 bg-slate-50 text-[11.5px] font-extrabold text-slate-600">
+                            <th className="py-2 px-2.5">계약일자</th>
+                            <th className="py-2 px-2.5">전용면적</th>
+                            <th className="py-2 px-2.5">평형</th>
+                            <th className="py-2 px-2.5">층수</th>
+                            <th className="py-2 px-2.5">거래금액</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {trendItem.recent_deals.map((trade, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50/60">
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{trade.deal_date}</td>
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{trade.exclusive_area}㎡</td>
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{trade.pyeong ? `${trade.pyeong}평` : "-"}</td>
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{trade.floor}층</td>
+                              <td className="py-2 px-2.5 font-semibold text-[#0F172A]">{formatPriceKRW(trade.deal_amount)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </section>

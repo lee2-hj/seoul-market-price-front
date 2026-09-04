@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
-import type { Path, PathValue, UseFormSetValue } from "react-hook-form";
+import type { UseFormSetValue } from "react-hook-form";
 
 const formatPhone = (value: string): string => {
   if (!value) return "";
@@ -37,13 +37,13 @@ export function usePassAuth<T extends { phone?: string; name?: string }>({
       phoneNumber: string;
     }) => {
       const formatted = formatPhone(result.phoneNumber);
-      // T가 제네릭이라 RHF의 Path<T>가 리터럴 "phone"으로 좁혀지지 않아 명시적으로 캐스팅한다.
-      // T extends { phone?: string; name?: string } 제약으로 값 타입 안전성은 보장된다.
-      setValue("phone" as Path<T>, formatted as PathValue<T, Path<T>>);
+      // @ts-expect-error dynamic property assignment on form
+      setValue("phone", formatted);
 
       const verifiedName = sanitizeText(result.name);
       if (verifiedName) {
-        setValue("name" as Path<T>, verifiedName as PathValue<T, Path<T>>);
+        // @ts-expect-error dynamic property assignment on form
+        setValue("name", verifiedName);
         const currentUser = useAuthStore.getState().user;
         if (currentUser) {
           useAuthStore.getState().setUser({

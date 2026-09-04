@@ -1,0 +1,522 @@
+/* ============================================================
+   백오피스 공통 스타일
+   ============================================================ */
+
+/* ── 변수 ─────────────────────────────────────────────────── */
+:root {
+  --admin-sidebar-w: 240px;
+  --admin-sidebar-w-closed: 64px;
+  --admin-bg: #0f1117;
+  --admin-surface: #1a1d27;
+  --admin-surface-2: #21253a;
+  --admin-border: #2a2f45;
+  --admin-accent: #6366f1;        /* indigo */
+  --admin-accent-hover: #4f52d8;
+  --admin-master: #f59e0b;        /* amber */
+  --admin-text: #e2e8f0;
+  --admin-text-muted: #8892a4;
+  --admin-danger: #ef4444;
+  --admin-success: #22c55e;
+  --admin-radius: 10px;
+  --admin-transition: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── 레이아웃 ─────────────────────────────────────────────── */
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font-family: "Pretendard", "Inter", system-ui, sans-serif;
+}
+
+/* ── 사이드바 ─────────────────────────────────────────────── */
+.admin-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  background: var(--admin-surface);
+  border-right: 1px solid var(--admin-border);
+  display: flex;
+  flex-direction: column;
+  transition: width var(--admin-transition);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.admin-sidebar--open  { width: var(--admin-sidebar-w); }
+.admin-sidebar--closed { width: var(--admin-sidebar-w-closed); }
+
+/* 로고 영역 */
+.admin-sidebar__logo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 16px 16px;
+  border-bottom: 1px solid var(--admin-border);
+  min-height: 64px;
+}
+
+.admin-sidebar__logo-text {
+  font-size: 1rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.admin-sidebar__toggle {
+  background: none;
+  border: none;
+  color: var(--admin-text-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: background var(--admin-transition);
+  flex-shrink: 0;
+}
+
+.admin-sidebar__toggle:hover { background: var(--admin-border); }
+
+/* 계정 정보 */
+.admin-sidebar__account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-sidebar__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--admin-accent), var(--admin-master));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.admin-sidebar__account-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.admin-sidebar__account-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 메뉴 */
+.admin-sidebar__nav { flex: 1; overflow-y: auto; padding: 8px 0; }
+
+.admin-sidebar__menu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-sidebar__menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  text-decoration: none;
+  color: var(--admin-text-muted);
+  border-radius: var(--admin-radius);
+  margin: 2px 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background var(--admin-transition), color var(--admin-transition);
+  white-space: nowrap;
+}
+
+.admin-sidebar__menu-item:hover {
+  background: var(--admin-surface-2);
+  color: var(--admin-text);
+}
+
+.admin-sidebar__menu-item--active {
+  background: var(--admin-accent);
+  color: #fff;
+}
+
+.admin-menu-icon { font-size: 1.1rem; flex-shrink: 0; }
+.admin-sidebar__menu-label { overflow: hidden; text-overflow: ellipsis; }
+
+/* 로그아웃 */
+.admin-sidebar__footer {
+  padding: 12px 8px;
+  border-top: 1px solid var(--admin-border);
+}
+
+.admin-sidebar__logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  color: var(--admin-text-muted);
+  cursor: pointer;
+  border-radius: var(--admin-radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background var(--admin-transition), color var(--admin-transition);
+  white-space: nowrap;
+}
+
+.admin-sidebar__logout-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--admin-danger);
+}
+
+/* ── 메인 영역 ────────────────────────────────────────────── */
+.admin-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-left: var(--admin-sidebar-w);
+  transition: margin-left var(--admin-transition);
+  min-height: 100vh;
+}
+
+/* 사이드바가 닫혔을 때 마진 조정은 JS로 처리하지 않고
+   CSS 변수를 활용해 AdminLayout에서 className으로 제어 */
+.admin-layout:has(.admin-sidebar--closed) .admin-main {
+  margin-left: var(--admin-sidebar-w-closed);
+}
+
+/* 상단 헤더 바 */
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  height: 64px;
+  background: var(--admin-surface);
+  border-bottom: 1px solid var(--admin-border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.admin-topbar__title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.admin-topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-topbar__user {
+  font-size: 0.85rem;
+  color: var(--admin-text-muted);
+}
+
+/* 컨텐츠 영역 */
+.admin-content {
+  flex: 1;
+  padding: 28px;
+  overflow-y: auto;
+}
+
+/* ── 역할 배지 ────────────────────────────────────────────── */
+.admin-role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.admin-role-badge--master {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--admin-master);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.admin-role-badge--admin {
+  background: rgba(99, 102, 241, 0.2);
+  color: var(--admin-accent);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+}
+
+/* ── 공통 카드 ────────────────────────────────────────────── */
+.admin-card {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  padding: 24px;
+}
+
+.admin-page-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0 0 24px;
+  color: var(--admin-text);
+}
+
+/* ── 공통 테이블 ──────────────────────────────────────────── */
+.admin-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--admin-radius);
+  border: 1px solid var(--admin-border);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.admin-table th {
+  background: var(--admin-surface-2);
+  color: var(--admin-text-muted);
+  font-weight: 600;
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--admin-border);
+  white-space: nowrap;
+}
+
+.admin-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--admin-border);
+  color: var(--admin-text);
+  vertical-align: middle;
+}
+
+.admin-table tr:last-child td { border-bottom: none; }
+.admin-table tbody tr:hover { background: var(--admin-surface-2); }
+
+/* ── 버튼 ─────────────────────────────────────────────────── */
+.admin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--admin-transition);
+}
+
+.admin-btn--primary {
+  background: var(--admin-accent);
+  color: #fff;
+}
+.admin-btn--primary:hover { background: var(--admin-accent-hover); }
+
+.admin-btn--danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--admin-danger);
+}
+.admin-btn--danger:hover { background: rgba(239, 68, 68, 0.3); }
+
+.admin-btn--ghost {
+  background: var(--admin-surface-2);
+  color: var(--admin-text);
+}
+.admin-btn--ghost:hover { background: var(--admin-border); }
+
+/* ── 입력 폼 ──────────────────────────────────────────────── */
+.admin-input {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  padding: 9px 14px;
+  color: var(--admin-text);
+  font-size: 0.875rem;
+  width: 100%;
+  outline: none;
+  transition: border-color var(--admin-transition);
+}
+
+.admin-input:focus { border-color: var(--admin-accent); }
+.admin-input::placeholder { color: var(--admin-text-muted); }
+
+.admin-form-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.admin-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 160px;
+}
+
+.admin-form-group label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--admin-text-muted);
+}
+
+/* ── 모달 오버레이 ────────────────────────────────────────── */
+.admin-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  backdrop-filter: blur(2px);
+}
+
+.admin-modal {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: calc(var(--admin-radius) + 4px);
+  padding: 28px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.admin-modal__title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 20px;
+}
+
+.admin-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+/* ── 체크박스 ─────────────────────────────────────────────── */
+.admin-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--admin-surface-2);
+  cursor: pointer;
+  transition: background var(--admin-transition);
+}
+
+.admin-checkbox-item:hover { background: var(--admin-border); }
+
+.admin-checkbox-item input[type="checkbox"] {
+  accent-color: var(--admin-accent);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* ── Forbidden 페이지 ─────────────────────────────────────── */
+.admin-forbidden {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--admin-bg);
+}
+
+.admin-forbidden__card {
+  text-align: center;
+  padding: 48px 40px;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: calc(var(--admin-radius) + 4px);
+  max-width: 400px;
+}
+
+.admin-forbidden__icon { font-size: 3.5rem; margin-bottom: 16px; }
+
+.admin-forbidden__title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.admin-forbidden__desc {
+  color: var(--admin-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  margin: 0 0 24px;
+}
+
+.admin-forbidden__btn {
+  background: var(--admin-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--admin-transition);
+}
+
+.admin-forbidden__btn:hover { background: var(--admin-accent-hover); }
+
+/* ── 통계 카드 (대시보드) ─────────────────────────────────── */
+.admin-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.admin-stat-card {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-stat-card__label {
+  font-size: 0.8rem;
+  color: var(--admin-text-muted);
+  font-weight: 600;
+}
+
+.admin-stat-card__value {
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.admin-stat-card__icon { font-size: 1.5rem; }
+
+/* ── 반응형 ────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .admin-sidebar--open { width: var(--admin-sidebar-w-closed); }
+  .admin-content { padding: 16px; }
+}

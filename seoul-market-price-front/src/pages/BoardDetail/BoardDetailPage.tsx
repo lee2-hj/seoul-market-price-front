@@ -2,11 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MessageSquare, Edit2, Trash2, Send, Paperclip, Download } from "lucide-react";
-import type {
-  AttachmentResponse,
-  BoardComment,
-  BoardDetail,
-} from "@/features/board/types/board.types";
+import type { BoardComment } from "@/features/board/types/board.types";
 import {
   downloadBoardAttachmentApi,
   getBoardPostApi,
@@ -20,8 +16,6 @@ import {
 import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { maskAuthorName } from "@/lib/utils";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
@@ -39,12 +33,6 @@ function normalizeIdentity(value?: string | null) {
 
 function getCommentAuthorName(comment: BoardComment): string {
   return comment.writerName || comment.name || "-";
-}
-
-interface BoardFullDetail {
-  detail: BoardDetail;
-  comments: BoardComment[];
-  attachments: AttachmentResponse[];
 }
 
 export default function BoardDetailPage() {
@@ -67,13 +55,10 @@ export default function BoardDetailPage() {
   const [commentContent, setCommentContent] = useState("");
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editingContent, setEditingContent] = useState("");
-  // 삭제 확인 다이얼로그는 단일 인스턴스를 재사용하고, 대상 댓글 id만 state로 관리한다.
-  const [targetCommentId, setTargetCommentId] = useState<number | null>(null);
-  const [isPostDeleteDialogOpen, setIsPostDeleteDialogOpen] = useState(false);
 
-  // 게시글 정보 Query (상세 + 댓글 + 첨부파일 통합 조회)
-  const { data: fullDetail, isLoading, isError, error } = useQuery<BoardFullDetail>({
-    queryKey: ["boardFull", { boardId }],
+  // 게시글 정보 Query
+  const { data: fullDetail, isLoading, isError, error } = useQuery({
+    queryKey: ["boardFull", boardId],
     queryFn: async () => {
       const [detail, comments, attachments] = await Promise.all([
         getBoardPostApi(boardId),
@@ -86,10 +71,20 @@ export default function BoardDetailPage() {
     enabled: isValidBoardId,
   });
 
+  // 댓글 목록 Query
   const post = fullDetail?.detail;
   const comments = fullDetail?.comments ?? [];
   const isCommentsLoading = isLoading;
+
+  // 첨부파일 목록 Query
   const attachments = fullDetail?.attachments ?? [];
+
+  const refreshComments = async () => {
+    const nextComments = await getBoardCommentsApi(boardId);
+    queryClient.setQueryData(["boardFull", boardId], (current: typeof fullDetail) =>
+      current ? { ...current, comments: nextComments } : current,
+    );
+  };
 
   // 첨부파일 다운로드 핸들러
   const handleDownload = async (attachmentId: number, originalFilename: string) => {
@@ -115,8 +110,8 @@ export default function BoardDetailPage() {
   const deletePostMutation = useMutation({
     mutationFn: () => deleteBoardPostApi(boardId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["boardPosts"] });
       alert("게시글이 삭제되었습니다.");
+      queryClient.invalidateQueries({ queryKey: ["boardPosts"] });
       navigate("/board");
     },
     onError: (err: unknown) => {
@@ -127,9 +122,9 @@ export default function BoardDetailPage() {
   // 댓글 작성 Mutation
   const createCommentMutation = useMutation({
     mutationFn: (content: string) => createBoardCommentApi(boardId, { content }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["boardFull", { boardId }] });
+    onSuccess: async () => {
       setCommentContent("");
+      await refreshComments();
     },
     onError: (err: unknown) => {
       alert(`댓글 등록 실패: ${getErrorMessage(err, "오류가 발생했습니다.")}`);
@@ -140,10 +135,10 @@ export default function BoardDetailPage() {
   const updateCommentMutation = useMutation({
     mutationFn: ({ commentId, content }: { commentId: number; content: string }) =>
       updateBoardCommentApi(boardId, commentId, { content }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["boardFull", { boardId }] });
+    onSuccess: async () => {
       setEditingCommentId(null);
       setEditingContent("");
+      await refreshComments();
     },
     onError: (err: unknown) => {
       alert(`댓글 수정 실패: ${getErrorMessage(err, "수정 권한이 없거나 오류가 발생했습니다.")}`);
@@ -153,13 +148,19 @@ export default function BoardDetailPage() {
   // 댓글 삭제 Mutation
   const deleteCommentMutation = useMutation({
     mutationFn: (commentId: number) => deleteBoardCommentApi(boardId, commentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["boardFull", { boardId }] });
+    onSuccess: async () => {
+      await refreshComments();
     },
     onError: (err: unknown) => {
       alert(`댓글 삭제 실패: ${getErrorMessage(err, "삭제 권한이 없거나 오류가 발생했습니다.")}`);
     },
   });
+
+  const handleDeletePost = () => {
+    if (window.confirm("정말 이 게시글을 삭제하시겠습니까?")) {
+      deletePostMutation.mutate();
+    }
+  };
 
   const handleCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,10 +189,9 @@ export default function BoardDetailPage() {
     updateCommentMutation.mutate({ commentId, content: editingContent.trim() });
   };
 
-  const handleConfirmDeleteComment = () => {
-    if (targetCommentId != null) {
-      deleteCommentMutation.mutate(targetCommentId);
-      setTargetCommentId(null);
+  const handleDeleteComment = (commentId: number) => {
+    if (window.confirm("댓글을 삭제하시겠습니까?")) {
+      deleteCommentMutation.mutate(commentId);
     }
   };
 
@@ -211,7 +211,7 @@ export default function BoardDetailPage() {
 
     const curId = normalizeIdentity(loginUser.userId);
     const targetId = normalizeIdentity(postAuthorId);
-    if (curId && targetId && curId === targetId) return true;
+    if (curId && targetId && (curId === targetId || curId.includes(targetId) || targetId.includes(curId))) return true;
 
     const curName = normalizeIdentity(loginUser.name);
     const targetName = normalizeIdentity(postAuthorName);
@@ -233,14 +233,13 @@ export default function BoardDetailPage() {
       <div className="min-h-screen bg-[#F5FAFC]">
         <div className="py-12 px-4 text-center">
           <p className="text-rose-500 font-medium text-sm">유효하지 않은 게시글 번호입니다.</p>
-          <Button
+          <button
             type="button"
-            variant="outline"
             onClick={handleGoToList}
-            className="mt-4 h-9 border-[#DCE8ED] text-xs font-semibold text-[#0F8AA8]"
+            className="mt-4 inline-block text-[#0F8AA8] text-xs font-semibold no-underline bg-transparent border-none cursor-pointer hover:underline"
           >
             목록으로 돌아가기
-          </Button>
+          </button>
         </div>
       </div>
       </SectionSidebarLayout>
@@ -341,19 +340,18 @@ export default function BoardDetailPage() {
                                 ({(attachment.size / 1024).toFixed(1)} KB)
                               </span>
                             </span>
-                            <Button
+                            <button
                               type="button"
-                              size="sm"
                               onClick={() =>
                                 handleDownload(
                                   Number(attachment.id),
                                   attachment.name,
                                 )
                               }
-                              className="h-auto shrink-0 gap-1 rounded-[6px] bg-[#0F8AA8] px-3 py-1.5 text-[12px] font-bold text-white shadow-xs hover:bg-[#0B5E73]"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[12px] font-bold rounded-[6px] transition-colors cursor-pointer shrink-0 shadow-xs border-none"
                             >
                               <Download className="w-3.5 h-3.5" /> 다운로드
-                            </Button>
+                            </button>
                           </div>
                         );
                       })}
@@ -383,7 +381,7 @@ export default function BoardDetailPage() {
                   {canModifyPost(post.authorId, post.authorName) && (
                     <Button
                       variant="outline"
-                      onClick={() => setIsPostDeleteDialogOpen(true)}
+                      onClick={handleDeletePost}
                       disabled={deletePostMutation.isPending}
                       className="h-[42px] px-6 border-rose-200 text-rose-600 hover:bg-rose-50 text-[14px] font-bold rounded-[7px] cursor-pointer"
                     >
@@ -423,12 +421,12 @@ export default function BoardDetailPage() {
                     <span>작성자: <strong className="text-[#13202B]">{loginUser?.name || "-"}</strong></span>
                   </div>
                   <div className="flex gap-2">
-                    <Textarea
+                    <textarea
                       rows={3}
                       placeholder="댓글을 작성해 주세요. (타인에 대한 비방이나 불법적인 내용은 제재될 수 있습니다.)"
                       value={commentContent}
                       onChange={(e) => setCommentContent(e.target.value)}
-                      className="flex-1 rounded-[8px] border border-[#DCE8ED] bg-[#F5FAFC] p-3 text-[14px] text-[#13202B] placeholder:text-[#9CA3AF] focus-visible:border-[#0F8AA8]"
+                      className="flex-1 rounded-[8px] border border-[#DCE8ED] bg-[#F5FAFC] p-3 text-[14px] text-[#13202B] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#0F8AA8]"
                     />
                     <Button
                       type="submit"
@@ -472,36 +470,33 @@ export default function BoardDetailPage() {
                           {/* 본인 또는 관리자만 수정/삭제 버튼 노출 */}
                           {canModify && !isEditing && (
                             <div className="flex items-center gap-1.5">
-                              <Button
+                              <button
                                 type="button"
-                                size="sm"
                                 onClick={() => handleStartEditComment(comment.id, comment.content)}
-                                className="h-auto gap-1 rounded-[6px] bg-[#0F8AA8] px-2.5 py-1 text-[12px] font-bold text-white shadow-2xs hover:bg-[#0B5E73]"
+                                className="px-2.5 py-1 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[12px] font-bold rounded-[6px] inline-flex items-center gap-1 transition-colors cursor-pointer shadow-2xs border-none"
                               >
                                 <Edit2 className="w-3 h-3" />
                                 수정
-                              </Button>
-                              <Button
+                              </button>
+                              <button
                                 type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setTargetCommentId(comment.id)}
-                                className="h-auto gap-1 rounded-[6px] border-rose-200 bg-white px-2.5 py-1 text-[12px] font-bold text-rose-600 shadow-2xs hover:bg-rose-50"
+                                onClick={() => handleDeleteComment(comment.id)}
+                                className="px-2.5 py-1 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 text-[12px] font-bold rounded-[6px] inline-flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
                               >
                                 <Trash2 className="w-3 h-3" />
                                 삭제
-                              </Button>
+                              </button>
                             </div>
                           )}
                         </div>
 
                         {isEditing ? (
                           <div className="space-y-2 pt-1">
-                            <Textarea
+                            <textarea
                               rows={2}
                               value={editingContent}
                               onChange={(e) => setEditingContent(e.target.value)}
-                              className="w-full rounded-[6px] border border-[#0F8AA8] bg-white p-2.5 text-[14px] text-[#13202B]"
+                              className="w-full rounded-[6px] border border-[#0F8AA8] bg-white p-2.5 text-[14px] text-[#13202B] focus:outline-none"
                             />
                             <div className="flex justify-end gap-2">
                               <Button
@@ -532,34 +527,9 @@ export default function BoardDetailPage() {
                   })
                 )}
               </div>
-
             </div>
           )}
         </div>
-
-        {/* 댓글 삭제 확인: 댓글마다 다이얼로그를 만들지 않고 단일 인스턴스를 재사용 */}
-        <ConfirmDialog
-          open={targetCommentId != null}
-          onOpenChange={(open) => {
-            if (!open) setTargetCommentId(null);
-          }}
-          title="댓글 삭제"
-          description="댓글을 삭제하시겠습니까?"
-          isDestructive
-          onConfirm={handleConfirmDeleteComment}
-        />
-
-        <ConfirmDialog
-          open={isPostDeleteDialogOpen}
-          onOpenChange={setIsPostDeleteDialogOpen}
-          title="게시글 삭제"
-          description="정말 이 게시글을 삭제하시겠습니까?"
-          isDestructive
-          onConfirm={() => {
-            setIsPostDeleteDialogOpen(false);
-            deletePostMutation.mutate();
-          }}
-        />
       </div>
     </div>
     </SectionSidebarLayout>

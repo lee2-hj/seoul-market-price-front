@@ -7,9 +7,9 @@ import {
   fetchLegalDongGeoJson,
   getCachedDongGeoJson,
   rewindDongFeature,
+  SEOUL_DISTRICT_CODE_MAP,
   type DongGeoJson,
 } from "@/features/main/utils/mainPopularDongMapUtils";
-import { useDistrictLookup } from "@/hooks/useDistricts";
 
 export interface MainPopularDongMapProps {
   districtName: string;
@@ -21,9 +21,8 @@ const SVG_HEIGHT = 160;
 
 export function MainPopularDongMap({ districtName, dongName }: MainPopularDongMapProps) {
   const [geoData, setGeoData] = useState<DongGeoJson | null>(() => getCachedDongGeoJson());
-  const [isGeoLoading, setIsGeoLoading] = useState(() => !getCachedDongGeoJson());
-  const [hasGeoError, setHasGeoError] = useState(false);
-  const { getCodeByName, isLoading: isDistrictLoading, isError: isDistrictError } = useDistrictLookup();
+  const [isLoading, setIsLoading] = useState(() => !getCachedDongGeoJson());
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -32,13 +31,13 @@ export function MainPopularDongMap({ districtName, dongName }: MainPopularDongMa
         .then((data) => {
           if (isMounted) {
             setGeoData(data);
-            setIsGeoLoading(false);
+            setIsLoading(false);
           }
         })
         .catch(() => {
           if (isMounted) {
-            setHasGeoError(true);
-            setIsGeoLoading(false);
+            setHasError(true);
+            setIsLoading(false);
           }
         });
     }
@@ -49,11 +48,7 @@ export function MainPopularDongMap({ districtName, dongName }: MainPopularDongMa
 
   const normalizedDistrict = districtName.trim();
   const normalizedDong = dongName.trim();
-  const districtCode = getCodeByName(normalizedDistrict);
-
-  // 지도(GeoJSON) 로딩과 자치구 이름->코드 API 조회가 모두 끝나야 최종 상태를 판단할 수 있다.
-  const isLoading = isGeoLoading || isDistrictLoading;
-  const hasError = hasGeoError || isDistrictError;
+  const districtCode = SEOUL_DISTRICT_CODE_MAP[normalizedDistrict];
 
   const mapCalculation = useMemo(() => {
     if (!geoData || !districtCode || !normalizedDong) return null;

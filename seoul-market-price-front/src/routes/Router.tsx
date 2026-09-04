@@ -3,12 +3,14 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 /* 공통 레이아웃 및 공개·인증 전용 라우트 접근 제어 */
 import Layout from "@/components/Layout";
-import PageLoadingFallback from "@/components/PageLoadingFallback";
 import PrivateRoute from "@/routes/PrivateRoute";
 import PublicRoute from "@/routes/PublicRoute";
 import SignupFlowLayout from "@/routes/SignupFlowLayout";
+import AdminRoute from "@/routes/AdminRoute";
+import MasterRoute from "@/routes/MasterRoute";
 
-/* 인증 상태 복원(백그라운드)과 단계형 회원가입 임시 데이터 관리 */
+/* 인증 상태 복원과 단계형 회원가입 임시 데이터 관리 */
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { ensureAuthLoaded } from "@/features/auth/utils/auth";
 import {
   clearAllSignupStorage,
@@ -56,11 +58,42 @@ const QnaDetailPage = lazy(() => import("@/pages/Qna/QnaDetailPage"));
 const QnaEditPage = lazy(() => import("@/pages/Qna/QnaEditPage"));
 const QnaWritePage = lazy(() => import("@/pages/Qna/QnaWritePage"));
 
+/* 백오피스 화면 (admin) */
+const AdminLayout = lazy(() => import("@/pages/Admin/AdminLayout"));
+const AdminForbiddenPage = lazy(() => import("@/pages/Admin/AdminForbiddenPage"));
+const DashboardPage = lazy(() => import("@/pages/Admin/dashboard/DashboardPage"));
+const MenuManagePage = lazy(() => import("@/pages/Admin/menu/MenuManagePage"));
+const AccountManagePage = lazy(() => import("@/pages/Admin/accounts/AccountManagePage"));
+const BoardManagePage = lazy(() => import("@/pages/Admin/board/BoardManagePage"));
+
+/**
+ * 페이지 지연 로딩 시 노출되는 가볍고 접근성 있는 로딩 Fallback UI
+ * Header와 Footer는 유지한 채 본문 영역에만 간결한 스피너를 표시한다.
+ */
+function PageLoadingFallback() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label="화면 로딩 중"
+      className="flex min-h-[50vh] w-full flex-col items-center justify-center gap-3 px-4 py-16 text-center"
+    >
+      <div
+        className="size-8 animate-spin rounded-full border-[3px] border-[#DCE8ED] border-t-[#0F8AA8]"
+        aria-hidden="true"
+      />
+      <p className="m-0 text-sm font-semibold text-[#526573]">화면을 불러오는 중입니다...</p>
+    </div>
+  );
+}
+
 function withSuspense(element: React.ReactNode) {
   return <Suspense fallback={<PageLoadingFallback />}>{element}</Suspense>;
 }
 
 function Router() {
+  const isAuthInitialized = useAuthStore((state) => state.isInitialized);
+
   /**
    * 새로고침이 아닌 새 문서 탐색으로 회원가입 경로를 벗어났을 때만
    * 약관 동의, PASS 인증 결과 등 회원가입 임시 데이터를 정리한다.
@@ -74,14 +107,17 @@ function Router() {
 
   /**
    * accessToken이 HttpOnly 쿠키에 있으므로 앱 시작 시 회원 API를 통해
-   * 로그인 상태를 복원한다. 화면 렌더링을 막지 않고 백그라운드에서
-   * 진행하며, 로그인 여부에 따라 결과가 달라지는 화면(PrivateRoute,
-   * PublicRoute, Header의 로그인 영역 등)은 각자 isInitialized를
-   * 구독해 복원이 끝날 때까지 스켈레톤을 보여준다.
+   * 로그인 상태를 복원한다. 복원이 끝나기 전에 보호 라우트가 사용자를
+   * 비로그인 상태로 잘못 판단하지 않도록 초기화를 먼저 완료한다.
    */
   useEffect(() => {
     void ensureAuthLoaded();
   }, []);
+
+  if (!isAuthInitialized) {
+    // 인증 상태 확인 중에는 라우트와 화면을 렌더링하지 않는다.
+    return null;
+  }
 
   return (
     <BrowserRouter>
@@ -146,6 +182,10 @@ function Router() {
             path="/board/:postId/edit"
             element={withSuspense(<BoardEditPage />)}
           />
+          <Route
+            path="/board/edit/:postId"
+            element={withSuspense(<BoardEditPage />)}
+          />
           {/* 게시글 상세 조회 */}
           <Route
             path="/board/:postId"
@@ -163,6 +203,10 @@ function Router() {
           {/* Q&A 수정 */}
           <Route
             path="/qna/:id/edit"
+            element={withSuspense(<QnaEditPage />)}
+          />
+          <Route
+            path="/qna/edit/:id"
             element={withSuspense(<QnaEditPage />)}
           />
           {/* Q&A 상세 조회 */}
@@ -271,6 +315,61 @@ function Router() {
 
         {/* 정의되지 않은 모든 경로는 서비스 홈으로 이동한다. */}
         <Route path="*" element={<Navigate to="/" replace />} />
+
+        {/* ==================================================================
+            백오피스
+            ADMIN/MASTER 역할만 진입할 수 있다. 공통 Layout(Header/Footer)을
+            사용하지 않으며 별도 AdminLayout(사이드바)을 사용한다.
+        ================================================================== */}
+        <Route
+          element={
+            <AdminRoute>
+              {withSuspense(<AdminLayout />)}
+            </AdminRoute>
+          }
+        >
+          {/* 대시보드 (기본 진입점) */}
+          <Route
+            path="/admin"
+            element={withSuspense(<DashboardPage />)}
+          />
+
+          {/* 게시판 관리 (ADMIN/MASTER 공용) */}
+          <Route
+            path="/admin/board"
+            element={
+              <AdminRoute>
+                {withSuspense(<BoardManagePage />)}
+              </AdminRoute>
+            }
+          />
+
+          {/* 메뉴 관리 (MASTER 전용) */}
+          <Route
+            path="/admin/menus"
+            element={
+              <MasterRoute>
+                {withSuspense(<MenuManagePage />)}
+              </MasterRoute>
+            }
+          />
+
+          {/* 계정 관리 (MASTER 전용) */}
+          <Route
+            path="/admin/accounts"
+            element={
+              <MasterRoute>
+                {withSuspense(<AccountManagePage />)}
+              </MasterRoute>
+            }
+          />
+
+          {/* 권한 없음 페이지 */}
+          <Route
+            path="/admin/forbidden"
+            element={withSuspense(<AdminForbiddenPage />)}
+          />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
