@@ -132,16 +132,36 @@ export default function BoardEditPage() {
 
   useEffect(() => {
     if (post && isAuthInitialized) {
-      const curId = String(loginUser?.userId || "").trim().toLowerCase();
-      const authorId = String(post.authorId || "").trim().toLowerCase();
-      const curName = String(loginUser?.name || "").trim();
-      const authorName = String(post.authorName || "").trim();
+      const role = String(loginUser?.role || "").toUpperCase();
+      const userKeys = [
+        loginUser?.userId,
+        loginUser?.name,
+        loginUser?.email,
+        (loginUser as unknown as Record<string, unknown>)?.id,
+      ]
+        .filter(Boolean)
+        .map((s) => String(s).trim().toLowerCase());
+
+      const postRecord = post as unknown as Record<string, unknown>;
+      const postKeys = [
+        post.authorId,
+        post.authorName,
+        postRecord?.writerId,
+        postRecord?.writerName,
+        postRecord?.userId,
+      ]
+        .filter(Boolean)
+        .map((s) => String(s).trim().toLowerCase())
+        .filter((s) => s !== "user" && s !== "-");
 
       const isAuthor =
-        loginUser &&
-        (loginUser.role === "ADMIN" ||
-          (curId && authorId && (curId === authorId || curId.includes(authorId) || authorId.includes(curId))) ||
-          (curName && authorName && curName === authorName));
+        Boolean(loginUser) &&
+        (role === "ADMIN" ||
+          role === "ROLE_ADMIN" ||
+          postKeys.length === 0 ||
+          userKeys.some((uk) =>
+            postKeys.some((pk) => uk === pk || uk.includes(pk) || pk.includes(uk)),
+          ));
 
       if (!isAuthor) {
         alert("수정 권한이 없습니다.");

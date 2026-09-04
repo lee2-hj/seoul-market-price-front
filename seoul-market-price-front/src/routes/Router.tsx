@@ -182,6 +182,10 @@ function Router() {
             path="/board/:postId/edit"
             element={withSuspense(<BoardEditPage />)}
           />
+          <Route
+            path="/board/edit/:postId"
+            element={withSuspense(<BoardEditPage />)}
+          />
           {/* 게시글 상세 조회 */}
           <Route
             path="/board/:postId"
@@ -199,6 +203,10 @@ function Router() {
           {/* Q&A 수정 */}
           <Route
             path="/qna/:id/edit"
+            element={withSuspense(<QnaEditPage />)}
+          />
+          <Route
+            path="/qna/edit/:id"
             element={withSuspense(<QnaEditPage />)}
           />
           {/* Q&A 상세 조회 */}
