@@ -21,11 +21,7 @@ export function usePreferenceDashboardData({
   const isValidCode = Boolean(normalizedCode && /^\d+$/.test(normalizedCode));
 
   return useQuery({
-    queryKey: [
-      "main-page",
-      "region-dashboard",
-      { source, userId: userId || "guest", guCode: normalizedCode },
-    ],
+    queryKey: ["main-page", "region-dashboard", source, userId || "guest", normalizedCode],
     queryFn: async () => {
       if (!isValidCode) {
         throw new Error("유효하지 않은 자치구 코드입니다.");

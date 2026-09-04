@@ -93,8 +93,7 @@ function LoginForm() {
 
           name: data.name,
 
-          // 백엔드 로그인 응답에는 role이 내려오지 않는다.
-          role: "",
+          role: data.role || "",
         },
         data.accessToken,
       );
@@ -104,7 +103,7 @@ function LoginForm() {
       useAuthStore.getState().setUser({
         userId: me.userId,
         name: me.name,
-        role: "",
+        role: me.role || data.role || "",
         myGu: me.myGu,
         myGuCode: me.myGuCode,
         preferredDistrict: me.preferredDistrict,

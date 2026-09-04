@@ -54,14 +54,6 @@ export async function loginApi(
 }
 
 // ===============================
-// 페이지뷰 기록
-// ===============================
-
-export async function recordPageViewApi(): Promise<void> {
-  await apiMiddleware.post("/api/page-views");
-}
-
-// ===============================
 // 내 정보 조회
 // ===============================
 
@@ -633,50 +625,6 @@ export async function deleteBoardCommentApi(
   await apiMiddleware.delete(`/api/boards/${boardId}/comments/${commentId}`);
 }
 
-/** 마이페이지 내 작성한 게시글 단건 응답 */
-export interface MyBoardPostResponse {
-  boardId?: number;
-  id?: number;
-  title: string;
-  authorName?: string;
-  writerName?: string;
-  name?: string;
-  createdAt: string;
-  viewCount?: number;
-  hit?: number;
-  readCount?: number;
-  postType?: PostType;
-  type?: string;
-  commentCount?: number;
-}
-
-/** 마이페이지 내 작성한 게시글 페이징 응답 */
-export interface MyBoardPostPageResponse {
-  content: MyBoardPostResponse[];
-  page: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
-  first: boolean;
-  last: boolean;
-}
-
-/** 내가 작성한 게시글 목록 조회 API (GET /api/boards/me) */
-export async function getMyBoardPostsApi(
-  params: { page?: number; size?: number } = { page: 0, size: 100 },
-): Promise<MyBoardPostPageResponse> {
-  const { data } = await apiMiddleware.get<MyBoardPostPageResponse>(
-    "/api/boards/me",
-    {
-      params: {
-        page: params.page ?? 0,
-        size: params.size ?? 100,
-      },
-    },
-  );
-  return data;
-}
-
 /** 마이페이지 내 댓글 단건 응답 */
 export interface MyCommentResponse {
   id: number;
@@ -1189,19 +1137,6 @@ export type AiSearchResponse = {
   cautions: string[];
   criteria?: RankingCriteria;
   interpretation?: SearchInterpretation;
-  rankingItems?: AiRankingItem[];
-};
-
-export type AiRankingItem = {
-  rank: number;
-  regionName?: string;
-  apartmentName: string;
-  primaryLabel: string;
-  primaryValue: string;
-  exclusiveAreaM2?: number;
-  pyeong?: number;
-  dealCount?: number;
-  dealDate?: string;
 };
 
 export type SearchInterpretation = {
@@ -1241,7 +1176,6 @@ export type PriceRankingResponse = {
   regionName: string;
   metricType: "pyeong" | "thing_amt";
   baseDate?: string;
-  summary?: string;
   criteria: RankingCriteria;
   items: Array<{
     rank: number;
@@ -1249,9 +1183,6 @@ export type PriceRankingResponse = {
     apartmentName: string;
     metricValue?: number;
     dealCount: number;
-    exclusiveAreaM2?: number;
-    pyeong?: number;
-    dealDate?: string;
   }>;
 };
 
@@ -1269,18 +1200,6 @@ export type DistrictRankingResponse = {
 };
 
 export type NaturalRegionCandidate = DongRegionResponse & { slot: number };
-export type NaturalApartmentCandidate = {
-  apartmentName: string;
-  sggName: string;
-  sggCode: string;
-  dongName: string;
-  dongCode: string;
-  mno?: string;
-  sno?: string;
-};
-export type RagAnswerResponse = {
-  answer: string;
-};
 export type NaturalSearchResponse = {
   status: "SUCCESS" | "NEED_CLARIFICATION" | "ERROR";
   intent?:
@@ -1290,18 +1209,15 @@ export type NaturalSearchResponse = {
   | "DISTRICT_RANKING"
   | "TOP_BOTTOM"
   | "RANKING_SEARCH"
-  | "TRADE_TREND"
-  | "RAG_FAQ";
+  | "TRADE_TREND";
   message?: string;
   result?:
   | AiSearchResponse
   | TradeVolumeRankingResponse
   | PriceRankingResponse
-  | DistrictRankingResponse
-  | RagAnswerResponse;
+  | DistrictRankingResponse;
   missingFields: string[];
   candidates: NaturalRegionCandidate[];
-  apartmentCandidates?: NaturalApartmentCandidate[];
   errorCode?: string;
   interpretation?: SearchInterpretation;
 };
