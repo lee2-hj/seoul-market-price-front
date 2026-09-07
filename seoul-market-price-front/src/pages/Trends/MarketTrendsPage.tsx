@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Chart } from "react-google-charts";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 
 const EMPTY_VALUE = "__all__";
 const TRENDS_SESSION_KEY = "market_trends_query";
+const TRENDS_RELOAD_FLAG_KEY = "market_trends_is_reload";
 const PIE_COLORS = ["#2563eb", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4"];
 const apartmentKey = (apt: ApartmentAutocompleteItem) =>
   `${apt.sggCd}-${apt.dongCd}-${apt.aptName}-${apt.mno}-${apt.sno}`;
@@ -35,6 +36,11 @@ const formatExclusiveArea = (
 };
 const formatPyeongRange = (pyeong: number) =>
   pyeong < 10 ? "10평 미만" : `${Math.floor(pyeong / 10) * 10}평대`;
+// row.pyeong은 타입상 number지만, 백엔드 응답이 느슨하게 검증되어 실제로는
+// "", null, undefined가 섞여 들어올 수 있다. 매개변수를 unknown으로 받아
+// 호출부에서 별도 캐스팅 없이(number -> unknown은 항상 안전한 암묵적 확장) 안전하게 검사한다.
+const hasMeaningfulValue = (value: unknown): boolean =>
+  value !== null && value !== undefined && value !== "";
 const formatMarketAmount = (amount: number | null | undefined) => {
   const value = Number(amount);
   if (!Number.isFinite(value)) return "-";
@@ -131,35 +137,58 @@ export default function MarketTrendsPage() {
     }
   }, [apartmentHighlight]);
 
+  // 새로고침(F5) 직전에만 플래그를 남겨, "새로고침"과 "다른 메뉴/탭으로 이동"을 구분한다.
   useEffect(() => {
-    if (!searchParams.toString()) {
-      const savedQuery = sessionStorage.getItem(TRENDS_SESSION_KEY);
-      if (savedQuery) {
-        setSearchParams(new URLSearchParams(savedQuery), { replace: true });
-        return;
+    const handleBeforeUnload = () => {
+      sessionStorage.setItem(TRENDS_RELOAD_FLAG_KEY, "1");
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      // 새로고침이 아니라 SPA 라우팅으로 이 페이지를 벗어나는 경우, 검색 상태가
+      // 다음 방문까지 남아있지 않도록 세션에 저장해둔 검색 조건을 정리한다.
+      if (sessionStorage.getItem(TRENDS_RELOAD_FLAG_KEY) !== "1") {
+        sessionStorage.removeItem(TRENDS_SESSION_KEY);
       }
-    }
+    };
+  }, []);
 
-    const restoredApartment = getApartmentFromSearchParams(searchParams);
-    const restoredSggCd = searchParams.get("sggCd") ?? "";
-    const restoredDongCd = searchParams.get("dongCd") ?? "";
-    const restoredAptName = searchParams.get("aptName") ?? "";
+  // 마운트 시 1회만: 새로고침으로 돌아온 경우에 한해 세션에 저장된 검색 조건을 복원한다.
+  useEffect(() => {
+    const isReload = sessionStorage.getItem(TRENDS_RELOAD_FLAG_KEY) === "1";
+    sessionStorage.removeItem(TRENDS_RELOAD_FLAG_KEY);
 
+    if (!isReload || searchParams.toString()) return;
+
+    const savedQuery = sessionStorage.getItem(TRENDS_SESSION_KEY);
+    if (!savedQuery) return;
+
+    const restoredParams = new URLSearchParams(savedQuery);
+    const restoredAptName = restoredParams.get("aptName") ?? "";
+    const restoredApartment = getApartmentFromSearchParams(restoredParams);
+
+    setSearchParams(restoredParams, { replace: true });
+    // 이펙트 본문에서 setState를 동기 호출하면 렌더링이 연쇄적으로 발생하므로
+    // 마이크로태스크로 미뤄 한 번에 배치 처리한다.
     queueMicrotask(() => {
-      setSggCd(restoredSggCd);
-      setDongCd(restoredDongCd);
+      setSggCd(restoredParams.get("sggCd") ?? "");
+      setDongCd(restoredParams.get("dongCd") ?? "");
       setKeyword(restoredAptName);
       setDebouncedKeyword(restoredAptName);
       setSelectedApartment(restoredApartment);
       setSubmittedApartment(restoredApartment);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // 검색 조건이 바뀔 때마다 새로고침 대비용으로 세션에 반영한다.
+  useEffect(() => {
     if (searchParams.toString()) {
       sessionStorage.setItem(TRENDS_SESSION_KEY, searchParams.toString());
     } else {
       sessionStorage.removeItem(TRENDS_SESSION_KEY);
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams]);
 
   useEffect(() => {
     const id = window.setTimeout(() => setDebouncedKeyword(keyword), 300);
@@ -213,6 +242,10 @@ export default function MarketTrendsPage() {
       aptName: submittedApartment!.aptName, mno: submittedApartment!.mno, sno: submittedApartment!.sno,
     }),
     enabled: Boolean(submittedApartment),
+    // 탭 이동 후 복귀(refetchOnWindowFocus) 시 동일 아파트 데이터를 불필요하게
+    // 재요청하지 않도록 캐시 유효 기간을 둔다.
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
   const item = trend.data?.status === "success" && trend.data.count > 0 ? trend.data.data[0] : undefined;
   const updateUrl = (apt: ApartmentAutocompleteItem | null) => setSearchParams(apt ? {
@@ -221,7 +254,6 @@ export default function MarketTrendsPage() {
   const chooseGu = (value: string) => {
     const code = value === EMPTY_VALUE ? "" : value;
     if (!code) {
-      sessionStorage.removeItem(TRENDS_SESSION_KEY);
       setGuInput("");
     }
     setSggCd(code);
@@ -315,7 +347,6 @@ export default function MarketTrendsPage() {
     updateUrl(selectedApartment);
   };
   const reset = () => {
-    sessionStorage.removeItem(TRENDS_SESSION_KEY);
     setIsTrendChartReady(false);
     setIsPieChartReady(false);
     setIsRecentDealsModalOpen(false);
@@ -345,9 +376,10 @@ export default function MarketTrendsPage() {
       "평균 거래가",
       { role: "tooltip", type: "string", p: { html: true } },
     ],
-    ...trendPeriods.map((row) => {
+    ...trendPeriods.map((row, index) => {
       const averagePrice = Number(row.avg_price ?? row.avg_trade_amount ?? 0);
       const periodLabel = formatTrendLabel(row);
+      const axisLabel = `${index + 1}구간`;
       const dealCount = Number(row.deal_count ?? row.deal_cnt ?? 0);
       const dateRange = row.start_date && row.end_date
         ? `${row.start_date.slice(0, 10).replace(/-/g, ".")} ~ ${row.end_date.slice(0, 10).replace(/-/g, ".")}`
@@ -370,7 +402,7 @@ export default function MarketTrendsPage() {
       `.trim();
 
       return [
-        periodLabel,
+        axisLabel,
         dealCount,
         tooltipHtml,
         { v: averagePrice, f: formatEokAmount(averagePrice) },
@@ -394,8 +426,7 @@ export default function MarketTrendsPage() {
     (item?.area_deals ?? []).forEach((row) => {
       const pyeong = Number(row.pyeong);
       const count = Number(row.deal_count ?? 0);
-      const rawPyeong = row.pyeong as unknown;
-      if (rawPyeong !== null && rawPyeong !== undefined && rawPyeong !== "" && Number.isFinite(pyeong) && pyeong > 0 && count > 0) dealCounts.set(pyeong, (dealCounts.get(pyeong) ?? 0) + count);
+      if (hasMeaningfulValue(row.pyeong) && Number.isFinite(pyeong) && pyeong > 0 && count > 0) dealCounts.set(pyeong, (dealCounts.get(pyeong) ?? 0) + count);
     });
     const totalCount = [...dealCounts.values()].reduce((sum, count) => sum + count, 0);
     return totalCount > 0
@@ -424,30 +455,10 @@ export default function MarketTrendsPage() {
       : countChangeRate < 0
         ? <span className="text-[#2563EB]">▼ {Math.abs(countChangeRate)}%</span>
         : <span className="text-[#64748B]">0%</span>;
-  const cards = item ? [["총 거래 건수", `${item.total_deal_count.toLocaleString()}건`], ["총 거래 금액", formatMarketAmount(item.total_deal_amount)], ["평균 거래가", formatMarketAmount(item.average_deal_price)], ["최고 거래가", formatMarketAmount(item.max_deal_price)], ["거래량 증감률", countChangeRateDisplay]] : [];
-  const primaryArea = areaRangeRows.reduce<(typeof areaRangeRows)[number] | null>(
-    (current, row) => !current || row.dealCount > current.dealCount ? row : current,
-    null,
-  );
-  const trendSummaries = item ? [
-    {
-      title: "거래량",
-      description: item.count_change_rate == null
-        ? `조회 기간 동안 총 ${item.total_deal_count.toLocaleString()}건이 거래됐습니다.`
-        : `총 ${item.total_deal_count.toLocaleString()}건으로, 거래량 증감률은 ${item.count_change_rate}%입니다.`,
-    },
-    {
-      title: "거래 가격",
-      description: `평균 ${formatMarketAmount(item.average_deal_price)}, 최고 ${formatMarketAmount(item.max_deal_price)}입니다.`,
-    },
-    ...(primaryArea ? [{
-      title: "주요 거래 평형",
-      description: `${formatPyeongRange(primaryArea.pyeong)}가 ${primaryArea.dealCount.toLocaleString()}건으로 가장 많이 거래됐습니다.`,
-    }] : []),
-  ] : [];
+  const cards = item ? [["총 거래 건수", `${item.total_deal_count.toLocaleString()}건`], ["평균 거래가", formatMarketAmount(item.average_deal_price)], ["최고 거래가", formatMarketAmount(item.max_deal_price)], ["거래량 증감률", countChangeRateDisplay]] : [];
 
   const displayCards = item ? cards : [
-    ["총 거래 건수", "-"], ["총 거래 금액", "-"], ["평균 거래가", "-"], ["최고 거래가", "-"], ["거래량 증감률", "-"],
+    ["총 거래 건수", "-"], ["평균 거래가", "-"], ["최고 거래가", "-"], ["거래량 증감률", "-"],
   ];
   const searchPeriodLabel = trend.data?.search_period
     ? `(${trend.data.search_period.start_date.slice(0, 7).replace("-", ".")} ~ ${trend.data.search_period.end_date.slice(0, 7).replace("-", ".")})`
@@ -455,6 +466,37 @@ export default function MarketTrendsPage() {
   const todayFormatted = trend.data?.search_period?.end_date
     ? trend.data.search_period.end_date.replace(/-/g, ".")
     : new Date().toISOString().slice(0, 10).replace(/-/g, ".");
+
+  // 최근 거래/전용면적별 거래 현황 테이블 행 변환. item(거래동향 조회 결과)이
+  // 바뀔 때만 재계산되도록 메모이즈해, 콤보박스 호버 등으로 상위 컴포넌트가
+  // 리렌더돼도(guHighlight 등) 이 배열 참조가 유지되어 Rows가 다시 그려지지 않는다.
+  const recentDealsRows = useMemo(
+    () =>
+      (item?.recent_deals ?? []).map((r) => [
+        r.deal_date,
+        formatExclusiveArea(r.exclusive_area, r.pyeong),
+        `${r.floor}층`,
+        formatMarketAmount(r.deal_amount),
+      ]),
+    [item],
+  );
+  const recentDealsSummaryRows = useMemo(
+    () => recentDealsRows.slice(0, 5),
+    [recentDealsRows],
+  );
+  const areaDealsRows = useMemo(
+    () =>
+      (item?.area_deals ?? []).map((r) => [
+        formatExclusiveArea(r.exclusive_area, r.pyeong),
+        r.deal_count,
+        formatMarketAmount(r.avg_deal_price),
+      ]),
+    [item],
+  );
+  const areaDealsSummaryRows = useMemo(
+    () => areaDealsRows.slice(0, 5),
+    [areaDealsRows],
+  );
 
   return <div className="tw-scope [font-family:'Pretendard','Noto_Sans_KR',Arial,sans-serif]"><SectionSidebarLayout sectionTitle={TRENDS_NAVIGATION.sectionTitle} menuItems={TRENDS_NAVIGATION.menuItems}>
     <div className="space-y-1"><h1 className="text-[24px] font-extrabold text-[#0F172A]">아파트별 거래동향</h1><p className="text-[13px] text-[#64748B]">관심 아파트의 실거래 추이와 가격 변화를 확인하세요.</p></div>
@@ -466,11 +508,11 @@ export default function MarketTrendsPage() {
       <Button type="button" onClick={search} className="h-11 bg-[#0F8AA8] px-6">검색</Button><Button type="button" variant="outline" onClick={reset} className="h-11"><RotateCcw className="size-4" />초기화</Button>
     </div>{selectedApartment && <div className="mt-4 text-[13px] font-semibold text-[#334155]"><Building2 className="mr-1 inline size-4" />{selectedApartment.aptName} · {selectedApartment.sggNm || selectedGuName} {selectedApartment.dongNm || selectedDongName}</div>}</CardContent></Card>
     {trend.isError && <div className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-600"><AlertCircle className="size-4" />데이터를 불러오는 중 오류가 발생했습니다.</div>}
-    {!item && <><Card className="grid grid-cols-1 overflow-hidden sm:grid-cols-2 lg:grid-cols-5">{displayCards.map(([label, value]) => <div key={String(label)} className="border-b p-4 lg:border-b-0"><span className="text-[12px] text-[#6B7280]">{label}</span><div className="mt-2 text-[21px] font-extrabold">{value}</div></div>)}</Card><div className="grid grid-cols-1 gap-4 lg:grid-cols-3"><Card className="lg:col-span-2"><CardContent className="p-5"><h2 className="mb-4 border-b border-[#E2E8F0] pb-3 font-semibold">거래량 및 평균 거래가 추이</h2><EmptyState message="아파트를 선택하면 거래 추이를 확인할 수 있습니다." /></CardContent></Card><Card><CardContent className="p-5"><h2 className="mb-4 border-b border-[#E2E8F0] pb-3 font-semibold">평형별 거래 비중</h2><EmptyState message="아파트를 선택하면 평형별 거래 비중을 확인할 수 있습니다." /></CardContent></Card></div><div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3"><Card className="h-full"><CardContent className="p-5"><h2 className="mb-3 border-b border-[#E2E8F0] pb-3 font-semibold">최근 거래 내역</h2><EmptyState message="아파트를 선택하면 최근 거래 내역을 확인할 수 있습니다." /></CardContent></Card><Card className="h-full"><CardContent className="p-5"><h2 className="mb-3 border-b border-[#E2E8F0] pb-3 font-semibold">전용면적(평수)별 거래 현황</h2><EmptyState message="아파트를 선택하면 전용면적별 거래 현황을 확인할 수 있습니다." /></CardContent></Card><Card className="h-full"><CardContent className="p-5"><h2 className="mb-3 border-b border-[#E2E8F0] pb-3 font-semibold">거래 동향 요약</h2><EmptyState message="아파트를 선택하면 거래 동향 요약을 확인할 수 있습니다." /></CardContent></Card></div></>}
-    {item && <><Card className="grid grid-cols-1 overflow-hidden sm:grid-cols-2 lg:grid-cols-5">{cards.map(([label, value]) => <div key={String(label)} className="border-b p-4 lg:border-b-0"><span className="text-[12px] text-[#6B7280]">{label}</span><div className="mt-2 text-[21px] font-extrabold">{value}</div>{searchPeriodLabel && <p className="mt-2 text-[11px] text-[#94A3B8]">{searchPeriodLabel}</p>}</div>)}</Card>
+    {!item && <><Card className="grid grid-cols-1 overflow-hidden sm:grid-cols-2 lg:grid-cols-4">{displayCards.map(([label, value]) => <div key={String(label)} className="border-b p-4 lg:border-b-0"><span className="text-[12px] text-[#6B7280]">{label}</span><div className="mt-2 text-[21px] font-extrabold">{value}</div></div>)}</Card><div className="grid grid-cols-1 gap-4 lg:grid-cols-3"><Card className="lg:col-span-2"><CardContent className="p-5"><h2 className="mb-4 border-b border-[#E2E8F0] pb-3 font-semibold">거래량 및 평균 거래가 추이</h2><EmptyState message="아파트를 선택하면 거래 추이를 확인할 수 있습니다." /></CardContent></Card><Card><CardContent className="p-5"><h2 className="mb-4 border-b border-[#E2E8F0] pb-3 font-semibold">평형별 거래 비중</h2><EmptyState message="아파트를 선택하면 평형별 거래 비중을 확인할 수 있습니다." /></CardContent></Card></div><div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2"><Card className="h-full"><CardContent className="p-5"><h2 className="mb-3 border-b border-[#E2E8F0] pb-3 font-semibold">최근 거래 내역</h2><EmptyState message="아파트를 선택하면 최근 거래 내역을 확인할 수 있습니다." /></CardContent></Card><Card className="h-full"><CardContent className="p-5"><h2 className="mb-3 border-b border-[#E2E8F0] pb-3 font-semibold">전용면적(평수)별 거래 현황</h2><EmptyState message="아파트를 선택하면 전용면적별 거래 현황을 확인할 수 있습니다." /></CardContent></Card></div></>}
+    {item && <><Card className="grid grid-cols-1 overflow-hidden sm:grid-cols-2 lg:grid-cols-4">{cards.map(([label, value]) => <div key={String(label)} className="border-b p-4 lg:border-b-0"><span className="text-[12px] text-[#6B7280]">{label}</span><div className="mt-2 text-[21px] font-extrabold">{value}</div>{searchPeriodLabel && <p className="mt-2 text-[11px] text-[#94A3B8]">{searchPeriodLabel}</p>}</div>)}</Card>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3"><Card className="lg:col-span-2"><CardContent className="p-5"><div className="mb-4 flex items-center justify-between border-b border-[#E2E8F0] pb-3"><h2 className="text-[15px] font-semibold">거래량 및 평균 거래가 추이</h2><div className="flex gap-3 text-[12px] text-[#64748B]"><span>■ 거래량(건)</span><span className="text-[#16A34A]">● 평균 거래가(만원)</span></div></div>{comboChartData.length > 1 ? <><style>{`@keyframes trendsChartReveal { from { clip-path: inset(0 100% 0 0); opacity: 0; } to { clip-path: inset(0 0 0 0); opacity: 1; } } .trends-chart-reveal { clip-path: inset(0 100% 0 0); opacity: 0; } .trends-chart-reveal.is-ready { animation: trendsChartReveal 800ms ease-out forwards; } @media (prefers-reduced-motion: reduce) { .trends-chart-reveal, .trends-chart-reveal.is-ready { clip-path: none; opacity: 1; animation: none; } }`}</style><div className={`relative min-w-0 w-full max-w-full [&>div]:!min-w-0 [&>div]:!max-w-full [&_svg]:!max-w-full [&_.google-visualization-tooltip]:!pointer-events-none [&_.google-visualization-tooltip]:!select-none [&_.google-visualization-tooltip]:!z-50 [&_.google-visualization-tooltip]:!border-0 [&_.google-visualization-tooltip]:!bg-transparent [&_.google-visualization-tooltip]:!shadow-none [&_.google-visualization-tooltip]:!p-0 trends-chart-reveal ${isTrendChartReady ? "is-ready" : ""}`}><Chart chartType="ComboChart" width="100%" height="240px" data={comboChartData} chartEvents={[{ eventName: "ready" as const, callback: () => setIsTrendChartReady(true) }]} options={{ backgroundColor: "transparent", chartArea: { left: 60, top: 15, width: "80%", height: "76%" }, seriesType: "bars", series: { 0: { type: "bars", targetAxisIndex: 0, color: "#2563eb" }, 1: { type: "line", targetAxisIndex: 1, color: "#16a34a", lineWidth: 3, pointSize: 6 } }, vAxes: { 0: { title: "거래량(건)", minValue: 0, format: "0", gridlines: { color: "#E2E8F0", count: 4 }, minorGridlines: { count: 0 } }, 1: { title: "평균 거래가(만원)", minValue: 0, ticks: averagePriceAxisTicks, gridlines: { color: "transparent" }, minorGridlines: { count: 0 } } }, hAxis: { slantedText: false }, legend: { position: "none" }, tooltip: { isHtml: true, trigger: "focus" } }} /></div></> : <EmptyState message="거래 추이 데이터가 없습니다." />}</CardContent></Card>
-      <Card><CardContent className="p-5"><h2 className="mb-4 border-b border-[#E2E8F0] pb-3 text-[15px] font-semibold">평형별 거래 비중</h2>{pieChartData.length > 1 ? <><style>{`@keyframes donutFanReveal { 0% { opacity: 0; transform: scale(0.88); clip-path: polygon(50% 50%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%); } 25% { opacity: 1; clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 50%, 100% 50%, 100% 50%, 100% 50%); } 50% { clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 50% 100%, 50% 100%, 50% 100%); } 75% { clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 50%, 0% 50%); } 100% { opacity: 1; transform: scale(1); clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 0%); } } .pie-chart-reveal { opacity: 0; } .pie-chart-reveal.is-ready { animation: donutFanReveal 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards; } .pie-chart-reveal svg path { stroke: transparent !important; } @keyframes legendItemSlideIn { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } } .legend-item-reveal { opacity: 0; animation: legendItemSlideIn 450ms cubic-bezier(0.16, 1, 0.3, 1) forwards; } @media (prefers-reduced-motion: reduce) { .pie-chart-reveal, .pie-chart-reveal.is-ready { clip-path: none; opacity: 1; transform: none; animation: none; } .legend-item-reveal { opacity: 1; animation: none; } }`}</style><div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center"><div className={`h-[210px] w-full sm:w-[58%] relative min-w-0 [&>div]:!min-w-0 [&>div]:!max-w-full [&_svg]:!max-w-full [&_.google-visualization-tooltip]:!pointer-events-none [&_.google-visualization-tooltip]:!select-none [&_.google-visualization-tooltip]:!z-50 [&_.google-visualization-tooltip]:!border-0 [&_.google-visualization-tooltip]:!bg-transparent [&_.google-visualization-tooltip]:!shadow-none [&_.google-visualization-tooltip]:!p-0 pie-chart-reveal ${isPieChartReady ? "is-ready" : ""}`}><Chart chartType="PieChart" width="100%" height="100%" data={pieChartData} chartEvents={[{ eventName: "ready" as const, callback: () => setIsPieChartReady(true) }]} options={{ backgroundColor: "transparent", is3D: false, pieHole: 0.45, pieSliceBorderColor: "transparent", pieSliceText: "value", pieSliceTextStyle: { color: "#ffffff", fontSize: 12, bold: true }, sliceVisibilityThreshold: 0, legend: "none", chartArea: { left: 5, top: 8, width: "90%", height: "90%" }, colors: PIE_COLORS, tooltip: { isHtml: true, trigger: "focus" } }} /></div><div className="w-full space-y-2 self-center text-[13px] sm:w-[42%]"><p className="border-b border-[#E2E8F0] pb-2 font-semibold text-[#0F172A]">총 거래 건수 {areaRangeRows.reduce((sum, row) => sum + row.dealCount, 0).toLocaleString()}건</p>{areaRangeRows.map((row, index) => <div key={row.pyeong} className={`flex items-center justify-between gap-3 ${isPieChartReady ? "legend-item-reveal" : "opacity-0"}`} style={{ animationDelay: `${index * 80 + 350}ms` }}><span className="flex items-center gap-2 text-[#334155]"><i className="size-2.5 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />{formatPyeongRange(row.pyeong)}</span><strong className="text-[#0F172A]">{row.percentage.toFixed(1)}%</strong></div>)}</div></div></> : <EmptyState message="평형별 거래 비중 데이터가 없습니다." />}</CardContent></Card></div>
-      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3"><Card className="h-full"><CardContent className="p-5"><h2 className="mb-3 border-b border-[#E2E8F0] pb-3 text-[14px] font-semibold">최근 거래 내역</h2><Rows rows={item.recent_deals.slice(0, 5).map((r) => [r.deal_date, formatExclusiveArea(r.exclusive_area, r.pyeong), `${r.floor}층`, formatMarketAmount(r.deal_amount)])} headers={["계약일", "전용면적(평수)", "층", "거래가"]} />{item.recent_deals.length > 5 && <Button type="button" variant="outline" onClick={() => setIsRecentDealsModalOpen(true)} className="mt-4 h-10 w-full rounded-none border-x-0 border-b border-t-0 border-[#94A3B8] text-[12px] text-[#2563EB] hover:bg-[#F8FAFC] hover:text-[#1D4ED8]">전체 실거래 내역 보기 ›</Button>}</CardContent></Card><Card className="h-full"><CardContent className="p-5"><h2 className="mb-3 border-b border-[#E2E8F0] pb-3 text-[14px] font-semibold">전용면적(평수)별 거래 현황</h2><Rows rows={item.area_deals.slice(0, 5).map((r) => [formatExclusiveArea(r.exclusive_area, r.pyeong), r.deal_count, formatMarketAmount(r.avg_deal_price)])} headers={["전용면적(평수)", "거래 건수", "평균 거래가"]} />{item.area_deals.length > 5 && <Button type="button" variant="outline" onClick={() => setIsAreaDealsModalOpen(true)} className="mt-4 h-10 w-full rounded-none border-x-0 border-b border-t-0 border-[#94A3B8] text-[12px] text-[#2563EB] hover:bg-[#F8FAFC] hover:text-[#1D4ED8]">전체 전용면적별 거래 현황 보기 ›</Button>}</CardContent></Card><Card className="h-full"><CardContent className="p-5"><h2 className="mb-3 border-b border-[#E2E8F0] pb-3 text-[14px] font-semibold">거래 동향 요약</h2><div className="space-y-2">{trendSummaries.map((summary, index) => <div key={summary.title} className="flex items-start gap-3 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3"><span className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-[12px] font-black ${index === 0 ? "bg-[#DCFCE7] text-[#16A34A]" : index === 1 ? "bg-[#DBEAFE] text-[#2563EB]" : "bg-[#F3E8FF] text-[#7C3AED]"}`}>{index + 1}</span><div><p className="text-[12px] font-bold text-[#111827]">{summary.title}</p><p className="mt-0.5 text-[11px] leading-relaxed text-[#6B7280]">{summary.description}</p></div></div>)}</div></CardContent></Card></div></>}
+      <Card><CardContent className="p-5"><h2 className="mb-4 border-b border-[#E2E8F0] pb-3 text-[15px] font-semibold">평형별 거래 비중</h2>{pieChartData.length > 1 ? <><style>{`@keyframes donutFanReveal { 0% { opacity: 0; transform: scale(0.88); clip-path: polygon(50% 50%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%); } 25% { opacity: 1; clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 50%, 100% 50%, 100% 50%, 100% 50%); } 50% { clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 50% 100%, 50% 100%, 50% 100%); } 75% { clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 50%, 0% 50%); } 100% { opacity: 1; transform: scale(1); clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 0%); } } .pie-chart-reveal { opacity: 0; } .pie-chart-reveal.is-ready { animation: donutFanReveal 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards; } .pie-chart-reveal svg path { stroke: transparent !important; } @keyframes legendItemSlideIn { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } } .legend-item-reveal { opacity: 0; animation: legendItemSlideIn 450ms cubic-bezier(0.16, 1, 0.3, 1) forwards; } @media (prefers-reduced-motion: reduce) { .pie-chart-reveal, .pie-chart-reveal.is-ready { clip-path: none; opacity: 1; transform: none; animation: none; } .legend-item-reveal { opacity: 1; animation: none; } }`}</style><div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center"><div className={`h-[210px] w-full sm:w-[58%] relative min-w-0 [&>div]:!min-w-0 [&>div]:!max-w-full [&_svg]:!max-w-full [&_.google-visualization-tooltip]:!pointer-events-none [&_.google-visualization-tooltip]:!select-none [&_.google-visualization-tooltip]:!z-50 [&_.google-visualization-tooltip]:!border-0 [&_.google-visualization-tooltip]:!bg-transparent [&_.google-visualization-tooltip]:!shadow-none [&_.google-visualization-tooltip]:!p-0 pie-chart-reveal ${isPieChartReady ? "is-ready" : ""}`}><Chart chartType="PieChart" width="100%" height="100%" data={pieChartData} chartEvents={[{ eventName: "ready" as const, callback: () => setIsPieChartReady(true) }]} options={{ backgroundColor: "transparent", is3D: false, pieHole: 0.45, pieSliceBorderColor: "transparent", pieSliceText: "value", pieSliceTextStyle: { color: "#ffffff", fontSize: 12, bold: true }, sliceVisibilityThreshold: 0, legend: "none", chartArea: { left: 5, top: 8, width: "90%", height: "90%" }, colors: PIE_COLORS, tooltip: { trigger: "none" } }} /></div><div className="w-full space-y-2 self-center text-[13px] sm:w-[42%]"><p className="border-b border-[#E2E8F0] pb-2 font-semibold text-[#0F172A]">총 거래 건수 {areaRangeRows.reduce((sum, row) => sum + row.dealCount, 0).toLocaleString()}건</p>{areaRangeRows.map((row, index) => <div key={row.pyeong} className={`flex items-center justify-between gap-3 ${isPieChartReady ? "legend-item-reveal" : "opacity-0"}`} style={{ animationDelay: `${index * 80 + 350}ms` }}><span className="flex items-center gap-2 text-[#334155]"><i className="size-2.5 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />{formatPyeongRange(row.pyeong)}</span><strong className="text-[#0F172A]">{row.percentage.toFixed(1)}%</strong></div>)}</div></div></> : <EmptyState message="평형별 거래 비중 데이터가 없습니다." />}</CardContent></Card></div>
+      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2"><Card className="h-full"><CardContent className="p-5"><h2 className="mb-3 border-b border-[#E2E8F0] pb-3 text-[14px] font-semibold">최근 거래 내역</h2><Rows rows={recentDealsSummaryRows} headers={["계약일", "전용면적(평수)", "층", "거래가"]} />{item.recent_deals.length > 5 && <Button type="button" variant="outline" onClick={() => setIsRecentDealsModalOpen(true)} className="mt-4 h-10 w-full rounded-none border-x-0 border-b border-t-0 border-[#94A3B8] text-[12px] text-[#2563EB] hover:bg-[#F8FAFC] hover:text-[#1D4ED8]">전체 실거래 내역 보기 ›</Button>}</CardContent></Card><Card className="h-full"><CardContent className="p-5"><h2 className="mb-3 border-b border-[#E2E8F0] pb-3 text-[14px] font-semibold">전용면적(평수)별 거래 현황</h2><Rows rows={areaDealsSummaryRows} headers={["전용면적(평수)", "거래 건수", "평균 거래가"]} />{item.area_deals.length > 5 && <Button type="button" variant="outline" onClick={() => setIsAreaDealsModalOpen(true)} className="mt-4 h-10 w-full rounded-none border-x-0 border-b border-t-0 border-[#94A3B8] text-[12px] text-[#2563EB] hover:bg-[#F8FAFC] hover:text-[#1D4ED8]">전체 전용면적별 거래 현황 보기 ›</Button>}</CardContent></Card></div></>}
     {!submittedApartment && <EmptyState message="구·동 조건을 선택하거나 아파트를 검색해 주세요." />}{submittedApartment && !trend.isLoading && !item && <EmptyState message="조회된 거래동향 데이터가 없습니다." />}
     <div className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-4 text-[11px] text-[#94A3B8]">
       <div className="flex items-center gap-1.5">
@@ -504,12 +546,7 @@ export default function MarketTrendsPage() {
           </div>
           <div className="overflow-y-auto p-4 max-h-[calc(85vh-120px)]">
             <Rows
-              rows={item.recent_deals.map((r) => [
-                r.deal_date,
-                formatExclusiveArea(r.exclusive_area, r.pyeong),
-                `${r.floor}층`,
-                formatMarketAmount(r.deal_amount),
-              ])}
+              rows={recentDealsRows}
               headers={["계약일", "전용면적(평수)", "층", "거래가"]}
             />
           </div>
@@ -549,11 +586,7 @@ export default function MarketTrendsPage() {
           </div>
           <div className="overflow-y-auto p-4 max-h-[calc(85vh-120px)]">
             <Rows
-              rows={item.area_deals.map((r) => [
-                formatExclusiveArea(r.exclusive_area, r.pyeong),
-                r.deal_count,
-                formatMarketAmount(r.avg_deal_price),
-              ])}
+              rows={areaDealsRows}
               headers={["전용면적(평수)", "거래 건수", "평균 거래가"]}
             />
           </div>
@@ -573,6 +606,6 @@ export default function MarketTrendsPage() {
   </SectionSidebarLayout></div>;
 }
 
-function Rows({ headers, rows }: { headers: string[]; rows: Array<Array<string | number>> }) {
+const Rows = memo(function Rows({ headers, rows }: { headers: string[]; rows: Array<Array<string | number>> }) {
   return <div className="overflow-x-auto"><table className="w-full whitespace-nowrap text-[12px]"><thead className="border-b border-[#E2E8F0] bg-[#F8FAFC] text-[11px]"><tr>{headers.map((header, index) => <th key={header} className={`px-3 py-2.5 text-[#475569] ${index === 0 ? "text-left" : "text-right"}`}>{header}</th>)}</tr></thead><tbody>{rows.length ? rows.map((row, index) => <tr key={index} className="border-b border-[#F1F5F9] last:border-b-0">{row.map((value, cell) => <td key={cell} className={`px-3 py-3 text-[#334155] ${cell === 0 ? "text-left font-medium" : "text-right"}`}>{value}</td>)}</tr>) : <tr><td className="p-8 text-center text-[#64748B]" colSpan={headers.length}>등록된 데이터가 없습니다.</td></tr>}</tbody></table></div>;
-}
+});

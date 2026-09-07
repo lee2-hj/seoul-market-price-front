@@ -3,62 +3,14 @@ import { LockKeyhole, Settings2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { CardError, CardSkeleton } from "@/features/main/components/DataCardState";
 import { PreferencePopularDongCard } from "@/features/main/components/PreferencePopularDongCard";
 import { PreferencePriceTrendCard } from "@/features/main/components/PreferencePriceTrendCard";
-import {
-  PreferenceTradingApartmentsCard,
-  PreferenceTradingDongsCard,
-} from "@/features/main/components/PreferenceRankingCards";
+import { PreferenceTradingDongsCard } from "@/features/main/components/PreferenceRankingCards";
 import type { PreferenceDashboardData } from "@/features/main/types/mainPage.types";
-
-function PreferenceLoadingCard({ chart = false }: { chart?: boolean }) {
-  return (
-    <Card className="rounded-2xl border-[#DCE8ED] bg-white shadow-[0_3px_12px_rgba(18,48,71,0.05)]">
-      <CardContent className="p-5">
-        <div className="mb-4 h-7 w-44 animate-pulse rounded-lg bg-[#EAF2F5]" />
-        <CardSkeleton rows={chart ? 5 : 4} />
-      </CardContent>
-    </Card>
-  );
-}
-
-function PreferenceErrorCard({ onRetry }: { onRetry: () => void }) {
-  return (
-    <Card className="rounded-2xl border-[#DCE8ED] bg-white shadow-[0_3px_12px_rgba(18,48,71,0.05)]">
-      <CardContent className="p-5">
-        <CardError onRetry={onRetry} />
-      </CardContent>
-    </Card>
-  );
-}
-
-export function PreferenceDashboardLoading() {
-  return (
-    <>
-      <PreferenceLoadingCard chart />
-      <PreferenceLoadingCard />
-      <PreferenceLoadingCard />
-      <PreferenceLoadingCard />
-    </>
-  );
-}
-
-export function PreferenceDashboardError({ onRetry }: { onRetry: () => void }) {
-  return (
-    <>
-      <PreferenceErrorCard onRetry={onRetry} />
-      <PreferenceErrorCard onRetry={onRetry} />
-      <PreferenceErrorCard onRetry={onRetry} />
-      <PreferenceErrorCard onRetry={onRetry} />
-    </>
-  );
-}
 
 export function PreferenceLoginBanner() {
   return (
-    <div className="mt-1 flex flex-col items-start justify-between gap-3 rounded-2xl border border-[#DCE8ED] bg-white/80 p-4 sm:flex-row sm:items-center sm:px-6 md:col-span-2 xl:col-span-3">
+    <div className="mt-1 flex flex-col items-start justify-between gap-3 rounded-2xl border border-[#DCE8ED] bg-white/80 p-4 sm:flex-row sm:items-center sm:px-6 md:col-span-2 lg:col-span-3">
       <div className="flex items-center gap-3">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#E8F6F9] text-[#0F8AA8]">
           <LockKeyhole className="size-4" aria-hidden="true" />
@@ -76,7 +28,7 @@ export function PreferenceLoginBanner() {
 
 export function PreferenceSetupBanner() {
   return (
-    <div className="mt-1 flex flex-col items-start justify-between gap-3 rounded-2xl border border-[#DCE8ED] bg-white/80 p-4 sm:flex-row sm:items-center sm:px-6 md:col-span-2 xl:col-span-3">
+    <div className="mt-1 flex flex-col items-start justify-between gap-3 rounded-2xl border border-[#DCE8ED] bg-white/80 p-4 sm:flex-row sm:items-center sm:px-6 md:col-span-2 lg:col-span-3">
       <div className="flex items-center gap-3">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#E8F6F9] text-[#0F8AA8]">
           <Settings2 className="size-4" aria-hidden="true" />
@@ -105,11 +57,33 @@ export function PreferenceDashboard({
 }) {
   return (
     <>
-      <PreferencePriceTrendCard titlePrefix={titlePrefix} districtName={districtName} items={data.priceTrend} />
-      <PreferencePopularDongCard titlePrefix={titlePrefix} item={data.popularDong} />
-      {middleCard}
-      <PreferenceTradingDongsCard titlePrefix={titlePrefix} items={data.topTradingDongs} />
-      <PreferenceTradingApartmentsCard titlePrefix={titlePrefix} items={data.topTradingApartments} />
+      {/* 왼쪽 2x2 그리드: 가격 추이 */}
+      <div className="lg:col-start-2 lg:row-start-1">
+        <PreferencePriceTrendCard titlePrefix={titlePrefix} districtName={districtName} items={data.priceTrend} />
+      </div>
+
+      {/* 오른쪽 세로 긴 카드: 인기지역 지도 + 아파트 거래량 TOP 5 통합 카드 */}
+      <div className="lg:col-start-3 lg:row-start-1 lg:row-span-2">
+        <PreferencePopularDongCard
+          titlePrefix={titlePrefix}
+          item={data.popularDong}
+          topTradingApartments={data.topTradingApartments}
+        />
+      </div>
+
+      {/* 왼쪽 2x2 그리드: 상승/하락 TOP 5 */}
+      <div className="lg:col-start-1 lg:row-start-2">
+        {middleCard}
+      </div>
+
+      {/* 왼쪽 2x2 그리드: 선호지역 거래량 순위 */}
+      <div className="lg:col-start-2 lg:row-start-2">
+        <PreferenceTradingDongsCard
+          titlePrefix={titlePrefix}
+          items={data.topTradingDongs}
+          topTradingApartments={data.topTradingApartments}
+        />
+      </div>
     </>
   );
 }

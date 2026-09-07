@@ -3,8 +3,6 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   PreferenceDashboard,
-  PreferenceDashboardError,
-  PreferenceDashboardLoading,
   PreferenceLoginBanner,
   PreferenceSetupBanner,
 } from "@/features/main/components/PreferenceDashboard";
@@ -13,7 +11,6 @@ import { DistrictTop5Card } from "@/features/main/components/DistrictTop5Card";
 import { MainHeroSearch } from "@/features/main/components/MainHeroSearch";
 import { PriceChangeTop5Card } from "@/features/main/components/PriceChangeTop5Card";
 import { useMainPageData } from "@/features/main/hooks/useMainPageData";
-import { usePreferenceDashboardData } from "@/features/main/hooks/usePreferenceDashboardData";
 import { resolveMainRegion } from "@/features/main/utils/mainRegionResolver";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import {
@@ -49,16 +46,9 @@ export default function MainPage() {
 
   const resolvedRegion = resolveMainRegion(user);
 
-  const mainPageQuery = useMainPageData(isAuthInitialized);
-  const regionDashboardQuery = usePreferenceDashboardData({
-    source: resolvedRegion.source,
-    guCode: resolvedRegion.guCode,
-    userId: user?.userId,
-    enabled: isAuthInitialized,
-  });
+  const mainPageQuery = useMainPageData(resolvedRegion.guCode, isAuthInitialized);
 
   const data = mainPageQuery.data;
-  const regionData = regionDashboardQuery.data;
 
   return (
     <div className="min-w-0 w-full max-w-full bg-[#F5FAFC] text-[#13202B]">
@@ -77,7 +67,7 @@ export default function MainPage() {
           </div>
         </div>
 
-        <div className="grid min-w-0 grid-cols-1 items-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
+        <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
           {mainPageQuery.isPending ? (
             <><LoadingCard /><LoadingCard /></>
           ) : mainPageQuery.isError ? (
@@ -88,24 +78,15 @@ export default function MainPage() {
             </Card>
           ) : data ? (
             <>
-              <DistrictTop5Card items={data.districts} />
-              {regionDashboardQuery.isPending ? (
-                <PreferenceDashboardLoading />
-              ) : regionDashboardQuery.isError ? (
-                <>
-                  <PriceChangeTop5Card rising={data.rising} falling={data.falling} />
-                  <PreferenceDashboardError onRetry={() => void regionDashboardQuery.refetch()} />
-                </>
-              ) : regionData ? (
-                <PreferenceDashboard
-                  titlePrefix={resolvedRegion.titlePrefix}
-                  districtName={resolvedRegion.districtName}
-                  data={regionData}
-                  middleCard={<PriceChangeTop5Card rising={data.rising} falling={data.falling} />}
-                />
-              ) : (
-                <PriceChangeTop5Card rising={data.rising} falling={data.falling} />
-              )}
+              <div className="lg:col-start-1 lg:row-start-1">
+                <DistrictTop5Card items={data.districts} />
+              </div>
+              <PreferenceDashboard
+                titlePrefix={resolvedRegion.titlePrefix}
+                districtName={resolvedRegion.districtName}
+                data={data.dashboard}
+                middleCard={<PriceChangeTop5Card rising={data.rising} falling={data.falling} />}
+              />
 
               {!user && <PreferenceLoginBanner />}
               {user && !user.myGuCode && <PreferenceSetupBanner />}

@@ -151,7 +151,7 @@ function Router() {
             path="/trends/region"
             element={withSuspense(<MarketTrendsregionPage />)}
           />
-          {/* 단지별 시세 상세 */}
+          {/* 단지별 비교 상세 */}
           <Route
             path="/price/detail"
             element={withSuspense(<PriceDetailPage />)}

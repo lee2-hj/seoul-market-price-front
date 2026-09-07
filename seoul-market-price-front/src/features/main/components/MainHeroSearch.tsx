@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Bot, Info, LoaderCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { AiCandidateModal } from "@/features/main/components/AiCandidateModal";
 import { AiResultModal } from "@/features/main/components/AiResultModal";
 import { useAiPriceQuestion } from "@/features/main/hooks/useAiPriceQuestion";
 
-export function MainHeroSearch() {
+function MainHeroSearchComponent() {
   const user = useAuthStore((state) => state.user);
   const ai = useAiPriceQuestion();
   const [hasSubmittedAsGuest, setHasSubmittedAsGuest] = useState(false);
@@ -40,7 +40,7 @@ export function MainHeroSearch() {
       </div>
 
       <div className="relative mx-auto w-full max-w-[1360px] px-4 py-8 sm:px-6 sm:py-10 md:px-8 md:py-12">
-        <div className="max-w-3xl">
+        <div className="max-w-3xl mx-auto text-center">
           <p className="mb-2 text-xs font-black tracking-[0.16em] text-[#0F8AA8]">
             SEOUL APARTMENT MARKET
           </p>
@@ -54,7 +54,7 @@ export function MainHeroSearch() {
           </p>
 
           {/* AI 질문 입력창 */}
-          <form className="mt-5 w-full max-w-2xl" onSubmit={handleFormSubmit}>
+          <form className="mt-5 w-full max-w-2xl mx-auto" onSubmit={handleFormSubmit}>
             <div className="flex w-full min-w-0 flex-col gap-2 rounded-xl border border-[#C9DEE6] bg-white p-1.5 shadow-[0_6px_20px_rgba(18,48,71,0.07)] focus-within:border-[#0F8AA8] focus-within:ring-3 focus-within:ring-[#0F8AA8]/15 sm:flex-row sm:items-center sm:gap-2 sm:p-1.5">
               <div className="flex min-w-0 flex-1 items-center">
                 <Input
@@ -126,7 +126,7 @@ export function MainHeroSearch() {
         </div>
       </div>
 
-      {ai.result && <AiResultModal result={ai.result} onClose={ai.closeResult} />}
+      {ai.result && <AiResultModal result={ai.result} question={ai.question} onClose={ai.closeResult} />}
       {activeCandidates.length > 0 && (
         <AiCandidateModal
           candidates={activeCandidates}
@@ -137,3 +137,7 @@ export function MainHeroSearch() {
     </section>
   );
 }
+
+// MainPage가 검색과 무관한 사유(쿼리 데이터 갱신 등)로 리렌더링될 때
+// props가 없는 이 컴포넌트까지 함께 재실행되는 것을 막는다.
+export const MainHeroSearch = memo(MainHeroSearchComponent);

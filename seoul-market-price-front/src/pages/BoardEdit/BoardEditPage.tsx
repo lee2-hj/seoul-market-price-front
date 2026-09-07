@@ -110,12 +110,14 @@ export default function BoardEditPage() {
     queryKey: ["board", boardId],
     queryFn: () => getBoardPostApi(boardId),
     enabled: !!boardId && !Number.isNaN(boardId),
+    staleTime: 1000 * 60 * 5,
   });
 
   const { data: attachments = [] } = useQuery<AttachmentResponse[]>({
     queryKey: ["boardAttachments", boardId],
     queryFn: () => getBoardAttachmentsApi(boardId),
     enabled: !!boardId && !Number.isNaN(boardId),
+    staleTime: 1000 * 60 * 5,
   });
 
   const deleteAttachmentMutation = useMutation({
@@ -133,23 +135,11 @@ export default function BoardEditPage() {
   useEffect(() => {
     if (post && isAuthInitialized) {
       const role = String(loginUser?.role || "").toUpperCase();
-      const userKeys = [
-        loginUser?.userId,
-        loginUser?.name,
-        loginUser?.email,
-        (loginUser as unknown as Record<string, unknown>)?.id,
-      ]
+      const userKeys = [loginUser?.userId, loginUser?.name]
         .filter(Boolean)
         .map((s) => String(s).trim().toLowerCase());
 
-      const postRecord = post as unknown as Record<string, unknown>;
-      const postKeys = [
-        post.authorId,
-        post.authorName,
-        postRecord?.writerId,
-        postRecord?.writerName,
-        postRecord?.userId,
-      ]
+      const postKeys = [post.authorId, post.authorName]
         .filter(Boolean)
         .map((s) => String(s).trim().toLowerCase())
         .filter((s) => s !== "user" && s !== "-");

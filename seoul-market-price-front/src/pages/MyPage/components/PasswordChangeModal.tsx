@@ -1,8 +1,21 @@
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+
 interface PasswordChangeModalProps {
   isOpen: boolean;
+  currentPassword: string;
   newPassword: string;
   newPasswordConfirm: string;
   passwordError: string;
+  isSaving: boolean;
+  onChangeCurrentPassword: (val: string) => void;
   onChangeNewPassword: (val: string) => void;
   onChangeNewPasswordConfirm: (val: string) => void;
   onClose: () => void;
@@ -11,74 +24,85 @@ interface PasswordChangeModalProps {
 
 export default function PasswordChangeModal({
   isOpen,
+  currentPassword,
   newPassword,
   newPasswordConfirm,
   passwordError,
+  isSaving,
+  onChangeCurrentPassword,
   onChangeNewPassword,
   onChangeNewPasswordConfirm,
   onClose,
   onSave,
 }: PasswordChangeModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-      <div className="w-full max-w-md bg-white rounded-[16px] border border-[#DCE8ED] shadow-2xl p-6 sm:p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200">
-        <div className="text-center space-y-1.5">
-          <div className="w-12 h-12 rounded-full bg-[#E6F4F2] text-[#0F766E] flex items-center justify-center mx-auto text-[22px]">
-            🔒
-          </div>
-          <h3 className="text-[20px] font-black text-[#123047]">새 비밀번호 설정</h3>
-          <p className="text-[13px] text-[#6B7280]">
-            본인인증이 완료되었습니다. 새로운 비밀번호를 입력해 주세요.
-          </p>
-        </div>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-[20px] font-black text-[#123047]">비밀번호 변경</DialogTitle>
+        </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-[13px] font-bold text-[#13202B] block">새 비밀번호 (8~16자)</label>
-            <input
+            <label className="text-[13px] font-bold text-[#13202B] block">현재 비밀번호</label>
+            <Input
               type="password"
-              placeholder="새 비밀번호를 입력하세요"
+              placeholder="비밀번호"
+              value={currentPassword}
+              onChange={(e) => onChangeCurrentPassword(e.target.value)}
+              className="h-[46px] rounded-[8px] border-[#DCE8ED] text-[15px]"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-bold text-[#13202B] block">새 비밀번호</label>
+            <Input
+              type="password"
+              placeholder="영문/숫자/특수문자 조합 10~16자"
               value={newPassword}
               onChange={(e) => onChangeNewPassword(e.target.value)}
-              className="w-full h-[46px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8]"
+              className="h-[46px] rounded-[8px] border-[#DCE8ED] text-[15px]"
             />
           </div>
 
           <div className="space-y-1.5">
             <label className="text-[13px] font-bold text-[#13202B] block">새 비밀번호 확인</label>
-            <input
+            <Input
               type="password"
-              placeholder="새 비밀번호를 한 번 더 입력하세요"
+              placeholder="새 비밀번호"
               value={newPasswordConfirm}
               onChange={(e) => onChangeNewPasswordConfirm(e.target.value)}
-              className="w-full h-[46px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8]"
+              className="h-[46px] rounded-[8px] border-[#DCE8ED] text-[15px]"
             />
           </div>
 
           {passwordError && (
-            <p className="text-[13px] text-rose-500 font-bold">{passwordError}</p>
+            <p className="text-[13px] text-rose-500 font-bold" role="alert">
+              {passwordError}
+            </p>
           )}
         </div>
 
-        <div className="flex gap-2.5 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 h-[46px] bg-white hover:bg-[#F0F7FA] text-[#6B7280] border border-[#DCE8ED] font-bold text-[14px] rounded-[8px] cursor-pointer transition-colors"
-          >
-            닫기
-          </button>
-          <button
+        <DialogFooter className="flex flex-row items-center justify-between gap-2.5">
+          <Button
             type="button"
             onClick={onSave}
-            className="flex-1 h-[46px] bg-[#0F8AA8] hover:bg-[#0B5E73] text-white font-bold text-[14px] rounded-[8px] cursor-pointer transition-colors shadow-xs"
+            disabled={isSaving}
+            className="h-[46px] flex-1 bg-[#0F8AA8] font-bold text-[14px] text-white shadow-xs hover:bg-[#0B5E73] sm:flex-none sm:px-8"
           >
-            변경 완료
-          </button>
-        </div>
-      </div>
-    </div>
+            {isSaving ? "수정 중..." : "수정"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={isSaving}
+            className="h-[46px] flex-1 border-[#DCE8ED] font-bold text-[14px] text-[#6B7280] sm:flex-none sm:px-8"
+          >
+            취소
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
