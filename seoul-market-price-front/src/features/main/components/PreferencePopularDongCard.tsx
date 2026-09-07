@@ -5,10 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardEmpty } from "@/features/main/components/DataCardState";
 import { MainPopularDongMap } from "@/features/main/components/MainPopularDongMap";
 import type {
+  PreferenceAptRecentRank,
   PreferencePopularDongItem,
-  PreferenceTradingApartmentItem,
 } from "@/features/main/types/mainPage.types";
-import { formatPriceInManwon, formatTradeCount } from "@/features/main/utils/mainPageFormat";
+import { formatPriceInManwon } from "@/features/main/utils/mainPageFormat";
 
 type RankGroup = "top" | "bottom";
 
@@ -19,23 +19,21 @@ function Rank({ value }: { value: number }) {
 export function PreferencePopularDongCard({
   titlePrefix = "내 선호지역",
   item,
-  topTradingApartments,
+  aptRecentRank,
 }: {
   titlePrefix?: string;
   item: PreferencePopularDongItem | null;
-  topTradingApartments: PreferenceTradingApartmentItem[];
+  aptRecentRank: PreferenceAptRecentRank;
 }) {
   const [rankGroup, setRankGroup] = useState<RankGroup>("top");
   const isTop = rankGroup === "top";
 
-  // 인덱스로 자르지 않고 거래 건수(dealCount) 값 기준으로 상위/하위 5개를 직접 추출한 뒤,
-  // 화면에 표시할 순번을 1~5로 다시 매긴다.
-  const visibleApartments = useMemo(() => {
-    const sorted = [...topTradingApartments].sort((a, b) =>
-      isTop ? b.dealCount - a.dealCount : a.dealCount - b.dealCount,
-    );
-    return sorted.slice(0, 5).map((apt, index) => ({ ...apt, rank: index + 1 }));
-  }, [topTradingApartments, isTop]);
+  // top/bottom은 백엔드(apt_recent_rank)가 이미 실거래 건 단위로 서로 다르게
+  // 나눠서 내려주므로, 프론트에서는 정렬 없이 최대 5건만 그대로 노출한다.
+  const visibleApartments = useMemo(
+    () => (isTop ? aptRecentRank.top : aptRecentRank.bottom).slice(0, 5),
+    [aptRecentRank, isTop],
+  );
 
   return (
     <Card className="flex h-full flex-col rounded-2xl border-[#DCE8ED] bg-white shadow-[0_3px_12px_rgba(18,48,71,0.05)]">
@@ -64,7 +62,7 @@ export function PreferencePopularDongCard({
         )}
       </CardContent>
 
-      {/* 하단: 아파트 거래량 TOP 5 (상위/하위 토글) */}
+      {/* 하단: 아파트 실거래가 (가격 상위/하위 토글) */}
       <CardHeader className="border-y border-[#E8EFF2] p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -73,16 +71,16 @@ export function PreferencePopularDongCard({
             </span>
             <div className="min-w-0">
               <CardTitle className="text-base font-black text-[#123047]">
-                {titlePrefix ? `${titlePrefix} 아파트 거래량 TOP 5` : "아파트 거래량 TOP 5"}
+                {titlePrefix ? `${titlePrefix} 아파트 실거래가` : "아파트 실거래가"}
               </CardTitle>
-              <p className="mb-0 mt-0.5 text-xs text-[#6B7280]">아파트별 최근 거래가와 거래 건수</p>
+              <p className="mb-0 mt-0.5 text-xs text-[#6B7280]">아파트별 최근 거래 금액</p>
             </div>
           </div>
 
-          {/* 상위/하위 TOP 5 토글 버튼 */}
+          {/* 최근 거래 금액 상위/하위 토글 버튼 */}
           <div
             role="tablist"
-            aria-label="아파트 거래량 순위 전환"
+            aria-label="아파트 실거래가 순위 전환"
             className="flex shrink-0 items-center gap-2"
           >
             <button
@@ -130,11 +128,11 @@ export function PreferencePopularDongCard({
                     {apt.apartmentName}
                   </strong>
                   <span className="block truncate text-[11px] text-[#6B7280]">
-                    {apt.pyeong ? `${apt.pyeong}평 · ` : ""}최근 {formatPriceInManwon(apt.recentDealPrice)}
+                    {apt.pyeong}평 · {apt.floor}층
                   </span>
                 </span>
                 <strong className="text-right text-sm tabular-nums text-[#123047] shrink-0">
-                  {formatTradeCount(apt.dealCount)}
+                  {formatPriceInManwon(apt.tradeAmount)}
                 </strong>
               </li>
             ))}

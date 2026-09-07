@@ -1,4 +1,4 @@
-import type { MainPageResponse } from "@/api/api";
+import type { MainPageAptRecentRankItem, MainPageResponse } from "@/api/api";
 import type {
   MainPageViewData,
   PreferenceDashboardData,
@@ -93,5 +93,26 @@ export function mapPreferenceDashboardData(
       pyeong: Number.isFinite(item.pyeong) ? item.pyeong : undefined,
     }));
 
-  return { priceTrend, topTradingDongs, popularDong, topTradingApartments };
+  const mapRecentTradeItems = (items: MainPageAptRecentRankItem[] | undefined) =>
+    (items ?? [])
+      .filter((item) =>
+        Boolean(item?.apt_name) &&
+        Number.isFinite(item.trade_amount) &&
+        Number.isFinite(item.pyeong),
+      )
+      .map((item, index) => ({
+        rank: index + 1,
+        apartmentName: item.apt_name,
+        tradeAmount: item.trade_amount,
+        pyeong: item.pyeong,
+        floor: item.floor,
+        exclusiveArea: item.exclusive_area_m2,
+      }));
+
+  const aptRecentRank = {
+    top: mapRecentTradeItems(response.apt_recent_rank?.top),
+    bottom: mapRecentTradeItems(response.apt_recent_rank?.bottom),
+  };
+
+  return { priceTrend, topTradingDongs, popularDong, topTradingApartments, aptRecentRank };
 }
