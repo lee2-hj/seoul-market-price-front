@@ -115,13 +115,39 @@ export interface CurrentDistrictResponse {
   sggCd: string;
 }
 
-export async function agreeToLocationServiceApi(): Promise<MemberMeResponse> {
-  const response = await apiMiddleware.patch<MemberMeResponse>(
-    "/api/members/me/location-consent",
-    { agreed: true },
-  );
+export async function agreeToLocationServiceApi(
+  agreed: boolean = true,
+): Promise<MemberMeResponse> {
+  const requestBody = { agreed };
 
-  return response.data;
+  // TODO(debug): location-consent 400 원인 파악용 임시 로그. 원인 확인 후 제거할 것.
+  console.log("[DEBUG] PATCH /api/members/me/location-consent request body:", requestBody);
+
+  try {
+    const response = await apiMiddleware.patch<MemberMeResponse>(
+      "/api/members/me/location-consent",
+      requestBody,
+    );
+
+    // TODO(debug): 성공 응답도 함께 남겨 필드명이 기대와 맞는지 확인.
+    console.log("[DEBUG] location-consent success response:", response.status, response.data);
+
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      // TODO(debug): 백엔드가 실제로 기대하는 필드명/에러 메시지를 확인하기 위한 임시 로그.
+      console.error("[DEBUG] location-consent error status:", error.response?.status);
+      console.error("[DEBUG] location-consent error response body:", error.response?.data);
+      console.error("[DEBUG] location-consent request config:", {
+        url: error.config?.url,
+        method: error.config?.method,
+        data: error.config?.data,
+      });
+    } else {
+      console.error("[DEBUG] location-consent non-axios error:", error);
+    }
+    throw error;
+  }
 }
 
 export async function getCurrentDistrictApi(
@@ -485,6 +511,45 @@ export async function getBoardPostsApi(
   };
 }
 
+/** 마이페이지 내 작성한 게시글 한 건 (백엔드 BoardListResponse와 동일한 필드명) */
+export interface MyBoardPostResponse {
+  boardId: number;
+  postType: PostType;
+  title: string;
+  writerName: string;
+  viewCount: number;
+  createdAt: string;
+}
+
+/** 마이페이지 내 작성한 게시글 페이징 응답 */
+export interface MyBoardPostPageResponse {
+  content: MyBoardPostResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
+/** 내가 작성한 게시글 목록 조회 API (GET /api/boards/me, page는 0부터 시작) */
+export async function getMyBoardPostsApi(
+  params: { page?: number; size?: number; keyword?: string } = {},
+): Promise<MyBoardPostPageResponse> {
+  const { page = 0, size = 10, keyword } = params;
+  const { data } = await apiMiddleware.get<MyBoardPostPageResponse>(
+    "/api/boards/me",
+    {
+      params: {
+        page,
+        size,
+        keyword: keyword?.trim() || undefined,
+      },
+    },
+  );
+  return data;
+}
+
 /**
  * 게시글 단건 상세 조회 API (GET /api/boards/:boardId)
  */
@@ -757,6 +822,22 @@ export async function getQnasApi(
   keyword?: string,
 ) {
   const response = await apiMiddleware.get<QnaPageResponse>("/api/qnas", {
+    params: {
+      page,
+      size,
+      keyword: keyword?.trim() || undefined,
+    },
+  });
+
+  return response.data;
+}
+
+/** 내가 작성한 Q&A 목록 조회 API (GET /api/qnas/me, page는 0부터 시작) */
+export async function getMyQnasApi(
+  params: { page?: number; size?: number; keyword?: string } = {},
+): Promise<QnaPageResponse> {
+  const { page = 0, size = 20, keyword } = params;
+  const response = await apiMiddleware.get<QnaPageResponse>("/api/qnas/me", {
     params: {
       page,
       size,
@@ -1281,6 +1362,7 @@ export type MainPageTradingApartment = {
   bldg_nm: string;
   recent_thing_amt: number;
   deal_cnt: number;
+  pyeong?: number;
 };
 
 export type MainPageResponse = {
@@ -1314,6 +1396,7 @@ export async function getMainPageApi(
 // identityVerificationId를 phone과 함께 전달해야 한다.
 export interface MemberUpdateRequest {
   password?: string;
+  currentPassword?: string;
   phone?: string;
   identityVerificationId?: string;
   email?: string;

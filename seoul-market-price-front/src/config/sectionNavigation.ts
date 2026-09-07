@@ -47,19 +47,19 @@ export const PRICE_NAVIGATION: SectionNavigation = {
   sectionTitle: "가격정보",
   menuItems: [
     {
-      label: "지역별 비교(리스트)",
+      label: "지역별 비교",
       to: "/price/compare-list",
       icon: BarChart3,
       end: true,
     },
     {
-      label: "지역별 비교(지도)",
+      label: "지역별 지도",
       to: "/region-map",
       icon: Map,
       end: true,
     },
     {
-      label: "단지별 시세",
+      label: "단지별 비교",
       to: "/price/detail",
       icon: Building2,
       end: true,

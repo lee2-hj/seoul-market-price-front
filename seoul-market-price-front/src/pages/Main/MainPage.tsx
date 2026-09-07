@@ -77,7 +77,7 @@ export default function MainPage() {
           </div>
         </div>
 
-        <div className="grid min-w-0 grid-cols-1 items-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
+        <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
           {mainPageQuery.isPending ? (
             <><LoadingCard /><LoadingCard /></>
           ) : mainPageQuery.isError ? (
@@ -88,7 +88,9 @@ export default function MainPage() {
             </Card>
           ) : data ? (
             <>
-              <DistrictTop5Card items={data.districts} />
+              <div className="lg:col-start-1 lg:row-start-1">
+                <DistrictTop5Card items={data.districts} />
+              </div>
               {regionDashboardQuery.isPending ? (
                 <PreferenceDashboardLoading />
               ) : regionDashboardQuery.isError ? (

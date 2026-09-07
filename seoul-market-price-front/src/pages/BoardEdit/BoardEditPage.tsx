@@ -110,12 +110,14 @@ export default function BoardEditPage() {
     queryKey: ["board", boardId],
     queryFn: () => getBoardPostApi(boardId),
     enabled: !!boardId && !Number.isNaN(boardId),
+    staleTime: 1000 * 60 * 5,
   });
 
   const { data: attachments = [] } = useQuery<AttachmentResponse[]>({
     queryKey: ["boardAttachments", boardId],
     queryFn: () => getBoardAttachmentsApi(boardId),
     enabled: !!boardId && !Number.isNaN(boardId),
+    staleTime: 1000 * 60 * 5,
   });
 
   const deleteAttachmentMutation = useMutation({

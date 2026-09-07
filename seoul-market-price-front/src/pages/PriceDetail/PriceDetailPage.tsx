@@ -636,7 +636,7 @@ export default function PriceDetailPage() {
                   </>
                 )}
               </div>
-              <h1 className="mt-1 text-[21px] font-black tracking-tight text-[#0F172A]">단지별 시세 분석</h1>
+              <h1 className="mt-1 text-[21px] font-black tracking-tight text-[#0F172A]">단지별 비교</h1>
               <p className="text-[12px] font-semibold text-[#64748B]">
                 선택한 자치구와 동 내 아파트 단지들의 실거래가와 매매/전세 시세를 확인하세요.
               </p>

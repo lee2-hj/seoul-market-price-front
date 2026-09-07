@@ -30,6 +30,12 @@ import { formatBoardDate } from '@/features/board/utils/boardDisplay';
 
 const BOARD_LIST_SESSION_KEY = 'board_list_query';
 
+// 백엔드에 공지 전용 조회 API가 없어, 1페이지 공지 고정 노출을 위해
+// DB 전체를 다시 긁어오는 대신 최신 상위 이만큼 안에서만 공지를 찾는 안전 상한.
+// TODO(backend): 공지 전용 API(예: GET /api/boards/notices)가 분리되면
+// 이 스캔 로직 없이 정확한 전체 공지 목록을 가져오도록 교체할 것.
+const NOTICE_SCAN_SIZE = 20;
+
 // select 반환 타입 정의
 interface BoardPostsSelectResult {
   notices: BoardListItem[];
@@ -95,42 +101,49 @@ export default function BoardPage() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['boardPosts', query.page, query.searchType, query.keyword],
     queryFn: async () => {
-      const currentPageData = await getBoardPostsApi({
-        page: query.page,
-        size: 10,
-        searchType: query.keyword ? (query.searchType as BoardSearchType) : undefined,
-        keyword: query.keyword || undefined,
-      });
-
-      // 서버는 공지/일반 구분 없이 최신순으로 페이지를 먼저 나눈다
-      // 따라서 1페이지 응답만으로는 뒤 페이지의 공지를 상단 고정할 수 없어
-
+      // 키워드 검색: 공지 고정 없이 검색 결과를 최신순으로 그대로 보여준다 (단일 호출).
       if (query.keyword) {
-        const searchItems = [...currentPageData.notices, ...currentPageData.items].sort(
+        const searchData = await getBoardPostsApi({
+          page: query.page,
+          size: 10,
+          searchType: query.searchType,
+          keyword: query.keyword,
+        });
+        const searchItems = [...searchData.notices, ...searchData.items].sort(
           (a, b) =>
             Date.parse(b.createdAt) - Date.parse(a.createdAt) || b.boardId - a.boardId,
         );
-        return { ...currentPageData, notices: [], items: searchItems };
+        return {
+          notices: [],
+          items: searchItems,
+          totalElements: searchData.totalElements,
+          totalPages: searchData.totalPages,
+          currentPage: query.page,
+        };
       }
 
-      const allPostsData = await getBoardPostsApi({
-        page: 1,
-        size: Math.max(10, currentPageData.totalElements),
-      });
-      const pinnedNotices = allPostsData.notices.slice(0, 2);
-      const pinnedIds = new Set(pinnedNotices.map((notice) => notice.boardId));
-      const orderedPosts = [
-        ...pinnedNotices,
-        ...allPostsData.items.filter((item) => !pinnedIds.has(item.boardId)),
-      ];
-      const pageStart = (query.page - 1) * 10;
-      const pageItems = orderedPosts.slice(pageStart, pageStart + 10);
+      if (query.page === 1) {
+        // 공지사항은 1페이지 상단에만 고정 노출된다(2페이지부터는 공지 없이 일반 목록만 표시).
+        const scanData = await getBoardPostsApi({ page: 1, size: NOTICE_SCAN_SIZE });
+        const pinnedNotices = scanData.notices.slice(0, 2);
+        const items = scanData.items.slice(0, 10 - pinnedNotices.length);
 
+        return {
+          notices: pinnedNotices,
+          items,
+          totalElements: scanData.totalElements,
+          totalPages: Math.ceil(scanData.totalElements / 10),
+          currentPage: query.page,
+        };
+      }
+
+      // 2페이지 이상: 공지가 항상 없으므로 단일 호출로 그대로 사용한다.
+      const pageData = await getBoardPostsApi({ page: query.page, size: 10 });
       return {
-        notices: query.page === 1 ? pageItems.filter((item) => pinnedIds.has(item.boardId)) : [],
-        items: pageItems.filter((item) => !pinnedIds.has(item.boardId)),
-        totalElements: allPostsData.totalElements,
-        totalPages: Math.ceil(allPostsData.totalElements / 10),
+        notices: [],
+        items: pageData.items,
+        totalElements: pageData.totalElements,
+        totalPages: pageData.totalPages,
         currentPage: query.page,
       };
     },
@@ -140,6 +153,7 @@ export default function BoardPage() {
       totalElements: res?.totalElements || 0,
       totalPages: res?.totalPages || 0,
     }),
+    staleTime: 1000 * 60 * 5,
   });
 
   // 3. 현재 페이지 그룹에 표시할 페이지 번호 계산
@@ -184,10 +198,6 @@ export default function BoardPage() {
                   e.preventDefault();
                   const formData = new FormData(e.currentTarget);
                   const keyword = (formData.get('keyword') as string).trim();
-                  if (!keyword) {
-                    alert('검색어를 입력해 주세요.');
-                    return;
-                  }
                   setQuery({
                     page: 1,
                     searchType: formData.get('searchType') as BoardSearchType,

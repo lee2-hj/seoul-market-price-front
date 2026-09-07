@@ -1,3 +1,4 @@
+import { Toaster } from "@/components/ui/sonner";
 import Router from "./routes/Router";
 
 
@@ -6,7 +7,10 @@ function App() {
 
   return (
 
-    <Router />
+    <>
+      <Router />
+      <Toaster position="top-center" richColors />
+    </>
 
   );
 

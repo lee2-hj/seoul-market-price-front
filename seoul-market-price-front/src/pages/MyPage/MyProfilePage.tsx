@@ -1,20 +1,25 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 import PassAuth from "@/features/auth/components/PassAuth";
 import {
+  agreeToLocationServiceApi,
   deleteMyPreferredRegionApi,
   updateMemberMeApi,
   type MemberUpdateRequest,
 } from "@/api/api";
 import apiMiddleware from "@/api/middleware";
-import { getSggs } from "@/features/location/services/locationService";
+import { getSggs, type SggResponse } from "@/features/location/services/locationService";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { REGION_STORAGE_KEY } from "@/features/region-map/utils/regionSelection";
 import { usePassAuth } from "./hooks/usePassAuth";
 import { usePasswordChangeModal } from "./hooks/usePasswordChangeModal";
@@ -22,10 +27,91 @@ import { useWithdrawModal } from "./hooks/useWithdrawModal";
 import PasswordChangeModal from "./components/PasswordChangeModal";
 import WithdrawModal from "./components/WithdrawModal";
 
-/**
- * 로그인 방식
- */
+// ============================================================
+// Types
+// ============================================================
+
 type LoginType = "LOCAL" | "SOCIAL";
+
+type Profile = {
+  loginType: LoginType;
+  name: string;
+  userId: string;
+  phone: string;
+  email: string;
+  address: string;
+  detailAddress: string;
+};
+
+// 회원 정보 폼: 인적사항(Profile) + 선호 자치구를 하나의 react-hook-form으로 함께 관리한다.
+type ProfileForm = Profile & {
+  preferredDistrict: string;
+  selectedSggCd: string | null;
+};
+
+type MyPageSettings = {
+  profile: Partial<Profile>;
+  preferredDistrict: string;
+  selectedSggCd?: string | null;
+  favoriteItems?: string[];
+  notificationSettings?: Record<string, boolean>;
+  priceAlerts?: unknown[];
+};
+
+type MyMemberResponse = {
+  memberId: number;
+  userId: string;
+  name: string;
+  zipcode: string | null;
+  address: string | null;
+  addressDetail: string | null;
+  phone: string | null;
+  email: string | null;
+  socialId: string | null;
+  userType: string;
+  preferredDistrict: string;
+  myGu: string | null;
+  myGuCode: string | null;
+  myDong: string | null;
+};
+
+type ProfileDraft = {
+  email: string;
+  address: string;
+  detailAddress: string;
+  preferredDistrict: string;
+  selectedSggCd?: string | null;
+  selectedSggName?: string;
+};
+
+type MemberUpdateVariables = {
+  formData: ProfileForm;
+  shouldPatchMember: boolean;
+  shouldClearPreferredRegion: boolean;
+};
+
+const DEFAULT_PROFILE_FORM: ProfileForm = {
+  loginType: "LOCAL",
+  name: "",
+  userId: "",
+  phone: "",
+  email: "",
+  address: "",
+  detailAddress: "",
+  preferredDistrict: "",
+  selectedSggCd: null,
+};
+
+// ============================================================
+// 순수 헬퍼 함수
+// ============================================================
+
+class PreferredRegionDeleteError extends Error {
+  constructor() {
+    super("선호지역 삭제에 실패했습니다.");
+    this.name = "PreferredRegionDeleteError";
+  }
+}
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -69,97 +155,28 @@ const sanitizePlainText = (val?: string | null): string => {
   return trimmed;
 };
 
-/**
- * 휴대폰 번호 정규식 자동 포맷터 (01012345678 -> 010-1234-5678)
- */
 const formatPhoneNumber = (value: string): string => {
   if (!value) return "";
   const raw = value.replace(/[^0-9]/g, "");
   if (raw.length <= 3) return raw;
   if (raw.length <= 7) return `${raw.slice(0, 3)}-${raw.slice(3)}`;
-  if (raw.length <= 10) {
-    return `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}`;
-  }
+  if (raw.length <= 10) return `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}`;
   return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
 };
 
-/**
- * 기본 주소 입력값 정제 (특수문자나 주소에 불필요한 기호 입력 방지)
- * 한글, 영문, 숫자, 공백, 하이픈(-), 쉼표(,), 괄호(()), 마침표(.)만 허용
- */
-const sanitizeAddress = (value: string): string => {
-  if (!value) return "";
-  return value.replace(/[^가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9\s\-(),.]/g, "");
-};
+// 이름: 한글/영문만 허용(숫자, 공백 불가)
+const sanitizeName = (value: string): string =>
+  value.replace(/[^a-zA-Z가-힣ㄱ-ㅎㅏ-ㅣ]/g, "");
 
-type Profile = {
-  loginType: LoginType;
-  name: string;
-  userId: string;
-  phone: string;
-  email: string;
-  address: string;
-  detailAddress: string;
-};
-
-type MyPageSettings = {
-  profile: Partial<Profile>;
-  preferredDistrict: string;
-  selectedSggCd?: string | null;
-  favoriteItems?: string[];
-  notificationSettings?: Record<string, boolean>;
-  priceAlerts?: unknown[];
-};
-
-interface MyMemberResponse {
-  memberId: number;
-  userId: string;
-  name: string;
-  zipcode: string | null;
-  address: string | null;
-  addressDetail: string | null;
-  phone: string | null;
-  email: string | null;
-  socialId: string | null;
-  userType: string;
-  preferredDistrict: string;
-  myGu: string | null;
-  myGuCode: string | null;
-  myDong: string | null;
-}
-
-type ProfileDraft = {
-  email: string;
-  address: string;
-  detailAddress: string;
-  preferredDistrict: string;
-  selectedSggCd?: string | null;
-  selectedSggName?: string;
-};
-
-type MemberUpdateVariables = {
-  formData: Profile;
-  selectedSggCd: string | null;
-  shouldPatchMember: boolean;
-  shouldClearPreferredRegion: boolean;
-};
-
-class PreferredRegionDeleteError extends Error {
-  constructor() {
-    super("선호지역 삭제에 실패했습니다.");
-    this.name = "PreferredRegionDeleteError";
-  }
-}
+// 주소: 한글/영문/숫자/공백/-,().  만 허용
+const sanitizeAddress = (value: string): string =>
+  value.replace(/[^가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9\s\-(),.]/g, "");
 
 const normalizeIdentity = (value?: string | null): string =>
   (value || "").trim().toLowerCase();
 
 function getStoredSocialProvider(): string {
-  return (
-    sessionStorage.getItem("social_provider") ||
-    localStorage.getItem("social_provider") ||
-    ""
-  );
+  return sessionStorage.getItem("social_provider") || localStorage.getItem("social_provider") || "";
 }
 
 function getSocialProviderName(userId: string, loginType: LoginType): string {
@@ -180,24 +197,13 @@ function isSocialAccount(userId: string, loginType: LoginType): boolean {
   return Boolean(getSocialProviderName(userId, loginType));
 }
 
-const DEFAULT_PROFILE: Profile = {
-  loginType: "LOCAL",
-  name: "",
-  userId: "",
-  phone: "",
-  email: "",
-  address: "",
-  detailAddress: "",
-};
-
 function getStorageKey(userId?: string): string {
   const cleanId = normalizeIdentity(userId);
   return cleanId ? `myPageSettings_${cleanId}` : "myPageSettings_guest";
 }
 
 function getStoredMyPageSettings(userId?: string): MyPageSettings | null {
-  const key = getStorageKey(userId);
-  const saved = localStorage.getItem(key);
+  const saved = localStorage.getItem(getStorageKey(userId));
   if (!saved) return null;
   try {
     return JSON.parse(saved) as MyPageSettings;
@@ -221,31 +227,23 @@ function getProfileDraftKey(userId: string): string {
 
 function isProfileDraft(value: unknown): value is ProfileDraft {
   if (typeof value !== "object" || value === null) return false;
-
   return (
-    "email" in value &&
-    typeof value.email === "string" &&
-    "address" in value &&
-    typeof value.address === "string" &&
-    "detailAddress" in value &&
-    typeof value.detailAddress === "string" &&
-    "preferredDistrict" in value &&
-    typeof value.preferredDistrict === "string"
+    "email" in value && typeof value.email === "string" &&
+    "address" in value && typeof value.address === "string" &&
+    "detailAddress" in value && typeof value.detailAddress === "string" &&
+    "preferredDistrict" in value && typeof value.preferredDistrict === "string"
   );
 }
 
 function getStoredProfileDraft(userId: string): ProfileDraft | null {
-  const key = getProfileDraftKey(userId);
-  const saved = sessionStorage.getItem(key);
+  const saved = sessionStorage.getItem(getProfileDraftKey(userId));
   if (!saved) return null;
-
   try {
     const parsed: unknown = JSON.parse(saved);
     if (isProfileDraft(parsed)) return parsed;
   } catch {
     // 파싱에 실패해도 저장된 초안은 임의로 삭제하지 않는다.
   }
-
   return null;
 }
 
@@ -255,112 +253,130 @@ function removeStoredProfileDraft(userId?: string): void {
   sessionStorage.removeItem(getProfileDraftKey(normalizedUserId));
 }
 
-async function getMyMember() {
+async function getMyMember(): Promise<MyMemberResponse> {
   const { data } = await apiMiddleware.get<MyMemberResponse>("/api/members/me", {
     params: { _t: Date.now() },
   });
   return data;
 }
 
+function getInitialProfileForm(authUser: ReturnType<typeof useAuthStore.getState>["user"]): ProfileForm {
+  const saved = getStoredMyPageSettings(authUser?.userId);
+  const savedProfile: Partial<Profile> = saved?.profile || {};
+
+  if (authUser) {
+    const isSocial = isSocialAccount(authUser.userId || "", "LOCAL");
+    return {
+      ...DEFAULT_PROFILE_FORM,
+      ...savedProfile,
+      phone: formatPhoneNumber(savedProfile.phone || DEFAULT_PROFILE_FORM.phone),
+      loginType: isSocial ? "SOCIAL" : "LOCAL",
+      name: sanitizePlainText(authUser.name) || sanitizePlainText(savedProfile.name),
+      userId: sanitizePlainText(authUser.userId) || sanitizePlainText(savedProfile.userId),
+      preferredDistrict: authUser.myGu || saved?.preferredDistrict || "",
+      selectedSggCd: authUser.myGuCode ?? null,
+    };
+  }
+
+  return {
+    ...DEFAULT_PROFILE_FORM,
+    ...savedProfile,
+    phone: formatPhoneNumber(savedProfile.phone || DEFAULT_PROFILE_FORM.phone),
+    name: sanitizePlainText(savedProfile.name),
+    userId: sanitizePlainText(savedProfile.userId),
+    preferredDistrict: saved?.preferredDistrict || "",
+    selectedSggCd: saved?.selectedSggCd ?? null,
+  };
+}
+
+// ============================================================
+// 컴포넌트
+// ============================================================
+
 export default function MyProfilePage() {
   const queryClient = useQueryClient();
   const isLoggedIn = isLogin();
   const authUser = useAuthStore((state) => state.user);
+  const initializedDraftUserRef = useRef<string | null>(null);
+
   const { data: memberData } = useQuery({
     queryKey: ["member", "me"],
     queryFn: getMyMember,
     enabled: isLoggedIn,
     staleTime: 1000 * 60 * 5,
+    select: (data: MyMemberResponse): MyMemberResponse => data,
   });
 
   const { data: sggs = [], isLoading: isSggsLoading } = useQuery({
     queryKey: ["location", "sggs"],
     queryFn: getSggs,
     staleTime: Infinity,
+    select: (data: SggResponse[]): SggResponse[] => data,
   });
 
-  // 초기 프로필 로드
-  const [profile, setProfile] = useState<Profile>(() => {
-    const saved = getStoredMyPageSettings(authUser?.userId);
-    if (authUser) {
-      const isSocial = isSocialAccount(authUser.userId || "", "LOCAL");
-      const savedProfile: Partial<Profile> = saved?.profile || {};
-      const resolvedName = sanitizePlainText(authUser.name) || sanitizePlainText(savedProfile.name);
-      const resolvedUserId = sanitizePlainText(authUser.userId) || sanitizePlainText(savedProfile.userId);
-
-      return {
-        ...DEFAULT_PROFILE,
-        ...savedProfile,
-        phone: formatPhoneNumber(savedProfile.phone || DEFAULT_PROFILE.phone),
-        loginType: isSocial ? "SOCIAL" : "LOCAL",
-        name: resolvedName,
-        userId: resolvedUserId,
-      };
-    }
-    if (saved?.profile) {
-      return {
-        ...DEFAULT_PROFILE,
-        ...saved.profile,
-        phone: formatPhoneNumber(saved.profile.phone || DEFAULT_PROFILE.phone),
-        name: sanitizePlainText(saved.profile.name),
-        userId: sanitizePlainText(saved.profile.userId),
-      };
-    }
-    return DEFAULT_PROFILE;
+  const { register, handleSubmit, setValue, watch, reset, setError, clearErrors, formState } = useForm<ProfileForm>({
+    defaultValues: useMemo(() => getInitialProfileForm(authUser), []),
   });
+  const { isDirty: isFormDirty, dirtyFields } = formState;
 
-  const [preferredDistrict, setPreferredDistrict] = useState(() => {
-    const saved = getStoredMyPageSettings(authUser?.userId);
-    return authUser?.myGu || saved?.preferredDistrict || "";
-  });
-  const [selectedSggCd, setSelectedSggCd] = useState<string | null>(
-    authUser?.myGuCode ?? null,
-  );
-  const [preferredDistrictError, setPreferredDistrictError] = useState("");
-  // 원본 스냅샷 (변경 취소 시 복구할 기준 데이터)
-  const [originalProfile, setOriginalProfile] = useState<Profile>(profile);
-  const [originalDistrict, setOriginalDistrict] = useState<string>(preferredDistrict);
-  const [originalSggCd, setOriginalSggCd] = useState<string | null>(
-    selectedSggCd,
-  );
-  const initializedDraftUserRef = useRef<string | null>(null);
-
-  const { register, handleSubmit, setValue, reset, control } = useForm<Profile>({
-    defaultValues: profile,
-  });
-
-  const formValues = useWatch({ control });
+  const preferredDistrict = watch("preferredDistrict");
+  const selectedSggCd = watch("selectedSggCd");
+  const nameValue = watch("name");
+  const phoneValue = watch("phone");
+  const emailValue = watch("email");
+  const addressValue = watch("address");
+  const detailAddressValue = watch("detailAddress");
+  const rawUserId = watch("userId") || authUser?.userId || "";
+  const loginType = watch("loginType");
 
   // 1. PASS 본인인증 훅
-  const {
-    phoneVerified,
-    identityVerificationId,
-    handlePassSuccess,
-    resetPassAuth,
-  } = usePassAuth({ setValue });
+  const { phoneVerified, identityVerificationId, handlePassSuccess, resetPassAuth } =
+    usePassAuth<ProfileForm>({ setValue });
 
   // 2. 비밀번호 변경 모달 훅
   const {
     isPasswordModalOpen,
+    currentPassword,
     newPassword,
     newPasswordConfirm,
     passwordError,
+    isSaving: isPasswordSaving,
+    lastChangedLabel,
+    setCurrentPassword,
     setNewPassword,
     setNewPasswordConfirm,
     handleOpenPasswordModal,
     handleClosePasswordModal,
     handleSaveNewPassword,
-  } = usePasswordChangeModal({
-    isLoggedIn,
-    phoneVerified,
+  } = usePasswordChangeModal({ isLoggedIn, phoneVerified, userId: rawUserId });
+
+  // 위치 서비스 사용 동의/철회 뮤테이션 (낙관적 업데이트 + 실패 시 롤백)
+  const locationConsentMutation = useMutation({
+    mutationFn: (agreed: boolean) => agreeToLocationServiceApi(agreed),
+    onMutate: (agreed: boolean) => {
+      const previousUser = useAuthStore.getState().user;
+      if (previousUser) {
+        useAuthStore.getState().setUser({ ...previousUser, isLocationAgreed: agreed });
+      }
+      return { previousUser };
+    },
+    onSuccess: (response) => {
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        useAuthStore.getState().setUser({ ...currentUser, isLocationAgreed: response.isLocationAgreed });
+      }
+      toast.success("정보 동의 설정이 변경되었습니다.");
+    },
+    onError: (_error, _agreed, context) => {
+      if (context?.previousUser) {
+        useAuthStore.getState().setUser(context.previousUser);
+      }
+      toast.error("위치 서비스 설정 변경에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    },
   });
 
-  // 소셜 로그인 감지 및 공급자명 판별
-  const rawUserId = authUser?.userId || profile.userId || "";
-  const socialProvider = getSocialProviderName(rawUserId, profile.loginType);
-  const isSocialUser = isSocialAccount(rawUserId, profile.loginType);
-  const authUserId = authUser?.userId;
-  const authUserName = authUser?.name;
+  const socialProvider = getSocialProviderName(rawUserId, loginType);
+  const isSocialUser = isSocialAccount(rawUserId, loginType);
 
   // 3. 회원 탈퇴 모달 훅
   const {
@@ -372,144 +388,104 @@ export default function MyProfilePage() {
     handleClickWithdraw,
     handleCloseWithdrawModal,
     handleConfirmWithdrawWithPassword,
-  } = useWithdrawModal({
-    isLoggedIn,
-    isSocialUser,
-    userId: authUser?.userId || profile.userId,
-  });
+  } = useWithdrawModal({ isLoggedIn, isSocialUser, userId: rawUserId });
 
   // 선호지역 옵션 목록 ('선호지역 없음' 옵션 포함)
-  const districtOptions = useMemo(() => {
-    return ["선택 안 함", ...sggs.map((sgg) => sgg.sggNm)];
-  }, [sggs]);
+  const districtOptions = useMemo(() => ["선택 안 함", ...sggs.map((sgg) => sgg.sggNm)], [sggs]);
 
   // authUser 변경 시 해당 사용자 고유의 프로필 및 설정 동기화
   useEffect(() => {
-    if (authUserId) {
-      let isActive = true;
-      const isSocial = memberData
-        ? Boolean(memberData.socialId) ||
-          isSocialAccount(memberData.userId, "LOCAL")
-        : isSocialAccount(authUserId, "LOCAL");
+    const authUserId = authUser?.userId;
+    if (!authUserId) return;
 
-      const saved = getStoredMyPageSettings(authUserId);
-      const resolvedName =
-        sanitizePlainText(authUserName) ||
-        sanitizePlainText(memberData?.name) ||
-        sanitizePlainText(saved?.profile?.name);
-      const resolvedUserId = memberData
-        ? sanitizePlainText(memberData.userId)
-        : sanitizePlainText(authUserId) ||
-          sanitizePlainText(saved?.profile?.userId);
+    let isActive = true;
+    const isSocial = memberData
+      ? Boolean(memberData.socialId) || isSocialAccount(memberData.userId, "LOCAL")
+      : isSocialAccount(authUserId, "LOCAL");
 
-      const nextProfile: Profile = {
-        ...DEFAULT_PROFILE,
-        ...(memberData
+    const saved = getStoredMyPageSettings(authUserId);
+    const resolvedName =
+      sanitizePlainText(authUser.name) || sanitizePlainText(memberData?.name) || sanitizePlainText(saved?.profile?.name);
+    const resolvedUserId = memberData
+      ? sanitizePlainText(memberData.userId)
+      : sanitizePlainText(authUserId) || sanitizePlainText(saved?.profile?.userId);
+
+    const nextDistrict = memberData ? memberData.myGu ?? "" : authUser?.myGu || saved?.preferredDistrict || "";
+    const nextSggCd = memberData ? memberData.myGuCode : authUser?.myGuCode ?? saved?.selectedSggCd ?? null;
+
+    const nextForm: ProfileForm = {
+      ...DEFAULT_PROFILE_FORM,
+      ...(memberData
+        ? {
+            phone: formatPhoneNumber(memberData.phone ?? ""),
+            email: memberData.email ?? "",
+            address: memberData.address ?? "",
+            detailAddress: memberData.addressDetail ?? "",
+          }
+        : saved?.profile || {}),
+      name: resolvedName,
+      userId: resolvedUserId,
+      loginType: isSocial ? "SOCIAL" : "LOCAL",
+      preferredDistrict: nextDistrict,
+      selectedSggCd: nextSggCd,
+    };
+
+    queueMicrotask(() => {
+      if (!isActive) return;
+      const latestDraft = getStoredProfileDraft(authUserId);
+      const draftDistrict = latestDraft?.selectedSggName ?? latestDraft?.preferredDistrict;
+      const hasDraftSggCd = Boolean(latestDraft && Object.prototype.hasOwnProperty.call(latestDraft, "selectedSggCd"));
+      const draftSggCd = hasDraftSggCd
+        ? latestDraft?.selectedSggCd ?? null
+        : draftDistrict && draftDistrict !== nextDistrict
+          ? null
+          : nextSggCd;
+
+      reset(
+        latestDraft
           ? {
-              phone: formatPhoneNumber(memberData.phone ?? ""),
-              email: memberData.email ?? "",
-              address: memberData.address ?? "",
-              detailAddress: memberData.addressDetail ?? "",
-            }
-          : saved?.profile || {}),
-        name: resolvedName,
-        userId: resolvedUserId,
-        loginType: isSocial ? "SOCIAL" : "LOCAL",
-      };
-
-      const nextDistrict = memberData
-        ? memberData.myGu ?? ""
-        : authUser?.myGu || saved?.preferredDistrict || "";
-      const nextSggCd = memberData
-        ? memberData.myGuCode
-        : authUser?.myGuCode ?? saved?.selectedSggCd ?? null;
-
-      queueMicrotask(() => {
-        if (!isActive) return;
-        const latestDraft = getStoredProfileDraft(authUserId);
-        const displayedProfile: Profile = latestDraft
-          ? {
-              ...nextProfile,
+              ...nextForm,
               email: latestDraft.email,
               address: latestDraft.address,
               detailAddress: latestDraft.detailAddress,
+              preferredDistrict: draftDistrict ?? nextDistrict,
+              selectedSggCd: draftSggCd,
             }
-          : nextProfile;
+          : nextForm,
+      );
+      initializedDraftUserRef.current = normalizeIdentity(authUserId);
+    });
 
-        setProfile(nextProfile);
-        setOriginalProfile(nextProfile);
-        reset(displayedProfile);
-        const draftDistrict =
-          latestDraft?.selectedSggName ?? latestDraft?.preferredDistrict;
-        const hasDraftSggCd = Boolean(
-          latestDraft && Object.prototype.hasOwnProperty.call(latestDraft, "selectedSggCd"),
-        );
-        const draftSggCd = hasDraftSggCd
-          ? latestDraft?.selectedSggCd ?? null
-          : draftDistrict && draftDistrict !== nextDistrict
-            ? null
-            : nextSggCd;
+    return () => {
+      isActive = false;
+    };
+  }, [authUser, memberData, reset]);
 
-        setPreferredDistrict(draftDistrict ?? nextDistrict);
-        setSelectedSggCd(draftSggCd);
-        setOriginalDistrict(nextDistrict);
-        setOriginalSggCd(nextSggCd);
-        setPreferredDistrictError("");
-        initializedDraftUserRef.current = normalizeIdentity(authUserId);
-      });
-
-      return () => {
-        isActive = false;
-      };
-    }
-  }, [
-    authUser?.myGu,
-    authUser?.myGuCode,
-    authUserId,
-    authUserName,
-    memberData,
-    reset,
-  ]);
-
+  // 새로고침(beforeunload) 없이도 입력 중인 값을 세션에 임시 저장(초안)한다.
   useEffect(() => {
     const userId = normalizeIdentity(authUser?.userId);
     if (!userId || initializedDraftUserRef.current !== userId) return;
 
     const draft: ProfileDraft = {
-      email: formValues.email ?? "",
-      address: formValues.address ?? "",
-      detailAddress: formValues.detailAddress ?? "",
+      email: emailValue,
+      address: addressValue,
+      detailAddress: detailAddressValue,
       preferredDistrict,
       selectedSggCd,
       selectedSggName: preferredDistrict,
     };
     sessionStorage.setItem(getProfileDraftKey(userId), JSON.stringify(draft));
-  }, [
-    authUser?.userId,
-    formValues.email,
-    formValues.address,
-    formValues.detailAddress,
-    preferredDistrict,
-    selectedSggCd,
-  ]);
+  }, [authUser?.userId, emailValue, addressValue, detailAddressValue, preferredDistrict, selectedSggCd]);
 
   const updateMemberMutation = useMutation({
-    mutationFn: async ({
-      formData,
-      selectedSggCd,
-      shouldPatchMember,
-      shouldClearPreferredRegion,
-    }: MemberUpdateVariables) => {
-      const isPhoneChanged = formData.phone !== originalProfile.phone;
+    mutationFn: async ({ formData, shouldPatchMember, shouldClearPreferredRegion }: MemberUpdateVariables) => {
       if (shouldPatchMember) {
         const request: MemberUpdateRequest = {
-          ...(isPhoneChanged
-            ? { phone: formData.phone, identityVerificationId }
-            : {}),
+          ...(dirtyFields.phone ? { phone: formData.phone, identityVerificationId } : {}),
           email: formData.email,
           address: formData.address,
           addressDetail: formData.detailAddress,
-          ...(selectedSggCd ? { sgg_cd: selectedSggCd } : {}),
+          ...(formData.selectedSggCd ? { sgg_cd: formData.selectedSggCd } : {}),
         };
         await updateMemberMeApi(request);
       }
@@ -525,40 +501,28 @@ export default function MyProfilePage() {
       return getMyMember();
     },
     onSuccess: (response, variables) => {
-      const updatedProfile: Profile = {
+      const updatedForm: ProfileForm = {
         ...variables.formData,
         name: sanitizePlainText(response.name),
         userId: sanitizePlainText(response.userId),
         phone: formatPhoneNumber(variables.formData.phone),
-        email: variables.formData.email,
-        address: variables.formData.address,
-        detailAddress: variables.formData.detailAddress,
-        loginType: isSocialAccount(response.userId, variables.formData.loginType)
-          ? "SOCIAL"
-          : "LOCAL",
+        loginType: isSocialAccount(response.userId, variables.formData.loginType) ? "SOCIAL" : "LOCAL",
+        preferredDistrict: response.myGu ?? "",
+        selectedSggCd: response.myGuCode ?? null,
       };
+
       const previousSettings = getStoredMyPageSettings(response.userId);
       const settingsToSave: MyPageSettings & { preferredDong?: unknown } = {
         ...previousSettings,
-        profile: getLocalProfileSettings(updatedProfile),
+        profile: getLocalProfileSettings(updatedForm),
         preferredDistrict: response.myGu ?? "",
         selectedSggCd: response.myGuCode ?? null,
       };
       delete settingsToSave.preferredDong;
 
       queryClient.setQueryData(["member", "me"], response);
-      localStorage.setItem(
-        getStorageKey(response.userId),
-        JSON.stringify(settingsToSave),
-      );
-      reset(updatedProfile);
-      setProfile(updatedProfile);
-      setOriginalProfile(updatedProfile);
-      setPreferredDistrict(response.myGu ?? "");
-      setSelectedSggCd(response.myGuCode ?? null);
-      setOriginalDistrict(response.myGu ?? "");
-      setOriginalSggCd(response.myGuCode ?? null);
-      setPreferredDistrictError("");
+      localStorage.setItem(getStorageKey(response.userId), JSON.stringify(settingsToSave));
+      reset(updatedForm);
 
       if (authUser) {
         useAuthStore.getState().setUser({
@@ -582,116 +546,84 @@ export default function MyProfilePage() {
     },
     onError: (error: unknown) => {
       if (error instanceof PreferredRegionDeleteError) {
-        alert(
-          "회원정보는 저장되었을 수 있지만 선호지역 삭제에 실패했습니다. 입력값은 유지되므로 다시 저장해 주세요.",
-        );
+        alert("회원정보는 저장되었을 수 있지만 선호지역 삭제에 실패했습니다. 입력값은 유지되므로 다시 저장해 주세요.");
         return;
       }
       const serverMessage =
-        axios.isAxiosError(error) &&
-        (error.response?.data?.message || error.response?.data?.error);
+        axios.isAxiosError(error) && (error.response?.data?.message || error.response?.data?.error);
       alert(serverMessage || "회원 정보 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
     },
   });
 
-  // 폼이 수정되었는지 여부 계산 (Dirty check)
-  const isFormDirty = useMemo(() => {
-    const isProfileChanged =
-      (formValues.name ?? "") !== (originalProfile.name ?? "") ||
-      (formValues.phone ?? "") !== (originalProfile.phone ?? "") ||
-      (formValues.email ?? "") !== (originalProfile.email ?? "") ||
-      (formValues.address ?? "") !== (originalProfile.address ?? "") ||
-      (formValues.detailAddress ?? "") !== (originalProfile.detailAddress ?? "");
-
-    const isDistrictChanged =
-      preferredDistrict !== originalDistrict || selectedSggCd !== originalSggCd;
-    return isProfileChanged || isDistrictChanged;
-  }, [
-    formValues.name,
-    formValues.phone,
-    formValues.email,
-    formValues.address,
-    formValues.detailAddress,
-    originalProfile,
-    preferredDistrict,
-    originalDistrict,
-    selectedSggCd,
-    originalSggCd,
-  ]);
-
-  // [변경 취소] 버튼 클릭 핸들러
   const handleCancelChanges = () => {
     removeStoredProfileDraft(authUser?.userId);
-    reset(originalProfile);
-    setProfile(originalProfile);
-    setPreferredDistrict(originalDistrict);
-    setSelectedSggCd(originalSggCd);
-    setPreferredDistrictError("");
+    reset();
     resetPassAuth();
   };
 
-  // 회원 정보 및 설정 일괄 저장 핸들러 (수동 저장)
-  const handleSaveAll = (formData: Profile) => {
+  const handleSaveAll = (formData: ProfileForm) => {
     if (!isLoggedIn) {
       alert("로그인 후 회원 정보 및 설정을 저장하실 수 있습니다.");
       return;
     }
-    const isPhoneChanged = formData.phone !== originalProfile.phone;
-    if (isPhoneChanged && (!phoneVerified || !identityVerificationId)) {
+    if (dirtyFields.phone && (!phoneVerified || !identityVerificationId)) {
       alert("전화번호 변경을 위해 본인인증을 완료해 주세요.");
       return;
     }
     if (updateMemberMutation.isPending) return;
 
-    const isProfileChanged =
-      (formData.name ?? "") !== (originalProfile.name ?? "") ||
-      (formData.phone ?? "") !== (originalProfile.phone ?? "") ||
-      (formData.email ?? "") !== (originalProfile.email ?? "") ||
-      (formData.address ?? "") !== (originalProfile.address ?? "") ||
-      (formData.detailAddress ?? "") !== (originalProfile.detailAddress ?? "");
-    const isDistrictChanged =
-      preferredDistrict !== originalDistrict || selectedSggCd !== originalSggCd;
+    const isProfileChanged = Boolean(
+      dirtyFields.name || dirtyFields.phone || dirtyFields.email || dirtyFields.address || dirtyFields.detailAddress,
+    );
+    const isDistrictChanged = Boolean(dirtyFields.preferredDistrict || dirtyFields.selectedSggCd);
 
-    if (preferredDistrict && !selectedSggCd) {
-      setPreferredDistrictError("목록에서 자치구를 다시 선택해 주세요.");
+    if (formData.preferredDistrict && !formData.selectedSggCd) {
+      setError("selectedSggCd", { type: "manual", message: "목록에서 자치구를 다시 선택해 주세요." });
       return;
     }
 
-    const shouldClearPreferredRegion =
-      isDistrictChanged && !preferredDistrict && selectedSggCd === null;
-    const shouldPatchMember =
-      isProfileChanged || (isDistrictChanged && selectedSggCd !== null);
+    const shouldClearPreferredRegion = isDistrictChanged && !formData.preferredDistrict && !formData.selectedSggCd;
+    const shouldPatchMember = isProfileChanged || (isDistrictChanged && Boolean(formData.selectedSggCd));
 
     if (!shouldPatchMember && !shouldClearPreferredRegion) return;
 
-    updateMemberMutation.mutate({
-      formData: { ...profile, ...formData },
-      selectedSggCd,
-      shouldPatchMember,
-      shouldClearPreferredRegion,
-    });
+    updateMemberMutation.mutate({ formData, shouldPatchMember, shouldClearPreferredRegion });
   };
 
   const handlePreferredDistrictChange = (value: string) => {
     if (!value || value === "선택 안 함") {
-      setPreferredDistrict("");
-      setSelectedSggCd(null);
-      setPreferredDistrictError("");
+      setValue("preferredDistrict", "", { shouldDirty: true });
+      setValue("selectedSggCd", null, { shouldDirty: true });
+      clearErrors("selectedSggCd");
       return;
     }
 
     const selectedSgg = sggs.find((sgg) => sgg.sggNm === value);
-    setPreferredDistrict(value);
+    setValue("preferredDistrict", value, { shouldDirty: true });
 
     if (!selectedSgg) {
-      setSelectedSggCd(null);
-      setPreferredDistrictError("목록에 있는 자치구를 선택해 주세요.");
+      setValue("selectedSggCd", null, { shouldDirty: true });
+      setError("selectedSggCd", { type: "manual", message: "목록에 있는 자치구를 선택해 주세요." });
       return;
     }
 
-    setSelectedSggCd(selectedSgg.sggCd);
-    setPreferredDistrictError("");
+    setValue("selectedSggCd", selectedSgg.sggCd, { shouldDirty: true });
+    clearErrors("selectedSggCd");
   };
+
+  const handleInvalidDistrictBlur = () => {
+    const baseline = formState.defaultValues;
+    setValue("preferredDistrict", baseline?.preferredDistrict ?? "");
+    setValue("selectedSggCd", baseline?.selectedSggCd ?? null);
+    clearErrors("selectedSggCd");
+  };
+
+  // 이름/기본주소/상세주소처럼 "입력 즉시 문자 제한"이 필요한 필드의 공용 변경 핸들러.
+  const handleFieldChange = (field: "name" | "address" | "detailAddress") =>
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const sanitize = field === "name" ? sanitizeName : sanitizeAddress;
+      setValue(field, sanitize(event.target.value), { shouldDirty: true });
+    };
 
   return (
     <div>
@@ -702,10 +634,7 @@ export default function MyProfilePage() {
               <p className="text-[14px] text-[#c54e4e] font-bold">
                 현재 비로그인 상태입니다. 회원 정보 수정 및 인증을 진행하시려면 로그인이 필요합니다.
               </p>
-              <Link
-                to="/login"
-                className="inline-block px-5 py-2 bg-[#0F8AA8] text-white font-bold text-[13px] rounded-[6px]"
-              >
+              <Link to="/login" className="inline-block px-5 py-2 bg-[#0F8AA8] text-white font-bold text-[13px] rounded-[6px]">
                 로그인하러 가기
               </Link>
             </div>
@@ -735,51 +664,47 @@ export default function MyProfilePage() {
                         {socialProvider || "소셜"} 연동 계정으로 로그인 중입니다
                       </strong>
                     </div>
-
                     <p className="text-[12px] text-[#6B7280]">
                       소셜 연동 계정은 아이디 및 비밀번호 수정이 제공되지 않습니다.
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col md:flex-row gap-4 w-full">
-                  <div className="space-y-1.5 flex-1 w-full md:w-1/2">
+                <>
+                  <div className="space-y-1.5 w-full">
                     <label className="text-[14px] font-bold text-[#13202B] block">아이디</label>
-                    <input
+                    <Input
                       {...register("userId")}
                       readOnly
                       placeholder="아이디 정보가 없습니다"
-                      className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-[#F0F7FA] px-3.5 text-[15px] text-[#6B7280] cursor-not-allowed outline-none box-border m-0 font-medium"
+                      className="h-[48px] rounded-[8px] border-[#DCE8ED] bg-[#F0F7FA] px-3.5 text-[15px] text-[#6B7280] cursor-not-allowed font-medium"
                     />
                   </div>
 
-                  <div className="space-y-1.5 flex-1 w-full md:w-1/2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[14px] font-bold text-[#13202B] block">비밀번호 변경</label>
-                      {phoneVerified ? (
-                        <span className="text-[12px] font-extrabold text-[#0F766E]">
-                          ✔ 본인인증 완료 (변경 가능)
-                        </span>
-                      ) : (
-                        <span className="text-[12px] text-[#6B7280]">
-                          본인인증 후 변경 가능
-                        </span>
-                      )}
+                  {/* 비밀번호 항목: 아이디 입력 박스와 동일한 컨테이너 안에 마지막 변경 일시 + 변경 버튼 */}
+                  <div className="space-y-1.5 w-full">
+                    <label className="text-[14px] font-bold text-[#13202B] block">비밀번호</label>
+                    <div className="flex items-center justify-between gap-3 w-full rounded-xl border border-[#DCE8ED] bg-[#F8FAFC] px-3.5 py-2.5 box-border m-0">
+                      <span className="min-w-0 truncate text-[15px] font-medium text-[#6B7280]">
+                        마지막 변경 - {lastChangedLabel || "변경 이력 없음"}
+                      </span>
+                      <Button
+                        type="button"
+                        disabled={!isLoggedIn || !phoneVerified}
+                        onClick={handleOpenPasswordModal}
+                        className="shrink-0 h-9 gap-0.5 rounded-lg bg-[#0F8AA8] px-5 text-[14px] font-bold text-white hover:bg-[#0D748E]"
+                      >
+                        변경
+                        <ChevronRight className="size-3.5" aria-hidden="true" />
+                      </Button>
                     </div>
-                    <button
-                      type="button"
-                      disabled={!isLoggedIn || !phoneVerified}
-                      onClick={handleOpenPasswordModal}
-                      className={`w-full h-[48px] rounded-[8px] border font-bold text-[14px] transition-all box-border m-0 shadow-xs flex items-center justify-center ${
-                        phoneVerified
-                          ? "bg-[#0F8AA8] hover:bg-[#0B5E73] text-white border-[#0F8AA8] cursor-pointer"
-                          : "bg-[#F0F7FA] text-[#6B7280] border-[#DCE8ED] cursor-not-allowed select-none opacity-85"
-                      }`}
-                    >
-                      비밀번호 변경하기
-                    </button>
+                    <p className="text-[12px] text-[#6B7280]">
+                      {phoneVerified
+                        ? "본인인증이 완료되어 비밀번호를 변경하실 수 있습니다."
+                        : "본인인증 완료 후 비밀번호를 변경하실 수 있습니다."}
+                    </p>
                   </div>
-                </div>
+                </>
               )}
 
               {/* ROW 2: 이름 (본인인증 완료 시 자동 반영 및 수정 가능) */}
@@ -791,29 +716,18 @@ export default function MyProfilePage() {
                       <CheckCircle2 className="w-3.5 h-3.5" /> 실명 인증 완료
                     </span>
                   ) : (
-                    <span className="text-[12px] text-[#6B7280]">
-                      본인인증 후 수정 가능
-                    </span>
+                    <span className="text-[12px] text-[#6B7280]">본인인증 후 수정 가능</span>
                   )}
                 </div>
-                <input
-                  {...register("name", {
-                    onChange: (e) => {
-                      const val = e.target.value.replace(/[^a-zA-Z가-힣ㄱ-ㅎㅏ-ㅣ]/g, "");
-                      setValue("name", val);
-                    },
-                  })}
+                <Input
+                  {...register("name")}
+                  value={nameValue}
+                  onChange={handleFieldChange("name")}
                   readOnly={!phoneVerified}
                   disabled={!isLoggedIn}
-                  placeholder={
-                    phoneVerified
-                      ? "이름을 입력해주세요 (숫자, 공백 불가)"
-                      : "본인인증 시 실명이 자동 입력됩니다"
-                  }
-                  className={`w-full h-[48px] rounded-[8px] border border-[#DCE8ED] px-3.5 text-[15px] outline-none box-border m-0 transition-colors ${
-                    phoneVerified
-                      ? "bg-white text-[#13202B] focus:border-[#0F8AA8]"
-                      : "bg-[#F0F7FA] text-[#6B7280] cursor-not-allowed"
+                  placeholder={phoneVerified ? "이름을 입력해주세요 (숫자, 공백 불가)" : "본인인증 시 실명이 자동 입력됩니다"}
+                  className={`h-[48px] rounded-[8px] border-[#DCE8ED] px-3.5 text-[15px] ${
+                    phoneVerified ? "bg-white text-[#13202B] focus-visible:border-[#0F8AA8]" : "bg-[#F0F7FA] text-[#6B7280] cursor-not-allowed"
                   }`}
                 />
                 <p className="text-[12px] text-[#6B7280]">
@@ -834,15 +748,15 @@ export default function MyProfilePage() {
                   )}
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
-                  <input
+                  <Input
                     {...register("phone")}
                     readOnly
                     disabled={!isLoggedIn}
                     placeholder="본인인증 시 번호가 자동 입력됩니다"
-                    className="flex-1 h-[48px] rounded-[8px] border border-[#DCE8ED] bg-[#F0F7FA] px-3.5 text-[15px] text-[#13202B] outline-none cursor-not-allowed font-medium"
+                    className="flex-1 h-[48px] rounded-[8px] border-[#DCE8ED] bg-[#F0F7FA] px-3.5 text-[15px] text-[#13202B] cursor-not-allowed font-medium"
                   />
                   <PassAuth
-                    phone={formValues.phone || ""}
+                    phone={phoneValue || ""}
                     onSuccess={handlePassSuccess}
                     className="h-[48px] px-5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white font-bold text-[14px] rounded-[8px] cursor-pointer whitespace-nowrap transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-xs shrink-0"
                   />
@@ -855,12 +769,12 @@ export default function MyProfilePage() {
               {/* ROW 4: 이메일 주소 (인증 없이 직접 입력) */}
               <div className="space-y-1.5 w-full">
                 <label className="text-[14px] font-bold text-[#13202B] block">이메일 주소</label>
-                <input
+                <Input
                   {...register("email")}
                   type="email"
                   disabled={!isLoggedIn}
                   placeholder="이메일 주소를 입력해 주세요 (예: user@example.com)"
-                  className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
+                  className="h-[48px] rounded-[8px] border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] focus-visible:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
                 />
               </div>
 
@@ -868,31 +782,25 @@ export default function MyProfilePage() {
               <div className="flex flex-col md:flex-row gap-4 w-full">
                 <div className="space-y-1.5 flex-1 w-full md:w-1/2">
                   <label className="text-[14px] font-bold text-[#13202B] block">기본 주소</label>
-                  <input
-                    {...register("address", {
-                      onChange: (e) => {
-                        const cleaned = sanitizeAddress(e.target.value);
-                        setValue("address", cleaned, { shouldDirty: true });
-                      },
-                    })}
+                  <Input
+                    {...register("address")}
+                    value={addressValue}
+                    onChange={handleFieldChange("address")}
                     disabled={!isLoggedIn}
                     placeholder="기본 주소를 입력해 주세요 (특수문자 제외)"
-                    className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA]"
+                    className="h-[48px] rounded-[8px] border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] focus-visible:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
                   />
                 </div>
 
                 <div className="space-y-1.5 flex-1 w-full md:w-1/2">
                   <label className="text-[14px] font-bold text-[#13202B] block">상세 주소</label>
-                  <input
-                    {...register("detailAddress", {
-                      onChange: (e) => {
-                        const cleaned = sanitizeAddress(e.target.value);
-                        setValue("detailAddress", cleaned, { shouldDirty: true });
-                      },
-                    })}
+                  <Input
+                    {...register("detailAddress")}
+                    value={detailAddressValue}
+                    onChange={handleFieldChange("detailAddress")}
                     disabled={!isLoggedIn}
                     placeholder="상세 주소(동, 호수 등)를 입력해 주세요"
-                    className="w-full h-[48px] rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] outline-none focus:border-[#0F8AA8] box-border m-0 disabled:bg-[#F0F7FA]"
+                    className="h-[48px] rounded-[8px] border-[#DCE8ED] bg-white px-3.5 text-[15px] text-[#13202B] focus-visible:border-[#0F8AA8] disabled:bg-[#F0F7FA]"
                   />
                 </div>
               </div>
@@ -906,23 +814,38 @@ export default function MyProfilePage() {
                     options={districtOptions}
                     disabled={!isLoggedIn || isSggsLoading}
                     onChange={handlePreferredDistrictChange}
-                    onInvalidBlur={() => {
-                      setPreferredDistrict(originalDistrict);
-                      setSelectedSggCd(originalSggCd);
-                      setPreferredDistrictError("");
-                    }}
+                    onInvalidBlur={handleInvalidDistrictBlur}
                     placeholder="자치구를 선택하거나 입력해 주세요"
                     className={!preferredDistrict ? "text-[#64748B]" : "text-[#13202B]"}
                   />
                 </div>
-                {preferredDistrictError && (
+                {formState.errors.selectedSggCd && (
                   <p className="text-[12px] text-[#C2410C]" role="alert">
-                    {preferredDistrictError}
+                    {formState.errors.selectedSggCd.message}
                   </p>
                 )}
                 <p className="text-[12px] text-[#6B7280]">
                   선호 자치구는 선택하지 않아도 되며, 선택한 자치구를 기준으로 관심 지역을 표시합니다.
                 </p>
+              </div>
+
+              {/* ROW 7: 위치기반 서비스 이용약관 동의 (정보 동의 API 연동) */}
+              <div className="flex items-center justify-between gap-3 w-full rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 h-[56px]">
+                <div className="min-w-0">
+                  <label htmlFor="location-service-switch" className="text-[14px] font-bold text-[#13202B] block">
+                    위치기반 서비스 이용약관 동의
+                  </label>
+                  <p className="text-[12px] text-[#6B7280] mt-0.5">
+                    동의 시 현재 위치를 기반으로 관심 지역을 자동으로 인식합니다.
+                  </p>
+                </div>
+                <Switch
+                  id="location-service-switch"
+                  checked={Boolean(authUser?.isLocationAgreed)}
+                  disabled={!isLoggedIn || locationConsentMutation.isPending}
+                  onCheckedChange={(checked) => locationConsentMutation.mutate(checked)}
+                  aria-label="위치기반 서비스 이용약관 동의"
+                />
               </div>
             </div>
           </div>
@@ -932,26 +855,25 @@ export default function MyProfilePage() {
           ======================================================== */}
           <div className="pt-8 border-t border-[#DCE8ED] text-center">
             <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3">
-              <button
+              <Button
                 type="submit"
                 disabled={!isLoggedIn || updateMemberMutation.isPending}
-                className="w-full sm:w-auto order-1 sm:order-2 h-[52px] px-10 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[16px] font-bold rounded-[8px] border-none outline-none cursor-pointer transition-colors shadow-xs disabled:opacity-50"
+                className="w-full sm:w-auto order-1 sm:order-2 h-[52px] px-10 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[16px] shadow-xs"
               >
                 {updateMemberMutation.isPending ? "저장 중..." : "회원 정보 저장"}
-              </button>
+              </Button>
               {isFormDirty && (
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={handleCancelChanges}
-                  className="w-full sm:w-auto order-2 sm:order-1 h-[52px] px-8 bg-white hover:bg-[#F0F7FA] text-[#6B7280] border border-[#DCE8ED] text-[15px] font-bold rounded-[8px] cursor-pointer transition-all shadow-xs"
+                  className="w-full sm:w-auto order-2 sm:order-1 h-[52px] px-8 border-[#DCE8ED] text-[#6B7280] text-[15px] shadow-xs"
                 >
                   변경 취소
-                </button>
+                </Button>
               )}
             </div>
-            <p className="text-[13px] text-[#6B7280] mt-2">
-              회원 인적사항 변경사항이 저장됩니다.
-            </p>
+            <p className="text-[13px] text-[#6B7280] mt-2">회원 인적사항 변경사항이 저장됩니다.</p>
           </div>
 
           {/* 4. 회원 탈퇴 */}
@@ -962,14 +884,15 @@ export default function MyProfilePage() {
                 탈퇴 후에도 작성한 게시글과 댓글은 유지되며, 계정 정보는 복구할 수 없습니다.
               </p>
             </div>
-            <button
+            <Button
               type="button"
+              variant="outline"
               disabled={!isLoggedIn}
               onClick={handleClickWithdraw}
-              className="h-[44px] px-5 border border-[#d96666] bg-white text-[#c54e4e] hover:bg-[#fff0f0] font-bold text-[14px] rounded-[8px] cursor-pointer whitespace-nowrap transition-colors disabled:opacity-50"
+              className="h-[44px] px-5 border-[#d96666] bg-white text-[#c54e4e] hover:bg-[#fff0f0] text-[14px] whitespace-nowrap"
             >
               회원 탈퇴
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -977,15 +900,14 @@ export default function MyProfilePage() {
       {/* 비밀번호 변경 팝업 모달 */}
       <PasswordChangeModal
         isOpen={isPasswordModalOpen}
+        currentPassword={currentPassword}
         newPassword={newPassword}
         newPasswordConfirm={newPasswordConfirm}
         passwordError={passwordError}
-        onChangeNewPassword={(val) => {
-          setNewPassword(val);
-        }}
-        onChangeNewPasswordConfirm={(val) => {
-          setNewPasswordConfirm(val);
-        }}
+        isSaving={isPasswordSaving}
+        onChangeCurrentPassword={setCurrentPassword}
+        onChangeNewPassword={setNewPassword}
+        onChangeNewPasswordConfirm={setNewPasswordConfirm}
         onClose={handleClosePasswordModal}
         onSave={handleSaveNewPassword}
       />
@@ -996,9 +918,7 @@ export default function MyProfilePage() {
         withdrawPassword={withdrawPassword}
         withdrawError={withdrawError}
         isWithdrawing={isWithdrawing}
-        onChangePassword={(val) => {
-          setWithdrawPassword(val);
-        }}
+        onChangePassword={setWithdrawPassword}
         onConfirm={handleConfirmWithdrawWithPassword}
         onClose={handleCloseWithdrawModal}
       />
