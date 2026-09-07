@@ -7,6 +7,7 @@ import {
   type DongRegionResponse,
 } from "@/api/api";
 import { toAiDisplayResult } from "@/features/main/utils/aiSearchMappers";
+import { getAiSearchSessionId } from "@/features/main/utils/aiSearchSession";
 
 export const MAX_QUESTION_LENGTH = 500;
 const DEFAULT_ERROR_MESSAGE = "AI 답변을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
@@ -24,6 +25,7 @@ export function useAiPriceQuestion() {
   const [singleCandidates, setSingleCandidates] = useState<DongRegionResponse[]>([]);
   const lastQuestionRef = useRef("");
   const requestInFlightRef = useRef(false);
+  const sessionIdRef = useRef<string | undefined>(undefined);
 
   const runQuestion = useCallback(async (nextQuestion: string) => {
     if (requestInFlightRef.current) return;
@@ -33,7 +35,8 @@ export function useAiPriceQuestion() {
     lastQuestionRef.current = nextQuestion;
 
     try {
-      const response = await searchNaturalWithAiApi(nextQuestion);
+      sessionIdRef.current ??= getAiSearchSessionId();
+      const response = await searchNaturalWithAiApi(nextQuestion, sessionIdRef.current);
       if (response.status === "SUCCESS" && response.result) {
         setResult({
           ...toAiDisplayResult(response.result),

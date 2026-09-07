@@ -112,7 +112,6 @@ export function useWithdrawModal({
     withdrawError,
     isWithdrawing,
     setWithdrawPassword,
-    setWithdrawError,
     handleClickWithdraw,
     handleCloseWithdrawModal,
     handleConfirmWithdrawWithPassword,

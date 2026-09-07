@@ -118,36 +118,13 @@ export interface CurrentDistrictResponse {
 export async function agreeToLocationServiceApi(
   agreed: boolean = true,
 ): Promise<MemberMeResponse> {
-  const requestBody = { agreed };
+  // 백엔드는 위치 동의 여부를 boolean이 아닌 DB 컬럼 값(0: 미동의, 1: 동의)으로 받는다.
+  const response = await apiMiddleware.patch<MemberMeResponse>(
+    "/api/members/me/location-consent",
+    { agreed: agreed ? 1 : 0 },
+  );
 
-  // TODO(debug): location-consent 400 원인 파악용 임시 로그. 원인 확인 후 제거할 것.
-  console.log("[DEBUG] PATCH /api/members/me/location-consent request body:", requestBody);
-
-  try {
-    const response = await apiMiddleware.patch<MemberMeResponse>(
-      "/api/members/me/location-consent",
-      requestBody,
-    );
-
-    // TODO(debug): 성공 응답도 함께 남겨 필드명이 기대와 맞는지 확인.
-    console.log("[DEBUG] location-consent success response:", response.status, response.data);
-
-    return response.data;
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      // TODO(debug): 백엔드가 실제로 기대하는 필드명/에러 메시지를 확인하기 위한 임시 로그.
-      console.error("[DEBUG] location-consent error status:", error.response?.status);
-      console.error("[DEBUG] location-consent error response body:", error.response?.data);
-      console.error("[DEBUG] location-consent request config:", {
-        url: error.config?.url,
-        method: error.config?.method,
-        data: error.config?.data,
-      });
-    } else {
-      console.error("[DEBUG] location-consent non-axios error:", error);
-    }
-    throw error;
-  }
+  return response.data;
 }
 
 export async function getCurrentDistrictApi(
@@ -1180,6 +1157,19 @@ export type AiSearchResponse = {
   cautions: string[];
   criteria?: RankingCriteria;
   interpretation?: SearchInterpretation;
+  rankingItems?: AiRankingItem[];
+};
+
+export type AiRankingItem = {
+  rank: number;
+  regionName?: string;
+  apartmentName: string;
+  primaryLabel: string;
+  primaryValue: string;
+  exclusiveAreaM2?: number;
+  pyeong?: number;
+  dealCount?: number;
+  dealDate?: string;
 };
 
 export type SearchInterpretation = {
@@ -1263,14 +1253,16 @@ export type NaturalSearchResponse = {
   candidates: NaturalRegionCandidate[];
   errorCode?: string;
   interpretation?: SearchInterpretation;
+  inheritedFromContext?: string[];
 };
 
 export async function searchNaturalWithAiApi(
   question: string,
+  sessionId?: string,
 ): Promise<NaturalSearchResponse> {
   const response = await apiMiddleware.post<NaturalSearchResponse>(
     "/api/ai/search-natural",
-    { question },
+    { question, sessionId },
     { timeout: 120000 },
   );
   return response.data;
@@ -1327,6 +1319,23 @@ export type MainPageTradingApartment = {
   pyeong?: number;
 };
 
+export type MainPageAptRecentRankItem = {
+  apt_name: string;
+  exclusive_area_m2: number;
+  pyeong: number;
+  floor: number;
+  trade_amount: number;
+};
+
+export type MainPageAptRecentRank = {
+  sgg_cd: string;
+  sgg_nm: string;
+  dong_cd: string;
+  dong_nm: string;
+  top: MainPageAptRecentRankItem[];
+  bottom: MainPageAptRecentRankItem[];
+};
+
 export type MainPageResponse = {
   cgg_cd: string;
   period_start: string;
@@ -1337,6 +1346,7 @@ export type MainPageResponse = {
   preference_top_trading_dongs: MainPageTradingDong[];
   preference_popular_dong: MainPagePopularDong | null;
   preference_top_trading_apts: MainPageTradingApartment[];
+  apt_recent_rank: MainPageAptRecentRank | null;
 };
 
 export async function getMainPageApi(
