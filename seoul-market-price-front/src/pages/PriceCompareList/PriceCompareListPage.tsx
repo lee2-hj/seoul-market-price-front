@@ -179,18 +179,18 @@ function CompareTable({ baseDate, r1Label, r2Label, r1Dong, r2Dong, r1Metrics, r
 }
 
 function GoogleCompareCharts({ r1Label, r2Label, r1Metrics, r2Metrics, r1PyeongPrice, r2PyeongPrice }: { r1Label: string; r2Label: string; r1Metrics: MetricResult; r2Metrics: MetricResult; r1PyeongPrice: number | null; r2PyeongPrice: number | null; }) {
-  const avgChartData = useMemo(() => [["지역", "평균 매매가 (억 원)", { role: "style" }], [r1Label || "지역 1", r1Metrics.avgPrice, "#0F8AA8"], [r2Label || "지역 2", r2Metrics.avgPrice, "#10B981"]], [r1Label, r2Label, r1Metrics.avgPrice, r2Metrics.avgPrice]);
-  const pyeongChartData = useMemo(() => (!r1PyeongPrice || !r2PyeongPrice ? [] : [["지역", "평균 평단가 (만 원)", { role: "style" }], [r1Label || "지역 1", r1PyeongPrice, "#0F8AA8"], [r2Label || "지역 2", r2PyeongPrice, "#10B981"]]), [r1Label, r2Label, r1PyeongPrice, r2PyeongPrice]);
+  const avgChartData = useMemo(() => [["지역", r1Label || "지역 1", r2Label || "지역 2"], ["평균 매매가", r1Metrics.avgPrice, r2Metrics.avgPrice]], [r1Label, r2Label, r1Metrics.avgPrice, r2Metrics.avgPrice]);
+  const pyeongChartData = useMemo(() => (!r1PyeongPrice || !r2PyeongPrice ? [] : [["지역", r1Label || "지역 1", r2Label || "지역 2"], ["평균 평단가", r1PyeongPrice, r2PyeongPrice]]), [r1Label, r2Label, r1PyeongPrice, r2PyeongPrice]);
 
   return (
     <div className="grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
       <div className="rounded-[24px] border border-slate-200/80 bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
         <div className="flex items-center gap-2 mb-4"><TrendingUp className="size-5 text-[#0F8AA8]" /><h4 className="text-[15px] font-black text-slate-900">평균 매매가 비교 (억 원)</h4></div>
-        <div className="h-[220px]"><Chart chartType="ColumnChart" width="100%" height="220px" data={avgChartData} options={{ legend: { position: "none" }, vAxis: { title: "매매가 (억 원)", minValue: 0 }, chartArea: { width: "80%", height: "70%" } }} /></div>
+        <div className="h-[220px]"><Chart chartType="ColumnChart" width="100%" height="220px" data={avgChartData} options={{ legend: { position: "top" }, colors: ["#0F8AA8", "#10B981"], vAxis: { title: "매매가 (억 원)", minValue: 0 }, chartArea: { width: "80%", height: "70%" } }} /></div>
       </div>
       <div className="rounded-[24px] border border-slate-200/80 bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
         <div className="flex items-center gap-2 mb-4"><BarChart3 className="size-5 text-emerald-600" /><h4 className="text-[15px] font-black text-slate-900">평균 평단가 비교 (만 원)</h4></div>
-        <div className="h-[220px]">{pyeongChartData.length > 1 ? (<Chart chartType="ColumnChart" width="100%" height="220px" data={pyeongChartData} options={{ legend: { position: "none" }, vAxis: { title: "평단가 (만 원)", minValue: 0 }, chartArea: { width: "80%", height: "70%" } }} />) : (<div className="flex h-full items-center justify-center text-slate-400 text-[13px] font-medium">평단가 비교 정보가 없습니다.</div>)}</div>
+        <div className="h-[220px]">{pyeongChartData.length > 1 ? (<Chart chartType="ColumnChart" width="100%" height="220px" data={pyeongChartData} options={{ legend: { position: "top" }, colors: ["#0F8AA8", "#10B981"], vAxis: { title: "평단가 (만 원)", minValue: 0 }, chartArea: { width: "80%", height: "70%" } }} />) : (<div className="flex h-full items-center justify-center text-slate-400 text-[13px] font-medium">평단가 비교 정보가 없습니다.</div>)}</div>
       </div>
     </div>
   );
@@ -212,7 +212,7 @@ function SummaryCard({ avgDiffText, pyeongDiffText, r1Label, r2Label }: { avgDif
 /* 5. 메인 지역별 비교 페이지 컴포넌트 */
 export default function PriceCompareListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialForm = useMemo(() => { try { const s = sessionStorage.getItem(STORAGE_FORM_KEY); if (s) return JSON.parse(s); } catch { /* ignore */ } return { r1District: searchParams.get("r1District") || searchParams.get("gu1") || "", r1SggCd: searchParams.get("r1SggCd") || searchParams.get("guCode1") || "", r1Dong: searchParams.get("r1Dong") || searchParams.get("dong1") || "", r1DongCd: searchParams.get("r1DongCd") || searchParams.get("dongCode1") || "", r2District: searchParams.get("r2District") || searchParams.get("gu2") || "", r2SggCd: searchParams.get("r2SggCd") || searchParams.get("guCode2") || "", r2Dong: searchParams.get("r2Dong") || searchParams.get("dong2") || "", r2DongCd: searchParams.get("r2DongCd") || searchParams.get("dongCode2") || "" }; }, []);
+  const initialForm = useMemo(() => { try { const s = sessionStorage.getItem(STORAGE_FORM_KEY); if (s) return JSON.parse(s); } catch { /* ignore */ } return { r1District: searchParams.get("r1District") || searchParams.get("gu1") || "", r1SggCd: searchParams.get("r1SggCd") || searchParams.get("guCode1") || "", r1Dong: searchParams.get("r1Dong") || searchParams.get("dong1") || "", r1DongCd: searchParams.get("r1DongCd") || searchParams.get("dongCode1") || "", r2District: searchParams.get("r2District") || searchParams.get("gu2") || "", r2SggCd: searchParams.get("r2SggCd") || searchParams.get("guCode2") || "", r2Dong: searchParams.get("r2Dong") || searchParams.get("dong2") || "", r2DongCd: searchParams.get("r2DongCd") || searchParams.get("dongCode2") || "" }; }, [searchParams]);
   const [r1District, setR1District] = useState(initialForm.r1District || "");
   const [r1SggCd, setR1SggCd] = useState(initialForm.r1SggCd || "");
   const [r1Dong, setR1Dong] = useState(initialForm.r1Dong || "");
