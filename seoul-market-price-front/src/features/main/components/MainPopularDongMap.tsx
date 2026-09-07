@@ -140,7 +140,6 @@ export function MainPopularDongMap({ districtName, dongName }: MainPopularDongMa
         <svg
           viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
           className="h-auto max-h-[170px] w-full select-none drop-shadow-sm"
-          role="img"
           aria-label={`${normalizedDistrict} ${normalizedDong} 인기지역 지도`}
         >
           <title>{`${normalizedDistrict} ${normalizedDong} 법정동 경계 지도`}</title>

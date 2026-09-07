@@ -79,14 +79,11 @@ export function PreferencePopularDongCard({
 
           {/* 최근 거래 금액 상위/하위 토글 버튼 */}
           <div
-            role="tablist"
             aria-label="아파트 실거래가 순위 전환"
             className="flex shrink-0 items-center gap-2"
           >
             <button
               type="button"
-              role="tab"
-              aria-selected={isTop}
               onClick={() => setRankGroup("top")}
               className={`rounded-full border bg-white px-3 py-1.5 text-xs font-black shadow-xs transition-colors ${
                 isTop
@@ -98,8 +95,6 @@ export function PreferencePopularDongCard({
             </button>
             <button
               type="button"
-              role="tab"
-              aria-selected={!isTop}
               onClick={() => setRankGroup("bottom")}
               className={`rounded-full border bg-white px-3 py-1.5 text-xs font-black shadow-xs transition-colors ${
                 !isTop

@@ -819,7 +819,7 @@ export default function MyProfilePage() {
                   />
                 </div>
                 {formState.errors.selectedSggCd && (
-                  <p className="text-[12px] text-[#C2410C]" role="alert">
+                  <p className="text-[12px] text-[#C2410C]" aria-live="assertive">
                     {formState.errors.selectedSggCd.message}
                   </p>
                 )}

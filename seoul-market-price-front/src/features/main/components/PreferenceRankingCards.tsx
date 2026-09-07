@@ -110,14 +110,11 @@ export function PreferenceTradingDongsCard({
 
           {/* 법정동/아파트 토글 버튼 */}
           <div
-            role="tablist"
             aria-label="거래량 TOP 5 기준 전환"
             className="flex shrink-0 items-center gap-2"
           >
             <button
               type="button"
-              role="tab"
-              aria-selected={isDong}
               onClick={() => setTab("dong")}
               className={`rounded-full border bg-white px-3 py-1.5 text-xs font-black shadow-xs transition-colors ${
                 isDong
@@ -129,8 +126,6 @@ export function PreferenceTradingDongsCard({
             </button>
             <button
               type="button"
-              role="tab"
-              aria-selected={!isDong}
               onClick={() => setTab("apartment")}
               className={`rounded-full border bg-white px-3 py-1.5 text-xs font-black shadow-xs transition-colors ${
                 !isDong
