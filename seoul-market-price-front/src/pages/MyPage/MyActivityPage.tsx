@@ -1,23 +1,32 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Download, Edit2, Paperclip } from "lucide-react";
+import { Download, Edit2, Paperclip, Search } from "lucide-react";
 
 import {
   downloadBoardAttachmentApi,
   downloadQnaAttachmentApi,
   getBoardAttachmentsApi,
-  getBoardPostsApi,
+  getMyBoardPostsApi,
   getMyCommentsApi,
+  getMyQnasApi,
   getQnaAttachmentsApi,
+  type MyBoardPostResponse,
   type QnaListResponse,
-  type QnaPageResponse,
 } from "@/api/api";
-import apiMiddleware from "@/api/middleware";
 import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
-import type { BoardListItem } from "@/features/board/types/board.types";
 import { toBoardAttachmentView } from "@/features/board/utils/boardMappers";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 type ActivityType = "POST" | "COMMENT" | "QNA";
 
@@ -27,18 +36,98 @@ const ACTIVITY_TAB_ACTIVE_CLASS = "bg-[#0F8AA8] border-[#0F8AA8] text-white shad
 const ACTIVITY_TAB_INACTIVE_CLASS =
   "bg-white border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA]";
 const MY_ACTIVITY_TAB_KEY_PREFIX = "mypage_activity_tab_";
+const PAGE_SIZE = 10;
+const PAGE_WINDOW_SIZE = 5;
 
 const normalizeIdentity = (value?: string | null): string =>
   (value || "").trim().toLowerCase();
 
-async function getMyQnas() {
-  const { data } = await apiMiddleware.get<QnaPageResponse>("/api/qnas/me", {
-    params: { page: 0, size: 100 },
-  });
-  return data;
+/** 0-based 현재 페이지 기준으로 페이지네이션에 표시할 1-based 페이지 번호 목록을 계산한다. */
+function getPageWindow(page: number, totalPages: number): number[] {
+  if (totalPages <= 0) return [];
+  const currentPage = page + 1;
+  const currentGroup = Math.ceil(currentPage / PAGE_WINDOW_SIZE);
+  const startPage = (currentGroup - 1) * PAGE_WINDOW_SIZE + 1;
+  const endPage = Math.min(startPage + PAGE_WINDOW_SIZE - 1, totalPages);
+  return Array.from(
+    { length: Math.max(0, endPage - startPage + 1) },
+    (_, i) => startPage + i,
+  );
 }
 
-function MyPostItem({ post }: { post: BoardListItem }) {
+interface ActivityPaginationProps {
+  page: number;
+  totalPages: number;
+  onPageChange: (nextPage: number) => void;
+}
+
+function ActivityPagination({ page, totalPages, onPageChange }: ActivityPaginationProps) {
+  const pageNumbers = useMemo(() => getPageWindow(page, totalPages), [page, totalPages]);
+  if (totalPages <= 1) return null;
+
+  return (
+    <Pagination className="pt-5 pb-1">
+      <PaginationContent>
+        <PaginationItem>
+          <PaginationPrevious
+            onClick={() => onPageChange(Math.max(0, page - 1))}
+            disabled={page <= 0}
+          />
+        </PaginationItem>
+        {pageNumbers.map((p) => (
+          <PaginationItem key={p}>
+            <PaginationLink isActive={p === page + 1} onClick={() => onPageChange(p - 1)}>
+              {p}
+            </PaginationLink>
+          </PaginationItem>
+        ))}
+        <PaginationItem>
+          <PaginationNext
+            onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
+            disabled={page >= totalPages - 1}
+          />
+        </PaginationItem>
+      </PaginationContent>
+    </Pagination>
+  );
+}
+
+interface ActivitySearchBarProps {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  placeholder: string;
+}
+
+function ActivitySearchBar({ value, onChange, onSubmit, placeholder }: ActivitySearchBarProps) {
+  return (
+    <div className="flex gap-2 mb-4">
+      <Input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onSubmit();
+          }
+        }}
+        placeholder={placeholder}
+        className="h-[42px] flex-1 rounded-[8px] border-[#DCE8ED] text-[14px]"
+      />
+      <Button
+        type="button"
+        onClick={onSubmit}
+        className="h-[42px] shrink-0 gap-1.5 rounded-lg bg-[#0F8AA8] px-5 font-bold text-white hover:bg-[#0D748E]"
+      >
+        <Search className="size-4" aria-hidden="true" />
+        검색
+      </Button>
+    </div>
+  );
+}
+
+function MyPostItem({ post }: { post: MyBoardPostResponse }) {
   const formattedDate = post.createdAt?.includes("T")
     ? `${post.createdAt.split("T")[0].replace(/-/g, ".")} ${post.createdAt.split("T")[1].slice(0, 5)}`
     : post.createdAt;
@@ -339,55 +428,63 @@ export default function MyActivityPage() {
     sessionStorage.setItem(activityTabKey, nextType);
   };
 
-  // 실제 게시판 데이터 조회 (API 연동)
+  // 게시글 탭: 검색어(keyword) + 페이지 상태 (GET /api/boards/me)
+  const [postPage, setPostPage] = useState(0);
+  const [postKeywordInput, setPostKeywordInput] = useState("");
+  const [postKeyword, setPostKeyword] = useState("");
+  const submitPostSearch = () => {
+    setPostKeyword(postKeywordInput.trim());
+    setPostPage(0);
+  };
+
   const {
     data: boardData,
     isLoading: isBoardLoading,
     isError: isBoardError,
   } = useQuery({
-    queryKey: ["myBoardPosts"],
-    queryFn: () => getBoardPostsApi({ page: 1, size: 100 }),
-    enabled: isLoggedIn,
+    queryKey: ["myBoardPosts", { userId: currentUserIdentity, page: postPage, keyword: postKeyword }],
+    queryFn: () => getMyBoardPostsApi({ page: postPage, size: PAGE_SIZE, keyword: postKeyword || undefined }),
+    // 3개 탭 데이터를 항상 동시에 불러오지 않고, 현재 보고 있는 탭만 호출한다.
+    enabled: isLoggedIn && activityType === "POST",
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
   });
 
-  // 내가 작성한 게시글 필터링
-  const myPosts = useMemo(() => {
-    if (!boardData?.items || !authUser) return [];
-    const currentName = normalizeIdentity(authUser.name);
-    const currentId = normalizeIdentity(authUser.userId);
+  const myPosts = boardData?.content ?? [];
 
-    return boardData.items.filter((item) => {
-      const author = normalizeIdentity(item.authorName);
-      return (
-        (currentName && author === currentName) ||
-        (currentId && author === currentId)
-      );
-    });
-  }, [boardData, authUser]);
+  // QnA 탭: 검색어(keyword) + 페이지 상태 (GET /api/qnas/me)
+  const [qnaPage, setQnaPage] = useState(0);
+  const [qnaKeywordInput, setQnaKeywordInput] = useState("");
+  const [qnaKeyword, setQnaKeyword] = useState("");
+  const submitQnaSearch = () => {
+    setQnaKeyword(qnaKeywordInput.trim());
+    setQnaPage(0);
+  };
 
   const {
     data: myQnaData,
     isLoading: isMyQnasLoading,
     isError: isMyQnasError,
   } = useQuery({
-    queryKey: ["myQnas"],
-    queryFn: getMyQnas,
-    enabled: isLoggedIn,
+    queryKey: ["myQnas", { userId: currentUserIdentity, page: qnaPage, keyword: qnaKeyword }],
+    queryFn: () => getMyQnasApi({ page: qnaPage, size: PAGE_SIZE, keyword: qnaKeyword || undefined }),
+    enabled: isLoggedIn && activityType === "QNA",
   });
 
   const myQnas = myQnaData?.content ?? [];
 
-  // 내가 작성한 댓글 조회 (GET /api/comments/me 연동)
+  // 댓글 탭: 페이지 상태만 사용한다.
+  // 백엔드 MyCommentSearchCondition에 keyword 필드가 없어 댓글 내 검색은 지원되지 않는다.
+  const [commentPage, setCommentPage] = useState(0);
+
   const {
     data: myCommentsData,
     isLoading: isCommentsLoading,
     isError: isCommentsError,
   } = useQuery({
-    queryKey: ["myComments", currentUserIdentity],
-    queryFn: () => getMyCommentsApi({ page: 0, size: 100 }),
-    enabled: isLoggedIn && Boolean(currentUserIdentity),
+    queryKey: ["myComments", { userId: currentUserIdentity, page: commentPage }],
+    queryFn: () => getMyCommentsApi({ page: commentPage, size: PAGE_SIZE }),
+    enabled: isLoggedIn && Boolean(currentUserIdentity) && activityType === "COMMENT",
   });
 
   const myComments = myCommentsData?.content ?? [];
@@ -396,25 +493,27 @@ export default function MyActivityPage() {
     type: ActivityType;
     label: string;
     count: number;
-    isLoading: boolean;
+    // 아직 한 번도 불러오지 않은(= 아직 방문하지 않은) 탭은 카운트를 알 수 없으므로
+    // "0건"처럼 잘못된 숫자를 보여주지 않고 배지 자체를 숨긴다.
+    hasLoaded: boolean;
   }> = [
     {
       type: "POST",
       label: "작성한 게시글",
-      count: myPosts.length,
-      isLoading: isBoardLoading,
+      count: boardData?.totalElements ?? 0,
+      hasLoaded: boardData !== undefined,
     },
     {
       type: "COMMENT",
       label: "작성한 댓글",
-      count: myComments.length,
-      isLoading: isCommentsLoading,
+      count: myCommentsData?.totalElements ?? 0,
+      hasLoaded: myCommentsData !== undefined,
     },
     {
       type: "QNA",
       label: "질의응답",
-      count: myQnas.length,
-      isLoading: isMyQnasLoading,
+      count: myQnaData?.totalElements ?? 0,
+      hasLoaded: myQnaData !== undefined,
     },
   ];
 
@@ -442,7 +541,7 @@ export default function MyActivityPage() {
               }`}
             >
               <span>{tab.label}</span>
-              {isLoggedIn && !tab.isLoading && (
+              {isLoggedIn && tab.hasLoaded && (
                 <span className="hidden sm:inline ml-1 opacity-90">
                   ({tab.count})
                 </span>
@@ -450,6 +549,23 @@ export default function MyActivityPage() {
             </button>
           ))}
         </div>
+
+        {activityType === "POST" && (
+          <ActivitySearchBar
+            value={postKeywordInput}
+            onChange={setPostKeywordInput}
+            onSubmit={submitPostSearch}
+            placeholder="제목 또는 내용으로 검색"
+          />
+        )}
+        {activityType === "QNA" && (
+          <ActivitySearchBar
+            value={qnaKeywordInput}
+            onChange={setQnaKeywordInput}
+            onSubmit={submitQnaSearch}
+            placeholder="질문 제목으로 검색"
+          />
+        )}
 
         {/* 실제 게시글/댓글 목록 리스트 */}
         <div className="border border-[#DCE8ED] rounded-[10px] divide-y divide-[#DCE8ED] bg-white overflow-hidden">
@@ -476,7 +592,7 @@ export default function MyActivityPage() {
                 <div className="p-12 text-center space-y-3">
                   <div className="text-[32px]">📝</div>
                   <p className="text-[15px] font-bold text-[#123047]">
-                    작성하신 게시글이 없습니다.
+                    {postKeyword ? "검색 결과가 없습니다." : "작성하신 게시글이 없습니다."}
                   </p>
                   <p className="text-[13px] text-[#6B7280]">
                     게시판에서 새로운 게시글을 작성해보세요!
@@ -587,7 +703,7 @@ export default function MyActivityPage() {
                 <div className="p-12 text-center space-y-3">
                   <div className="text-[32px]">❓</div>
                   <p className="text-[15px] font-bold text-[#123047]">
-                    작성하신 질의응답이 없습니다.
+                    {qnaKeyword ? "검색 결과가 없습니다." : "작성하신 질의응답이 없습니다."}
                   </p>
                   <p className="text-[13px] text-[#6B7280]">
                     서비스 이용 중 궁금한 점을 질문해보세요!
@@ -604,8 +720,29 @@ export default function MyActivityPage() {
             </>
           )}
         </div>
+
+        {activityType === "POST" && (
+          <ActivityPagination
+            page={postPage}
+            totalPages={boardData?.totalPages ?? 0}
+            onPageChange={setPostPage}
+          />
+        )}
+        {activityType === "COMMENT" && (
+          <ActivityPagination
+            page={commentPage}
+            totalPages={myCommentsData?.totalPages ?? 0}
+            onPageChange={setCommentPage}
+          />
+        )}
+        {activityType === "QNA" && (
+          <ActivityPagination
+            page={qnaPage}
+            totalPages={myQnaData?.totalPages ?? 0}
+            onPageChange={setQnaPage}
+          />
+        )}
       </div>
     </div>
   );
 }
-

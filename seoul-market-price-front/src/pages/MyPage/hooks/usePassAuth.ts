@@ -38,12 +38,12 @@ export function usePassAuth<T extends { phone?: string; name?: string }>({
     }) => {
       const formatted = formatPhone(result.phoneNumber);
       // @ts-expect-error dynamic property assignment on form
-      setValue("phone", formatted);
+      setValue("phone", formatted, { shouldDirty: true });
 
       const verifiedName = sanitizeText(result.name);
       if (verifiedName) {
         // @ts-expect-error dynamic property assignment on form
-        setValue("name", verifiedName);
+        setValue("name", verifiedName, { shouldDirty: true });
         const currentUser = useAuthStore.getState().user;
         if (currentUser) {
           useAuthStore.getState().setUser({

@@ -45,6 +45,7 @@ export interface PreferenceTradingApartmentItem {
   apartmentName: string;
   recentDealPrice: number;
   dealCount: number;
+  pyeong?: number;
 }
 
 export interface PreferenceDashboardData {

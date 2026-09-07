@@ -69,6 +69,7 @@ export default function BoardDetailPage() {
       return { detail, comments, attachments };
     },
     enabled: isValidBoardId,
+    staleTime: 1000 * 60 * 5,
   });
 
   // 댓글 목록 Query

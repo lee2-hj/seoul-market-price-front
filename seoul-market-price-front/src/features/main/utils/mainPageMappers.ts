@@ -83,12 +83,14 @@ export function mapPreferenceDashboardData(
       Number.isFinite(item.deal_cnt),
     )
     .sort((a, b) => b.deal_cnt - a.deal_cnt)
-    .slice(0, 5)
+    // 상위/하위 TOP 5 토글 UI를 위해 10위까지 확보한다.
+    .slice(0, 10)
     .map((item, index) => ({
       rank: index + 1,
       apartmentName: item.bldg_nm,
       recentDealPrice: item.recent_thing_amt,
       dealCount: item.deal_cnt,
+      pyeong: Number.isFinite(item.pyeong) ? item.pyeong : undefined,
     }));
 
   return { priceTrend, topTradingDongs, popularDong, topTradingApartments };
