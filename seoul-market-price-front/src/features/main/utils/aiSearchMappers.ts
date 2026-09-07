@@ -25,7 +25,27 @@ function isDistrictRankingResponse(result: AiSearchResult): result is DistrictRa
 
 export function formatAiMoneyText(text?: string): string {
   if (!text) return "";
-  return text.replace(/(?<![\d,])(\d{5,})(?![\d,])/g, (value) =>
+
+  // AI 금액은 만원 단위로 내려오므로 10,000만원 이상을 억 단위로 변환합니다.
+  const formattedMoney = text.replace(
+    /(?<![\d,])(\d[\d,]*)\s*\uB9CC\uC6D0/g,
+    (_match, rawValue: string) => {
+      const amountInManwon = Number(rawValue.replaceAll(",", ""));
+      if (!Number.isFinite(amountInManwon)) return `${rawValue}\uB9CC\uC6D0`;
+
+      if (amountInManwon < 10000) {
+        return `${amountInManwon.toLocaleString("ko-KR")}\uB9CC\uC6D0`;
+      }
+
+      const billion = Math.floor(amountInManwon / 10000);
+      const remainder = amountInManwon % 10000;
+      return remainder === 0
+        ? `${billion.toLocaleString("ko-KR")}\uC5B5\uC6D0`
+        : `${billion.toLocaleString("ko-KR")}\uC5B5 ${remainder.toLocaleString("ko-KR")}\uB9CC\uC6D0`;
+    },
+  );
+
+  return formattedMoney.replace(/(?<![\d,])(\d{5,})(?![\d,])/g, (value) =>
     Number(value).toLocaleString("ko-KR"),
   );
 }

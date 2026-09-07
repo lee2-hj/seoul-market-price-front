@@ -1157,6 +1157,19 @@ export type AiSearchResponse = {
   cautions: string[];
   criteria?: RankingCriteria;
   interpretation?: SearchInterpretation;
+  rankingItems?: AiRankingItem[];
+};
+
+export type AiRankingItem = {
+  rank: number;
+  regionName?: string;
+  apartmentName: string;
+  primaryLabel: string;
+  primaryValue: string;
+  exclusiveAreaM2?: number;
+  pyeong?: number;
+  dealCount?: number;
+  dealDate?: string;
 };
 
 export type SearchInterpretation = {
@@ -1240,14 +1253,16 @@ export type NaturalSearchResponse = {
   candidates: NaturalRegionCandidate[];
   errorCode?: string;
   interpretation?: SearchInterpretation;
+  inheritedFromContext?: string[];
 };
 
 export async function searchNaturalWithAiApi(
   question: string,
+  sessionId?: string,
 ): Promise<NaturalSearchResponse> {
   const response = await apiMiddleware.post<NaturalSearchResponse>(
     "/api/ai/search-natural",
-    { question },
+    { question, sessionId },
     { timeout: 120000 },
   );
   return response.data;
