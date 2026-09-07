@@ -572,44 +572,6 @@ export async function getBoardPostApi(boardId: number): Promise<BoardDetail> {
   };
 }
 
-export interface BoardFullDetailResponse {
-  detail: BoardDetail;
-  comments: BoardComment[];
-  attachments: AttachmentResponse[];
-}
-
-// 겟
-export async function getBoardFullDetailApi(
-  boardId: number,
-): Promise<BoardFullDetailResponse> {
-  const response = await apiMiddleware.get<{
-    detail: RawBoardDetail;
-    comments: BoardComment[];
-    attachments: AttachmentResponse[];
-  }>(`/api/boards/${boardId}/full`);
-  const data = response.data.detail || {};
-
-  return {
-    detail: {
-      boardId: data.boardId || data.id || boardId,
-      title: data.title || data.boardTitle || data.subject || "",
-      content: data.content || data.boardContent || data.body || "",
-      authorName:
-        data.authorName ||
-        data.writerName ||
-        data.writer ||
-        data.userName ||
-        "",
-      authorId: data.authorId || data.writerId || data.userId || "user",
-      createdAt: data.createdAt || data.createDate || data.regDate || "",
-      viewCount: data.viewCount ?? data.hit ?? data.readCount ?? 0,
-      postType: data.postType || (data.type as PostType) || "GENERAL",
-    },
-    comments: response.data.comments || [],
-    attachments: response.data.attachments || [],
-  };
-}
-
 /**
  * 게시글 등록 API (POST /api/boards)
  */
@@ -1527,12 +1489,6 @@ export function useDeleteQnaAttachment(qnaId: number) {
       queryClient.invalidateQueries({ queryKey: ["qnaAttachments", qnaId] });
     },
   });
-}
-
-export interface BoardFullDetailResponse {
-  detail: BoardDetail;
-  comments: BoardComment[];
-  attachments: AttachmentResponse[];
 }
 
 /**

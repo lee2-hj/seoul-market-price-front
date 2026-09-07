@@ -3,55 +3,10 @@ import { LockKeyhole, Settings2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { CardError, CardSkeleton } from "@/features/main/components/DataCardState";
 import { PreferencePopularDongCard } from "@/features/main/components/PreferencePopularDongCard";
 import { PreferencePriceTrendCard } from "@/features/main/components/PreferencePriceTrendCard";
 import { PreferenceTradingDongsCard } from "@/features/main/components/PreferenceRankingCards";
 import type { PreferenceDashboardData } from "@/features/main/types/mainPage.types";
-
-function PreferenceLoadingCard({ chart = false }: { chart?: boolean }) {
-  return (
-    <Card className="rounded-2xl border-[#DCE8ED] bg-white shadow-[0_3px_12px_rgba(18,48,71,0.05)]">
-      <CardContent className="p-5">
-        <div className="mb-4 h-7 w-44 animate-pulse rounded-lg bg-[#EAF2F5]" />
-        <CardSkeleton rows={chart ? 5 : 4} />
-      </CardContent>
-    </Card>
-  );
-}
-
-function PreferenceErrorCard({ onRetry }: { onRetry: () => void }) {
-  return (
-    <Card className="rounded-2xl border-[#DCE8ED] bg-white shadow-[0_3px_12px_rgba(18,48,71,0.05)]">
-      <CardContent className="p-5">
-        <CardError onRetry={onRetry} />
-      </CardContent>
-    </Card>
-  );
-}
-
-export function PreferenceDashboardLoading() {
-  return (
-    <>
-      <PreferenceLoadingCard chart />
-      <PreferenceLoadingCard />
-      <PreferenceLoadingCard />
-      <PreferenceLoadingCard />
-    </>
-  );
-}
-
-export function PreferenceDashboardError({ onRetry }: { onRetry: () => void }) {
-  return (
-    <>
-      <PreferenceErrorCard onRetry={onRetry} />
-      <PreferenceErrorCard onRetry={onRetry} />
-      <PreferenceErrorCard onRetry={onRetry} />
-      <PreferenceErrorCard onRetry={onRetry} />
-    </>
-  );
-}
 
 export function PreferenceLoginBanner() {
   return (

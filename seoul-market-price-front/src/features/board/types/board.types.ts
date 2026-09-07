@@ -99,8 +99,6 @@ export interface BoardListRequest {
 export interface BoardCreateRequest {
   title: string;
   content: string;
-  postType?: PostType;
-  file?: File | null;
 }
 
 /**
@@ -109,7 +107,6 @@ export interface BoardCreateRequest {
 export interface BoardUpdateRequest {
   title?: string;
   content?: string;
-  file?: File | null;
 }
 
 /**
@@ -124,9 +121,6 @@ export interface AttachmentResponse {
   originalFilename?: string;
   fileSize?: number;
   size?: number;
-  contentType?: string;
-  uploadedAt?: string;
-  createdAt?: string;
 }
 
 /**
@@ -137,6 +131,4 @@ export interface AttachmentDownloadResponse {
   downloadUrl?: string;
   fileName?: string;
   originalFilename?: string;
-  expiresAt?: string;
-  expiresInSeconds?: number;
 }
