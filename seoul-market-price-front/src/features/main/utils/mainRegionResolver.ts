@@ -35,7 +35,7 @@ export function resolveMainRegion(user: AuthUser | null): ResolvedMainRegion {
       source: "preference",
       guCode: myGuCode,
       districtName: myGu,
-      titlePrefix: "내 선호지역",
+      titlePrefix: myGu,
       displayBadge: `${myGu} 선호지역`,
     };
   }

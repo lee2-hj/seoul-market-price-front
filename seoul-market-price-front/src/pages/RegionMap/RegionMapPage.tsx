@@ -29,9 +29,9 @@ const REGION_MAP_METRIC_SESSION_KEY = "region_map_price_metric";
 
 /*
 const NAV_ITEMS = [
-  { label: "지역별 비교(리스트)", to: "/price/compare-list", icon: BarChart3 },
-  { label: "지역별 비교(지도)", to: "/region-map", icon: Map },
-  { label: "단지별 시세", to: "/price/detail", icon: Building2 },
+  { label: "지역별 비교", to: "/price/compare-list", icon: BarChart3 },
+  { label: "지역별 지도", to: "/region-map", icon: Map },
+  { label: "단지별 비교", to: "/price/detail", icon: Building2 },
 ];
 */
 
@@ -219,7 +219,7 @@ export default function RegionMapPage() {
         <section className="min-w-0 space-y-5">
           <header className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h1 className="text-[24px] font-black text-[#0F172A]">지역별 비교(지도)</h1>
+              <h1 className="text-[24px] font-black text-[#0F172A]">지역별 지도</h1>
               <p className="mt-1 text-[13px] font-medium text-[#64748B]">서울 구별 평균 매매가를 한눈에 확인하고, 관심 지역의 아파트를 분석해보세요.</p>
             </div>
           </header>
