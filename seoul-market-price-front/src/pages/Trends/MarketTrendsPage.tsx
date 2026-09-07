@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 
 const EMPTY_VALUE = "__all__";
 const TRENDS_SESSION_KEY = "market_trends_query";
+const TRENDS_RELOAD_FLAG_KEY = "market_trends_is_reload";
 const PIE_COLORS = ["#2563eb", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4"];
 const apartmentKey = (apt: ApartmentAutocompleteItem) =>
   `${apt.sggCd}-${apt.dongCd}-${apt.aptName}-${apt.mno}-${apt.sno}`;
@@ -136,35 +137,58 @@ export default function MarketTrendsPage() {
     }
   }, [apartmentHighlight]);
 
+  // 새로고침(F5) 직전에만 플래그를 남겨, "새로고침"과 "다른 메뉴/탭으로 이동"을 구분한다.
   useEffect(() => {
-    if (!searchParams.toString()) {
-      const savedQuery = sessionStorage.getItem(TRENDS_SESSION_KEY);
-      if (savedQuery) {
-        setSearchParams(new URLSearchParams(savedQuery), { replace: true });
-        return;
+    const handleBeforeUnload = () => {
+      sessionStorage.setItem(TRENDS_RELOAD_FLAG_KEY, "1");
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      // 새로고침이 아니라 SPA 라우팅으로 이 페이지를 벗어나는 경우, 검색 상태가
+      // 다음 방문까지 남아있지 않도록 세션에 저장해둔 검색 조건을 정리한다.
+      if (sessionStorage.getItem(TRENDS_RELOAD_FLAG_KEY) !== "1") {
+        sessionStorage.removeItem(TRENDS_SESSION_KEY);
       }
-    }
+    };
+  }, []);
 
-    const restoredApartment = getApartmentFromSearchParams(searchParams);
-    const restoredSggCd = searchParams.get("sggCd") ?? "";
-    const restoredDongCd = searchParams.get("dongCd") ?? "";
-    const restoredAptName = searchParams.get("aptName") ?? "";
+  // 마운트 시 1회만: 새로고침으로 돌아온 경우에 한해 세션에 저장된 검색 조건을 복원한다.
+  useEffect(() => {
+    const isReload = sessionStorage.getItem(TRENDS_RELOAD_FLAG_KEY) === "1";
+    sessionStorage.removeItem(TRENDS_RELOAD_FLAG_KEY);
 
+    if (!isReload || searchParams.toString()) return;
+
+    const savedQuery = sessionStorage.getItem(TRENDS_SESSION_KEY);
+    if (!savedQuery) return;
+
+    const restoredParams = new URLSearchParams(savedQuery);
+    const restoredAptName = restoredParams.get("aptName") ?? "";
+    const restoredApartment = getApartmentFromSearchParams(restoredParams);
+
+    setSearchParams(restoredParams, { replace: true });
+    // 이펙트 본문에서 setState를 동기 호출하면 렌더링이 연쇄적으로 발생하므로
+    // 마이크로태스크로 미뤄 한 번에 배치 처리한다.
     queueMicrotask(() => {
-      setSggCd(restoredSggCd);
-      setDongCd(restoredDongCd);
+      setSggCd(restoredParams.get("sggCd") ?? "");
+      setDongCd(restoredParams.get("dongCd") ?? "");
       setKeyword(restoredAptName);
       setDebouncedKeyword(restoredAptName);
       setSelectedApartment(restoredApartment);
       setSubmittedApartment(restoredApartment);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // 검색 조건이 바뀔 때마다 새로고침 대비용으로 세션에 반영한다.
+  useEffect(() => {
     if (searchParams.toString()) {
       sessionStorage.setItem(TRENDS_SESSION_KEY, searchParams.toString());
     } else {
       sessionStorage.removeItem(TRENDS_SESSION_KEY);
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams]);
 
   useEffect(() => {
     const id = window.setTimeout(() => setDebouncedKeyword(keyword), 300);
@@ -230,7 +254,6 @@ export default function MarketTrendsPage() {
   const chooseGu = (value: string) => {
     const code = value === EMPTY_VALUE ? "" : value;
     if (!code) {
-      sessionStorage.removeItem(TRENDS_SESSION_KEY);
       setGuInput("");
     }
     setSggCd(code);
@@ -324,7 +347,6 @@ export default function MarketTrendsPage() {
     updateUrl(selectedApartment);
   };
   const reset = () => {
-    sessionStorage.removeItem(TRENDS_SESSION_KEY);
     setIsTrendChartReady(false);
     setIsPieChartReady(false);
     setIsRecentDealsModalOpen(false);
