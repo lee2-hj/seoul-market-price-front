@@ -67,7 +67,7 @@ export function PreferenceDashboard({
         <PreferencePopularDongCard
           titlePrefix={titlePrefix}
           item={data.popularDong}
-          topTradingApartments={data.topTradingApartments}
+          aptRecentRank={data.aptRecentRank}
         />
       </div>
 

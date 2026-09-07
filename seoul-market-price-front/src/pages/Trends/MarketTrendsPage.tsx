@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Chart } from "react-google-charts";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
@@ -20,6 +20,21 @@ const EMPTY_VALUE = "__all__";
 const TRENDS_SESSION_KEY = "market_trends_query";
 const TRENDS_RELOAD_FLAG_KEY = "market_trends_is_reload";
 const PIE_COLORS = ["#2563eb", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4"];
+// 컴포넌트 상태에 의존하지 않는 고정 옵션이라 모듈 스코프 상수로 두어,
+// 리렌더와 무관하게 항상 같은 참조를 Chart에 전달한다.
+const PIE_CHART_OPTIONS = {
+  backgroundColor: "transparent",
+  is3D: false,
+  pieHole: 0.45,
+  pieSliceBorderColor: "transparent",
+  pieSliceText: "value",
+  pieSliceTextStyle: { color: "#ffffff", fontSize: 12, bold: true },
+  sliceVisibilityThreshold: 0,
+  legend: "none",
+  chartArea: { left: 5, top: 8, width: "90%", height: "90%" },
+  colors: PIE_COLORS,
+  tooltip: { trigger: "none" },
+};
 const apartmentKey = (apt: ApartmentAutocompleteItem) =>
   `${apt.sggCd}-${apt.dongCd}-${apt.aptName}-${apt.mno}-${apt.sno}`;
 const formatExclusiveArea = (
@@ -68,8 +83,8 @@ interface ApartmentTrendPeriod {
   avg_trade_amount?: number | null;
 }
 const formatTrendDate = (date: string) => {
-  const match = date.match(/\d{4}-(\d{2})-(\d{2})/);
-  return match ? `${match[1]}.${match[2]}` : date;
+  const match = date.match(/(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[1]}.${match[2]}.${match[3]}` : date;
 };
 const formatTrendLabel = (row: ApartmentTrendPeriod) => {
   const [periodStart = ""] = (row.biweekly_period ?? "").split("/");
@@ -246,6 +261,9 @@ export default function MarketTrendsPage() {
     // 재요청하지 않도록 캐시 유효 기간을 둔다.
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
+    // 기본값(3회, 지수 백오프)이면 외부 FastAPI가 느릴 때 체감 대기시간이
+    // 3배로 늘어나므로, 다른 메인페이지 쿼리들과 동일하게 1회로 제한한다.
+    retry: 1,
   });
   const item = trend.data?.status === "success" && trend.data.count > 0 ? trend.data.data[0] : undefined;
   const updateUrl = (apt: ApartmentAutocompleteItem | null) => setSearchParams(apt ? {
@@ -332,6 +350,19 @@ export default function MarketTrendsPage() {
     setKeyword(apt.aptName);
     setDropdownOpen(false);
     setApartmentHighlight(-1);
+
+    // 아파트를 검색/선택만으로도 그 아파트가 속한 구·동이 상단 입력값에
+    // 곧바로 반영되도록 동기화한다. dongCd는 구/동 목록(getDongsApi)이 쓰는
+    // "뒤 5자리" 코드 형식과 맞춰야 selectedDongName 등 기존 매칭 로직이
+    // 정상 동작하므로 동일하게 slice(-5)를 적용한다.
+    setSggCd(apt.sggCd);
+    setGuInput(apt.sggNm);
+    setIsGuDropdownOpen(false);
+    setGuHighlight(-1);
+    setDongCd(apt.dongCd.slice(-5));
+    setDongInput(apt.dongNm);
+    setIsDongDropdownOpen(false);
+    setDongHighlight(-1);
   };
   const search = () => {
     if (!selectedApartment) {
@@ -421,6 +452,39 @@ export default function MarketTrendsPage() {
       return { v: value, f: formatEokAmount(value) };
     });
   }, [trendPeriods]);
+  // options 객체를 렌더마다 새로 만들면(리터럴) 구/동/아파트 드롭다운 하이라이트 등
+  // 무관한 상태 변경으로 리렌더될 때마다 Chart가 새 options를 받아 다시 그려져
+  // 애니메이션이 매끄럽지 않고 끊겨 보인다. averagePriceAxisTicks가 실제로
+  // 바뀔 때만 새 객체가 되도록 메모이즈한다.
+  const comboChartOptions = useMemo(() => ({
+    backgroundColor: "transparent",
+    chartArea: { left: 60, top: 15, width: "80%", height: "76%" },
+    seriesType: "bars",
+    series: {
+      0: { type: "bars", targetAxisIndex: 0, color: "#2563eb" },
+      1: { type: "line", targetAxisIndex: 1, color: "#16a34a", lineWidth: 3, pointSize: 6 },
+    },
+    vAxes: {
+      0: { title: "거래량(건)", minValue: 0, format: "0", gridlines: { color: "#E2E8F0", count: 4 }, minorGridlines: { count: 0 } },
+      1: { title: "평균 거래가(만원)", minValue: 0, ticks: averagePriceAxisTicks, gridlines: { color: "transparent" }, minorGridlines: { count: 0 } },
+    },
+    hAxis: { slantedText: false },
+    legend: { position: "none" },
+    tooltip: { isHtml: true, trigger: "focus" },
+  }), [averagePriceAxisTicks]);
+  // chartEvents도 options와 같은 이유(렌더마다 새 배열이면 무관한 리렌더에도
+  // Chart가 다시 그려짐)로 고정된 참조를 유지한다. setState 함수 자체는
+  // React가 항상 동일한 참조를 보장하므로 useCallback의 의존성 배열은 비워도 된다.
+  const handleTrendChartReady = useCallback(() => setIsTrendChartReady(true), []);
+  const handlePieChartReady = useCallback(() => setIsPieChartReady(true), []);
+  const trendChartEvents = useMemo(
+    () => [{ eventName: "ready" as const, callback: handleTrendChartReady }],
+    [handleTrendChartReady],
+  );
+  const pieChartEvents = useMemo(
+    () => [{ eventName: "ready" as const, callback: handlePieChartReady }],
+    [handlePieChartReady],
+  );
   const areaChartRows = useMemo(() => {
     const dealCounts = new Map<number, number>();
     (item?.area_deals ?? []).forEach((row) => {
@@ -510,8 +574,8 @@ export default function MarketTrendsPage() {
     {trend.isError && <div className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-600"><AlertCircle className="size-4" />데이터를 불러오는 중 오류가 발생했습니다.</div>}
     {!item && <><Card className="grid grid-cols-1 overflow-hidden sm:grid-cols-2 lg:grid-cols-4">{displayCards.map(([label, value]) => <div key={String(label)} className="border-b p-4 lg:border-b-0"><span className="text-[12px] text-[#6B7280]">{label}</span><div className="mt-2 text-[21px] font-extrabold">{value}</div></div>)}</Card><div className="grid grid-cols-1 gap-4 lg:grid-cols-3"><Card className="lg:col-span-2"><CardContent className="p-5"><h2 className="mb-4 border-b border-[#E2E8F0] pb-3 font-semibold">거래량 및 평균 거래가 추이</h2><EmptyState message="아파트를 선택하면 거래 추이를 확인할 수 있습니다." /></CardContent></Card><Card><CardContent className="p-5"><h2 className="mb-4 border-b border-[#E2E8F0] pb-3 font-semibold">평형별 거래 비중</h2><EmptyState message="아파트를 선택하면 평형별 거래 비중을 확인할 수 있습니다." /></CardContent></Card></div><div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2"><Card className="h-full"><CardContent className="p-5"><h2 className="mb-3 border-b border-[#E2E8F0] pb-3 font-semibold">최근 거래 내역</h2><EmptyState message="아파트를 선택하면 최근 거래 내역을 확인할 수 있습니다." /></CardContent></Card><Card className="h-full"><CardContent className="p-5"><h2 className="mb-3 border-b border-[#E2E8F0] pb-3 font-semibold">전용면적(평수)별 거래 현황</h2><EmptyState message="아파트를 선택하면 전용면적별 거래 현황을 확인할 수 있습니다." /></CardContent></Card></div></>}
     {item && <><Card className="grid grid-cols-1 overflow-hidden sm:grid-cols-2 lg:grid-cols-4">{cards.map(([label, value]) => <div key={String(label)} className="border-b p-4 lg:border-b-0"><span className="text-[12px] text-[#6B7280]">{label}</span><div className="mt-2 text-[21px] font-extrabold">{value}</div>{searchPeriodLabel && <p className="mt-2 text-[11px] text-[#94A3B8]">{searchPeriodLabel}</p>}</div>)}</Card>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3"><Card className="lg:col-span-2"><CardContent className="p-5"><div className="mb-4 flex items-center justify-between border-b border-[#E2E8F0] pb-3"><h2 className="text-[15px] font-semibold">거래량 및 평균 거래가 추이</h2><div className="flex gap-3 text-[12px] text-[#64748B]"><span>■ 거래량(건)</span><span className="text-[#16A34A]">● 평균 거래가(만원)</span></div></div>{comboChartData.length > 1 ? <><style>{`@keyframes trendsChartReveal { from { clip-path: inset(0 100% 0 0); opacity: 0; } to { clip-path: inset(0 0 0 0); opacity: 1; } } .trends-chart-reveal { clip-path: inset(0 100% 0 0); opacity: 0; } .trends-chart-reveal.is-ready { animation: trendsChartReveal 800ms ease-out forwards; } @media (prefers-reduced-motion: reduce) { .trends-chart-reveal, .trends-chart-reveal.is-ready { clip-path: none; opacity: 1; animation: none; } }`}</style><div className={`relative min-w-0 w-full max-w-full [&>div]:!min-w-0 [&>div]:!max-w-full [&_svg]:!max-w-full [&_.google-visualization-tooltip]:!pointer-events-none [&_.google-visualization-tooltip]:!select-none [&_.google-visualization-tooltip]:!z-50 [&_.google-visualization-tooltip]:!border-0 [&_.google-visualization-tooltip]:!bg-transparent [&_.google-visualization-tooltip]:!shadow-none [&_.google-visualization-tooltip]:!p-0 trends-chart-reveal ${isTrendChartReady ? "is-ready" : ""}`}><Chart chartType="ComboChart" width="100%" height="240px" data={comboChartData} chartEvents={[{ eventName: "ready" as const, callback: () => setIsTrendChartReady(true) }]} options={{ backgroundColor: "transparent", chartArea: { left: 60, top: 15, width: "80%", height: "76%" }, seriesType: "bars", series: { 0: { type: "bars", targetAxisIndex: 0, color: "#2563eb" }, 1: { type: "line", targetAxisIndex: 1, color: "#16a34a", lineWidth: 3, pointSize: 6 } }, vAxes: { 0: { title: "거래량(건)", minValue: 0, format: "0", gridlines: { color: "#E2E8F0", count: 4 }, minorGridlines: { count: 0 } }, 1: { title: "평균 거래가(만원)", minValue: 0, ticks: averagePriceAxisTicks, gridlines: { color: "transparent" }, minorGridlines: { count: 0 } } }, hAxis: { slantedText: false }, legend: { position: "none" }, tooltip: { isHtml: true, trigger: "focus" } }} /></div></> : <EmptyState message="거래 추이 데이터가 없습니다." />}</CardContent></Card>
-      <Card><CardContent className="p-5"><h2 className="mb-4 border-b border-[#E2E8F0] pb-3 text-[15px] font-semibold">평형별 거래 비중</h2>{pieChartData.length > 1 ? <><style>{`@keyframes donutFanReveal { 0% { opacity: 0; transform: scale(0.88); clip-path: polygon(50% 50%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%); } 25% { opacity: 1; clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 50%, 100% 50%, 100% 50%, 100% 50%); } 50% { clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 50% 100%, 50% 100%, 50% 100%); } 75% { clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 50%, 0% 50%); } 100% { opacity: 1; transform: scale(1); clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 0%); } } .pie-chart-reveal { opacity: 0; } .pie-chart-reveal.is-ready { animation: donutFanReveal 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards; } .pie-chart-reveal svg path { stroke: transparent !important; } @keyframes legendItemSlideIn { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } } .legend-item-reveal { opacity: 0; animation: legendItemSlideIn 450ms cubic-bezier(0.16, 1, 0.3, 1) forwards; } @media (prefers-reduced-motion: reduce) { .pie-chart-reveal, .pie-chart-reveal.is-ready { clip-path: none; opacity: 1; transform: none; animation: none; } .legend-item-reveal { opacity: 1; animation: none; } }`}</style><div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center"><div className={`h-[210px] w-full sm:w-[58%] relative min-w-0 [&>div]:!min-w-0 [&>div]:!max-w-full [&_svg]:!max-w-full [&_.google-visualization-tooltip]:!pointer-events-none [&_.google-visualization-tooltip]:!select-none [&_.google-visualization-tooltip]:!z-50 [&_.google-visualization-tooltip]:!border-0 [&_.google-visualization-tooltip]:!bg-transparent [&_.google-visualization-tooltip]:!shadow-none [&_.google-visualization-tooltip]:!p-0 pie-chart-reveal ${isPieChartReady ? "is-ready" : ""}`}><Chart chartType="PieChart" width="100%" height="100%" data={pieChartData} chartEvents={[{ eventName: "ready" as const, callback: () => setIsPieChartReady(true) }]} options={{ backgroundColor: "transparent", is3D: false, pieHole: 0.45, pieSliceBorderColor: "transparent", pieSliceText: "value", pieSliceTextStyle: { color: "#ffffff", fontSize: 12, bold: true }, sliceVisibilityThreshold: 0, legend: "none", chartArea: { left: 5, top: 8, width: "90%", height: "90%" }, colors: PIE_COLORS, tooltip: { trigger: "none" } }} /></div><div className="w-full space-y-2 self-center text-[13px] sm:w-[42%]"><p className="border-b border-[#E2E8F0] pb-2 font-semibold text-[#0F172A]">총 거래 건수 {areaRangeRows.reduce((sum, row) => sum + row.dealCount, 0).toLocaleString()}건</p>{areaRangeRows.map((row, index) => <div key={row.pyeong} className={`flex items-center justify-between gap-3 ${isPieChartReady ? "legend-item-reveal" : "opacity-0"}`} style={{ animationDelay: `${index * 80 + 350}ms` }}><span className="flex items-center gap-2 text-[#334155]"><i className="size-2.5 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />{formatPyeongRange(row.pyeong)}</span><strong className="text-[#0F172A]">{row.percentage.toFixed(1)}%</strong></div>)}</div></div></> : <EmptyState message="평형별 거래 비중 데이터가 없습니다." />}</CardContent></Card></div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3"><Card className="lg:col-span-2"><CardContent className="p-5"><div className="mb-4 flex items-center justify-between border-b border-[#E2E8F0] pb-3"><h2 className="text-[15px] font-semibold">거래량 및 평균 거래가 추이</h2><div className="flex gap-3 text-[12px] text-[#64748B]"><span>■ 거래량(건)</span><span className="text-[#16A34A]">● 평균 거래가(만원)</span></div></div>{comboChartData.length > 1 ? <><style>{`@keyframes trendsChartReveal { from { clip-path: inset(0 100% 0 0); opacity: 0; } to { clip-path: inset(0 0 0 0); opacity: 1; } } .trends-chart-reveal { clip-path: inset(0 100% 0 0); opacity: 0; } .trends-chart-reveal.is-ready { animation: trendsChartReveal 800ms ease-out forwards; } @media (prefers-reduced-motion: reduce) { .trends-chart-reveal, .trends-chart-reveal.is-ready { clip-path: none; opacity: 1; animation: none; } }`}</style><div className={`relative min-w-0 w-full max-w-full [&>div]:!min-w-0 [&>div]:!max-w-full [&_svg]:!max-w-full [&_.google-visualization-tooltip]:!pointer-events-none [&_.google-visualization-tooltip]:!select-none [&_.google-visualization-tooltip]:!z-50 [&_.google-visualization-tooltip]:!border-0 [&_.google-visualization-tooltip]:!bg-transparent [&_.google-visualization-tooltip]:!shadow-none [&_.google-visualization-tooltip]:!p-0 trends-chart-reveal ${isTrendChartReady ? "is-ready" : ""}`}><Chart chartType="ComboChart" width="100%" height="240px" data={comboChartData} chartEvents={trendChartEvents} options={comboChartOptions} /></div></> : <EmptyState message="거래 추이 데이터가 없습니다." />}</CardContent></Card>
+      <Card><CardContent className="p-5"><h2 className="mb-4 border-b border-[#E2E8F0] pb-3 text-[15px] font-semibold">평형별 거래 비중</h2>{pieChartData.length > 1 ? <><style>{`@keyframes donutFanReveal { 0% { opacity: 0; transform: scale(0.88); clip-path: polygon(50% 50%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%); } 25% { opacity: 1; clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 50%, 100% 50%, 100% 50%, 100% 50%); } 50% { clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 50% 100%, 50% 100%, 50% 100%); } 75% { clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 50%, 0% 50%); } 100% { opacity: 1; transform: scale(1); clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 0%); } } .pie-chart-reveal { opacity: 0; } .pie-chart-reveal.is-ready { animation: donutFanReveal 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards; } .pie-chart-reveal svg path { stroke: transparent !important; } @keyframes legendItemSlideIn { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } } .legend-item-reveal { opacity: 0; animation: legendItemSlideIn 450ms cubic-bezier(0.16, 1, 0.3, 1) forwards; } @media (prefers-reduced-motion: reduce) { .pie-chart-reveal, .pie-chart-reveal.is-ready { clip-path: none; opacity: 1; transform: none; animation: none; } .legend-item-reveal { opacity: 1; animation: none; } }`}</style><div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center"><div className={`h-[210px] w-full sm:w-[58%] relative min-w-0 [&>div]:!min-w-0 [&>div]:!max-w-full [&_svg]:!max-w-full [&_.google-visualization-tooltip]:!pointer-events-none [&_.google-visualization-tooltip]:!select-none [&_.google-visualization-tooltip]:!z-50 [&_.google-visualization-tooltip]:!border-0 [&_.google-visualization-tooltip]:!bg-transparent [&_.google-visualization-tooltip]:!shadow-none [&_.google-visualization-tooltip]:!p-0 pie-chart-reveal ${isPieChartReady ? "is-ready" : ""}`}><Chart chartType="PieChart" width="100%" height="100%" data={pieChartData} chartEvents={pieChartEvents} options={PIE_CHART_OPTIONS} /></div><div className="w-full space-y-2 self-center text-[13px] sm:w-[42%]"><p className="border-b border-[#E2E8F0] pb-2 font-semibold text-[#0F172A]">총 거래 건수 {areaRangeRows.reduce((sum, row) => sum + row.dealCount, 0).toLocaleString()}건</p>{areaRangeRows.map((row, index) => <div key={row.pyeong} className={`flex items-center justify-between gap-3 ${isPieChartReady ? "legend-item-reveal" : "opacity-0"}`} style={{ animationDelay: `${index * 80 + 350}ms` }}><span className="flex items-center gap-2 text-[#334155]"><i className="size-2.5 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />{formatPyeongRange(row.pyeong)}</span><strong className="text-[#0F172A]">{row.percentage.toFixed(1)}%</strong></div>)}</div></div></> : <EmptyState message="평형별 거래 비중 데이터가 없습니다." />}</CardContent></Card></div>
       <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2"><Card className="h-full"><CardContent className="p-5"><h2 className="mb-3 border-b border-[#E2E8F0] pb-3 text-[14px] font-semibold">최근 거래 내역</h2><Rows rows={recentDealsSummaryRows} headers={["계약일", "전용면적(평수)", "층", "거래가"]} />{item.recent_deals.length > 5 && <Button type="button" variant="outline" onClick={() => setIsRecentDealsModalOpen(true)} className="mt-4 h-10 w-full rounded-none border-x-0 border-b border-t-0 border-[#94A3B8] text-[12px] text-[#2563EB] hover:bg-[#F8FAFC] hover:text-[#1D4ED8]">전체 실거래 내역 보기 ›</Button>}</CardContent></Card><Card className="h-full"><CardContent className="p-5"><h2 className="mb-3 border-b border-[#E2E8F0] pb-3 text-[14px] font-semibold">전용면적(평수)별 거래 현황</h2><Rows rows={areaDealsSummaryRows} headers={["전용면적(평수)", "거래 건수", "평균 거래가"]} />{item.area_deals.length > 5 && <Button type="button" variant="outline" onClick={() => setIsAreaDealsModalOpen(true)} className="mt-4 h-10 w-full rounded-none border-x-0 border-b border-t-0 border-[#94A3B8] text-[12px] text-[#2563EB] hover:bg-[#F8FAFC] hover:text-[#1D4ED8]">전체 전용면적별 거래 현황 보기 ›</Button>}</CardContent></Card></div></>}
     {!submittedApartment && <EmptyState message="구·동 조건을 선택하거나 아파트를 검색해 주세요." />}{submittedApartment && !trend.isLoading && !item && <EmptyState message="조회된 거래동향 데이터가 없습니다." />}
     <div className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-4 text-[11px] text-[#94A3B8]">

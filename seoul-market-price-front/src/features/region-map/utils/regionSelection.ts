@@ -33,11 +33,6 @@ export function getDetectedDistrict(): string {
   return valid ? valid.district : "";
 }
 
-export function getDetectedDistrictCode(): string {
-  const valid = getValidDetectedDistrict();
-  return valid ? valid.sggCd : "";
-}
-
 export function storeDetectedDistrict(district: string, sggCd?: string): void {
   const normalizedDistrict = district.trim();
   const normalizedCode = sggCd?.trim() ?? "";

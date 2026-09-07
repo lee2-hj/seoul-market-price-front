@@ -1,14 +1,6 @@
-export interface ApartmentPriceItem {
-  name: string;
-  salePrice: number;
-  recentTradeDate: string;
-  exclusiveArea: number;
-}
-
 export interface DistrictPriceItem {
   name: string;
   averagePrice: number;
-  apartments: ApartmentPriceItem[];
 }
 
 export const PRICE_LEGEND = [
@@ -17,19 +9,6 @@ export const PRICE_LEGEND = [
   { label: "9억~11억", color: "#F7D381" },
   { label: "7억~9억", color: "#AAD8A3" },
   { label: "7억 미만", color: "#9DBFE4" },
-];
-
-const BASE_APARTMENTS = [
-  { name: "래미안 대치팰리스", salePrice: 348000, recentTradeDate: "2026.08.12", exclusiveArea: 84.97 },
-  { name: "디에이치 대치 에델루이", salePrice: 321000, recentTradeDate: "2026.08.10", exclusiveArea: 84.93 },
-  { name: "대치 푸르지오 써밋", salePrice: 302000, recentTradeDate: "2026.08.08", exclusiveArea: 84.95 },
-  { name: "대치 아이파크", salePrice: 287000, recentTradeDate: "2026.08.06", exclusiveArea: 84.91 },
-  { name: "대치 르엘", salePrice: 275000, recentTradeDate: "2026.08.04", exclusiveArea: 84.99 },
-  { name: "대치 코오롱하늘채", salePrice: 132000, recentTradeDate: "2026.08.02", exclusiveArea: 59.86 },
-  { name: "대치 현대2차", salePrice: 128000, recentTradeDate: "2026.07.30", exclusiveArea: 59.72 },
-  { name: "대치 쌍용2차", salePrice: 123000, recentTradeDate: "2026.07.28", exclusiveArea: 59.94 },
-  { name: "대치 동부센트레빌", salePrice: 119000, recentTradeDate: "2026.07.25", exclusiveArea: 59.88 },
-  { name: "대치 한보미도맨션", salePrice: 115000, recentTradeDate: "2026.07.22", exclusiveArea: 59.76 },
 ];
 
 const DISTRICT_SEED: Array<[string, number]> = [
@@ -43,22 +22,7 @@ const DISTRICT_SEED: Array<[string, number]> = [
 ];
 
 export const DISTRICT_PRICES: DistrictPriceItem[] = DISTRICT_SEED.map(
-  ([name, averagePrice], districtIndex) => ({
-    name,
-    averagePrice,
-    apartments: BASE_APARTMENTS.map((apartment, apartmentIndex) => {
-      const factor = averagePrice / 203000;
-      return {
-        name:
-          name === "강남구"
-            ? apartment.name
-            : `${name} ${["래미안", "자이", "푸르지오", "아이파크", "힐스테이트"][apartmentIndex % 5]}`,
-        salePrice: Math.round((apartment.salePrice * factor + districtIndex * 170) / 100) * 100,
-        recentTradeDate: apartment.recentTradeDate,
-        exclusiveArea: apartment.exclusiveArea,
-      };
-    }),
-  }),
+  ([name, averagePrice]) => ({ name, averagePrice }),
 );
 
 export function formatPrice(price: number): string {
