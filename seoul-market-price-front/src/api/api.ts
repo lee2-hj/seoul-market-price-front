@@ -874,6 +874,9 @@ export interface DongItem {
   sggCd?: string;
 }
 
+export type SggResponse = SggItem;
+export type DongResponse = DongItem;
+
 /**
  * 서울 자치구 목록 조회 API (GET /api/location/sggs)
  */
@@ -949,6 +952,9 @@ export async function getDongsApi(sggCd: string): Promise<DongItem[]> {
     return [];
   }
 }
+
+export const getSggs = getSggsApi;
+export const getDongs = getDongsApi;
 
 /* ==========================================
    아파트 단지 시세 및 실거래가 API

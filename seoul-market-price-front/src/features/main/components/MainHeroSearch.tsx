@@ -126,7 +126,7 @@ function MainHeroSearchComponent() {
         </div>
       </div>
 
-      {ai.result && <AiResultModal result={ai.result} question={ai.question} onClose={ai.closeResult} />}
+      {ai.result && <AiResultModal result={ai.result} question={ai.submittedQuestion} onClose={ai.closeResult} />}
       {activeCandidates.length > 0 && (
         <AiCandidateModal
           candidates={activeCandidates}

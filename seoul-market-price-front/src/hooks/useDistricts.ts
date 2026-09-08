@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { getDongs, getSggs } from "@/features/location/services/locationService";
+import { getDongs, getSggs } from "@/api/api";
 
 export interface District {
   sggCd: string;

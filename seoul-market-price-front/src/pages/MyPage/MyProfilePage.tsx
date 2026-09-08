@@ -12,9 +12,10 @@ import {
   deleteMyPreferredRegionApi,
   updateMemberMeApi,
   type MemberUpdateRequest,
+  getSggs,
+  type SggResponse,
 } from "@/api/api";
 import apiMiddleware from "@/api/middleware";
-import { getSggs, type SggResponse } from "@/features/location/services/locationService";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
