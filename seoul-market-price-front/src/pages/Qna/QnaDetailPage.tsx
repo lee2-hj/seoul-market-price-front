@@ -114,7 +114,9 @@ export default function QnaDetailPage() {
       const list: QnaAttachmentFileType[] = [];
 
       if (Array.isArray(rawAttachments) && rawAttachments.length > 0) {
-        rawAttachments.forEach((att: Record<string, unknown>, idx: number) => {
+        // AttachmentResponse에는 downloadUrl/fileUrl 등 백엔드마다 이름이 다른
+        // 필드가 없어, 느슨하게 접근하기 위해 Record<string, unknown>으로 캐스팅한다.
+        (rawAttachments as unknown as Record<string, unknown>[]).forEach((att, idx: number) => {
           list.push({
             id: Number(att.id ?? att.attachmentId ?? idx + 1),
             name: String(att.originalName || att.originalFilename || att.fileName || att.name || "첨부파일"),
