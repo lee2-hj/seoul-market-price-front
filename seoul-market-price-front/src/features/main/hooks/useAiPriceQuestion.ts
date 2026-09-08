@@ -37,9 +37,14 @@ export function useAiPriceQuestion() {
     try {
       sessionIdRef.current ??= getAiSearchSessionId();
       const response = await searchNaturalWithAiApi(nextQuestion, sessionIdRef.current);
-      if (response.status === "SUCCESS" && response.result) {
+      if ((response.status === "SUCCESS" || response.status === "PARTIAL_DATA") && response.result) {
+        const displayResult = toAiDisplayResult(response.result);
         setResult({
-          ...toAiDisplayResult(response.result),
+          ...displayResult,
+          cautions: [
+            ...displayResult.cautions,
+            ...(response.dataQualityWarnings ?? []),
+          ],
           interpretation: response.interpretation,
         });
         setQuestion("");
@@ -62,7 +67,9 @@ export function useAiPriceQuestion() {
       }
 
       setResult(null);
-      setError(response.message || "검색 결과를 찾을 수 없습니다.");
+      setError(response.errorCode === "NO_PRICE_DATA"
+        ? "조건에 맞는 실거래 가격 데이터가 없습니다. 지역이나 기간을 바꿔 다시 검색해 주세요."
+        : response.message || "검색 결과를 찾을 수 없습니다.");
     } catch (caughtError: unknown) {
       setResult(null);
       if (axios.isAxiosError(caughtError)) {

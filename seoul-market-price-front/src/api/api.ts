@@ -1257,7 +1257,7 @@ export type DistrictRankingResponse = {
 
 export type NaturalRegionCandidate = DongRegionResponse & { slot: number };
 export type NaturalSearchResponse = {
-  status: "SUCCESS" | "NEED_CLARIFICATION" | "ERROR";
+  status: "SUCCESS" | "PARTIAL_DATA" | "NEED_CLARIFICATION" | "ERROR";
   intent?:
   | "PRICE_COMPARISON"
   | "SINGLE_REGION"
@@ -1277,6 +1277,7 @@ export type NaturalSearchResponse = {
   errorCode?: string;
   interpretation?: SearchInterpretation;
   inheritedFromContext?: string[];
+  dataQualityWarnings?: string[];
 };
 
 export async function searchNaturalWithAiApi(
