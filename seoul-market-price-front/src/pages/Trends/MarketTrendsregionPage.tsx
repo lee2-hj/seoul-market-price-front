@@ -173,8 +173,11 @@ const getTopTradesByPrice = (trades: TradeItemType[]): TradeItemType[] => {
   return res.length >= 5 ? res : sorted.slice(0, 5);
 };
 
-const buildTrendTooltipHtml = (periodLabel: string, dateRange: string, dealCount: number, avgPrice: number): string =>
-  `<div style="padding:10px 12px;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif;font-size:12px;line-height:1.5;color:#123047;background:#FFFFFF;border-radius:10px;box-shadow:0 6px 18px rgba(18,48,71,0.12);border:1px solid #DCE8ED;min-width:150px;pointer-events:none;"><div style="font-weight:800;color:#0F8AA8;font-size:13px;">${periodLabel}</div>${dateRange ? `<div style="font-size:11px;color:#64748B;margin-top:2px;">기간: ${dateRange}</div>` : ""}<div style="margin-top:6px;padding-top:6px;border-top:1px solid #F1F5F9;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;"><span style="color:#64748B;font-size:11px;">거래량</span><strong style="color:#2563EB;font-weight:700;">${dealCount.toLocaleString()}건</strong></div><div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#64748B;font-size:11px;">평균 거래가</span><strong style="color:#16A34A;font-weight:700;">${formatPrice(avgPrice)}</strong></div></div></div>`.trim();
+const buildVolumeTooltipHtml = (periodLabel: string, dateRange: string, dealCount: number): string =>
+  `<div style="padding:10px 12px;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif;font-size:12px;line-height:1.5;color:#123047;background:#FFFFFF;border-radius:10px;box-shadow:0 6px 18px rgba(18,48,71,0.12);border:1px solid #DCE8ED;min-width:140px;pointer-events:none;"><div style="font-weight:800;color:#0F8AA8;font-size:13px;">${periodLabel}</div>${dateRange ? `<div style="font-size:11px;color:#64748B;margin-top:2px;">기간: ${dateRange}</div>` : ""}<div style="margin-top:6px;padding-top:6px;border-top:1px solid #F1F5F9;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#64748B;font-size:11px;">거래량</span><strong style="color:#2563EB;font-weight:700;">${dealCount.toLocaleString()}건</strong></div></div></div>`.trim();
+
+const buildPriceTooltipHtml = (periodLabel: string, dateRange: string, avgPrice: number): string =>
+  `<div style="padding:10px 12px;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif;font-size:12px;line-height:1.5;color:#123047;background:#FFFFFF;border-radius:10px;box-shadow:0 6px 18px rgba(18,48,71,0.12);border:1px solid #DCE8ED;min-width:140px;pointer-events:none;"><div style="font-weight:800;color:#0F8AA8;font-size:13px;">${periodLabel}</div>${dateRange ? `<div style="font-size:11px;color:#64748B;margin-top:2px;">기간: ${dateRange}</div>` : ""}<div style="margin-top:6px;padding-top:6px;border-top:1px solid #F1F5F9;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#64748B;font-size:11px;">평균 거래가</span><strong style="color:#16A34A;font-weight:700;">${formatPrice(avgPrice)}</strong></div></div></div>`.trim();
 
 const buildPieTooltipHtml = (label: string, dealCount: number): string =>
   `<div style="padding:10px 12px;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif;font-size:12px;line-height:1.5;color:#123047;background:#FFFFFF;border-radius:10px;box-shadow:0 6px 18px rgba(18,48,71,0.12);border:1px solid #DCE8ED;min-width:140px;pointer-events:none;"><div style="font-weight:800;color:#0F8AA8;font-size:13px;">${label}</div><div style="margin-top:6px;padding-top:6px;border-top:1px solid #F1F5F9;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#64748B;font-size:11px;">거래량</span><strong style="color:#2563EB;font-weight:700;">${dealCount.toLocaleString()}건</strong></div></div></div>`.trim();
@@ -308,8 +311,9 @@ export default function MarketTrendsregionPage() {
           const monthly: Array<[string, number, string, { v: number; f: string }, string]> = (rtt.biweekly_trend?.length ?? 0) > 0
             ? rtt.biweekly_trend.map((b: RttBiweeklyTrend, idx: number) => {
                 const label = `${idx + 1}구간`, dRange = b.start_date && b.end_date ? `${b.start_date.slice(0, 10).replace(/-/g, ".")} ~ ${b.end_date.slice(0, 10).replace(/-/g, ".")}` : "";
-                const tip = buildTrendTooltipHtml(label, dRange, b.deal_cnt || 0, b.avg_trade_amount || 0);
-                return [label, b.deal_cnt || 0, tip, { v: b.avg_trade_amount || 0, f: b.avg_trade_amount ? `${(b.avg_trade_amount / 10000).toFixed(1)}억` : "-" }, tip];
+                const volumeTip = buildVolumeTooltipHtml(label, dRange, b.deal_cnt || 0);
+                const priceTip = buildPriceTooltipHtml(label, dRange, b.avg_trade_amount || 0);
+                return [label, b.deal_cnt || 0, volumeTip, { v: b.avg_trade_amount || 0, f: b.avg_trade_amount ? `${(b.avg_trade_amount / 10000).toFixed(1)}억` : "-" }, priceTip];
               })
             : [];
 
@@ -370,6 +374,16 @@ export default function MarketTrendsregionPage() {
     if (isApiError && !prevApiErrRef.current) setValue("isErrModalOpen", true);
     prevApiErrRef.current = isApiError;
   }, [isApiError, setValue]);
+
+  useEffect(() => {
+    if (isModalOpen) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [isModalOpen]);
 
   const SearchRegion = useCallback(() => {
     const sgg = getValues("sggCd"), dong = getValues("dongCd");
@@ -714,7 +728,7 @@ export default function MarketTrendsregionPage() {
       {/* 전체 실거래 내역 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-2xl h-[650px] max-h-[85vh] rounded-xl border border-[#E2E8F0] bg-white shadow-2xl flex flex-col">
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl h-[650px] max-h-[85vh] rounded-xl border border-[#E2E8F0] bg-white shadow-2xl flex flex-col">
             <div className="p-4 border-b border-[#E2E8F0] flex items-start justify-between shrink-0">
               <div>
                 <h3 className="text-[16px] font-bold text-[#0F172A]">
@@ -722,26 +736,26 @@ export default function MarketTrendsregionPage() {
                   <span className="ml-2 text-xs font-normal text-blue-600">({filteredTrades.length}건)</span>
                 </h3>
                 <div className="mt-2.5 flex items-center gap-2">
-                  <Button type="button" variant="outline" onClick={() => { setValue("modalFilter", "latest"); setValue("selectedPyeongRange", "all"); setValue("selectedFloorRange", "all"); }} className={cn("h-8 px-3 text-[12px] font-bold rounded-lg border transition-all cursor-pointer shadow-none", selectedPyeongRange === "all" && selectedFloorRange === "all" ? "bg-[#0F8AA8] text-white border-[#0F8AA8] hover:bg-[#0B728C] hover:text-white shadow-xs" : "bg-white text-[#475569] border-[#CBD5E1] hover:bg-slate-50 hover:text-[#0F172A]")}>최신순 전체목록</Button>
-                  <Select value={selectedPyeongRange} onValueChange={(val) => { setValue("selectedPyeongRange", val as PyeongRangeType); setValue("modalFilter", "pyeong"); }}>
+                  <Button type="button" variant="outline" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setValue("modalFilter", "latest"); setValue("selectedPyeongRange", "all"); setValue("selectedFloorRange", "all"); }} className={cn("h-8 px-3 text-[12px] font-bold rounded-lg border transition-all cursor-pointer shadow-none", selectedPyeongRange === "all" && selectedFloorRange === "all" ? "bg-[#0F8AA8] text-white border-[#0F8AA8] hover:bg-[#0B728C] hover:text-white shadow-xs" : "bg-white text-[#475569] border-[#CBD5E1] hover:bg-slate-50 hover:text-[#0F172A]")}>최신순 전체목록</Button>
+                  <Select modal={false} value={selectedPyeongRange} onValueChange={(val) => { setValue("selectedPyeongRange", val as PyeongRangeType); setValue("modalFilter", "pyeong"); }}>
                     <SelectTrigger className={cn("h-8 w-[90px] shrink-0 justify-between px-2.5 text-[12px] font-bold rounded-lg border transition-all cursor-pointer flex items-center shadow-none", selectedPyeongRange !== "all" ? "bg-[#0F8AA8] text-white border-[#0F8AA8] hover:bg-[#0B728C] shadow-xs [&_svg]:text-white [&_svg]:opacity-100" : "bg-white text-[#475569] border-[#CBD5E1] hover:bg-slate-50 hover:text-[#0F172A]")}>
                       <SelectValue placeholder="평형">{selectedPyeongRange === "all" ? "평형" : selectedPyeongRange === "under10" ? "10평미만" : selectedPyeongRange === "10s" ? "10평대" : selectedPyeongRange === "20s" ? "20평대" : selectedPyeongRange === "30s" ? "30평대" : "40평이상"}</SelectValue>
                     </SelectTrigger>
-                    <SelectContent className="bg-white border border-[#DCE8ED] shadow-md z-50 text-xs">
+                    <SelectContent position="popper" sideOffset={4} className="bg-white border border-[#DCE8ED] shadow-md z-50 text-xs">
                       <SelectItem value="all">평형 (전체)</SelectItem><SelectItem value="under10">10평미만</SelectItem><SelectItem value="10s">10평대 (10평~19평)</SelectItem><SelectItem value="20s">20평대 (20평~29평)</SelectItem><SelectItem value="30s">30평대 (30평~39평)</SelectItem><SelectItem value="over40">40평이상</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select value={selectedFloorRange} onValueChange={(val) => { setValue("selectedFloorRange", val as FloorRangeType); setValue("modalFilter", "floor"); }}>
+                  <Select modal={false} value={selectedFloorRange} onValueChange={(val) => { setValue("selectedFloorRange", val as FloorRangeType); setValue("modalFilter", "floor"); }}>
                     <SelectTrigger className={cn("h-8 w-[90px] shrink-0 justify-between px-2.5 text-[12px] font-bold rounded-lg border transition-all cursor-pointer flex items-center shadow-none", selectedFloorRange !== "all" ? "bg-[#0F8AA8] text-white border-[#0F8AA8] hover:bg-[#0B728C] shadow-xs [&_svg]:text-white [&_svg]:opacity-100" : "bg-white text-[#475569] border-[#CBD5E1] hover:bg-slate-50 hover:text-[#0F172A]")}>
                       <SelectValue placeholder="층별">{selectedFloorRange === "all" ? "층별" : selectedFloorRange === "low" ? "저층" : selectedFloorRange === "mid" ? "중층" : "고층"}</SelectValue>
                     </SelectTrigger>
-                    <SelectContent className="bg-white border border-[#DCE8ED] shadow-md z-50 text-xs">
+                    <SelectContent position="popper" sideOffset={4} className="bg-white border border-[#DCE8ED] shadow-md z-50 text-xs">
                       <SelectItem value="all">층별 (전체)</SelectItem><SelectItem value="low">저층 (1~5층)</SelectItem><SelectItem value="mid">중층 (6~15층)</SelectItem><SelectItem value="high">고층 (16층 이상)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <X onClick={() => setValue("isModalOpen", false)} className="size-5 text-slate-400 hover:text-slate-700 cursor-pointer transition-colors mt-0.5 shrink-0" />
+              <X onClick={(e) => { e.preventDefault(); e.stopPropagation(); setValue("isModalOpen", false); }} className="size-5 text-slate-400 hover:text-slate-700 cursor-pointer transition-colors mt-0.5 shrink-0" />
             </div>
             <div className="p-4 overflow-y-auto flex-1 min-h-0">
               {isModalLoading ? (
@@ -773,7 +787,7 @@ export default function MarketTrendsregionPage() {
             </div>
             <div className="p-3 border-t border-[#E2E8F0] bg-white flex items-center justify-between text-[12px] text-[#64748B] rounded-b-xl shrink-0">
               <span>{isModalLoading ? "데이터를 수집하는 중입니다..." : `총 ${filteredTrades.length.toLocaleString()}건의 실거래 내역이 표시됩니다.`}</span>
-              <Button type="button" variant="outline" onClick={() => setValue("isModalOpen", false)} className="h-9 px-4 text-[13px] font-medium cursor-pointer">닫기</Button>
+              <Button type="button" variant="outline" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setValue("isModalOpen", false); }} className="h-9 px-4 text-[13px] font-medium cursor-pointer">닫기</Button>
             </div>
           </div>
         </div>

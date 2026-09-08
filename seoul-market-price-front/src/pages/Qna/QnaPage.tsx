@@ -3,17 +3,17 @@ import type { FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useForm, useWatch } from "react-hook-form";
-import { PenSquare } from "lucide-react";
+
 import { getLoginUser, isLogin } from "@/features/auth/utils/auth";
 import apiMiddleware from "@/api/middleware";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext } from "@/components/ui/pagination";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
-import { cn } from "@/lib/utils";
+import BoardPageHeader from "@/features/board/components/BoardPageHeader";
+import { cn, maskAuthorName } from "@/lib/utils";
 
 /* 1. TypeScript 타입 선언 */
 type QnaPostType = {
@@ -125,7 +125,7 @@ function QnaRow({ item, displayNo, onClick, currentUserId, isAdmin }: QnaRowProp
         )}
       </TableCell>
       <TableCell className="w-[13%] sm:w-[14%] text-center text-[#6B7280] align-middle text-[9.5px] sm:text-[13px] px-0.5 sm:px-2 py-2 sm:py-3 truncate">
-        {item.author || "익명"}
+        {maskAuthorName(item.author)}
       </TableCell>
       <TableCell className="w-[15%] sm:w-[15%] text-center text-[#6B7280] align-middle text-[9.5px] sm:text-[13px] px-0.5 sm:px-2 py-2 sm:py-3">
         <span className="hidden sm:inline">{item.date || "-"}</span>
@@ -164,7 +164,7 @@ function QnaMobileCard({ item, onClick, currentUserId, isAdmin }: QnaMobileCardP
         {displayTitle}
       </h4>
       <div className="flex items-center gap-1.5 text-[11.5px] font-medium text-[#64748B]">
-        <span>{item.author || "익명"}</span>
+        <span>{maskAuthorName(item.author)}</span>
         <span className="text-[#CBD5E1] font-normal">·</span>
         <span>{item.date || "-"}</span>
         <span className="text-[#CBD5E1] font-normal">·</span>
@@ -264,6 +264,13 @@ export default function QnaPage() {
     setSearchParams({ page: "1" });
   }, [getValues, setSearchParams]);
 
+  const handleResetSearch = useCallback(() => {
+    setValue("searchType", "title");
+    setValue("keywordInput", "");
+    setActiveKeyword("");
+    setSearchParams({ page: "1" });
+  }, [setValue, setSearchParams]);
+
   const handlePageChange = useCallback((newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setSearchParams({ page: String(newPage) });
@@ -295,82 +302,82 @@ export default function QnaPage() {
         <main className="py-5 sm:py-8">
           <section className="min-w-0">
             {/* 상단 타이틀 */}
-            <div className="mb-4 sm:mb-6">
-              <h1 className="text-[20px] sm:text-[26px] font-black text-[#13202B] tracking-tight">Q&A 문의 게시판</h1>
-              <p className="mt-1 text-[12px] sm:text-[14px] text-[#6B7280] font-medium">부동산 시세 정보에 관해 궁금한 점을 질문하고 답변을 받아보세요.</p>
-            </div>
+            <BoardPageHeader
+              eyebrow="SSABU CUSTOMER CENTER"
+              title="질의응답"
+              description="싸부(SSABU) 부동산 실거래 및 시세 분석 서비스에 관해 궁금한 점을 질문하고 답변을 나누는 공간입니다."
+            />
 
-            {/* 검색바 */}
-            <div className="bg-white rounded-xl sm:rounded-2xl border border-[#E2E8F0] p-3 sm:p-5 shadow-sm mb-4">
-              <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <Select
-                    value={searchCategory}
-                    onValueChange={(value) => setValue("searchType", value as SearchCategoryType)}
-                  >
-                    <SelectTrigger className="w-[90px] sm:w-[100px] h-10 sm:h-11 px-2.5 sm:px-3 text-[12px] sm:text-[13px] font-bold text-[#13202B] bg-[#F5FAFC] border border-[#DCE8ED] rounded-lg sm:rounded-xl outline-none focus:border-[#0F8AA8]">
-                      <SelectValue placeholder="검색 기준" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border border-[#DCE8ED] shadow-md rounded-lg">
-                      <SelectItem value="title" className="text-[12px] sm:text-[13px] font-semibold text-[#13202B] cursor-pointer">제목</SelectItem>
-                      <SelectItem value="author" className="text-[12px] sm:text-[13px] font-semibold text-[#13202B] cursor-pointer">작성자</SelectItem>
-                      <SelectItem value="content" className="text-[12px] sm:text-[13px] font-semibold text-[#13202B] cursor-pointer">내용</SelectItem>
-                    </SelectContent>
-                  </Select>
+            {/* 검색 영역 */}
+            <div className="bg-[#FFFFFF] border border-[#DCE8ED] rounded-[12px] p-5 mb-6 shadow-xs">
+              <form
+                onSubmit={handleSearchSubmit}
+                className="flex flex-col md:flex-row items-center gap-3"
+              >
+                <select
+                  value={searchCategory}
+                  onChange={(e) => setValue("searchType", e.target.value as SearchCategoryType)}
+                  className="h-[44px] w-full md:w-[130px] rounded-[7px] border border-[#DCE8ED] bg-[#F5FAFC] px-3 text-[14px] text-[#13202B] focus:outline-none focus:border-[#0F8AA8] cursor-pointer"
+                >
+                  <option value="title">제목</option>
+                  <option value="author">작성자</option>
+                  <option value="content">내용</option>
+                </select>
 
-                  <Input
-                    id="keywordInput"
-                    type="text"
-                    name="keywordInput"
-                    placeholder="검색어를 입력하세요..."
-                    value={keywordInput}
-                    onChange={(e) => setValue("keywordInput", e.target.value)}
-                    className="h-10 sm:h-11 flex-1 min-w-0 text-[12px] sm:text-[13px] border-[#DCE8ED] bg-[#F5FAFC] focus:bg-white rounded-lg sm:rounded-xl"
-                  />
+                <Input
+                  id="keywordInput"
+                  name="keywordInput"
+                  type="text"
+                  placeholder="검색어를 입력하세요."
+                  value={keywordInput}
+                  onChange={(e) => setValue("keywordInput", e.target.value)}
+                  className="h-[44px] flex-1 bg-[#F5FAFC] border-[#DCE8ED] text-[14px] text-[#13202B] placeholder:text-[#9CA3AF] focus-visible:ring-[#0F8AA8] rounded-[7px]"
+                />
+
+                <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
                   <Button
                     type="submit"
-                    className="h-10 sm:h-11 px-4 sm:px-5 bg-[#13202B] hover:bg-[#1E2E3D] text-white font-bold text-[12px] sm:text-[13px] rounded-lg sm:rounded-xl shrink-0"
+                    className="h-[44px] px-6 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[7px] cursor-pointer border-0 shadow-none"
                   >
                     검색
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleResetSearch}
+                    className="h-[44px] px-5 bg-white border-[#DCE8ED] text-[#6B7280] hover:bg-[#F0F7FA] text-[14px] font-bold rounded-[7px] cursor-pointer shadow-none"
+                  >
+                    초기화
                   </Button>
                 </div>
               </form>
             </div>
 
             {/* 건수 및 글쓰기 버튼 */}
-            <div className="flex items-center justify-between mb-4 min-h-[44px]">
-              <p className="text-[13px] sm:text-[14px] text-[#6B7280]">
-                전체 <strong className="text-[#0F8AA8] font-extrabold">{filteredPosts.length}</strong>개의 문의글이 있습니다.
+            <div className="flex items-center justify-between mb-3 min-h-[44px]">
+              <p className="text-[14px] text-[#6B7280]">
+                전체 <strong className="text-[#0F8AA8] font-extrabold">{filteredPosts.length}</strong>개의 게시글이 있습니다.
               </p>
-              <Button
+              <button
                 type="button"
                 onClick={handleWriteClick}
-                className="flex items-center justify-center gap-2 h-10 sm:h-11 px-5 sm:px-6 bg-[#0F8AA8] hover:bg-[#0D7893] text-white font-black text-[13px] sm:text-[13.5px] rounded-xl shadow-md shadow-[#0F8AA8]/20 shrink-0"
+                className="inline-flex items-center justify-center min-w-[94px] h-[42px] px-5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[14px] font-bold rounded-[7px] border border-[#0F8AA8] cursor-pointer shadow-xs"
               >
-                <PenSquare className="size-4 stroke-[2.5]" />
-                <span>글쓰기</span>
-              </Button>
+                글쓰기
+              </button>
             </div>
 
             {isLoading ? (
-              <div className="p-12 text-center text-[#6B7280] font-medium bg-white rounded-2xl border border-[#E2E8F0]">
+              <div className="p-16 text-center text-[#6B7280] text-[14px] bg-white border border-[#DCE8ED] rounded-[12px] shadow-xs">
                 게시글을 불러오는 중입니다...
               </div>
             ) : paginatedPosts.length === 0 ? (
-              <div className="p-12 text-center text-[#6B7280] font-medium bg-white rounded-2xl border border-[#E2E8F0]">
-                <p>등록된 문의글이 없습니다.</p>
-                <button
-                  type="button"
-                  onClick={handleWriteClick}
-                  className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-bold text-[#0F8AA8] hover:underline"
-                >
-                  <PenSquare className="size-4" />
-                  <span>첫 번째 문의글 작성하기</span>
-                </button>
+              <div className="p-16 text-center text-[#6B7280] text-[14px] bg-white border border-[#DCE8ED] rounded-[12px] shadow-xs">
+                등록된 문의글이 없습니다.
               </div>
             ) : (
               <>
-                <div className="hidden md:block overflow-hidden bg-white rounded-2xl border border-[#E2E8F0] shadow-sm mb-6">
+                <div className="hidden md:block w-full bg-white border border-[#DCE8ED] rounded-[12px] shadow-xs overflow-hidden mb-6">
                   <Table className="w-full table-fixed">
                     <TableHeader className="bg-[#F5FAFC] border-b border-[#E2E8F0]">
                       <TableRow>
@@ -399,7 +406,7 @@ export default function QnaPage() {
                     </TableBody>
                   </Table>
                 </div>
-                <div className="md:hidden bg-white rounded-xl border border-[#E2E8F0] shadow-sm mb-6 divide-y divide-[#F1F5F9]">
+                <div className="md:hidden bg-white rounded-[12px] border border-[#DCE8ED] shadow-xs mb-6 divide-y divide-[#DCE8ED]">
                   {paginatedPosts.map((item) => (
                     <QnaMobileCard
                       key={item.id}
