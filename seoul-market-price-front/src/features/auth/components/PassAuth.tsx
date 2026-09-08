@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import * as PortOne from "@portone/browser-sdk/v2";
+import { confirmPhoneVerificationApi } from "@/api/api";
 
 /*
   포트원 SDK는 requestIdentityVerification()이 처음 호출되는(=버튼을
@@ -11,7 +12,7 @@ import * as PortOne from "@portone/browser-sdk/v2";
   도 동일한 URL의 <script> 태그를 찾으면 재사용하므로 중복 요청되지
   않는다.
 */
-const PORTONE_SDK_SRC = "https://cdn.portone.io/v2/browser-sdk.js";
+const PORTONE_SDK_SRC = import.meta.env.VITE_PORTONE_SDK_SRC ?? "";
 
 function preloadPortOneSdk() {
   if (document.querySelector(`script[src="${PORTONE_SDK_SRC}"]`)) {
@@ -48,8 +49,8 @@ interface PassAuthProps {
   백엔드(PhoneVerificationController)에서만 사용한다.
 
 */
-const PORTONE_STORE_ID = "store-80402af7-238f-44bf-8b5d-a4f3c415f38d";
-const PORTONE_CHANNEL_KEY = "channel-key-ca4c46cd-a367-4f7a-873f-c5aae5e73e27";
+const PORTONE_STORE_ID = import.meta.env.VITE_PORTONE_STORE_ID ?? "";
+const PORTONE_CHANNEL_KEY = import.meta.env.VITE_PORTONE_CHANNEL_KEY ?? "";
 
 function PassAuth({ phone, onSuccess, className }: PassAuthProps) {
   const [verifying, setVerifying] = useState(false);
@@ -142,9 +143,7 @@ function PassAuth({ phone, onSuccess, className }: PassAuthProps) {
       });
 
       if (result?.code != null) {
-        // 사용자가 취소했거나 PG사에서 인증에 실패한 경우
-        alert(result.message ?? "PASS 인증이 취소되었습니다.");
-
+        // 사용자가 취소했거나 PG사에서 인증에 실패한 경우 — 별도 안내 없이 조용히 종료한다.
         return;
       }
 
@@ -155,14 +154,9 @@ function PassAuth({ phone, onSuccess, className }: PassAuthProps) {
 
       */
 
-      const response = await axios.post(
-        `${import.meta.env.VITE_BACKEND_URL ?? ''}/api/members/phone-verification/confirm`,
+      const data = await confirmPhoneVerificationApi(identityVerificationId);
 
-        { identityVerificationId },
-        { withCredentials: true },
-      );
-
-      if (!response.data?.verified) {
+      if (!data?.verified) {
         alert("PASS 휴대폰 인증에 실패했습니다.");
 
         return;
@@ -178,10 +172,10 @@ function PassAuth({ phone, onSuccess, className }: PassAuthProps) {
 
       onSuccess({
         identityVerificationId,
-        name: response.data.name,
-        phoneNumber: response.data.phoneNumber,
-        membershipStatus: response.data.membershipStatus,
-        signupAllowed: response.data.signupAllowed,
+        name: data.name ?? "",
+        phoneNumber: data.phoneNumber ?? "",
+        membershipStatus: data.membershipStatus,
+        signupAllowed: data.signupAllowed,
       });
     } catch (error) {
       console.error("PASS 인증 오류", error);

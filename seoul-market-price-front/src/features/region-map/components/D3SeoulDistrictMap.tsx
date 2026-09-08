@@ -370,7 +370,6 @@ export default function D3SeoulDistrictMap({
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         preserveAspectRatio="xMidYMid meet"
         className={`block h-full w-full touch-none ${canPan ? (isDragging ? "cursor-grabbing" : "cursor-grab") : ""}`}
-        role="img"
         aria-label="서울 자치구별 평균 매매가 지도"
         onPointerDown={(event) => {
           if (!canPan || event.button !== 0) return;

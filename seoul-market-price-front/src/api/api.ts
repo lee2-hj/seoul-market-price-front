@@ -118,36 +118,13 @@ export interface CurrentDistrictResponse {
 export async function agreeToLocationServiceApi(
   agreed: boolean = true,
 ): Promise<MemberMeResponse> {
-  const requestBody = { agreed };
+  // 백엔드는 위치 동의 여부를 boolean이 아닌 DB 컬럼 값(0: 미동의, 1: 동의)으로 받는다.
+  const response = await apiMiddleware.patch<MemberMeResponse>(
+    "/api/members/me/location-consent",
+    { agreed: agreed ? 1 : 0 },
+  );
 
-  // TODO(debug): location-consent 400 원인 파악용 임시 로그. 원인 확인 후 제거할 것.
-  console.log("[DEBUG] PATCH /api/members/me/location-consent request body:", requestBody);
-
-  try {
-    const response = await apiMiddleware.patch<MemberMeResponse>(
-      "/api/members/me/location-consent",
-      requestBody,
-    );
-
-    // TODO(debug): 성공 응답도 함께 남겨 필드명이 기대와 맞는지 확인.
-    console.log("[DEBUG] location-consent success response:", response.status, response.data);
-
-    return response.data;
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      // TODO(debug): 백엔드가 실제로 기대하는 필드명/에러 메시지를 확인하기 위한 임시 로그.
-      console.error("[DEBUG] location-consent error status:", error.response?.status);
-      console.error("[DEBUG] location-consent error response body:", error.response?.data);
-      console.error("[DEBUG] location-consent request config:", {
-        url: error.config?.url,
-        method: error.config?.method,
-        data: error.config?.data,
-      });
-    } else {
-      console.error("[DEBUG] location-consent non-axios error:", error);
-    }
-    throw error;
-  }
+  return response.data;
 }
 
 export async function getCurrentDistrictApi(
@@ -369,6 +346,31 @@ export async function checkMemberApi(
         phone,
       },
     },
+  );
+
+  return response.data;
+}
+
+// ===============================
+// PASS 휴대폰 본인인증 결과 확인
+// ===============================
+
+// 프론트가 알려준 성공 여부를 그대로 믿지 않고, 발급된 identityVerificationId로
+// 백엔드가 포트원 서버에 직접 조회해 검증한 결과만 신뢰한다.
+export interface PhoneVerificationConfirmResponse {
+  verified: boolean;
+  name?: string;
+  phoneNumber?: string;
+  membershipStatus?: "NEW" | "ACTIVE" | "WITHDRAWN";
+  signupAllowed?: boolean;
+}
+
+export async function confirmPhoneVerificationApi(
+  identityVerificationId: string,
+): Promise<PhoneVerificationConfirmResponse> {
+  const response = await apiMiddleware.post<PhoneVerificationConfirmResponse>(
+    "/api/members/phone-verification/confirm",
+    { identityVerificationId },
   );
 
   return response.data;
@@ -872,6 +874,9 @@ export interface DongItem {
   sggCd?: string;
 }
 
+export type SggResponse = SggItem;
+export type DongResponse = DongItem;
+
 /**
  * 서울 자치구 목록 조회 API (GET /api/location/sggs)
  */
@@ -947,6 +952,9 @@ export async function getDongsApi(sggCd: string): Promise<DongItem[]> {
     return [];
   }
 }
+
+export const getSggs = getSggsApi;
+export const getDongs = getDongsApi;
 
 /* ==========================================
    아파트 단지 시세 및 실거래가 API
@@ -1257,7 +1265,7 @@ export type DistrictRankingResponse = {
 
 export type NaturalRegionCandidate = DongRegionResponse & { slot: number };
 export type NaturalSearchResponse = {
-  status: "SUCCESS" | "NEED_CLARIFICATION" | "ERROR";
+  status: "SUCCESS" | "PARTIAL_DATA" | "NEED_CLARIFICATION" | "ERROR";
   intent?:
   | "PRICE_COMPARISON"
   | "SINGLE_REGION"
@@ -1277,6 +1285,7 @@ export type NaturalSearchResponse = {
   errorCode?: string;
   interpretation?: SearchInterpretation;
   inheritedFromContext?: string[];
+  dataQualityWarnings?: string[];
 };
 
 export async function searchNaturalWithAiApi(
@@ -1342,16 +1351,32 @@ export type MainPageTradingApartment = {
   pyeong?: number;
 };
 
+export type MainPageAptRecentRankItem = {
+  apt_name: string;
+  exclusive_area_m2: number;
+  pyeong: number;
+  floor: number;
+  trade_amount: number;
+};
+
+export type MainPageAptRecentRank = {
+  sgg_cd: string;
+  sgg_nm: string;
+  dong_cd: string;
+  dong_nm: string;
+  top: MainPageAptRecentRankItem[];
+  bottom: MainPageAptRecentRankItem[];
+};
+
 export type MainPageResponse = {
   cgg_cd: string;
-  period_start: string;
-  period_end: string;
   seoul_top5_districts: MainPageDistrict[];
   price_change_top5: MainPagePriceChangeTop5;
   preference_price_trend: MainPagePriceTrend[];
   preference_top_trading_dongs: MainPageTradingDong[];
   preference_popular_dong: MainPagePopularDong | null;
   preference_top_trading_apts: MainPageTradingApartment[];
+  apt_recent_rank: MainPageAptRecentRank | null;
 };
 
 export async function getMainPageApi(

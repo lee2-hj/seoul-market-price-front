@@ -124,7 +124,6 @@ export function usePasswordChangeModal({
     setCurrentPassword,
     setNewPassword,
     setNewPasswordConfirm,
-    setPasswordError,
     handleOpenPasswordModal,
     handleClosePasswordModal,
     handleSaveNewPassword,

@@ -12,8 +12,6 @@ export interface PriceChangeItem {
 }
 
 export interface MainPageViewData {
-  periodStart: string;
-  periodEnd: string;
   districts: DistrictPriceItem[];
   rising: PriceChangeItem[];
   falling: PriceChangeItem[];
@@ -48,9 +46,24 @@ export interface PreferenceTradingApartmentItem {
   pyeong?: number;
 }
 
+export interface PreferenceRecentTradeItem {
+  rank: number;
+  apartmentName: string;
+  tradeAmount: number;
+  pyeong: number;
+  floor: number;
+  exclusiveArea: number;
+}
+
+export interface PreferenceAptRecentRank {
+  top: PreferenceRecentTradeItem[];
+  bottom: PreferenceRecentTradeItem[];
+}
+
 export interface PreferenceDashboardData {
   priceTrend: PreferencePriceTrendItem[];
   topTradingDongs: PreferenceTradingDongItem[];
   popularDong: PreferencePopularDongItem | null;
   topTradingApartments: PreferenceTradingApartmentItem[];
+  aptRecentRank: PreferenceAptRecentRank;
 }

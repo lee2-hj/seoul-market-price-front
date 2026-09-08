@@ -1,9 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Building2, MapPinned } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardEmpty } from "@/features/main/components/DataCardState";
-import { useAutoRotatingTab } from "@/features/main/hooks/useAutoRotatingTab";
 import type {
   PreferenceTradingApartmentItem,
   PreferenceTradingDongItem,
@@ -50,11 +49,6 @@ function RankList({ rows }: { rows: RankListRow[] }) {
 
 type TradingRankingTab = "dong" | "apartment";
 
-// 매 렌더마다 새 배열을 만들어 넘기면 useAutoRotatingTab의 useEffect가
-// 의존성 배열 참조 변화로 매번 재구독되어 자동 순환 타이머가 불안정해진다.
-// 모듈 스코프 상수로 고정해 항상 동일한 참조를 넘긴다.
-const RANKING_TABS: readonly [TradingRankingTab, TradingRankingTab] = ["dong", "apartment"];
-
 export function PreferenceTradingDongsCard({
   titlePrefix = "내 선호지역",
   items,
@@ -64,8 +58,7 @@ export function PreferenceTradingDongsCard({
   items: PreferenceTradingDongItem[];
   topTradingApartments: PreferenceTradingApartmentItem[];
 }) {
-  const { mode: tab, selectMode: setTab, handleMouseEnter, handleMouseLeave } =
-    useAutoRotatingTab<TradingRankingTab>(RANKING_TABS);
+  const [tab, setTab] = useState<TradingRankingTab>("dong");
   const isDong = tab === "dong";
 
   const dongRows: RankListRow[] = useMemo(
@@ -98,11 +91,7 @@ export function PreferenceTradingDongsCard({
   const Icon = isDong ? MapPinned : Building2;
 
   return (
-    <Card
-      className="h-full rounded-2xl border-[#DCE8ED] bg-white shadow-[0_3px_12px_rgba(18,48,71,0.05)]"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
+    <Card className="h-full rounded-2xl border-[#DCE8ED] bg-white shadow-[0_3px_12px_rgba(18,48,71,0.05)]">
       <CardHeader className="border-b border-[#E8EFF2] p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -121,14 +110,11 @@ export function PreferenceTradingDongsCard({
 
           {/* 법정동/아파트 토글 버튼 */}
           <div
-            role="tablist"
             aria-label="거래량 TOP 5 기준 전환"
             className="flex shrink-0 items-center gap-2"
           >
             <button
               type="button"
-              role="tab"
-              aria-selected={isDong}
               onClick={() => setTab("dong")}
               className={`rounded-full border bg-white px-3 py-1.5 text-xs font-black shadow-xs transition-colors ${
                 isDong
@@ -140,8 +126,6 @@ export function PreferenceTradingDongsCard({
             </button>
             <button
               type="button"
-              role="tab"
-              aria-selected={!isDong}
               onClick={() => setTab("apartment")}
               className={`rounded-full border bg-white px-3 py-1.5 text-xs font-black shadow-xs transition-colors ${
                 !isDong

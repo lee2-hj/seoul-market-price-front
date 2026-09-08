@@ -6,20 +6,19 @@ import axios from "axios";
 import { isLogin } from "@/features/auth/utils/auth";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { CheckCircle2, ChevronRight } from "lucide-react";
-import { toast } from "sonner";
 import PassAuth from "@/features/auth/components/PassAuth";
 import {
   agreeToLocationServiceApi,
   deleteMyPreferredRegionApi,
   updateMemberMeApi,
   type MemberUpdateRequest,
+  getSggs,
+  type SggResponse,
 } from "@/api/api";
 import apiMiddleware from "@/api/middleware";
-import { getSggs, type SggResponse } from "@/features/location/services/locationService";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { REGION_STORAGE_KEY } from "@/features/region-map/utils/regionSelection";
 import { usePassAuth } from "./hooks/usePassAuth";
 import { usePasswordChangeModal } from "./hooks/usePasswordChangeModal";
@@ -44,6 +43,7 @@ type Profile = {
 };
 
 // 회원 정보 폼: 인적사항(Profile) + 선호 자치구를 하나의 react-hook-form으로 함께 관리한다.
+// 위치 서비스 동의는 확인 팝업 후 즉시 반영되는 별도 액션이라 이 폼 상태에는 포함하지 않는다.
 type ProfileForm = Profile & {
   preferredDistrict: string;
   selectedSggCd: string | null;
@@ -350,31 +350,6 @@ export default function MyProfilePage() {
     handleSaveNewPassword,
   } = usePasswordChangeModal({ isLoggedIn, phoneVerified, userId: rawUserId });
 
-  // 위치 서비스 사용 동의/철회 뮤테이션 (낙관적 업데이트 + 실패 시 롤백)
-  const locationConsentMutation = useMutation({
-    mutationFn: (agreed: boolean) => agreeToLocationServiceApi(agreed),
-    onMutate: (agreed: boolean) => {
-      const previousUser = useAuthStore.getState().user;
-      if (previousUser) {
-        useAuthStore.getState().setUser({ ...previousUser, isLocationAgreed: agreed });
-      }
-      return { previousUser };
-    },
-    onSuccess: (response) => {
-      const currentUser = useAuthStore.getState().user;
-      if (currentUser) {
-        useAuthStore.getState().setUser({ ...currentUser, isLocationAgreed: response.isLocationAgreed });
-      }
-      toast.success("정보 동의 설정이 변경되었습니다.");
-    },
-    onError: (_error, _agreed, context) => {
-      if (context?.previousUser) {
-        useAuthStore.getState().setUser(context.previousUser);
-      }
-      toast.error("위치 서비스 설정 변경에 실패했습니다. 잠시 후 다시 시도해 주세요.");
-    },
-  });
-
   const socialProvider = getSocialProviderName(rawUserId, loginType);
   const isSocialUser = isSocialAccount(rawUserId, loginType);
 
@@ -478,7 +453,11 @@ export default function MyProfilePage() {
   }, [authUser?.userId, emailValue, addressValue, detailAddressValue, preferredDistrict, selectedSggCd]);
 
   const updateMemberMutation = useMutation({
-    mutationFn: async ({ formData, shouldPatchMember, shouldClearPreferredRegion }: MemberUpdateVariables) => {
+    mutationFn: async ({
+      formData,
+      shouldPatchMember,
+      shouldClearPreferredRegion,
+    }: MemberUpdateVariables) => {
       if (shouldPatchMember) {
         const request: MemberUpdateRequest = {
           ...(dirtyFields.phone ? { phone: formData.phone, identityVerificationId } : {}),
@@ -555,6 +534,40 @@ export default function MyProfilePage() {
     },
   });
 
+  // 위치기반 서비스 이용약관 동의/철회. 버튼 클릭 즉시 반영하지 않고,
+  // 확인 팝업에서 승낙했을 때만 실제 요청을 보낸다.
+  const locationConsentMutation = useMutation({
+    mutationFn: (agreed: boolean) => agreeToLocationServiceApi(agreed),
+    onSuccess: (response) => {
+      if (authUser) {
+        useAuthStore.getState().setUser({ ...authUser, isLocationAgreed: response.isLocationAgreed });
+      }
+      alert(
+        response.isLocationAgreed
+          ? "위치기반 서비스 이용약관에 동의했습니다."
+          : "위치기반 서비스 이용약관 동의를 철회했습니다.",
+      );
+    },
+    onError: () => {
+      alert("위치 서비스 설정 변경에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    },
+  });
+
+  const handleLocationConsentClick = () => {
+    if (!isLoggedIn) {
+      alert("로그인 후 이용하실 수 있습니다.");
+      return;
+    }
+    const nextAgreed = !authUser?.isLocationAgreed;
+    const confirmed = window.confirm(
+      nextAgreed
+        ? "위치기반 서비스 이용약관에 동의하시겠습니까?"
+        : "위치기반 서비스 이용약관 동의를 철회하시겠습니까?",
+    );
+    if (!confirmed) return;
+    locationConsentMutation.mutate(nextAgreed);
+  };
+
   const handleCancelChanges = () => {
     removeStoredProfileDraft(authUser?.userId);
     reset();
@@ -587,7 +600,11 @@ export default function MyProfilePage() {
 
     if (!shouldPatchMember && !shouldClearPreferredRegion) return;
 
-    updateMemberMutation.mutate({ formData, shouldPatchMember, shouldClearPreferredRegion });
+    updateMemberMutation.mutate({
+      formData,
+      shouldPatchMember,
+      shouldClearPreferredRegion,
+    });
   };
 
   const handlePreferredDistrictChange = (value: string) => {
@@ -820,7 +837,7 @@ export default function MyProfilePage() {
                   />
                 </div>
                 {formState.errors.selectedSggCd && (
-                  <p className="text-[12px] text-[#C2410C]" role="alert">
+                  <p className="text-[12px] text-[#C2410C]" aria-live="assertive">
                     {formState.errors.selectedSggCd.message}
                   </p>
                 )}
@@ -829,23 +846,35 @@ export default function MyProfilePage() {
                 </p>
               </div>
 
-              {/* ROW 7: 위치기반 서비스 이용약관 동의 (정보 동의 API 연동) */}
+              {/* ROW 7: 위치기반 서비스 이용약관 동의 (확인 팝업에서 승낙해야 즉시 반영) */}
               <div className="flex items-center justify-between gap-3 w-full rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 h-[56px]">
                 <div className="min-w-0">
-                  <label htmlFor="location-service-switch" className="text-[14px] font-bold text-[#13202B] block">
+                  <span className="text-[14px] font-bold text-[#13202B] block">
                     위치기반 서비스 이용약관 동의
-                  </label>
+                  </span>
                   <p className="text-[12px] text-[#6B7280] mt-0.5">
-                    동의 시 현재 위치를 기반으로 관심 지역을 자동으로 인식합니다.
+                    {authUser?.isLocationAgreed
+                      ? "위치기반 서비스 이용약관에 동의한 상태입니다."
+                      : "위치기반 서비스 이용약관에 동의하지 않은 상태입니다."}
                   </p>
                 </div>
-                <Switch
-                  id="location-service-switch"
-                  checked={Boolean(authUser?.isLocationAgreed)}
+                <Button
+                  type="button"
+                  variant={authUser?.isLocationAgreed ? "outline" : "default"}
                   disabled={!isLoggedIn || locationConsentMutation.isPending}
-                  onCheckedChange={(checked) => locationConsentMutation.mutate(checked)}
-                  aria-label="위치기반 서비스 이용약관 동의"
-                />
+                  onClick={handleLocationConsentClick}
+                  className={
+                    authUser?.isLocationAgreed
+                      ? "h-9 shrink-0 border-[#DCE8ED] text-[#6B7280] text-[13px] font-bold"
+                      : "h-9 shrink-0 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[13px] font-bold"
+                  }
+                >
+                  {locationConsentMutation.isPending
+                    ? "처리 중..."
+                    : authUser?.isLocationAgreed
+                      ? "동의 변경"
+                      : "동의하기"}
+                </Button>
               </div>
             </div>
           </div>
@@ -858,7 +887,7 @@ export default function MyProfilePage() {
               <Button
                 type="submit"
                 disabled={!isLoggedIn || updateMemberMutation.isPending}
-                className="w-full sm:w-auto order-1 sm:order-2 h-[52px] px-10 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[16px] shadow-xs"
+                className="w-full sm:w-auto order-2 sm:order-1 h-[52px] px-10 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[16px] shadow-xs"
               >
                 {updateMemberMutation.isPending ? "저장 중..." : "회원 정보 저장"}
               </Button>
@@ -867,7 +896,7 @@ export default function MyProfilePage() {
                   type="button"
                   variant="outline"
                   onClick={handleCancelChanges}
-                  className="w-full sm:w-auto order-2 sm:order-1 h-[52px] px-8 border-[#DCE8ED] text-[#6B7280] text-[15px] shadow-xs"
+                  className="w-full sm:w-auto order-1 sm:order-2 h-[52px] px-8 border-[#DCE8ED] text-[#6B7280] text-[15px] shadow-xs"
                 >
                   변경 취소
                 </Button>

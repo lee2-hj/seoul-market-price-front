@@ -1,11 +1,12 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { TrendingUp } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardEmpty } from "@/features/main/components/DataCardState";
-import { usePriceChangeDisplay } from "@/features/main/hooks/usePriceChangeDisplay";
 import type { PriceChangeItem } from "@/features/main/types/mainPage.types";
 import { formatChangeRate } from "@/features/main/utils/mainPageFormat";
+
+type PriceChangeDisplayMode = "rising" | "falling";
 
 function PriceChangeTop5CardComponent({
   rising,
@@ -14,18 +15,13 @@ function PriceChangeTop5CardComponent({
   rising: PriceChangeItem[];
   falling: PriceChangeItem[];
 }) {
-  const { displayMode, selectDisplayMode, handleMouseEnter, handleMouseLeave } =
-    usePriceChangeDisplay();
+  const [displayMode, setDisplayMode] = useState<PriceChangeDisplayMode>("rising");
 
   const isRising = displayMode === "rising";
   const currentItems = isRising ? rising : falling;
 
   return (
-    <Card
-      className="h-full rounded-2xl border-[#DCE8ED] bg-white shadow-[0_3px_12px_rgba(18,48,71,0.05)]"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
+    <Card className="h-full rounded-2xl border-[#DCE8ED] bg-white shadow-[0_3px_12px_rgba(18,48,71,0.05)]">
       <CardHeader className="border-b border-[#E8EFF2] p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -44,15 +40,12 @@ function PriceChangeTop5CardComponent({
 
           {/* 상승/하락 토글 버튼 */}
           <div
-            role="tablist"
             aria-label="가격 변동 순위 전환"
             className="flex shrink-0 items-center gap-2"
           >
             <button
               type="button"
-              role="tab"
-              aria-selected={isRising}
-              onClick={() => selectDisplayMode("rising")}
+              onClick={() => setDisplayMode("rising")}
               className={`rounded-full border bg-white px-3 py-1.5 text-xs font-black shadow-xs transition-colors ${
                 isRising
                   ? "border-[#DC2626] text-[#DC2626]"
@@ -63,9 +56,7 @@ function PriceChangeTop5CardComponent({
             </button>
             <button
               type="button"
-              role="tab"
-              aria-selected={!isRising}
-              onClick={() => selectDisplayMode("falling")}
+              onClick={() => setDisplayMode("falling")}
               className={`rounded-full border bg-white px-3 py-1.5 text-xs font-black shadow-xs transition-colors ${
                 !isRising
                   ? "border-[#2563EB] text-[#2563EB]"

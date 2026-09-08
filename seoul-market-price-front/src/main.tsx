@@ -17,6 +17,9 @@ const queryClient = new QueryClient({
       gcTime: 1000 * 60 * 5,
       refetchOnWindowFocus: false,
       retry: 1,
+      // 기본값(지수 백오프, 1차 재시도 1초 뒤)은 서버가 이미 부하를 받고 있는
+      // 상황에서 너무 빨리 재요청해 부하를 더 키울 수 있다. 2초로 늦춘다.
+      retryDelay: 2000,
     },
   },
 })
