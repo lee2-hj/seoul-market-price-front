@@ -196,10 +196,9 @@ export default function BoardDetailPage() {
     }
   };
 
-  // 작성자 본인 및 관리자 권한 확인
+  // 작성자 본인 여부 확인
   const canModifyComment = (comment: BoardComment) => {
     if (!loginUser) return false;
-    if (loginUser.role === "ADMIN" || loginUser.role === "ROLE_ADMIN") return true;
 
     const targetName = normalizeIdentity(getCommentAuthorName(comment));
     const curName = normalizeIdentity(loginUser.name);
@@ -208,7 +207,6 @@ export default function BoardDetailPage() {
 
   const canModifyPost = (postAuthorId?: string, postAuthorName?: string) => {
     if (!loginUser) return false;
-    if (loginUser.role === "ADMIN") return true;
 
     const curId = normalizeIdentity(loginUser.userId);
     const targetId = normalizeIdentity(postAuthorId);

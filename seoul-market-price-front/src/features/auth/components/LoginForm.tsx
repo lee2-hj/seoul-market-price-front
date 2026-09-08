@@ -93,7 +93,7 @@ function LoginForm() {
 
           name: data.name,
 
-          role: data.role || "",
+          role: "",
         },
         data.accessToken,
       );
@@ -103,7 +103,7 @@ function LoginForm() {
       useAuthStore.getState().setUser({
         userId: me.userId,
         name: me.name,
-        role: me.role || data.role || "",
+        role: "",
         myGu: me.myGu,
         myGuCode: me.myGuCode,
         preferredDistrict: me.preferredDistrict,

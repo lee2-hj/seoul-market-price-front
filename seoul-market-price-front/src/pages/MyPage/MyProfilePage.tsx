@@ -18,7 +18,6 @@ import { getSggs, type SggResponse } from "@/features/location/services/location
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { REGION_STORAGE_KEY } from "@/features/region-map/utils/regionSelection";
 import { usePassAuth } from "./hooks/usePassAuth";
 import { usePasswordChangeModal } from "./hooks/usePasswordChangeModal";
@@ -42,13 +41,11 @@ type Profile = {
   detailAddress: string;
 };
 
-// 회원 정보 폼: 인적사항(Profile) + 선호 자치구 + 위치 서비스 동의를 하나의
-// react-hook-form으로 함께 관리한다. 위치 동의 스위치도 다른 필드와 마찬가지로
-// "회원 정보 저장" 버튼을 눌러야만 실제로 반영되도록 폼 상태로 다룬다.
+// 회원 정보 폼: 인적사항(Profile) + 선호 자치구를 하나의 react-hook-form으로 함께 관리한다.
+// 위치 서비스 동의는 확인 팝업 후 즉시 반영되는 별도 액션이라 이 폼 상태에는 포함하지 않는다.
 type ProfileForm = Profile & {
   preferredDistrict: string;
   selectedSggCd: string | null;
-  isLocationAgreed: boolean;
 };
 
 type MyPageSettings = {
@@ -90,7 +87,6 @@ type MemberUpdateVariables = {
   formData: ProfileForm;
   shouldPatchMember: boolean;
   shouldClearPreferredRegion: boolean;
-  shouldUpdateLocationConsent: boolean;
 };
 
 const DEFAULT_PROFILE_FORM: ProfileForm = {
@@ -103,7 +99,6 @@ const DEFAULT_PROFILE_FORM: ProfileForm = {
   detailAddress: "",
   preferredDistrict: "",
   selectedSggCd: null,
-  isLocationAgreed: false,
 };
 
 // ============================================================
@@ -279,7 +274,6 @@ function getInitialProfileForm(authUser: ReturnType<typeof useAuthStore.getState
       userId: sanitizePlainText(authUser.userId) || sanitizePlainText(savedProfile.userId),
       preferredDistrict: authUser.myGu || saved?.preferredDistrict || "",
       selectedSggCd: authUser.myGuCode ?? null,
-      isLocationAgreed: Boolean(authUser.isLocationAgreed),
     };
   }
 
@@ -333,7 +327,6 @@ export default function MyProfilePage() {
   const detailAddressValue = watch("detailAddress");
   const rawUserId = watch("userId") || authUser?.userId || "";
   const loginType = watch("loginType");
-  const isLocationAgreedValue = watch("isLocationAgreed");
 
   // 1. PASS 본인인증 훅
   const { phoneVerified, identityVerificationId, handlePassSuccess, resetPassAuth } =
@@ -409,7 +402,6 @@ export default function MyProfilePage() {
       loginType: isSocial ? "SOCIAL" : "LOCAL",
       preferredDistrict: nextDistrict,
       selectedSggCd: nextSggCd,
-      isLocationAgreed: Boolean(authUser.isLocationAgreed),
     };
 
     queueMicrotask(() => {
@@ -464,7 +456,6 @@ export default function MyProfilePage() {
       formData,
       shouldPatchMember,
       shouldClearPreferredRegion,
-      shouldUpdateLocationConsent,
     }: MemberUpdateVariables) => {
       if (shouldPatchMember) {
         const request: MemberUpdateRequest = {
@@ -475,10 +466,6 @@ export default function MyProfilePage() {
           ...(formData.selectedSggCd ? { sgg_cd: formData.selectedSggCd } : {}),
         };
         await updateMemberMeApi(request);
-      }
-
-      if (shouldUpdateLocationConsent) {
-        await agreeToLocationServiceApi(formData.isLocationAgreed);
       }
 
       if (shouldClearPreferredRegion) {
@@ -500,7 +487,6 @@ export default function MyProfilePage() {
         loginType: isSocialAccount(response.userId, variables.formData.loginType) ? "SOCIAL" : "LOCAL",
         preferredDistrict: response.myGu ?? "",
         selectedSggCd: response.myGuCode ?? null,
-        isLocationAgreed: variables.formData.isLocationAgreed,
       };
 
       const previousSettings = getStoredMyPageSettings(response.userId);
@@ -525,7 +511,6 @@ export default function MyProfilePage() {
           myGuCode: response.myGuCode ?? null,
           preferredDistrict: response.preferredDistrict || undefined,
           myDong: response.myDong ?? null,
-          isLocationAgreed: variables.formData.isLocationAgreed,
         });
       }
 
@@ -548,6 +533,40 @@ export default function MyProfilePage() {
     },
   });
 
+  // 위치기반 서비스 이용약관 동의/철회. 버튼 클릭 즉시 반영하지 않고,
+  // 확인 팝업에서 승낙했을 때만 실제 요청을 보낸다.
+  const locationConsentMutation = useMutation({
+    mutationFn: (agreed: boolean) => agreeToLocationServiceApi(agreed),
+    onSuccess: (response) => {
+      if (authUser) {
+        useAuthStore.getState().setUser({ ...authUser, isLocationAgreed: response.isLocationAgreed });
+      }
+      alert(
+        response.isLocationAgreed
+          ? "위치기반 서비스 이용약관에 동의했습니다."
+          : "위치기반 서비스 이용약관 동의를 철회했습니다.",
+      );
+    },
+    onError: () => {
+      alert("위치 서비스 설정 변경에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    },
+  });
+
+  const handleLocationConsentClick = () => {
+    if (!isLoggedIn) {
+      alert("로그인 후 이용하실 수 있습니다.");
+      return;
+    }
+    const nextAgreed = !authUser?.isLocationAgreed;
+    const confirmed = window.confirm(
+      nextAgreed
+        ? "위치기반 서비스 이용약관에 동의하시겠습니까?"
+        : "위치기반 서비스 이용약관 동의를 철회하시겠습니까?",
+    );
+    if (!confirmed) return;
+    locationConsentMutation.mutate(nextAgreed);
+  };
+
   const handleCancelChanges = () => {
     removeStoredProfileDraft(authUser?.userId);
     reset();
@@ -569,7 +588,6 @@ export default function MyProfilePage() {
       dirtyFields.name || dirtyFields.phone || dirtyFields.email || dirtyFields.address || dirtyFields.detailAddress,
     );
     const isDistrictChanged = Boolean(dirtyFields.preferredDistrict || dirtyFields.selectedSggCd);
-    const shouldUpdateLocationConsent = Boolean(dirtyFields.isLocationAgreed);
 
     if (formData.preferredDistrict && !formData.selectedSggCd) {
       setError("selectedSggCd", { type: "manual", message: "목록에서 자치구를 다시 선택해 주세요." });
@@ -579,13 +597,12 @@ export default function MyProfilePage() {
     const shouldClearPreferredRegion = isDistrictChanged && !formData.preferredDistrict && !formData.selectedSggCd;
     const shouldPatchMember = isProfileChanged || (isDistrictChanged && Boolean(formData.selectedSggCd));
 
-    if (!shouldPatchMember && !shouldClearPreferredRegion && !shouldUpdateLocationConsent) return;
+    if (!shouldPatchMember && !shouldClearPreferredRegion) return;
 
     updateMemberMutation.mutate({
       formData,
       shouldPatchMember,
       shouldClearPreferredRegion,
-      shouldUpdateLocationConsent,
     });
   };
 
@@ -819,7 +836,7 @@ export default function MyProfilePage() {
                   />
                 </div>
                 {formState.errors.selectedSggCd && (
-                  <p className="text-[12px] text-[#C2410C]" role="alert">
+                  <p className="text-[12px] text-[#C2410C]" aria-live="assertive">
                     {formState.errors.selectedSggCd.message}
                   </p>
                 )}
@@ -828,23 +845,35 @@ export default function MyProfilePage() {
                 </p>
               </div>
 
-              {/* ROW 7: 위치기반 서비스 이용약관 동의 (다른 필드와 함께 "회원 정보 저장" 클릭 시 반영) */}
+              {/* ROW 7: 위치기반 서비스 이용약관 동의 (확인 팝업에서 승낙해야 즉시 반영) */}
               <div className="flex items-center justify-between gap-3 w-full rounded-[8px] border border-[#DCE8ED] bg-white px-3.5 h-[56px]">
                 <div className="min-w-0">
-                  <label htmlFor="location-service-switch" className="text-[14px] font-bold text-[#13202B] block">
+                  <span className="text-[14px] font-bold text-[#13202B] block">
                     위치기반 서비스 이용약관 동의
-                  </label>
+                  </span>
                   <p className="text-[12px] text-[#6B7280] mt-0.5">
-                    위치기반 서비스 이용약관에 동의합니다.
+                    {authUser?.isLocationAgreed
+                      ? "위치기반 서비스 이용약관에 동의한 상태입니다."
+                      : "위치기반 서비스 이용약관에 동의하지 않은 상태입니다."}
                   </p>
                 </div>
-                <Switch
-                  id="location-service-switch"
-                  checked={isLocationAgreedValue}
-                  disabled={!isLoggedIn}
-                  onCheckedChange={(checked) => setValue("isLocationAgreed", checked, { shouldDirty: true })}
-                  aria-label="위치기반 서비스 이용약관 동의"
-                />
+                <Button
+                  type="button"
+                  variant={authUser?.isLocationAgreed ? "outline" : "default"}
+                  disabled={!isLoggedIn || locationConsentMutation.isPending}
+                  onClick={handleLocationConsentClick}
+                  className={
+                    authUser?.isLocationAgreed
+                      ? "h-9 shrink-0 border-[#DCE8ED] text-[#6B7280] text-[13px] font-bold"
+                      : "h-9 shrink-0 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[13px] font-bold"
+                  }
+                >
+                  {locationConsentMutation.isPending
+                    ? "처리 중..."
+                    : authUser?.isLocationAgreed
+                      ? "동의 변경"
+                      : "동의하기"}
+                </Button>
               </div>
             </div>
           </div>

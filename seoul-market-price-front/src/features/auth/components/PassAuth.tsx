@@ -142,9 +142,7 @@ function PassAuth({ phone, onSuccess, className }: PassAuthProps) {
       });
 
       if (result?.code != null) {
-        // 사용자가 취소했거나 PG사에서 인증에 실패한 경우
-        alert(result.message ?? "PASS 인증이 취소되었습니다.");
-
+        // 사용자가 취소했거나 PG사에서 인증에 실패한 경우 — 별도 안내 없이 조용히 종료한다.
         return;
       }
 

@@ -14,7 +14,7 @@ export function CardSkeleton({ rows = 5 }: { rows?: number }) {
 
 export function CardError({ onRetry }: { onRetry: () => void }) {
   return (
-    <div role="alert" className="flex min-h-52 flex-col items-center justify-center gap-3 text-center">
+    <div aria-live="assertive" className="flex min-h-52 flex-col items-center justify-center gap-3 text-center">
       <AlertCircle className="size-8 text-[#DC2626]" aria-hidden="true" />
       <div>
         <p className="m-0 font-bold text-[#13202B]">데이터를 불러오지 못했습니다</p>

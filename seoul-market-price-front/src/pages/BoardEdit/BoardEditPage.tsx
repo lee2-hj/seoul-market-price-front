@@ -134,7 +134,6 @@ export default function BoardEditPage() {
 
   useEffect(() => {
     if (post && isAuthInitialized) {
-      const role = String(loginUser?.role || "").toUpperCase();
       const userKeys = [loginUser?.userId, loginUser?.name]
         .filter(Boolean)
         .map((s) => String(s).trim().toLowerCase());
@@ -146,9 +145,7 @@ export default function BoardEditPage() {
 
       const isAuthor =
         Boolean(loginUser) &&
-        (role === "ADMIN" ||
-          role === "ROLE_ADMIN" ||
-          postKeys.length === 0 ||
+        (postKeys.length === 0 ||
           userKeys.some((uk) =>
             postKeys.some((pk) => uk === pk || uk.includes(pk) || pk.includes(uk)),
           ));

@@ -77,7 +77,7 @@ export default function PasswordChangeModal({
           </div>
 
           {passwordError && (
-            <p className="text-[13px] text-rose-500 font-bold" role="alert">
+            <p className="text-[13px] text-rose-500 font-bold" aria-live="assertive">
               {passwordError}
             </p>
           )}

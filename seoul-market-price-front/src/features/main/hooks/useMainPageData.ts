@@ -26,6 +26,9 @@ export function useMainPageData(guCode: string, enabled = true) {
     },
     enabled: enabled && isValidCode,
     staleTime: 5 * 60 * 1000,
+    // 무한 재시도/과도한 부하를 막기 위해 1회로 제한하고, 서버가 이미 느린
+    // 상황을 감안해 재시도 전 2초 대기한다.
     retry: 1,
+    retryDelay: 2000,
   });
 }

@@ -99,7 +99,7 @@ function MainHeroSearchComponent() {
               )}
               {ai.error && (
                 <div
-                  role="alert"
+                  aria-live="assertive"
                   className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-[#FFF1F2] px-3 py-2 text-sm text-[#B42318]"
                 >
                   <span className="min-w-0 flex-1">{ai.error}</span>

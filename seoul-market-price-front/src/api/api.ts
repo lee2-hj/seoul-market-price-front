@@ -1338,8 +1338,6 @@ export type MainPageAptRecentRank = {
 
 export type MainPageResponse = {
   cgg_cd: string;
-  period_start: string;
-  period_end: string;
   seoul_top5_districts: MainPageDistrict[];
   price_change_top5: MainPagePriceChangeTop5;
   preference_price_trend: MainPagePriceTrend[];

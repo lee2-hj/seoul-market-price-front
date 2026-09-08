@@ -24,8 +24,6 @@ function mapChangeItems(
 export function mapMainPageResponse(response: MainPageResponse): MainPageViewData {
   const priceChanges = response.price_change_top5;
   return {
-    periodStart: response.period_start ?? "",
-    periodEnd: response.period_end ?? "",
     districts: (response.seoul_top5_districts ?? []).slice(0, 5).map((item, index) => ({
       rank: index + 1,
       districtName: item.cgg_nm,

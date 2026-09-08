@@ -40,14 +40,11 @@ function PriceChangeTop5CardComponent({
 
           {/* 상승/하락 토글 버튼 */}
           <div
-            role="tablist"
             aria-label="가격 변동 순위 전환"
             className="flex shrink-0 items-center gap-2"
           >
             <button
               type="button"
-              role="tab"
-              aria-selected={isRising}
               onClick={() => setDisplayMode("rising")}
               className={`rounded-full border bg-white px-3 py-1.5 text-xs font-black shadow-xs transition-colors ${
                 isRising
@@ -59,8 +56,6 @@ function PriceChangeTop5CardComponent({
             </button>
             <button
               type="button"
-              role="tab"
-              aria-selected={!isRising}
               onClick={() => setDisplayMode("falling")}
               className={`rounded-full border bg-white px-3 py-1.5 text-xs font-black shadow-xs transition-colors ${
                 !isRising
