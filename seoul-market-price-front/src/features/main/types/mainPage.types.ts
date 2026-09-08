@@ -12,8 +12,6 @@ export interface PriceChangeItem {
 }
 
 export interface MainPageViewData {
-  periodStart: string;
-  periodEnd: string;
   districts: DistrictPriceItem[];
   rising: PriceChangeItem[];
   falling: PriceChangeItem[];

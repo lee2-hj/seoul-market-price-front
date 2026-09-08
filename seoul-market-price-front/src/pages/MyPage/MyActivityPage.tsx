@@ -597,13 +597,6 @@ export default function MyActivityPage() {
                   <p className="text-[13px] text-[#6B7280]">
                     게시판에서 새로운 게시글을 작성해보세요!
                   </p>
-                  <Link
-                    to="/board/write"
-                    className="inline-block px-5 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[13px] font-bold rounded-[8px] transition-colors shadow-xs no-underline"
-                    style={{ textDecoration: "none" }}
-                  >
-                    새 게시글 작성하러 가기 →
-                  </Link>
                 </div>
               )}
             </>
@@ -668,13 +661,6 @@ export default function MyActivityPage() {
                   <p className="text-[13px] text-[#6B7280]">
                     게시글을 읽고 자유롭게 댓글을 남겨보세요!
                   </p>
-                  <Link
-                    to="/board"
-                    className="inline-block px-5 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[13px] font-bold rounded-[8px] transition-colors shadow-xs no-underline"
-                    style={{ textDecoration: "none" }}
-                  >
-                    게시판 둘러보기 →
-                  </Link>
                 </div>
               )}
             </>
@@ -708,13 +694,6 @@ export default function MyActivityPage() {
                   <p className="text-[13px] text-[#6B7280]">
                     서비스 이용 중 궁금한 점을 질문해보세요!
                   </p>
-                  <Link
-                    to="/qna/write"
-                    className="inline-block px-5 py-2.5 bg-[#0F8AA8] hover:bg-[#0B5E73] text-white text-[13px] font-bold rounded-[8px] transition-colors shadow-xs no-underline"
-                    style={{ textDecoration: "none" }}
-                  >
-                    질의응답 작성하러 가기 →
-                  </Link>
                 </div>
               )}
             </>

@@ -71,7 +71,7 @@ export function PreferencePopularDongCard({
             </span>
             <div className="min-w-0">
               <CardTitle className="text-base font-black text-[#123047]">
-                {titlePrefix ? `${titlePrefix} 아파트 실거래가` : "아파트 실거래가"}
+                {item?.dongName ? `${item.dongName} 아파트 실거래가` : "아파트 실거래가"}
               </CardTitle>
               <p className="mb-0 mt-0.5 text-xs text-[#6B7280]">아파트별 최근 거래 금액</p>
             </div>
