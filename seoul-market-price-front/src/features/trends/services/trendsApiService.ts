@@ -1,5 +1,5 @@
 import apiMiddleware from "@/api/middleware";
-import { getDongs, getSggs } from "@/features/location/services/locationService";
+import { getDongs, getSggs } from "@/api/api";
 
 export interface RegionPriceSummary {
   code: string;

@@ -11,7 +11,7 @@ import {
 import SeoulDistrictMap from "@/features/region-map/components/D3SeoulDistrictMap";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { getLocalPreferredDistrict } from "@/features/member/utils/preferredDistrictStorage";
-import { getDongs, getSggs } from "@/features/location/services/locationService";
+import { getDongs, getSggs } from "@/api/api";
 import {
   getApartmentPriceRanking,
   getFastApiDistrictPrices,
