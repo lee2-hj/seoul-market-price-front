@@ -116,7 +116,7 @@ export default function BoardManagePage() {
               </tr>
             ) : (
               posts.map((post) => (
-                <tr key={post.id}>
+                <tr key={post.boardId}>
                   <td style={{ color: "var(--admin-text-muted)", textAlign: "center" }}>
                     {post.boardId}
                   </td>
