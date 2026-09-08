@@ -1383,9 +1383,11 @@ export async function getMainPageApi(
   request: MainPageRequest = {},
 ): Promise<MainPageResponse> {
   const guCode = request.guCode?.trim();
+  // 이 API는 다른 요청보다 응답이 오래 걸릴 수 있어, 공통 타임아웃(15초)보다
+  // 길게 90초를 개별 지정한다.
   const response = await apiMiddleware.get<MainPageResponse>(
     "/fastApi/mainpage",
-    guCode ? { params: { guCode } } : undefined,
+    { params: guCode ? { guCode } : undefined, timeout: 90000 },
   );
   return response.data;
 }
@@ -1644,7 +1646,9 @@ export async function getApartmentMarketTrendApi(
 ): Promise<ApartmentMarketTrendResponse> {
   const response = await apiMiddleware.get<ApartmentMarketTrendResponse>(
     "/fastApi/aptmkt",
-    { params: request },
+    // 이 API는 다른 요청보다 응답이 오래 걸릴 수 있어, 공통 타임아웃(15초)보다
+    // 길게 90초를 개별 지정한다.
+    { params: request, timeout: 90000 },
   );
   return response.data;
 }
