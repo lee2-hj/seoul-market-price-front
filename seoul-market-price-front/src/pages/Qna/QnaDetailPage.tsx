@@ -7,8 +7,9 @@ import { getLoginUser } from "@/features/auth/utils/auth";
 import type { AttachmentResponse, AttachmentDownloadResponse } from "@/features/board/types/board.types";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
+import BoardPageHeader from "@/features/board/components/BoardPageHeader";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, maskAuthorName } from "@/lib/utils";
 
 /* 1. TypeScript 타입 선언 */
 type QnaAttachmentFileType = {
@@ -220,7 +221,11 @@ export default function QnaDetailPage() {
   }, [navigate, id]);
 
   const handleNavigateList = useCallback(() => {
-    navigate("/qna");
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/qna");
+    }
   }, [navigate]);
 
   /* 첨부파일 다운로드 (API 및 Blob Fallback) */
@@ -283,10 +288,11 @@ export default function QnaDetailPage() {
       <div className="min-w-0 w-full bg-[#F8FAFC]">
         <main className="py-8">
           <section className="min-w-0">
-            <div className="mb-6">
-              <h1 className="text-[26px] font-black text-[#13202B] tracking-tight">Q&A 문의 상세</h1>
-              <p className="mt-1 text-[14px] text-[#6B7280] font-medium">등록하신 문의 내용과 답변을 확인하실 수 있습니다.</p>
-            </div>
+            <BoardPageHeader
+              eyebrow="SSABU CUSTOMER CENTER"
+              title="Q&A 문의 상세"
+              description="등록하신 문의 내용과 답변을 확인하실 수 있습니다."
+            />
 
             {isLoading ? (
               <div className="p-12 text-center text-[#6B7280] font-medium bg-white rounded-2xl border border-[#E2E8F0]">
@@ -313,7 +319,7 @@ export default function QnaDetailPage() {
                   <h2 className="text-[22px] font-black text-[#13202B] leading-snug tracking-tight mb-3">{qnaViewModel.title}</h2>
                   <div className="flex flex-wrap items-center gap-4 text-[13px] text-[#64748B] font-medium">
                     <span>
-                      작성자: <strong>{qnaViewModel.author}</strong>
+                      작성자: <strong>{maskAuthorName(qnaViewModel.author)}</strong>
                     </span>
                     <span>작성일: {qnaViewModel.formattedDate}</span>
                     <span>조회수: {qnaViewModel.views}</span>

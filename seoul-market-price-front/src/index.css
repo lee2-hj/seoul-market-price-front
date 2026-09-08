@@ -29,7 +29,7 @@
 }
 
 * { box-sizing: border-box; }
-html { min-width: 320px; min-height: 100%; background: var(--ssabu-bg); }
+html { min-width: 320px; min-height: 100%; background: var(--ssabu-bg); scrollbar-gutter: stable; }
 body { min-width: 320px; min-height: 100%; margin: 0; background: var(--ssabu-bg); }
 #root { min-height: 100vh; }
 .ai-result-modal-header > div > p:nth-child(2) { display: none; }
