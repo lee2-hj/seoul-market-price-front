@@ -6,7 +6,6 @@ import { useForm, useWatch } from "react-hook-form";
 import { Paperclip, Upload, FileText } from "lucide-react";
 import axios from "axios";
 import apiMiddleware from "@/api/middleware";
-import { getQnaAttachmentsApi, uploadQnaAttachmentsApi, deleteQnaAttachmentApi } from "@/api/api";
 import { getLoginUser, isLogin } from "@/features/auth/utils/auth";
 import type { AttachmentResponse } from "@/features/board/types/board.types";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
@@ -96,9 +95,19 @@ const getFileExtension = (fileName: string): string => {
   return lastDotIndex === -1 ? "" : fileName.slice(lastDotIndex + 1).toLowerCase();
 };
 
-/* 3. API 연동 함수 */
+/* 3. API 엔드포인트 은닉 및 API 연동 함수 */
+const getMaskedEndpoint = (token: string): string => {
+  try {
+    return atob(token);
+  } catch {
+    return "";
+  }
+};
+const URL_QNAS = getMaskedEndpoint("L2FwaS9xbmFz");
+const PATH_ATTACHMENTS = getMaskedEndpoint("YXR0YWNobWVudHM=");
+
 async function fetchQnaDetailApi(id: string): Promise<QnaDetailRawResponseType> {
-  const response = await apiMiddleware.get<QnaDetailRawResponseType>(`/api/qnas/${id}`);
+  const response = await apiMiddleware.get<QnaDetailRawResponseType>(`${URL_QNAS}/${id}`);
   if (response.data) return response.data;
   throw new Error("게시글을 찾을 수 없습니다.");
 }
@@ -112,15 +121,43 @@ async function updateQnaApi(id: number, data: UpdateQnaDtoType) {
     isPublic: data.publicQuestion,
   };
   try {
-    const response = await apiMiddleware.patch(`/api/qnas/${id}`, payload);
+    const response = await apiMiddleware.patch(`${URL_QNAS}/${id}`, payload);
     return response.data;
   } catch (err) {
     if (axios.isAxiosError(err) && (err.response?.status === 405 || err.response?.status === 404)) {
-      const putResponse = await apiMiddleware.put(`/api/qnas/${id}`, payload);
+      const putResponse = await apiMiddleware.put(`${URL_QNAS}/${id}`, payload);
       return putResponse.data;
     }
     throw err;
   }
+}
+
+async function getQnaAttachments(qnaId: number): Promise<AttachmentResponse[]> {
+  const response = await apiMiddleware.get<AttachmentResponse[]>(
+    `${URL_QNAS}/${qnaId}/${PATH_ATTACHMENTS}`
+  );
+  return response.data || [];
+}
+
+async function uploadQnaAttachments(qnaId: number, files: File[]): Promise<AttachmentResponse[]> {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append("files", file);
+  });
+  const response = await apiMiddleware.post<AttachmentResponse[]>(
+    `${URL_QNAS}/${qnaId}/${PATH_ATTACHMENTS}`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+  return response.data;
+}
+
+async function deleteQnaAttachment(qnaId: number, attachmentId: number): Promise<void> {
+  await apiMiddleware.delete(`${URL_QNAS}/${qnaId}/${PATH_ATTACHMENTS}/${attachmentId}`);
 }
 
 /* 4. QnA 수정 폼 서브 컴포넌트 */
@@ -146,7 +183,7 @@ function QnaEditForm({ post }: { post: QnaDetailRawResponseType }) {
 
   const { data: serverAttachments = [] } = useQuery({
     queryKey: ["qnaAttachments", post.id],
-    queryFn: () => getQnaAttachmentsApi(post.id),
+    queryFn: () => getQnaAttachments(post.id),
     enabled: !!post.id,
     select: (data: QnaAttachmentItemType[]): QnaAttachmentItemType[] => {
       return Array.isArray(data) ? data : [];
@@ -197,7 +234,7 @@ function QnaEditForm({ post }: { post: QnaDetailRawResponseType }) {
       if (deletedAttachmentIds.length > 0) {
         for (const attId of deletedAttachmentIds) {
           try {
-            await deleteQnaAttachmentApi(post.id, attId);
+            await deleteQnaAttachment(post.id, attId);
           } catch {
             /* 무시 */
           }
@@ -205,7 +242,7 @@ function QnaEditForm({ post }: { post: QnaDetailRawResponseType }) {
       }
       if (newFiles.length > 0) {
         try {
-          await uploadQnaAttachmentsApi(post.id, newFiles);
+          await uploadQnaAttachments(post.id, newFiles);
         } catch {
           /* 무시 */
         }

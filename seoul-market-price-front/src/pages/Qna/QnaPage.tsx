@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useForm, useWatch } from "react-hook-form";
 import { PenSquare } from "lucide-react";
 import { getLoginUser, isLogin } from "@/features/auth/utils/auth";
-import { getQnasApi } from "@/api/api";
+import apiMiddleware from "@/api/middleware";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -51,7 +51,28 @@ type QnaMobileCardPropsType = {
   isAdmin?: boolean;
 };
 
-/* 2. 게시글 정렬 헬퍼 함수 */
+/* 2. API 엔드포인트 은닉 및 조회 함수 */
+const getMaskedEndpoint = (token: string): string => {
+  try {
+    return atob(token);
+  } catch {
+    return "";
+  }
+};
+const URL_QNAS = getMaskedEndpoint("L2FwaS9xbmFz");
+
+async function fetchQnas(page: number = 0, size: number = 100, keyword?: string) {
+  const response = await apiMiddleware.get(URL_QNAS, {
+    params: {
+      page,
+      size,
+      keyword: keyword?.trim() || undefined,
+    },
+  });
+  return response.data;
+}
+
+/* 3. 게시글 정렬 헬퍼 함수 */
 const sortPosts = (a: QnaPostType, b: QnaPostType): number => {
   const dateA = a.date && a.date !== "-" ? a.date : "0000.00.00";
   const dateB = b.date && b.date !== "-" ? b.date : "0000.00.00";
@@ -59,7 +80,7 @@ const sortPosts = (a: QnaPostType, b: QnaPostType): number => {
   return b.id - a.id;
 };
 
-/* 3. 테이블 및 모바일 카드 서브 컴포넌트 */
+/* 4. 테이블 및 모바일 카드 서브 컴포넌트 */
 function QnaRow({ item, displayNo, onClick, currentUserId, isAdmin }: QnaRowPropsType) {
   const answered = typeof item.answer === "string" && item.answer.trim().length > 0;
   const isSecret = item.publicQuestion === false || item.isPublic === false;
@@ -192,7 +213,7 @@ export default function QnaPage() {
   /* TanStack Query: QnA 목록 조회 및 Select 변환 */
   const { data: serverQnas = [], isLoading } = useQuery<unknown, Error, QnaPostType[]>({
     queryKey: ["qnas"],
-    queryFn: () => getQnasApi(0, 100),
+    queryFn: () => fetchQnas(0, 100),
     select: (serverResponse: unknown): QnaPostType[] => {
       if (!serverResponse) return [];
       const res = serverResponse as Record<string, unknown>;
