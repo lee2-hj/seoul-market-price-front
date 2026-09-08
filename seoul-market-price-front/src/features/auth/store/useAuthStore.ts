@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 /* accessToken은 HttpOnly 쿠키로도 내려오지만, 백엔드 인증은 쿠키가 아니라
-   Authorization: Bearer 헤더만 검사한다(쿠키만으로 /api/members/me를
+   Authorization: Bearer 헤더만 검사한다(쿠키만으로 me를
    호출하면 401). 로그인/재발급 응답 바디에 담겨 오는 accessToken 값을
    메모리(zustand)에만 잠깐 들고 있다가 요청 헤더에 실어 보낸다.
    XSS 위험을 줄이기 위해 localStorage 등에는 절대 영속화하지 않고,
