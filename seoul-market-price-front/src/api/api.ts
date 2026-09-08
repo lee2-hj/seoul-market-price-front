@@ -352,6 +352,31 @@ export async function checkMemberApi(
 }
 
 // ===============================
+// PASS 휴대폰 본인인증 결과 확인
+// ===============================
+
+// 프론트가 알려준 성공 여부를 그대로 믿지 않고, 발급된 identityVerificationId로
+// 백엔드가 포트원 서버에 직접 조회해 검증한 결과만 신뢰한다.
+export interface PhoneVerificationConfirmResponse {
+  verified: boolean;
+  name?: string;
+  phoneNumber?: string;
+  membershipStatus?: "NEW" | "ACTIVE" | "WITHDRAWN";
+  signupAllowed?: boolean;
+}
+
+export async function confirmPhoneVerificationApi(
+  identityVerificationId: string,
+): Promise<PhoneVerificationConfirmResponse> {
+  const response = await apiMiddleware.post<PhoneVerificationConfirmResponse>(
+    "/api/members/phone-verification/confirm",
+    { identityVerificationId },
+  );
+
+  return response.data;
+}
+
+// ===============================
 // 인증 에러 확인
 // ===============================
 

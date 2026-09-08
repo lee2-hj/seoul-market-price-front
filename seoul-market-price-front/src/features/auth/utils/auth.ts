@@ -66,10 +66,10 @@ export function isLogin(): boolean {
 /* zustand 로그인 정보 복구
 
    새로고침 등으로 zustand(메모리)가 초기화되어 비어있을 때 시도한다.
-   accessToken이 없는 채로 /api/members/me를 호출하면 401이 나지만,
+   accessToken이 없는 채로 me를 호출하면 401이 나지만,
    axios 인터셉터가 이를 잡아 refreshToken(HttpOnly 쿠키)으로
-   /api/auth/reissue를 조용히 시도하고, 성공하면 새 accessToken을
-   zustand에 저장한 뒤 /api/members/me를 재시도해준다.
+   reissue를 조용히 시도하고, 성공하면 새 accessToken을
+   zustand에 저장한 뒤 me를 재시도해준다.
    refreshToken마저 없거나 만료된 경우(비로그인)에는 실패로 끝나고
    비로그인 상태로 확정한다. */
 
@@ -97,7 +97,7 @@ export async function ensureAuthLoaded(): Promise<void> {
   try {
     const me = await getMemberMeApi();
 
-    // /api/members/me 요청이 진행되는 동안 로그인이 완료되어
+    // me 요청이 진행되는 동안 로그인이 완료되어
     // zustand가 이미 채워졌다면, 뒤늦게 도착한 이 응답으로
     // 로그인 직후의 값을 덮어쓰면 안 된다.
     if (useAuthStore.getState().user) {
