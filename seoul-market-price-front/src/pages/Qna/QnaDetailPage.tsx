@@ -4,8 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Paperclip, Download, FileText } from "lucide-react";
 import apiMiddleware from "@/api/middleware";
 import { getLoginUser } from "@/features/auth/utils/auth";
-import { downloadQnaAttachmentApi } from "@/api/api";
-import type { AttachmentResponse } from "@/features/board/types/board.types";
+import type { AttachmentResponse, AttachmentDownloadResponse } from "@/features/board/types/board.types";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
 import { Button } from "@/components/ui/button";
@@ -80,15 +79,27 @@ const formatDate = (dateString?: string | null): string => {
   });
 };
 
-/* 3. API 요청 함수 */
+/* 3. API 엔드포인트 은닉 및 API 요청 함수 */
+const getMaskedEndpoint = (token: string): string => {
+  try {
+    return atob(token);
+  } catch {
+    return "";
+  }
+};
+const URL_QNAS = getMaskedEndpoint("L2FwaS9xbmFz");
+const PATH_FULL = getMaskedEndpoint("ZnVsbA==");
+const PATH_ATTACHMENTS = getMaskedEndpoint("YXR0YWNobWVudHM=");
+const PATH_DOWNLOAD = getMaskedEndpoint("ZG93bmxvYWQ=");
+
 async function fetchQnaDetailApi(id: string): Promise<QnaFullResponseType> {
-  const response = await apiMiddleware.get<QnaFullResponseType>(`/api/qnas/${id}/full`);
+  const response = await apiMiddleware.get<QnaFullResponseType>(`${URL_QNAS}/${id}/${PATH_FULL}`);
   if (response.data) return response.data;
   throw new Error("게시글을 찾을 수 없습니다.");
 }
 
 async function deleteQnaApi(id: number): Promise<void> {
-  await apiMiddleware.delete(`/api/qnas/${id}`);
+  await apiMiddleware.delete(`${URL_QNAS}/${id}`);
 }
 
 /* 4. 메인 QnA 상세 페이지 컴포넌트 */
@@ -218,14 +229,16 @@ export default function QnaDetailPage() {
 
       if (id && file.id) {
         try {
-          const res = await downloadQnaAttachmentApi(Number(id), Number(file.id));
-          const returnedUrl = res?.url || (res as unknown as Record<string, string>)?.downloadUrl;
+          const res = await apiMiddleware.get<AttachmentDownloadResponse>(
+            `${URL_QNAS}/${id}/${PATH_ATTACHMENTS}/${file.id}/${PATH_DOWNLOAD}`
+          );
+          const returnedUrl = res.data?.url || (res.data as unknown as Record<string, string>)?.downloadUrl;
           if (returnedUrl) {
             downloadUrl = returnedUrl;
-            downloadName = res.originalFilename || res.fileName || file.name || "download";
+            downloadName = res.data.originalFilename || res.data.fileName || file.name || "download";
           }
         } catch (apiErr) {
-          console.warn("downloadQnaAttachmentApi url fetch failed, fallback to blob:", apiErr);
+          console.warn("download attachment url fetch failed, fallback to blob:", apiErr);
         }
       }
 
@@ -241,7 +254,10 @@ export default function QnaDetailPage() {
       }
 
       if (id && file.id) {
-        const response = await apiMiddleware.get(`/api/qnas/${id}/attachments/${file.id}/download`, { responseType: "blob" });
+        const response = await apiMiddleware.get(
+          `${URL_QNAS}/${id}/${PATH_ATTACHMENTS}/${file.id}/${PATH_DOWNLOAD}`,
+          { responseType: "blob" }
+        );
         const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement("a");
         link.href = blobUrl;

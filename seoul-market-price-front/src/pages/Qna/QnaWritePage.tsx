@@ -7,7 +7,6 @@ import { Paperclip, Upload, FileText } from "lucide-react";
 import axios from "axios";
 import apiMiddleware from "@/api/middleware";
 import { getLoginUser, isLogin } from "@/features/auth/utils/auth";
-import { uploadQnaAttachmentsApi } from "@/api/api";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { CUSTOMER_CENTER_NAVIGATION } from "@/config/sectionNavigation";
 import { Button } from "@/components/ui/button";
@@ -49,9 +48,36 @@ const getFileExtension = (fileName: string): string => {
   return lastDotIndex === -1 ? "" : fileName.slice(lastDotIndex + 1).toLowerCase();
 };
 
-/* 3. API 연동 함수 */
+/* 3. API 엔드포인트 은닉 및 연동 함수 */
+const getMaskedEndpoint = (token: string): string => {
+  try {
+    return atob(token);
+  } catch {
+    return "";
+  }
+};
+const URL_QNAS = getMaskedEndpoint("L2FwaS9xbmFz");
+const PATH_ATTACHMENTS = getMaskedEndpoint("YXR0YWNobWVudHM=");
+
 async function createQnaApi(data: CreateQnaDtoType): Promise<QnaCreateResultType> {
-  const response = await apiMiddleware.post("/api/qnas", data);
+  const response = await apiMiddleware.post(URL_QNAS, data);
+  return response.data;
+}
+
+async function uploadQnaAttachments(qnaId: number, files: File[]) {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append("files", file);
+  });
+  const response = await apiMiddleware.post(
+    `${URL_QNAS}/${qnaId}/${PATH_ATTACHMENTS}`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
   return response.data;
 }
 
@@ -100,7 +126,7 @@ export default function QnaWritePage() {
 
       if (attachedFiles.length > 0 && extractedId) {
         try {
-          await uploadQnaAttachmentsApi(Number(extractedId), attachedFiles);
+          await uploadQnaAttachments(Number(extractedId), attachedFiles);
         } catch (uploadErr) {
           const errMsg = axios.isAxiosError(uploadErr)
             ? uploadErr.response?.data?.message || uploadErr.message

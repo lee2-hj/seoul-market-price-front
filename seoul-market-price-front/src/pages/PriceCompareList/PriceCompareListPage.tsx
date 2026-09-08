@@ -4,41 +4,158 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Chart } from "react-google-charts";
 import { AlertCircle, BarChart3, Building2, Check, ChevronDown, Info, Loader2, RotateCcw, Search, Sparkles, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getSggsApi, getDongsApi, getRegionCompareApi, type SggItem, type DongItem, type RegionCompareResponse } from "@/api/api";
+import apiMiddleware, { type RetryableRequestConfig } from "@/api/middleware";
 import SectionSidebarLayout from "@/components/SectionSidebarLayout";
 import { PRICE_NAVIGATION } from "@/config/sectionNavigation";
 
 /* 1. 타입 및 세션 키 정의 */
+type SggItem = { sggCd: string; sggNm: string };
+type DongItem = { dongCd: string; dongNm: string; sggCd?: string };
+type RegionCompareSummary = {
+  avg_thing_amt: number;
+  avg_pyeong_amt: number | null;
+  total_count: number;
+};
+type RegionCompareResponse = {
+  base_date: string;
+  region1: RegionCompareSummary;
+  region2: RegionCompareSummary;
+};
+type RawLocationItem = string | {
+  sggCd?: string;
+  dongCd?: string;
+  code?: string;
+  sggNm?: string;
+  dongNm?: string;
+  name?: string;
+};
+type LocationApiResponse = RawLocationItem[] | { items?: RawLocationItem[] };
+
 interface MetricResult { avgPrice: number; avgPyeongPrice: number | null; totalCount?: number; }
 interface CompareResponse { r1: MetricResult; r2: MetricResult; baseDate?: string; }
 interface SelectedRegion { district: string; dong: string; sggCd?: string; dongCd?: string; }
 interface AutocompleteOption { label: string; value: string; code?: string; }
 const STORAGE_FORM_KEY = "price_compare_list_form"; const STORAGE_RESULT_KEY = "price_compare_list_result";
 
-/* 2. API 데이터 요청 헬퍼 함수 */
+/* 2. API 엔드포인트 은닉 및 연동 함수 */
+const getMaskedEndpoint = (token: string): string => {
+  try {
+    return atob(token);
+  } catch {
+    return "";
+  }
+};
+const URL_LOCATION_SGGS = getMaskedEndpoint("L2FwaS9sb2NhdGlvbi9zZ2dz");
+const URL_LOCATION_DONGS = getMaskedEndpoint("L2FwaS9sb2NhdGlvbi9kb25ncw==");
+const URL_REGION_COMPARE = getMaskedEndpoint("L2Zhc3RBcGkvY29tcGFyZQ==");
+
+async function fetchSggs(): Promise<SggItem[]> {
+  try {
+    const config: RetryableRequestConfig = { silentAuthCheck: true };
+    const response = await apiMiddleware.get<LocationApiResponse>(URL_LOCATION_SGGS, config);
+    const data = response.data;
+    if (Array.isArray(data)) {
+      return data.map((item: RawLocationItem) => {
+        if (typeof item === "string") {
+          return { sggCd: item, sggNm: item };
+        }
+        return {
+          sggCd: String(item.sggCd || item.code || item.sggNm || item.name || ""),
+          sggNm: String(item.sggNm || item.name || item.sggCd || ""),
+        };
+      });
+    }
+    if (data && Array.isArray(data.items)) {
+      return data.items.map((item: RawLocationItem) => {
+        if (typeof item === "string") {
+          return { sggCd: item, sggNm: item };
+        }
+        return {
+          sggCd: String(item.sggCd || item.code || item.sggNm || item.name || ""),
+          sggNm: String(item.sggNm || item.name || item.sggCd || ""),
+        };
+      });
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchDongs(sggCd: string): Promise<DongItem[]> {
+  if (!sggCd) return [];
+  try {
+    const config: RetryableRequestConfig = {
+      params: { sggCd },
+      silentAuthCheck: true,
+    };
+    const response = await apiMiddleware.get<LocationApiResponse>(URL_LOCATION_DONGS, config);
+    const data = response.data;
+    if (Array.isArray(data)) {
+      return data.map((item: RawLocationItem) => {
+        if (typeof item === "string") {
+          return { dongCd: item, dongNm: item, sggCd };
+        }
+        return {
+          dongCd: String(item.dongCd || item.code || item.dongNm || item.name || ""),
+          dongNm: String(item.dongNm || item.name || item.dongCd || ""),
+          sggCd: String(item.sggCd || sggCd),
+        };
+      });
+    }
+    if (data && Array.isArray(data.items)) {
+      return data.items.map((item: RawLocationItem) => {
+        if (typeof item === "string") {
+          return { dongCd: item, dongNm: item, sggCd };
+        }
+        return {
+          dongCd: String(item.dongCd || item.code || item.dongNm || item.name || ""),
+          dongNm: String(item.dongNm || item.name || item.dongCd || ""),
+          sggCd: String(item.sggCd || sggCd),
+        };
+      });
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchRegionCompare(request: { guCode1: string; dongCode1: string; guCode2: string; dongCode2: string }): Promise<RegionCompareResponse> {
+  const response = await apiMiddleware.get<RegionCompareResponse>(URL_REGION_COMPARE, { params: request });
+  return response.data;
+}
+
+/* 3. API 데이터 요청 헬퍼 함수 */
 async function fetchPriceCompareApi(payload: { r1: SelectedRegion; r2: SelectedRegion }): Promise<CompareResponse> {
   const { r1, r2 } = payload;
   if (!r1.sggCd || !r1.dongCd || !r2.sggCd || !r2.dongCd) throw new Error("비교할 두 지역의 자치구와 자치동을 모두 선택해 주세요.");
-  const res: RegionCompareResponse = await getRegionCompareApi({ guCode1: r1.sggCd, dongCode1: r1.dongCd, guCode2: r2.sggCd, dongCode2: r2.dongCd });
+  const res: RegionCompareResponse = await fetchRegionCompare({ guCode1: r1.sggCd, dongCode1: r1.dongCd, guCode2: r2.sggCd, dongCode2: r2.dongCd });
   const toMetric = (r: RegionCompareResponse["region1"]): MetricResult => ({ avgPrice: r.avg_thing_amt / 10000, avgPyeongPrice: r.avg_pyeong_amt ?? null, totalCount: r.total_count });
   return { baseDate: res.base_date, r1: toMetric(res.region1), r2: toMetric(res.region2) };
 }
 
-/* 3. 커스텀 훅 (Data Hooks) */
+/* 4. 커스텀 훅 (Data Hooks) */
 function useLocationData(r1SggCd: string, r2SggCd: string, r1District: string, r2District: string) {
-  const { data: sggList = [], isLoading: isSggLoading, isError: isSggError } = useQuery<SggItem[]>({ queryKey: ["locationSggs"], queryFn: getSggsApi, staleTime: Infinity });
+  const { data: sggList = [], isLoading: isSggLoading, isError: isSggError } = useQuery<SggItem[]>({ queryKey: ["locationSggs"], queryFn: fetchSggs, staleTime: Infinity });
   const sggOptions: AutocompleteOption[] = useMemo(() => [...sggList].sort((a, b) => a.sggNm.localeCompare(b.sggNm, "ko")).map((i) => ({ label: i.sggNm, value: i.sggNm, code: i.sggCd })), [sggList]);
-  const { data: r1Dongs = [], isLoading: isR1DongLoading } = useQuery<DongItem[]>({ queryKey: ["locationDongs", r1SggCd], queryFn: () => getDongsApi(r1SggCd), enabled: !!r1SggCd, staleTime: 1000 * 60 * 30 });
-  const { data: r2Dongs = [], isLoading: isR2DongLoading } = useQuery<DongItem[]>({ queryKey: ["locationDongs", r2SggCd], queryFn: () => getDongsApi(r2SggCd), enabled: !!r2SggCd, staleTime: 1000 * 60 * 30 });
+  const { data: r1Dongs = [], isLoading: isR1DongLoading } = useQuery<DongItem[]>({ queryKey: ["locationDongs", r1SggCd], queryFn: () => fetchDongs(r1SggCd), enabled: !!r1SggCd, staleTime: 1000 * 60 * 30 });
+  const { data: r2Dongs = [], isLoading: isR2DongLoading } = useQuery<DongItem[]>({ queryKey: ["locationDongs", r2SggCd], queryFn: () => fetchDongs(r2SggCd), enabled: !!r2SggCd, staleTime: 1000 * 60 * 30 });
   const r1DongOptions: AutocompleteOption[] = useMemo(() => (!r1District || !r1Dongs.length ? [] : [...r1Dongs].sort((a, b) => a.dongNm.localeCompare(b.dongNm, "ko")).map((d) => ({ label: d.dongNm, value: d.dongNm, code: d.dongCd }))), [r1District, r1Dongs]);
   const r2DongOptions: AutocompleteOption[] = useMemo(() => (!r2District || !r2Dongs.length ? [] : [...r2Dongs].sort((a, b) => a.dongNm.localeCompare(b.dongNm, "ko")).map((d) => ({ label: d.dongNm, value: d.dongNm, code: d.dongCd }))), [r2District, r2Dongs]);
   return { sggOptions, r1DongOptions, r2DongOptions, isSggLoading, isSggError, isR1DongLoading, isR2DongLoading };
 }
 
 function usePriceCompareMutation() {
-  const [appliedRegions, setAppliedRegions] = useState<{ r1: SelectedRegion; r2: SelectedRegion } | null>(() => { try { const s = sessionStorage.getItem(STORAGE_RESULT_KEY); return s ? JSON.parse(s).appliedRegions : null; } catch { return null; } });
-  const [cachedData, setCachedData] = useState<CompareResponse | null>(() => { try { const s = sessionStorage.getItem(STORAGE_RESULT_KEY); return s ? JSON.parse(s).data : null; } catch { return null; } });
-  const compareMutation = useMutation({ mutationFn: fetchPriceCompareApi, onSuccess: (data, vars) => { setAppliedRegions(vars); setCachedData(data); try { sessionStorage.setItem(STORAGE_RESULT_KEY, JSON.stringify({ data, appliedRegions: vars })); } catch { /* ignore */ } } });
+  const [appliedRegions, setAppliedRegions] = useState<{ r1: SelectedRegion; r2: SelectedRegion } | null>(null);
+  const [cachedData, setCachedData] = useState<CompareResponse | null>(null);
+  const compareMutation = useMutation({
+    mutationFn: fetchPriceCompareApi,
+    onSuccess: (data, vars) => {
+      setAppliedRegions(vars);
+      setCachedData(data);
+    },
+  });
   const compareData = compareMutation.data || cachedData; const r1Metrics = compareData?.r1; const r2Metrics = compareData?.r2; const baseDate = compareData?.baseDate || "기준일 정보 없음";
   const r1Label = useMemo(() => (!appliedRegions ? "" : `${appliedRegions.r1.district} ${appliedRegions.r1.dong}`), [appliedRegions]);
   const r2Label = useMemo(() => (!appliedRegions ? "" : `${appliedRegions.r2.district} ${appliedRegions.r2.dong}`), [appliedRegions]);
@@ -212,7 +329,16 @@ function SummaryCard({ avgDiffText, pyeongDiffText, r1Label, r2Label }: { avgDif
 /* 5. 메인 지역별 비교 페이지 컴포넌트 */
 export default function PriceCompareListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialForm = useMemo(() => { try { const s = sessionStorage.getItem(STORAGE_FORM_KEY); if (s) return JSON.parse(s); } catch { /* ignore */ } return { r1District: searchParams.get("r1District") || searchParams.get("gu1") || "", r1SggCd: searchParams.get("r1SggCd") || searchParams.get("guCode1") || "", r1Dong: searchParams.get("r1Dong") || searchParams.get("dong1") || "", r1DongCd: searchParams.get("r1DongCd") || searchParams.get("dongCode1") || "", r2District: searchParams.get("r2District") || searchParams.get("gu2") || "", r2SggCd: searchParams.get("r2SggCd") || searchParams.get("guCode2") || "", r2Dong: searchParams.get("r2Dong") || searchParams.get("dong2") || "", r2DongCd: searchParams.get("r2DongCd") || searchParams.get("dongCode2") || "" }; }, [searchParams]);
+  const initialForm = useMemo(() => ({
+    r1District: searchParams.get("r1District") || searchParams.get("gu1") || "",
+    r1SggCd: searchParams.get("r1SggCd") || searchParams.get("guCode1") || "",
+    r1Dong: searchParams.get("r1Dong") || searchParams.get("dong1") || "",
+    r1DongCd: searchParams.get("r1DongCd") || searchParams.get("dongCode1") || "",
+    r2District: searchParams.get("r2District") || searchParams.get("gu2") || "",
+    r2SggCd: searchParams.get("r2SggCd") || searchParams.get("guCode2") || "",
+    r2Dong: searchParams.get("r2Dong") || searchParams.get("dong2") || "",
+    r2DongCd: searchParams.get("r2DongCd") || searchParams.get("dongCode2") || "",
+  }), [searchParams]);
   const [r1District, setR1District] = useState(initialForm.r1District || "");
   const [r1SggCd, setR1SggCd] = useState(initialForm.r1SggCd || "");
   const [r1Dong, setR1Dong] = useState(initialForm.r1Dong || "");
@@ -222,7 +348,12 @@ export default function PriceCompareListPage() {
   const [r2Dong, setR2Dong] = useState(initialForm.r2Dong || "");
   const [r2DongCd, setR2DongCd] = useState(initialForm.r2DongCd || "");
 
-  useEffect(() => { try { sessionStorage.setItem(STORAGE_FORM_KEY, JSON.stringify({ r1District, r1SggCd, r1Dong, r1DongCd, r2District, r2SggCd, r2Dong, r2DongCd })); } catch { /* ignore */ } }, [r1District, r1SggCd, r1Dong, r1DongCd, r2District, r2SggCd, r2Dong, r2DongCd]);
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem(STORAGE_FORM_KEY);
+      sessionStorage.removeItem(STORAGE_RESULT_KEY);
+    } catch { /* ignore */ }
+  }, []);
 
   const { sggOptions, r1DongOptions, r2DongOptions, isSggLoading, isR1DongLoading, isR2DongLoading, isSggError } = useLocationData(r1SggCd, r2SggCd, r1District, r2District);
   const { compareMutation, appliedRegions, r1Metrics, r2Metrics, r1PyeongPrice, r2PyeongPrice, baseDate, r1Label, r2Label, avgDiffText, pyeongDiffText, resetCompare } = usePriceCompareMutation();
@@ -254,7 +385,7 @@ export default function PriceCompareListPage() {
                 </div>
                 <div className="flex flex-col justify-center gap-2">
                   <button type="submit" disabled={!canCompare || compareMutation.isPending} className="flex h-full min-h-[50px] items-center justify-center gap-2 rounded-[14px] bg-[#0F8AA8] p-4 font-black text-white hover:bg-[#0D7893] disabled:opacity-50 transition-all shadow-md shadow-[#0F8AA8]/20">
-                    {compareMutation.isPending ? <Loader2 className="size-5 animate-spin" /> : <Search className="size-5 stroke-[2.5]" />}<span>{compareMutation.isPending ? "시세 비교 분석 중..." : "시세 비교하기"}</span>
+                    {compareMutation.isPending ? <Loader2 className="size-5 animate-spin" /> : <Search className="size-5 stroke-[2.5]" />}<span>{compareMutation.isPending ? "조회 중..." : "조회하기"}</span>
                   </button>
                   <button type="button" onClick={handleResetForm} className="flex items-center justify-center gap-1.5 rounded-[10px] border border-slate-200 bg-[#FFFFFF] py-2 text-[12px] font-bold text-slate-600 hover:bg-slate-50 transition-colors">
                     <RotateCcw className="size-3.5" /><span>초기화</span>
@@ -268,7 +399,7 @@ export default function PriceCompareListPage() {
             ) : compareMutation.isError ? (
               <div className="rounded-[24px] border border-red-200 bg-red-50/80 p-10 text-center shadow-sm"><AlertCircle className="mx-auto mb-3 size-10 text-red-500" /><h4 className="text-[16px] font-black text-red-700">{compareMutation.error instanceof Error ? compareMutation.error.message : "시세 비교 데이터 조회 실패"}</h4></div>
             ) : !appliedRegions || !r1Metrics || !r2Metrics ? (
-              <div className="rounded-[24px] border border-slate-200/80 bg-white p-14 text-center shadow-[0_8px_30px_rgba(15,23,42,0.04)]"><div className="mx-auto mb-5 flex size-20 items-center justify-center rounded-3xl bg-gradient-to-br from-[#0F8AA8]/15 via-[#0F8AA8]/5 to-transparent text-[#0F8AA8] shadow-inner"><BarChart3 className="size-10 stroke-[1.8]" /></div><h3 className="text-[20px] font-black tracking-tight text-slate-900">자치구와 자치동을 모두 선택하고 &apos;시세 비교하기&apos;를 눌러주세요</h3></div>
+              <div className="rounded-[24px] border border-slate-200/80 bg-white p-14 text-center shadow-[0_8px_30px_rgba(15,23,42,0.04)]"><div className="mx-auto mb-5 flex size-20 items-center justify-center rounded-3xl bg-gradient-to-br from-[#0F8AA8]/15 via-[#0F8AA8]/5 to-transparent text-[#0F8AA8] shadow-inner"><BarChart3 className="size-10 stroke-[1.8]" /></div><h3 className="text-[20px] font-black tracking-tight text-slate-900">자치구와 자치동을 모두 선택하고 &apos;조회하기&apos;를 눌러주세요</h3></div>
             ) : (
               <div className="flex flex-col gap-6">
                 <div className="grid grid-cols-[1fr_360px] items-start gap-6 max-[1200px]:grid-cols-1">
