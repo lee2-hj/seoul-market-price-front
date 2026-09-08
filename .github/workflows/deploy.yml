@@ -24,6 +24,11 @@ jobs:
           context: ./seoul-market-price-front
           push: true
           tags: ghcr.io/lee2-hj/seoul-market-price-front:latest
+          build-args: |
+            VITE_KAKAO_MAP_JAVASCRIPT_KEY=${{ secrets.VITE_KAKAO_MAP_JAVASCRIPT_KEY }}
+            VITE_PORTONE_SDK_SRC=${{ secrets.VITE_PORTONE_SDK_SRC }}
+            VITE_PORTONE_STORE_ID=${{ secrets.VITE_PORTONE_STORE_ID }}
+            VITE_PORTONE_CHANNEL_KEY=${{ secrets.VITE_PORTONE_CHANNEL_KEY }}
       - name: Deploy to VM
         uses: appleboy/ssh-action@v1
         with:
