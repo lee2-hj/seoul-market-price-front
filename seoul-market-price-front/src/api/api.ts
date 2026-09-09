@@ -1184,6 +1184,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export type AiSearchResponse = {
   summary: string;
+  description?: string;
   keyPoints: string[];
   cautions: string[];
   criteria?: RankingCriteria;
@@ -1225,6 +1226,7 @@ export type TradeVolumeRankingResponse = {
   periodEnd: string;
   totalDealCount: number;
   criteria: RankingCriteria;
+  summary: string;
   items: Array<{
     rank: number;
     regionName?: string;
@@ -1241,6 +1243,8 @@ export type PriceRankingResponse = {
   metricType: "pyeong" | "thing_amt";
   baseDate?: string;
   criteria: RankingCriteria;
+  summary: string;
+  description?: string;
   items: Array<{
     rank: number;
     regionName?: string;
@@ -1258,6 +1262,7 @@ export type DistrictRankingResponse = {
   metricType: "district_pyeong";
   baseDate?: string;
   criteria: RankingCriteria;
+  summary: string;
   items: Array<{
     rank: number;
     districtName: string;
