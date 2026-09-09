@@ -14,9 +14,15 @@ export interface ResolvedMainRegion {
   displayBadge: string;
 }
 
-export function resolveMainRegion(user: AuthUser | null): ResolvedMainRegion {
+export function resolveMainRegion(
+  user: AuthUser | null,
+  detectedDistrictOverride?: { district: string; sggCd: string } | null,
+): ResolvedMainRegion {
   // 우선순위 1: 현재 위치 (로그인 여부 및 선호지역 존재 여부와 무관하게 최우선)
-  const detected = getValidDetectedDistrict();
+  const detected =
+    detectedDistrictOverride !== undefined
+      ? detectedDistrictOverride
+      : getValidDetectedDistrict();
   if (detected) {
     return {
       source: "location",
