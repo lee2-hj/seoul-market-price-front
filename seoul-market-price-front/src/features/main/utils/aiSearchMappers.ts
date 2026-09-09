@@ -68,6 +68,17 @@ export function toAiDisplayResult(result: AiSearchResult): AiSearchResponse {
     return {
       summary: `${result.regionName} ${metricLabel} 상위 아파트입니다.`,
       criteria: result.criteria,
+      rankingItems: result.items.map((item) => ({
+        rank: item.rank,
+        regionName: item.regionName,
+        apartmentName: item.apartmentName,
+        primaryLabel: metricLabel,
+        primaryValue: `${item.metricValue?.toLocaleString("ko-KR") ?? "-"}${metricUnit}`,
+        exclusiveAreaM2: item.exclusiveAreaM2,
+        pyeong: item.pyeong ?? (item.exclusiveAreaM2 != null ? item.exclusiveAreaM2 / 3.305785 : undefined),
+        dealCount: item.dealCount,
+        dealDate: item.dealDate,
+      })),
       keyPoints: result.items.map(
         (item) => `${item.rank}. ${item.regionName ? `${item.regionName} · ` : ""}${item.apartmentName} · ${metricLabel} ${item.metricValue?.toLocaleString("ko-KR") ?? "정보 없음"}${metricUnit} · 거래 ${item.dealCount}건`,
       ),

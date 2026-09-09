@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { BarChart3, ChevronDown, Headphones, LoaderCircle, LocateFixed, LogIn, Map, Menu, Search, UserRound, X } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import axios from "axios";
 import { agreeToLocationServiceApi, getCurrentDistrictApi } from "@/api/api";
@@ -82,6 +83,7 @@ function DesktopDropdown({ label, links, icon: Icon }: { label: string; links: M
 }
 
 export default function Header() {
+  const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const [open, setOpen] = useState(false);
   const [locating, setLocating] = useState(false);
@@ -108,12 +110,18 @@ export default function Header() {
     const normalizedRegion = nextRegion.trim();
     storeDetectedDistrict(normalizedRegion, sggCd);
     setDetectedDistrict(normalizedRegion);
+    void queryClient.invalidateQueries({ queryKey: ["main-page"] });
   };
 
   const handleLocate = async () => {
     if (locating) return;
 
-    if (!user?.isLocationAgreed) {
+    if (!isAuthenticated || !user) {
+      window.alert("로그인 후 이용할 수 있는 서비스입니다.");
+      return;
+    }
+
+    if (!user.isLocationAgreed) {
       const agreed = window.confirm(
         "위치 서비스 동의가 필요합니다. 동의하시겠습니까?",
       );
@@ -168,29 +176,30 @@ export default function Header() {
       const latitude = Number(latitudeValue);
       const longitude = Number(longitudeValue);
 
-      if (
-        latitudeValue === null || longitudeValue === null ||
-        !Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
-        !Number.isFinite(longitude) || longitude < -180 || longitude > 180
-      ) {
-        window.alert(
-          "개발자 도구에서 localStorage의 latitude와 longitude 값을 먼저 입력해 주세요.",
-        );
+      const hasValidTestCoords =
+        latitudeValue !== null &&
+        longitudeValue !== null &&
+        Number.isFinite(latitude) &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        Number.isFinite(longitude) &&
+        longitude >= -180 &&
+        longitude <= 180;
+
+      if (hasValidTestCoords) {
+        setLocating(true);
+        void updateDistrictFromCoordinates(latitude, longitude, "localStorage")
+          .catch((error) => {
+            const message = axios.isAxiosError(error)
+              ? error.response?.data?.message
+              : error instanceof Error
+                ? error.message
+                : undefined;
+            window.alert(message || "테스트 좌표의 자치구를 확인할 수 없습니다.");
+          })
+          .finally(() => setLocating(false));
         return;
       }
-
-      setLocating(true);
-      void updateDistrictFromCoordinates(latitude, longitude, "localStorage")
-        .catch((error) => {
-          const message = axios.isAxiosError(error)
-            ? error.response?.data?.message
-            : error instanceof Error
-              ? error.message
-              : undefined;
-          window.alert(message || "테스트 좌표의 자치구를 확인할 수 없습니다.");
-        })
-        .finally(() => setLocating(false));
-      return;
     }
 
     if (!navigator.geolocation) {

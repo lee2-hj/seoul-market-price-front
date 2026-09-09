@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -30,21 +31,24 @@ function LoadingCard() {
 }
 
 export default function MainPage() {
+  const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const isAuthInitialized = useAuthStore((state) => state.isInitialized);
-  const [, setDetectedDistrict] = useState(getValidDetectedDistrict);
+  const [detectedDistrict, setDetectedDistrict] = useState(getValidDetectedDistrict);
 
   useEffect(() => {
     const handleRegionChange = () => {
-      setDetectedDistrict(getValidDetectedDistrict());
+      const nextDistrict = getValidDetectedDistrict();
+      setDetectedDistrict(nextDistrict);
+      void queryClient.invalidateQueries({ queryKey: ["main-page"] });
     };
     window.addEventListener(REGION_CHANGED_EVENT, handleRegionChange);
     return () => {
       window.removeEventListener(REGION_CHANGED_EVENT, handleRegionChange);
     };
-  }, []);
+  }, [queryClient]);
 
-  const resolvedRegion = resolveMainRegion(user);
+  const resolvedRegion = resolveMainRegion(user, detectedDistrict);
 
   const mainPageQuery = useMainPageData(resolvedRegion.guCode, isAuthInitialized);
 
