@@ -1247,6 +1247,9 @@ export type PriceRankingResponse = {
     apartmentName: string;
     metricValue?: number;
     dealCount: number;
+    exclusiveAreaM2?: number;
+    pyeong?: number;
+    dealDate?: string;
   }>;
 };
 
