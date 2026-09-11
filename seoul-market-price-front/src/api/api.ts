@@ -1184,6 +1184,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export type AiSearchResponse = {
   summary: string;
+  description?: string;
   keyPoints: string[];
   cautions: string[];
   criteria?: RankingCriteria;
@@ -1225,6 +1226,7 @@ export type TradeVolumeRankingResponse = {
   periodEnd: string;
   totalDealCount: number;
   criteria: RankingCriteria;
+  summary: string;
   items: Array<{
     rank: number;
     regionName?: string;
@@ -1241,12 +1243,17 @@ export type PriceRankingResponse = {
   metricType: "pyeong" | "thing_amt";
   baseDate?: string;
   criteria: RankingCriteria;
+  summary: string;
+  description?: string;
   items: Array<{
     rank: number;
     regionName?: string;
     apartmentName: string;
     metricValue?: number;
     dealCount: number;
+    exclusiveAreaM2?: number;
+    pyeong?: number;
+    dealDate?: string;
   }>;
 };
 
@@ -1255,6 +1262,7 @@ export type DistrictRankingResponse = {
   metricType: "district_pyeong";
   baseDate?: string;
   criteria: RankingCriteria;
+  summary: string;
   items: Array<{
     rank: number;
     districtName: string;
@@ -1383,9 +1391,11 @@ export async function getMainPageApi(
   request: MainPageRequest = {},
 ): Promise<MainPageResponse> {
   const guCode = request.guCode?.trim();
+  // 이 API는 다른 요청보다 응답이 오래 걸릴 수 있어, 공통 타임아웃(15초)보다
+  // 길게 90초를 개별 지정한다.
   const response = await apiMiddleware.get<MainPageResponse>(
     "/fastApi/mainpage",
-    guCode ? { params: { guCode } } : undefined,
+    { params: guCode ? { guCode } : undefined, timeout: 90000 },
   );
   return response.data;
 }
@@ -1644,7 +1654,9 @@ export async function getApartmentMarketTrendApi(
 ): Promise<ApartmentMarketTrendResponse> {
   const response = await apiMiddleware.get<ApartmentMarketTrendResponse>(
     "/fastApi/aptmkt",
-    { params: request },
+    // 이 API는 다른 요청보다 응답이 오래 걸릴 수 있어, 공통 타임아웃(15초)보다
+    // 길게 90초를 개별 지정한다.
+    { params: request, timeout: 90000 },
   );
   return response.data;
 }

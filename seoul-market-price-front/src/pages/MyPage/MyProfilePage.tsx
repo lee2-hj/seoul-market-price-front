@@ -42,7 +42,7 @@ type Profile = {
   detailAddress: string;
 };
 
-// 회원 정보 폼: 인적사항(Profile) + 선호 자치구를 하나의 react-hook-form으로 함께 관리한다.
+// 회원 정보 폼: 인적사항 + 선호 자치구를 하나의 react-hook-form으로 함께 관리한다.
 // 위치 서비스 동의는 확인 팝업 후 즉시 반영되는 별도 액션이라 이 폼 상태에는 포함하지 않는다.
 type ProfileForm = Profile & {
   preferredDistrict: string;
@@ -368,7 +368,7 @@ export default function MyProfilePage() {
   // 선호지역 옵션 목록 ('선호지역 없음' 옵션 포함)
   const districtOptions = useMemo(() => ["선택 안 함", ...sggs.map((sgg) => sgg.sggNm)], [sggs]);
 
-  // authUser 변경 시 해당 사용자 고유의 프로필 및 설정 동기화
+  // 변경 시 해당 사용자 고유의 프로필 및 설정 동기화
   useEffect(() => {
     const authUserId = authUser?.userId;
     if (!authUserId) return;
@@ -392,11 +392,11 @@ export default function MyProfilePage() {
       ...DEFAULT_PROFILE_FORM,
       ...(memberData
         ? {
-            phone: formatPhoneNumber(memberData.phone ?? ""),
-            email: memberData.email ?? "",
-            address: memberData.address ?? "",
-            detailAddress: memberData.addressDetail ?? "",
-          }
+          phone: formatPhoneNumber(memberData.phone ?? ""),
+          email: memberData.email ?? "",
+          address: memberData.address ?? "",
+          detailAddress: memberData.addressDetail ?? "",
+        }
         : saved?.profile || {}),
       name: resolvedName,
       userId: resolvedUserId,
@@ -419,13 +419,13 @@ export default function MyProfilePage() {
       reset(
         latestDraft
           ? {
-              ...nextForm,
-              email: latestDraft.email,
-              address: latestDraft.address,
-              detailAddress: latestDraft.detailAddress,
-              preferredDistrict: draftDistrict ?? nextDistrict,
-              selectedSggCd: draftSggCd,
-            }
+            ...nextForm,
+            email: latestDraft.email,
+            address: latestDraft.address,
+            detailAddress: latestDraft.detailAddress,
+            preferredDistrict: draftDistrict ?? nextDistrict,
+            selectedSggCd: draftSggCd,
+          }
           : nextForm,
       );
       initializedDraftUserRef.current = normalizeIdentity(authUserId);
@@ -436,7 +436,7 @@ export default function MyProfilePage() {
     };
   }, [authUser, memberData, reset]);
 
-  // 새로고침(beforeunload) 없이도 입력 중인 값을 세션에 임시 저장(초안)한다.
+  // 새로고침 없이도 입력 중인 값을 세션에 임시 저장(초안)한다.
   useEffect(() => {
     const userId = normalizeIdentity(authUser?.userId);
     if (!userId || initializedDraftUserRef.current !== userId) return;
@@ -743,9 +743,8 @@ export default function MyProfilePage() {
                   readOnly={!phoneVerified}
                   disabled={!isLoggedIn}
                   placeholder={phoneVerified ? "이름을 입력해주세요 (숫자, 공백 불가)" : "본인인증 시 실명이 자동 입력됩니다"}
-                  className={`h-[48px] rounded-[8px] border-[#DCE8ED] px-3.5 text-[15px] ${
-                    phoneVerified ? "bg-white text-[#13202B] focus-visible:border-[#0F8AA8]" : "bg-[#F0F7FA] text-[#6B7280] cursor-not-allowed"
-                  }`}
+                  className={`h-[48px] rounded-[8px] border-[#DCE8ED] px-3.5 text-[15px] ${phoneVerified ? "bg-white text-[#13202B] focus-visible:border-[#0F8AA8]" : "bg-[#F0F7FA] text-[#6B7280] cursor-not-allowed"
+                    }`}
                 />
                 <p className="text-[12px] text-[#6B7280]">
                   {phoneVerified

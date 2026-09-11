@@ -319,11 +319,10 @@ function MyQnaItem({ qna }: { qna: QnaListResponse }) {
               </span>
             )}
             <span
-              className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full border shrink-0 ${
-                isAnswered
-                  ? "border-[#BBE3C4] bg-[#EDF9F0] text-[#23813A]"
-                  : "border-[#FAE3A8] bg-[#FFF8E6] text-[#B47500]"
-              }`}
+              className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full border shrink-0 ${isAnswered
+                ? "border-[#BBE3C4] bg-[#EDF9F0] text-[#23813A]"
+                : "border-[#FAE3A8] bg-[#FFF8E6] text-[#B47500]"
+                }`}
             >
               {isAnswered ? "답변완료" : "답변대기"}
             </span>
@@ -428,7 +427,7 @@ export default function MyActivityPage() {
     sessionStorage.setItem(activityTabKey, nextType);
   };
 
-  // 게시글 탭: 검색어(keyword) + 페이지 상태 (GET /api/boards/me)
+  // 게시글 탭: 검색어 + 페이지 상태 
   const [postPage, setPostPage] = useState(0);
   const [postKeywordInput, setPostKeywordInput] = useState("");
   const [postKeyword, setPostKeyword] = useState("");
@@ -452,7 +451,7 @@ export default function MyActivityPage() {
 
   const myPosts = boardData?.content ?? [];
 
-  // QnA 탭: 검색어(keyword) + 페이지 상태 (GET /api/qnas/me)
+  // QnA 탭: 검색어 + 페이지 상태 
   const [qnaPage, setQnaPage] = useState(0);
   const [qnaKeywordInput, setQnaKeywordInput] = useState("");
   const [qnaKeyword, setQnaKeyword] = useState("");
@@ -474,7 +473,6 @@ export default function MyActivityPage() {
   const myQnas = myQnaData?.content ?? [];
 
   // 댓글 탭: 페이지 상태만 사용한다.
-  // 백엔드 MyCommentSearchCondition에 keyword 필드가 없어 댓글 내 검색은 지원되지 않는다.
   const [commentPage, setCommentPage] = useState(0);
 
   const {
@@ -497,25 +495,25 @@ export default function MyActivityPage() {
     // "0건"처럼 잘못된 숫자를 보여주지 않고 배지 자체를 숨긴다.
     hasLoaded: boolean;
   }> = [
-    {
-      type: "POST",
-      label: "작성한 게시글",
-      count: boardData?.totalElements ?? 0,
-      hasLoaded: boardData !== undefined,
-    },
-    {
-      type: "COMMENT",
-      label: "작성한 댓글",
-      count: myCommentsData?.totalElements ?? 0,
-      hasLoaded: myCommentsData !== undefined,
-    },
-    {
-      type: "QNA",
-      label: "질의응답",
-      count: myQnaData?.totalElements ?? 0,
-      hasLoaded: myQnaData !== undefined,
-    },
-  ];
+      {
+        type: "POST",
+        label: "작성한 게시글",
+        count: boardData?.totalElements ?? 0,
+        hasLoaded: boardData !== undefined,
+      },
+      {
+        type: "COMMENT",
+        label: "작성한 댓글",
+        count: myCommentsData?.totalElements ?? 0,
+        hasLoaded: myCommentsData !== undefined,
+      },
+      {
+        type: "QNA",
+        label: "질의응답",
+        count: myQnaData?.totalElements ?? 0,
+        hasLoaded: myQnaData !== undefined,
+      },
+    ];
 
   return (
     <div className="rounded-[12px] border border-[#DCE8ED] bg-white p-4 sm:p-8 shadow-xs md:p-10">
@@ -534,11 +532,10 @@ export default function MyActivityPage() {
               key={tab.type}
               type="button"
               onClick={() => selectActivityType(tab.type)}
-              className={`${ACTIVITY_TAB_BASE_CLASS} ${
-                activityType === tab.type
-                  ? ACTIVITY_TAB_ACTIVE_CLASS
-                  : ACTIVITY_TAB_INACTIVE_CLASS
-              }`}
+              className={`${ACTIVITY_TAB_BASE_CLASS} ${activityType === tab.type
+                ? ACTIVITY_TAB_ACTIVE_CLASS
+                : ACTIVITY_TAB_INACTIVE_CLASS
+                }`}
             >
               <span>{tab.label}</span>
               {isLoggedIn && tab.hasLoaded && (

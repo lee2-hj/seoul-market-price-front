@@ -53,7 +53,7 @@ export function formatAiMoneyText(text?: string): string {
 export function toAiDisplayResult(result: AiSearchResult): AiSearchResponse {
   if (isDistrictRankingResponse(result)) {
     return {
-      summary: "서울시 자치구 평균 평단가 순위입니다.",
+      summary: result.summary,
       criteria: result.criteria,
       keyPoints: result.items.map(
         (item) => `${item.rank}. ${item.districtName} · 평균 평단가 ${item.averagePyeongAmount.toLocaleString("ko-KR")}만원/평 · 거래 ${item.dealCount.toLocaleString("ko-KR")}건`,
@@ -66,8 +66,20 @@ export function toAiDisplayResult(result: AiSearchResult): AiSearchResponse {
     const metricLabel = result.metricType === "pyeong" ? "평당가" : "평균 거래가";
     const metricUnit = result.metricType === "pyeong" ? "만원/평" : "만원";
     return {
-      summary: `${result.regionName} ${metricLabel} 상위 아파트입니다.`,
+      summary: result.summary,
+      description: result.description,
       criteria: result.criteria,
+      rankingItems: result.items.map((item) => ({
+        rank: item.rank,
+        regionName: item.regionName,
+        apartmentName: item.apartmentName,
+        primaryLabel: metricLabel,
+        primaryValue: `${item.metricValue?.toLocaleString("ko-KR") ?? "-"}${metricUnit}`,
+        exclusiveAreaM2: item.exclusiveAreaM2,
+        pyeong: item.pyeong ?? (item.exclusiveAreaM2 != null ? item.exclusiveAreaM2 / 3.305785 : undefined),
+        dealCount: item.dealCount,
+        dealDate: item.dealDate,
+      })),
       keyPoints: result.items.map(
         (item) => `${item.rank}. ${item.regionName ? `${item.regionName} · ` : ""}${item.apartmentName} · ${metricLabel} ${item.metricValue?.toLocaleString("ko-KR") ?? "정보 없음"}${metricUnit} · 거래 ${item.dealCount}건`,
       ),
@@ -78,7 +90,7 @@ export function toAiDisplayResult(result: AiSearchResult): AiSearchResponse {
   if (!isTradeVolumeRankingResponse(result)) return result;
 
   return {
-    summary: `${result.regionName} 거래량 상위 아파트입니다.`,
+    summary: result.summary,
     criteria: result.criteria,
     keyPoints: result.items.map(
       (item) => `${item.rank}. ${item.regionName ? `${item.regionName} · ` : ""}${item.apartmentName} · 거래 ${item.dealCount}건 · 평균 거래가 ${item.averageTradeAmount?.toLocaleString("ko-KR") ?? "정보 없음"}만원`,
