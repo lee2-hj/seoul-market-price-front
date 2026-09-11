@@ -69,6 +69,12 @@ export function AiResultModal({ result, question, onClose }: { result: AiSearchR
             {formatAiMoneyText(result.summary) || "AI 답변을 표시할 수 없습니다."}
           </h2>
 
+          {result.description && (
+            <p className="mb-0 mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-[#526573]">
+              {formatAiMoneyText(result.description)}
+            </p>
+          )}
+
           {result.interpretation && (
             <div className="mt-6 flex items-start gap-3 rounded-2xl border border-[#CFE7EE] bg-[#F0FAFC] p-4">
               <Lightbulb className="mt-0.5 size-5 shrink-0 text-[#0F8AA8]" aria-hidden="true" />
